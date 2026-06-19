@@ -191,24 +191,17 @@ export function TodayPage() {
       )}
 
       <Card>
-        <CardHeader title="Status Sprint" description="Sprint 4 — Absensi HP + Jurnal Otomatis" />
+        <CardHeader title="Status Sprint" description="Sprint 5 — Laporan Akhir Semester + Linker" />
         <ul className="text-sm space-y-2">
-          <StatusItem done label="Profil sekolah, guru, tahun pelajaran tersimpan di IndexedDB" />
-          <StatusItem done label="Backup/restore JSON dengan validasi schemaVersion" />
-          <StatusItem done label="Wizard tahun baru (salin profil+Prota, kosongkan realisasi)" />
-          <StatusItem done label="Schema domain Zod untuk 11 entitas inti" />
-          <StatusItem done label="Kalender pendidikan: impor JSON + editor (Sprint 2)" />
-          <StatusItem done label="Prota editor lengkap + validasi JP (Sprint 2)" />
-          <StatusItem done label="Promes generator pure function + KO row terpisah (Sprint 2)" />
-          <StatusItem done label="Jadwal guru: input manual + impor Smart Roster (Sprint 3)" />
-          <StatusItem done label="Generator LessonSession dari jadwal + kalender (Sprint 3)" />
-          <StatusItem done label="Dashboard hari ini fungsional (tampilkan sesi hari ini) (Sprint 3)" />
-          <StatusItem done label="ClassRoster: input manual + impor massal paste Excel (Sprint 4)" />
-          <StatusItem done label="Absensi HP: default semua hadir, ubah cepat (Sprint 4)" />
-          <StatusItem done label="Jurnal otomatis: auto-fill dari sesi+Prota+absensi (Sprint 4)" />
-          <StatusItem done label="Document Preview Mode: format Excel/jurnal sekolah, print CSS (Sprint 4)" />
-          <StatusItem done label="Dashboard hari ini: tombol cepat Absen+Jurnal per sesi (Sprint 4)" />
-          <StatusItem label="Laporan akhir semester (Sprint 5)" />
+          <StatusItem done label="Profil sekolah, guru, tahun pelajaran (Sprint 1)" />
+          <StatusItem done label="Backup/restore JSON + wizard tahun baru (Sprint 1)" />
+          <StatusItem done label="Kalender + Prota + Promes engine (Sprint 2)" />
+          <StatusItem done label="Jadwal guru + generator LessonSession (Sprint 3)" />
+          <StatusItem done label="Absensi HP + jurnal otomatis + Document Preview (Sprint 4)" />
+          <StatusItem done label="Laporan akhir semester + rekap lengkap (Sprint 5)" />
+          <StatusItem done label="Halaman kelengkapan (completeness check) (Sprint 5)" />
+          <StatusItem done label="UI Linker Promes-Lesson (assign plannedUnitId massal) (Sprint 5)" />
+          <StatusItem done label="Document Preview laporan (Word/Excel-like, print CSS) (Sprint 5)" />
           <StatusItem label="Supabase sync (Sprint 6)" />
         </ul>
       </Card>

@@ -401,3 +401,36 @@ Stage Summary:
 - Push PENDING: butuh token baru dari user.
 
 Next: merge to main + push.
+
+---
+
+Task ID: 5-execution
+Agent: main (Sprint 5 batch execution)
+Task: Eksekusi Sprint 5 (Laporan Akhir Semester + Linker + Kelengkapan) sampai selesai.
+
+Work Log:
+- Branch: sprint-5-semester-report dari main (b41c5a3).
+- Domain: semester-report-generator.ts (pure function rekap lengkap: sesi, jurnal, absensi, materi per kelas, completeness score, canFinalize check). 8 test baru.
+- DB: semester-report-repo.ts (generateAndSaveSemesterReport, finalizeSemesterReport dengan snapshot, list/get/find/delete).
+- UI: SemesterReportPage dengan 2 mode:
+  - Mode Kerja: generate, summary cards (sesi/materi/absensi/jurnal), rekap per kelas, finalize button dengan check
+  - Mode Dokumen: format Word/Excel-like dengan header sekolah, identitas, tabel rekap A (pertemuan) + B (materi) + C (absensi per kelas), catatan, tanda tangan guru + kepala sekolah, print CSS
+- UI: CompletenessPage (halaman kelengkapan: cek profil/kalender/prota/jadwal/sesi/roster/jurnal, score 0-100, link ke modul masing-masing).
+- UI: Update SchedulePage dengan LinkerSection (trigger linkPromesToLessons massal, assign plannedUnitId ke sesi, pilih Prota + cadangan).
+- Update App.tsx: 13 routes (+/semester-report, /completeness).
+- Update AppShell: 13 menu (+Kelengkapan, +Laporan dengan icons ListChecks, FileSpreadsheet).
+- Update TodayPage: status Sprint 5 checked.
+- Print CSS sudah ada dari Sprint 4 (format A4 ready).
+
+Verification:
+- Typecheck: 3 workspace PASS, 0 error
+- Test: 167/167 PASS (144 domain + 23 shared) — Sprint 5 tambah 8 test
+- Build: 105 modules (+3 dari Sprint 4), 506KB JS / 141KB gzip, 2.60s
+- CI audit: tidak ada Supabase, tidak ada dist/credential
+
+Stage Summary:
+- Sprint 5 selesai lokal. 14 file changed (8 baru, 6 modifikasi).
+- Laporan akhir semester: generate dari data harian, finalize dengan snapshot, Document Preview seperti dokumen sekolah resmi.
+- Linker Promes-Lesson: assign plannedUnitId massal dari SchedulePage, sesuai §0 CRITICAL PROMES RULE (cadangan dari intra).
+- Halaman Kelengkapan: cek semua modul, score, link ke modul yang perlu diisi.
+- MVP v1 hampir lengkap. Tinggal Sprint 6 (Supabase sync) yang merupakan non-goal sampai user minta.
