@@ -25,7 +25,7 @@ Dokumen ini mendefinisikan keputusan teknis untuk Sprint 1–6. Setiap perubahan
 | Cloud backend (Sprint 6) | Supabase | PostgreSQL + Auth + Realtime; jangan dipasang sebelum Sprint 6 |
 | Hosting | Cloudflare Pages atau Vercel | Build statis PWA, biaya rendah, edge caching |
 | Testing | Vitest + Playwright | Unit/integration dengan Vitest, E2E dengan Playwright |
-| Monorepo tool | pnpm workspaces | Faster than npm/yarn, strict dependency resolution, dukungan script per paket |
+| Monorepo tool | **npm workspaces** (sementara, lihat §1.4) | Default Node.js, kompatibel sandbox dev, tidak butuh instalasi tambahan |
 
 ### 1.2 Yang TIDAK Dipilih (dan Alasannya)
 
@@ -43,6 +43,31 @@ Dokumen ini mendefinisikan keputusan teknis untuk Sprint 1–6. Setiap perubahan
 - Native shell (Capacitor/Tauri) → setelah MVP v1 selesai dan ada permintaan install persisten.
 - Service worker advanced (background sync) → Sprint 6+ jika diperlukan.
 - Multi-language (i18n) → MVP v1 bahasa Indonesia saja.
+
+### 1.4 Keputusan Package Manager (Sprint 1)
+
+**Package manager resmi sementara: npm workspaces**
+
+Sprint 0 awalnya menetapkan pnpm workspaces di `docs/TECHNICAL_PLAN.md` §1.1 dan `pnpm-workspace.yaml`. Sprint 1 beralih ke **npm workspaces** karena:
+
+1. pnpm tidak tersedia di sandbox dev environment yang dipakai.
+2. npm workspaces adalah fitur default Node.js (≥7), tidak butuh instalasi tambahan.
+3. Struktur monorepo `apps/*` + `packages/*` kompatibel penuh dengan npm workspaces.
+
+Konsekuensi yang harus dipatuhi dev/AI berikutnya:
+
+- **Jangan buat `pnpm-workspace.yaml`** — sudah dihapus di Sprint 1.
+- **Jangan pakai `workspace:*` protocol** di `package.json` — gunakan `"*"` saja. `workspace:*` adalah pnpm-specific dan akan ditolak npm.
+- Root `package.json` memakai `"workspaces": ["apps/*", "packages/*"]` (npm workspaces format).
+- `package-lock.json` (bukan `pnpm-lock.yaml`) adalah lockfile resmi.
+
+Bila di masa depan tim memutuskan kembali ke pnpm:
+
+1. Update dokumen ini terlebih dahulu.
+2. Hapus `package-lock.json`.
+3. Buat `pnpm-workspace.yaml`.
+4. Ganti `"*"` kembali ke `"workspace:*"` di package.json.
+5. Pastikan seluruh tim setuju — jangan campur pnpm dan npm di repo yang sama.
 
 ---
 
@@ -483,3 +508,4 @@ Sprint dianggap selesai jika:
 | Versi | Tanggal | Perubahan | Penanggung Jawab |
 |---|---|---|---|
 | v1.0 | Sprint 0 | Dokumen awal | Sprint 0 owner |
+| v1.1 | Sprint 1 | Package manager resmi: pnpm → npm workspaces (§1.1, §1.4 baru). Alasan: pnpm tidak tersedia di sandbox dev. | Sprint 1 owner |

@@ -2,11 +2,11 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "outDir": "./dist",
-    "rootDir": "./src",
     "jsx": "react-jsx",
     "noEmit": true,
+    "moduleResolution": "Bundler",
     "allowImportingTsExtensions": false,
-    "moduleResolution": "Bundler"
+    "types": ["vite/client", "vitest/globals"]
   },
-  "include": ["src/**/*", "vite.config.ts"]
+  "include": ["src/**/*", "vite.config.ts", "tailwind.config.js", "postcss.config.js"]
 }

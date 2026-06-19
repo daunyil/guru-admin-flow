@@ -19,6 +19,8 @@ node_modules
 
 # production
 /build
+dist/
+*.tsbuildinfo
 
 # misc
 .DS_Store
@@ -38,7 +40,6 @@ yarn-error.log*
 
 
 # typescript
-*.tsbuildinfo
 next-env.d.ts
 local-*
 .claude
@@ -46,7 +47,6 @@ local-*
 *.log
 dev.log
 dev.out.log
-test
 prompt
 
 server.log
