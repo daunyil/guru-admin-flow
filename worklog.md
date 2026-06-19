@@ -156,3 +156,65 @@ Stage Summary:
   - Optional fields di Zod schema (string | undefined) berbenturan dengan form input yang expect string. Di-mitigasi dengan tipe eksplisit FormFields (optional → wajib string) + normalisasi saat load + konversi `|| undefined` saat save.
   - npm workspaces tidak support `workspace:*` protocol (pnpm-specific). Di-mitigasi dengan `"*"`.
 - **Untuk push ke GitHub**: butuh token GitHub baru dari user (token lama wajib di-revoke dulu). Setelah token baru diberikan, jalankan: `git remote add origin https://daunyil:<NEW_TOKEN>@github.com/daunyil/guru-admin-flow.git && git push -u origin sprint-1-local-foundation`.
+
+---
+
+Task ID: 1-audit
+Agent: main (pre-push audit)
+Task: Audit pra-push Sprint 1 sesuai checklist senior dev. Clone bersih, typecheck, test, build, verifikasi tidak ada Supabase/dist/credential/fitur Sprint 2+.
+
+Work Log:
+- Audit 1 (file di commit): 51 file di commit dd52dfe, TIDAK ada dist/node_modules/credential. ✅
+- Audit 2 (Supabase): grep "supabase" di seluruh repo → hanya 3 mention di komentar/string ("Supabase sync (Sprint 6)" placeholder di TodayPage + 2 komentar aturan paket). TIDAK ada dependency, TIDAK ada import, TIDAK ada konfigurasi. ✅
+- Audit 3 (fitur Sprint 2+): hanya 3 modul di apps/teacher-admin/src/modules/ (profile, backup, new-year). TIDAK ada modul kalender/prota/promes/attendance/journal/semester-report. Routes hanya 4: /, /profile, /new-year, /backup. ✅
+- Audit 4 (schemaVersion): DATA_SCHEMA_VERSION = 1 di packages/shared/src/constants.ts. validateBackup menolak file dengan schemaVersion > 1 dengan pesan jelas. ✅
+- Audit 5 (wizard tidak salin realisasi): 8 test di rules.test.ts PASS, termasuk test "field BaseEntity TIDAK ada di hasil plan" yang verifikasi planNewYearFromPrevious tidak menyertakan id/createdAt/syncStatus di output. ✅
+
+- 🐛 BUG KRITIS DITEMUKAN saat Audit 6 (clone bersih):
+  - .gitignore baris 50 berisi pola 'test' (warisan dari template Next.js) yang meng-ignore SEMUA folder test/ di seluruh repo.
+  - Akibatnya: 7 file test Sprint 1 (5 di packages/domain/test, 2 di packages/shared/test) ada di disk dan jalan lokal, TIDAK ter-commit.
+  - Status sebelum fix: 61 test PASS lokal, 0 test di repo. Clone bersih akan gagal 'npm test'.
+
+- Fix bug .gitignore:
+  - Hapus pola 'test' dari .gitignore baris 50.
+  - Tambahkan 7 file test yang sebelumnya untracked ke staging.
+  - Verifikasi: git check-ignore packages/domain/test packages/shared/test → tidak lagi di-ignore.
+
+- Audit 7 (update TECHNICAL_PLAN.md):
+  - §1.1: 'pnpm workspaces' → 'npm workspaces (sementara, lihat §1.4)'
+  - §1.4 baru: penjelasan lengkap keputusan package manager (alasan, aturan, lockfile resmi, migrasi balik ke pnpm bila dibutuhkan)
+  - Riwayat revisi v1.1 ditambahkan
+
+- Commit audit fix: dab0632 "Audit fix: .gitignore bug + test files + TECHNICAL_PLAN package manager"
+
+- RE-AUDIT 6 setelah fix (clone bersih dari /home/z/my-project/sprint0-push ke /tmp/audit-clone):
+  - Clone sukses, branch sprint-1-local-foundation, HEAD = dab0632
+  - 7 file test ter-track di repo (verifikasi)
+  - npm install: 252 packages, OK
+  - typecheck: 3 workspace PASS, 0 error
+  - test: 61/61 PASS (38 domain + 23 shared) — sekarang file test ada di repo
+  - build: vite build sukses 1.88s, 79 modules, 373KB JS / 113KB gzip, identik dengan repo asal
+  - Supabase: TIDAK ada di package.json mana pun
+  - dist/node_modules: TIDAK ada ter-track
+  - credential/token: TIDAK ada terdeteksi (grep ghp_/api_key/password pattern)
+  - schemaVersion: DATA_SCHEMA_VERSION = 1 terverifikasi
+  - Total file di repo: 68 (naik dari 61 sebelum fix — 7 file test baru)
+
+Stage Summary:
+- Sprint 1 audit: LULUS setelah fix bug .gitignore.
+- 2 commit di branch sprint-1-local-foundation:
+  1. dd52dfe — Sprint 1: Fondasi Aplikasi Lokal (51 file, 8.544 insertions)
+  2. dab0632 — Audit fix: .gitignore bug + test files + TECHNICAL_PLAN package manager (9 file, ~700 insertions)
+- Clone bersih verifikasi: install OK, typecheck OK, test 61/61 OK, build OK, tidak ada Supabase, tidak ada dist/credential, schemaVersion benar.
+- Status: LOCAL PASS + AUDIT PASS. Siap push.
+- Yang butuh user: token GitHub baru (token lama wajib revoke dulu). Setelah token baru:
+  1. git remote add origin https://daunyil:<NEW_TOKEN>@github.com/daunyil/guru-admin-flow.git
+  2. git push -u origin sprint-1-local-foundation
+  3. Buat PR: sprint-1-local-foundation → main
+  4. Setelah PR dibuat, jalankan audit senior dev dari GitHub UI
+  5. Setelah audit lulus: merge to main → Sprint 1 CLOSED → mulai Sprint 2
+- Alternatif lebih aman (tanpa share token di chat):
+  - User clone repo ke mesin lokal sendiri
+  - gh auth login (interaktif, token disimpan di keychain OS)
+  - git push dari mesin lokal
+  - Atau: set GH_TOKEN env var lokal, jangan tempel di chat
