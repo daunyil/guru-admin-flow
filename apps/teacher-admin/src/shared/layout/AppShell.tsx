@@ -5,7 +5,7 @@
 
 import { type ReactNode } from "react";
 import { NavLink } from "react-router-dom";
-import { GraduationCap, Calendar, User, Database, Plus, ClipboardList, FileText } from "./icons";
+import { GraduationCap, Calendar, User, Database, Plus, ClipboardList, FileText, Clock } from "./icons";
 
 interface NavItem {
   to: string;
@@ -18,6 +18,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: "/calendar", label: "Kalender", icon: Calendar },
   { to: "/prota", label: "Prota", icon: ClipboardList },
   { to: "/promes", label: "Promes", icon: FileText },
+  { to: "/schedule", label: "Jadwal", icon: Clock },
   { to: "/profile", label: "Profil", icon: User },
   { to: "/new-year", label: "Tahun Baru", icon: Plus },
   { to: "/backup", label: "Backup", icon: Database },

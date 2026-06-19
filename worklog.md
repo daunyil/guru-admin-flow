@@ -322,3 +322,42 @@ Instruksi push untuk user:
   git checkout main-updated
   gh auth login  # bila belum
   git push origin main-updated:main --force  # force karena main lokal akan overwrite origin/main
+
+---
+
+Task ID: 3-execution
+Agent: main (Sprint 3 batch execution)
+Task: Eksekusi Sprint 3 (Jadwal Guru + Sesi Mengajar) sampai selesai, merge ke main, push ke GitHub.
+
+Work Log:
+- Branch: sprint-3-schedule-sessions dari main (e855a24).
+- Update packages/shared/src/constants.ts: SCHEDULE_IMPORT_SCHEMA, LESSON_SESSION_STATUS_LABELS_ID, DAY_OF_WEEK_ID, DEFAULT_PERIOD_TIMES (10 slot jam ke SMPN 8 Bantan).
+- Implement packages/domain/src/teaching-schedule-import.ts: Zod schema untuk JSON jadwal dari Smart Roster (guru-admin-flow/schedule/v1) + validateScheduleImport + scheduleImportToSchedules (dengan fallback startTime/endTime).
+- Implement packages/domain/src/lesson-session-generator.ts: pure function generateLessonSessions. Algoritma: enumerasi tanggal semester → cek blocking kalender → match TeachingSchedule by dayOfWeek → buat LessonSession (planned/cancelled). Summary byClass + bySubject.
+- Implement packages/domain/src/promes-lesson-linker.ts: pure function linkPromesToLessons. Algoritma: filter planned sessions → reserve cadangan dari akhir/awal → distribusi unit ke sessions → assign plannedUnitId. Sesuai §0 CRITICAL PROMES RULE (cadangan dari intra, KO tidak affect).
+- Update packages/domain/src/index.ts: export 3 modul Sprint 3.
+- Tulis packages/domain/test/sprint3-fixtures.ts: helper makeAcademicYear (18 minggu semester), makeSchedule, makeCalendar, makeProtaUnit, makeLessonSession.
+- Tulis packages/domain/test/lesson-session-generator.test.ts: 10 test (happy path, holiday, multi jadwal, semester salah, jadwal kosong, kalender kosong, holiday range, multi hari, verifikasi field, calendarEventId).
+- Tulis packages/domain/test/teaching-schedule-import.test.ts: 14 test (schema validation + logic + konversi + fallback + default semester).
+- Tulis packages/domain/test/promes-lesson-linker.test.ts: 12 test (happy path, cadangan reserve, kurang, cukup, multi unit, sesi cancelled, cadangan>capacity error, sessions kosong, units kosong, plannedUnitId assigned, reserveFromEnd=false, unit split).
+- Implement apps/teacher-admin/src/shared/db/teaching-schedule-repo.ts: listTeachingSchedules, saveTeachingSchedule, updateTeachingSchedule, deleteTeachingSchedule, clearTeachingSchedules, importScheduleFromJSON (replace + soft-delete).
+- Implement apps/teacher-admin/src/shared/db/lesson-session-repo.ts: listLessonSessions, getLessonSession, getLessonSessionsByDate, updateLessonSession, bulkUpdateLessonSessions, clearLessonSessions, generateAndSaveLessonSessions (trigger pure function + simpan), applyPromesLink.
+- Implement apps/teacher-admin/src/modules/schedule/SchedulePage.tsx: halaman /schedule dengan filter semester, daftar jadwal, form tambah/edit, modal impor Smart Roster, tombol Generate Sesi (trigger generateAndSaveLessonSessions), daftar sesi generated (max 100 tampil).
+- Update apps/teacher-admin/src/routes/TodayPage.tsx: dashboard hari ini fungsional — tampilkan sesi mengajar hari ini dari getLessonSessionsByDate. Setiap sesi tampilkan waktu, jam ke, mapel, kelas, status (planned/cancelled), plannedUnitId bila ada. Empty state bila tidak ada sesi.
+- Update apps/teacher-admin/src/App.tsx: 8 routes (+/schedule).
+- Update apps/teacher-admin/src/shared/layout/AppShell.tsx: 8 menu (+Jadwal dengan Clock icon).
+- Update apps/teacher-admin/src/shared/layout/icons.tsx: tambah Clock icon.
+
+Verifikasi:
+- Typecheck PASS: 3 workspace (shared, domain, teacher-admin), 0 error.
+- Test PASS: 137/137 (114 domain + 23 shared). Sprint 3 tambah 36 test (10 generator + 14 schedule import + 12 linker).
+- Build PASS: vite build 2.07s, 93 modules (+6 dari Sprint 2 yang 87), 440KB JS / 128KB gzip.
+- CI audit: tidak ada Supabase, tidak ada dist/credential, schemaVersion=1, 11 test files.
+
+Stage Summary:
+- Sprint 3 selesai lokal. 17 file changed (10 baru, 7 modifikasi).
+- Branch: sprint-3-schedule-sessions, siap merge ke main.
+- Modul M05 Jadwal Guru: input manual + impor Smart Roster + generator LessonSession.
+- Dashboard Hari Ini fungsional: tampilkan sesi hari ini dengan status planned/cancelled.
+- Promes-Lesson Linker: pure function siap (domain), UI trigger di Sprint 4 (bersama absensi/jurnal).
+- Push PENDING: butuh token baru dari user (token sebelumnya compromised).
