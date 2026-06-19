@@ -218,3 +218,24 @@ Stage Summary:
   - gh auth login (interaktif, token disimpan di keychain OS)
   - git push dari mesin lokal
   - Atau: set GH_TOKEN env var lokal, jangan tempel di chat
+
+---
+
+Task ID: 1-decision
+Agent: main (decision log)
+Task: Catat keputusan user terkait token GitHub.
+
+Decision:
+- User memutuskan: revoke token GitHub lama (ghp_LVq5...) DITUNDA. User menanggung risiko sendiri.
+- Token lama terverifikasi masih aktif (HTTP 200 saat cek API GitHub).
+- Senior dev sudah flag risiko 3x: token plaintext di chat log, window exposure berpotensi berminggu-minggu, recovery cost jauh lebih tinggi dari revoke cost (5 menit).
+- User informed, decision dicatat, dev lanjut.
+
+Implication:
+- Saya (AI/dev) TIDAK akan push apa pun ke GitHub sampai user revoke + beri token baru (atau pakai gh auth login).
+- Development lokal tetap jalan — tidak butuh token.
+- Bila terjadi penyalahgunaan token selama window exposure, bukan tanggung jawab dev — keputusan ada di user.
+
+Next:
+- Mulai opsi B (CI/CD GitHub Actions file lokal) + opsi A (Sprint 2 design doc) sesuai rekomendasi senior dev.
+- Kedua opsi tidak butuh token, tidak butuh push.
