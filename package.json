@@ -1,0 +1,21 @@
+{
+  "name": "guru-admin-flow",
+  "version": "0.0.0-sprint0",
+  "private": true,
+  "description": "Asisten administrasi guru — local-first PWA. Sprint 0: kontrak & fondasi.",
+  "packageManager": "pnpm@9.0.0",
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @guru-admin/teacher-admin dev",
+    "build": "pnpm -r --filter './packages/**' build && pnpm --filter @guru-admin/teacher-admin build",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "pnpm -r lint",
+    "test": "pnpm -r test"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0"
+  }
+}
