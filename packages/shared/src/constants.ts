@@ -172,3 +172,36 @@ export const CALENDAR_EVENT_TYPE_LABELS_ID: Record<(typeof CALENDAR_EVENT_TYPES)
   report: "Rapor",
   cocurricular: "Kokurikuler",
 };
+
+/* ------------------------------------------------------------------ */
+/*  Sprint 3 — Konstanta Jadwal Guru + Sesi Mengajar                  */
+/* ------------------------------------------------------------------ */
+
+/** Schema identifier untuk impor JSON jadwal dari Smart Roster. */
+export const SCHEDULE_IMPORT_SCHEMA = "guru-admin-flow/schedule/v1";
+
+/** Label Indonesia untuk LessonSession statuses. */
+export const LESSON_SESSION_STATUS_LABELS_ID: Record<(typeof LESSON_SESSION_STATUSES)[number], string> = {
+  planned: "Direncanakan",
+  done: "Selesai",
+  continued: "Dilanjutkan",
+  cancelled: "Dibatalkan",
+  rescheduled: "Dijadwal Ulang",
+};
+
+/** Label Indonesia untuk hari (1=Senin, 7=Minggu). */
+export const DAY_OF_WEEK_ID: Record<number, string> = DAY_LABELS_ID;
+
+/** Slot jam ke default (SMPN 8 Bantan). Bisa di-override per jadwal. */
+export const DEFAULT_PERIOD_TIMES: Array<{ period: number; start: string; end: string }> = [
+  { period: 1, start: "07:00", end: "07:40" },
+  { period: 2, start: "07:40", end: "08:20" },
+  { period: 3, start: "08:20", end: "09:00" },
+  { period: 4, start: "09:20", end: "10:00" },
+  { period: 5, start: "10:00", end: "10:40" },
+  { period: 6, start: "10:40", end: "11:20" },
+  { period: 7, start: "11:20", end: "12:00" },
+  { period: 8, start: "12:30", end: "13:10" },
+  { period: 9, start: "13:10", end: "13:50" },
+  { period: 10, start: "13:50", end: "14:30" },
+];

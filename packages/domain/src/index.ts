@@ -181,3 +181,28 @@ export {
   type PromesSummary,
   type GeneratePromesInput,
 } from "./promes-types";
+
+/* Sprint 3 — Teaching Schedule import (Smart Roster → aplikasi) */
+export {
+  scheduleImportSchema,
+  scheduleImportEntrySchema,
+  validateScheduleImport,
+  scheduleImportToSchedules,
+  type ScheduleImport,
+  type ScheduleImportEntry,
+  type ScheduleImportValidation,
+} from "./teaching-schedule-import";
+
+/* Sprint 3 — LessonSession generator (Jadwal + Kalender → Sesi) */
+export {
+  generateLessonSessions,
+  type GenerateLessonSessionsInput,
+  type GenerateLessonSessionsResult,
+} from "./lesson-session-generator";
+
+/* Sprint 3 — Promes-Lesson linker (Sesi + ProtaUnit → plannedUnitId per sesi) */
+export {
+  linkPromesToLessons,
+  type LinkPromesToLessonsInput,
+  type LinkPromesToLessonsResult,
+} from "./promes-lesson-linker";
