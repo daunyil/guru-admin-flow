@@ -225,3 +225,11 @@ export {
   isJournalComplete,
   finalizeJournal,
 } from "./journal-helpers";
+
+/* Sprint 5 — Semester Report generator (rekap lengkap) */
+export {
+  generateSemesterReport,
+  canFinalizeSemesterReport,
+  type GenerateSemesterReportInput,
+  type GenerateSemesterReportResult,
+} from "./semester-report-generator";

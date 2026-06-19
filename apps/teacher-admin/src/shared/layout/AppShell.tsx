@@ -5,7 +5,7 @@
 
 import { type ReactNode } from "react";
 import { NavLink } from "react-router-dom";
-import { GraduationCap, Calendar, User, Database, Plus, ClipboardList, FileText, Clock, Users, CheckCircle, BookOpen } from "./icons";
+import { GraduationCap, Calendar, User, Database, Plus, ClipboardList, FileText, Clock, Users, CheckCircle, BookOpen, FileSpreadsheet, ListChecks } from "./icons";
 
 interface NavItem {
   to: string;
@@ -22,6 +22,8 @@ const NAV_ITEMS: NavItem[] = [
   { to: "/roster", label: "Siswa", icon: Users },
   { to: "/attendance", label: "Absensi", icon: CheckCircle },
   { to: "/journal", label: "Jurnal", icon: BookOpen },
+  { to: "/completeness", label: "Kelengkapan", icon: ListChecks },
+  { to: "/semester-report", label: "Laporan", icon: FileSpreadsheet },
   { to: "/profile", label: "Profil", icon: User },
   { to: "/new-year", label: "Tahun Baru", icon: Plus },
   { to: "/backup", label: "Backup", icon: Database },

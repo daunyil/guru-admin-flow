@@ -148,3 +148,23 @@ export function BookOpen({ className = "w-5 h-5" }: IconProps) {
     </svg>
   );
 }
+
+export function FileSpreadsheet({ className = "w-5 h-5" }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" />
+      <path d="M14 2v4a2 2 0 0 0 2 2h4" />
+      <path d="M8 13h2M8 17h2M14 13h2M14 17h2" />
+    </svg>
+  );
+}
+
+export function ListChecks({ className = "w-5 h-5" }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="m3 17 2 2 4-4" />
+      <path d="m3 7 2 2 4-4" />
+      <path d="M13 6h8M13 12h8M13 18h8" />
+    </svg>
+  );
+}
