@@ -206,3 +206,22 @@ export {
   type LinkPromesToLessonsInput,
   type LinkPromesToLessonsResult,
 } from "./promes-lesson-linker";
+
+/* Sprint 4 — Attendance helpers (default hadir, summary, apply changes) */
+export {
+  generateDefaultAttendance,
+  summarizeAttendance,
+  applyAttendanceChanges,
+  isAllPresent,
+  validateAttendanceConsistency,
+  type AttendanceSummary,
+} from "./attendance-helpers";
+
+/* Sprint 4 — Journal helpers (auto-fill dari sesi + Prota + absensi) */
+export {
+  generateJournalFromSession,
+  applyJournalInput,
+  resyncJournalAttendance,
+  isJournalComplete,
+  finalizeJournal,
+} from "./journal-helpers";

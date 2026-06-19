@@ -116,7 +116,7 @@ export function TodayPage() {
             </div>
           </Card>
 
-          {/* Sesi Mengajar Hari Ini — Sprint 3 fungsional */}
+          {/* Sesi Mengajar Hari Ini — Sprint 4 dengan tombol cepat */}
           <Card>
             <CardHeader
               title="Sesi Mengajar Hari Ini"
@@ -143,8 +143,8 @@ export function TodayPage() {
                         : "border-slate-200"
                     }`}
                   >
-                    <div className="flex items-center justify-between">
-                      <div>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-medium">
                             {s.startTime}–{s.endTime} · Jam ke {s.startPeriod}
@@ -162,6 +162,17 @@ export function TodayPage() {
                           </p>
                         )}
                       </div>
+                      {/* Tombol cepat: Absen, Jurnal */}
+                      {s.status === "planned" && (
+                        <div className="flex flex-col gap-1 shrink-0">
+                          <Link to="/attendance">
+                            <Button variant="secondary" className="text-xs px-3 py-1.5">Absen</Button>
+                          </Link>
+                          <Link to="/journal">
+                            <Button className="text-xs px-3 py-1.5">Jurnal</Button>
+                          </Link>
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -180,7 +191,7 @@ export function TodayPage() {
       )}
 
       <Card>
-        <CardHeader title="Status Sprint" description="Sprint 3 — Jadwal Guru + Sesi Mengajar" />
+        <CardHeader title="Status Sprint" description="Sprint 4 — Absensi HP + Jurnal Otomatis" />
         <ul className="text-sm space-y-2">
           <StatusItem done label="Profil sekolah, guru, tahun pelajaran tersimpan di IndexedDB" />
           <StatusItem done label="Backup/restore JSON dengan validasi schemaVersion" />
@@ -192,8 +203,11 @@ export function TodayPage() {
           <StatusItem done label="Jadwal guru: input manual + impor Smart Roster (Sprint 3)" />
           <StatusItem done label="Generator LessonSession dari jadwal + kalender (Sprint 3)" />
           <StatusItem done label="Dashboard hari ini fungsional (tampilkan sesi hari ini) (Sprint 3)" />
-          <StatusItem label="Link ProtaUnit ke LessonSession via Promes-Lesson Linker (Sprint 3 partial — domain siap, UI di Sprint 4)" />
-          <StatusItem label="Absensi HP + jurnal otomatis (Sprint 4)" />
+          <StatusItem done label="ClassRoster: input manual + impor massal paste Excel (Sprint 4)" />
+          <StatusItem done label="Absensi HP: default semua hadir, ubah cepat (Sprint 4)" />
+          <StatusItem done label="Jurnal otomatis: auto-fill dari sesi+Prota+absensi (Sprint 4)" />
+          <StatusItem done label="Document Preview Mode: format Excel/jurnal sekolah, print CSS (Sprint 4)" />
+          <StatusItem done label="Dashboard hari ini: tombol cepat Absen+Jurnal per sesi (Sprint 4)" />
           <StatusItem label="Laporan akhir semester (Sprint 5)" />
           <StatusItem label="Supabase sync (Sprint 6)" />
         </ul>
