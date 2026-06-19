@@ -116,3 +116,59 @@ export const JOURNAL_REALIZATION_STATUSES = [
   "continued",
   "cancelled",
 ] as const;
+
+/* ------------------------------------------------------------------ */
+/*  Sprint 2 — Konstanta Kalender, Prota, Promes                     */
+/* ------------------------------------------------------------------ */
+
+/** Schema identifier untuk impor JSON kalender (AI → aplikasi). */
+export const CALENDAR_IMPORT_SCHEMA = "guru-admin-flow/calendar/v1";
+
+/** Schema identifier untuk impor JSON Prota (AI → aplikasi). */
+export const PROTA_IMPORT_SCHEMA = "guru-admin-flow/prota/v1";
+
+/**
+ * Default JP intrakurikuler per minggu untuk PPKn SMP.
+ * Lihat docs/SPRINT_2_DESIGN.md §0 CRITICAL PROMES RULE.
+ *
+ * PPKn SMP: 108 JP/tahun = 72 intra + 36 KO
+ * Per minggu (18 minggu efektif/semester): 2 JP intra + 1 JP KO = 3 JP total
+ *
+ * Yang dipakai untuk distribusi MATERI Promes = intraJpPerWeek (2), BUKAN total 3.
+ */
+export const DEFAULT_INTRA_JP_PER_WEEK_PPKN = 2;
+
+/** Default JP kokurikuler per minggu untuk PPKn SMP. Row terpisah, BUKAN materi. */
+export const DEFAULT_KO_JP_PER_WEEK_PPKN = 1;
+
+/**
+ * Default cadangan JP untuk Promes.
+ * Di-reserve dari INTRA capacity (bukan total 3 JP).
+ * Lihat docs/SPRINT_2_DESIGN.md §0.3 implikasi #3.
+ */
+export const DEFAULT_CADANGAN_JP = 6;
+
+/** Mode implementasi KO (hanya catatan, tidak ada perhitungan otomatis). */
+export const KO_MODES = [
+  "daily_block",
+  "end_of_week",
+  "end_of_semester",
+] as const;
+
+/** Label Indonesia untuk KO modes. */
+export const KO_MODE_LABELS_ID: Record<(typeof KO_MODES)[number], string> = {
+  daily_block: "blok harian",
+  end_of_week: "blok akhir minggu",
+  end_of_semester: "blok akhir semester",
+};
+
+/** Label Indonesia untuk CalendarEvent types (digunakan di UI kalender). */
+export const CALENDAR_EVENT_TYPE_LABELS_ID: Record<(typeof CALENDAR_EVENT_TYPES)[number], string> = {
+  learning: "KBM",
+  assessment: "Asesmen",
+  holiday: "Libur",
+  school_activity: "Kegiatan Sekolah",
+  remedial: "Remedial",
+  report: "Rapor",
+  cocurricular: "Kokurikuler",
+};

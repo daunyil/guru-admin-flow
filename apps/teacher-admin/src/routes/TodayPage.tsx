@@ -131,16 +131,16 @@ export function TodayPage() {
       )}
 
       <Card>
-        <CardHeader title="Status Sprint" description="Sprint 1 — Fondasi Aplikasi Lokal" />
+        <CardHeader title="Status Sprint" description="Sprint 2 — Kalender + Prota + Promes" />
         <ul className="text-sm space-y-2">
           <StatusItem done label="Profil sekolah, guru, tahun pelajaran tersimpan di IndexedDB" />
           <StatusItem done label="Backup/restore JSON dengan validasi schemaVersion" />
           <StatusItem done label="Wizard tahun baru (salin profil+Prota, kosongkan realisasi)" />
           <StatusItem done label="Schema domain Zod untuk 11 entitas inti" />
           <StatusItem done label="Unit test dasar untuk domain + shared" />
-          <StatusItem label="Kalender pendidikan (Sprint 2)" />
-          <StatusItem label="Prota editor lengkap (Sprint 2)" />
-          <StatusItem label="Promes generator (Sprint 2)" />
+          <StatusItem done label="Kalender pendidikan: impor JSON + editor (Sprint 2)" />
+          <StatusItem done label="Prota editor lengkap + validasi JP (Sprint 2)" />
+          <StatusItem done label="Promes generator pure function + KO row terpisah (Sprint 2)" />
           <StatusItem label="Jadwal guru + sesi mengajar (Sprint 3)" />
           <StatusItem label="Absensi HP + jurnal otomatis (Sprint 4)" />
           <StatusItem label="Laporan akhir semester (Sprint 5)" />
