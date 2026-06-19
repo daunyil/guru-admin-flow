@@ -61,3 +61,36 @@
     @apply badge bg-slate-100 text-slate-700;
   }
 }
+
+/* Print styles untuk Document Preview Mode */
+@media print {
+  .no-print { display: none !important; }
+  .print-area {
+    display: block !important;
+    page-break-inside: avoid;
+  }
+  body {
+    background: white !important;
+    color: black !important;
+    font-size: 12pt;
+  }
+  .card, header, nav, footer {
+    display: none !important;
+  }
+  main {
+    padding: 0 !important;
+    max-width: 100% !important;
+  }
+  table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+  }
+  th, td {
+    border: 1px solid black !important;
+    padding: 4pt !important;
+    font-size: 11pt;
+  }
+  h1, h2, h3 {
+    page-break-after: avoid;
+  }
+}

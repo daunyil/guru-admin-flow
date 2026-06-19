@@ -1,6 +1,6 @@
 /**
  * Root App: router + AppShell.
- * Sprint 3: 8 routes — Today, Profile, NewYear, Backup, Calendar, Prota, Promes, Schedule.
+ * Sprint 4: 11 routes — Today, Profile, NewYear, Backup, Calendar, Prota, Promes, Schedule, Roster, Attendance, Journal.
  */
 
 import { HashRouter, Routes, Route } from "react-router-dom";
@@ -13,6 +13,9 @@ import { CalendarPage } from "./modules/calendar/CalendarPage";
 import { ProtaPage } from "./modules/prota/ProtaPage";
 import { PromesPage } from "./modules/promes/PromesPage";
 import { SchedulePage } from "./modules/schedule/SchedulePage";
+import { RosterPage } from "./modules/roster/RosterPage";
+import { AttendancePage } from "./modules/attendance/AttendancePage";
+import { JournalPage } from "./modules/journal/JournalPage";
 
 export function App() {
   return (
@@ -27,6 +30,9 @@ export function App() {
           <Route path="/prota" element={<ProtaPage />} />
           <Route path="/promes" element={<PromesPage />} />
           <Route path="/schedule" element={<SchedulePage />} />
+          <Route path="/roster" element={<RosterPage />} />
+          <Route path="/attendance" element={<AttendancePage />} />
+          <Route path="/journal" element={<JournalPage />} />
           <Route path="*" element={<TodayPage />} />
         </Routes>
       </AppShell>

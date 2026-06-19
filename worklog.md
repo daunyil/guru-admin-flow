@@ -361,3 +361,43 @@ Stage Summary:
 - Dashboard Hari Ini fungsional: tampilkan sesi hari ini dengan status planned/cancelled.
 - Promes-Lesson Linker: pure function siap (domain), UI trigger di Sprint 4 (bersama absensi/jurnal).
 - Push PENDING: butuh token baru dari user (token sebelumnya compromised).
+
+---
+
+Task ID: 4-execution
+Agent: main (Sprint 4 batch execution)
+Task: Eksekusi Sprint 4 (Absensi HP + Jurnal Otomatis + ClassRoster + Document Preview) sampai selesai.
+
+Work Log:
+- Branch: sprint-4-attendance-journal dari main (c34fe9c).
+- Domain: 2 helpers baru (pure functions):
+  - attendance-helpers.ts: generateDefaultAttendance (semua hadir), summarizeAttendance, applyAttendanceChanges, isAllPresent, validateAttendanceConsistency
+  - journal-helpers.ts: generateJournalFromSession (auto-fill), applyJournalInput, resyncJournalAttendance, isJournalComplete, finalizeJournal
+- Domain tests: 22 test baru (11 attendance + 11 journal). Total domain: 136 test.
+- DB repos: 3 baru
+  - class-roster-repo.ts: CRUD + addStudent + removeStudent + importStudents (paste Excel)
+  - attendance-repo.ts: getAttendanceBySession + initAttendanceForSession (generate default) + updateAttendance (apply changes)
+  - journal-repo.ts: getJournalBySession + initJournalForSessionFull (auto-load roster+attendance+plannedUnit) + updateJournal + finalizeJournal + unlockJournal
+- UI modules: 3 baru
+  - RosterPage: input manual + impor massal paste Excel (format "1. Andi" per baris)
+  - AttendancePage: mobile-first, default semua hadir, 4 tombol status (Hadir/Sakit/Izin/Alpa), summary real-time, Mode Dokumen (format Excel-like, print CSS)
+  - JournalPage: auto-fill dari sesi+Prota+absensi, guru hanya pilih realisasi+catatan, Mode Dokumen (format jurnal sekolah, print CSS, tanda tangan)
+- Update TodayPage: tombol cepat Absen + Jurnal per sesi, status Sprint 4 checked
+- Update App.tsx: 11 routes (+/roster, /attendance, /journal)
+- Update AppShell: 11 menu (+Siswa, +Absensi, +Jurnal dengan icons Users, CheckCircle, BookOpen)
+- Print CSS @media print: hide nav/card, show .print-area only, format A4 ready
+
+Verification:
+- Typecheck: 3 workspace PASS, 0 error
+- Test: 159/159 PASS (136 domain + 23 shared) — Sprint 4 tambah 22 test
+- Build: 102 modules (+9 dari Sprint 3), 475KB JS / 135KB gzip, 2.33s
+- CI audit: tidak ada Supabase, tidak ada dist/credential
+
+Stage Summary:
+- Sprint 4 selesai lokal. 19 file changed (12 baru, 7 modifikasi).
+- Aplikasi sekarang terasa sebagai alat kerja harian guru:
+  Buka → lihat jadwal hari ini → klik Absen (default hadir, ubah cepat) → klik Jurnal (auto-fill, edit catatan) → selesai
+- Mode Dokumen: absensi format Excel-like, jurnal format dokumen sekolah, print CSS ready
+- Push PENDING: butuh token baru dari user.
+
+Next: merge to main + push.
