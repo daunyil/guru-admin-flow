@@ -1,20 +1,22 @@
 {
   "name": "@guru-admin/domain",
-  "version": "0.0.0-sprint0",
+  "version": "0.1.0-sprint1",
   "private": true,
   "type": "module",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "lint": "echo 'lint TBD Sprint 1'",
-    "test": "echo 'test TBD Sprint 1'"
+    "lint": "echo 'lint TBD Sprint 2'",
+    "test": "vitest --config vitest.config.ts",
+    "test:run": "vitest run --config vitest.config.ts"
   },
   "dependencies": {
-    "@guru-admin/shared": "workspace:*",
-    "zod": "^3.23.0"
+    "@guru-admin/shared": "*",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
-    "typescript": "^5.4.0"
+    "typescript": "^5.4.0",
+    "vitest": "^2.1.1"
   }
 }

@@ -1,19 +1,19 @@
 {
   "name": "guru-admin-flow",
-  "version": "0.0.0-sprint0",
+  "version": "0.1.0-sprint1",
   "private": true,
-  "description": "Asisten administrasi guru — local-first PWA. Sprint 0: kontrak & fondasi.",
-  "packageManager": "pnpm@9.0.0",
-  "engines": {
-    "node": ">=20.0.0",
-    "pnpm": ">=9.0.0"
-  },
+  "description": "Asisten administrasi guru — local-first PWA. Sprint 1: fondasi aplikasi lokal.",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
-    "dev": "pnpm --filter @guru-admin/teacher-admin dev",
-    "build": "pnpm -r --filter './packages/**' build && pnpm --filter @guru-admin/teacher-admin build",
-    "typecheck": "pnpm -r typecheck",
-    "lint": "pnpm -r lint",
-    "test": "pnpm -r test"
+    "dev": "npm run dev --workspace @guru-admin/teacher-admin",
+    "build": "npm run build --workspace @guru-admin/domain && npm run build --workspace @guru-admin/shared && npm run build --workspace @guru-admin/teacher-admin",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "lint": "echo 'lint TBD Sprint 2'",
+    "test": "npm run test:run --workspaces --if-present",
+    "test:run": "npm run test:run --workspaces --if-present"
   },
   "devDependencies": {
     "typescript": "^5.4.0"

@@ -1,28 +1,42 @@
 {
   "name": "@guru-admin/teacher-admin",
-  "version": "0.0.0-sprint0",
+  "version": "0.1.0-sprint1",
   "private": true,
   "type": "module",
-  "description": "Aplikasi administrasi guru — PWA local-first. Sprint 0: scaffold only.",
+  "description": "Aplikasi administrasi guru — PWA local-first. Sprint 1: fondasi lokal.",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "lint": "echo 'lint TBD Sprint 1'",
-    "test": "echo 'test TBD Sprint 1'"
+    "lint": "echo 'lint TBD Sprint 2'",
+    "test": "vitest",
+    "test:run": "vitest run"
   },
   "dependencies": {
-    "@guru-admin/domain": "workspace:*",
-    "@guru-admin/shared": "workspace:*",
-    "react": "^18.3.0",
-    "react-dom": "^18.3.0"
+    "@guru-admin/domain": "*",
+    "@guru-admin/shared": "*",
+    "dexie": "^4.0.8",
+    "dexie-react-hooks": "^1.1.7",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.26.2",
+    "uuid": "^10.0.0",
+    "zustand": "^4.5.5"
   },
   "devDependencies": {
-    "@types/react": "^18.3.0",
+    "@testing-library/jest-dom": "^6.5.0",
+    "@testing-library/react": "^16.0.1",
+    "@types/react": "^18.3.5",
     "@types/react-dom": "^18.3.0",
-    "@vitejs/plugin-react": "^4.3.0",
+    "@types/uuid": "^10.0.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "autoprefixer": "^10.4.20",
+    "jsdom": "^25.0.0",
+    "postcss": "^8.4.45",
+    "tailwindcss": "^3.4.10",
     "typescript": "^5.4.0",
-    "vite": "^5.4.0"
+    "vite": "^5.4.3",
+    "vitest": "^2.1.1"
   }
 }
