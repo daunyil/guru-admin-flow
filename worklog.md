@@ -284,3 +284,41 @@ Stage Summary:
 - CRITICAL PROMES RULE terimplementasi: engine pakai intraJpPerWeek + koJpPerWeek, KO row terpisah, cadangan dari intra (bukan total 3 JP). Test #13 (KO row terpisah verification) PASS — verifikasi materialCapacityJP = 30 (bukan 48).
 - Issue: PR #1 belum merged di origin/main. Branch Sprint 2 dibuat dari sprint-1-local-foundation (bukan main). Bila PR #1 di-merge, Sprint 2 perlu rebase ke main sebelum push untuk hindari double-diff.
 - Next: commit + push branch sprint-2-calendar-prota-promes + buat PR #2 (atau flag ke user bila tidak ada token).
+
+---
+
+Task ID: no-pr-mode-merge
+Agent: main (NO PR MODE execution)
+Task: Merge Sprint 1 + Sprint 2 langsung ke main lokal, gate wajib, push ke GitHub.
+
+Work Log:
+- User instruksikan NO PR MODE: tidak perlu PR untuk setiap sprint, merge langsung ke main.
+- Checkout main, reset ke origin/main (e9aa537 Sprint 0).
+- Merge Sprint 1 ke main (--no-ff, commit 4d9ac70). Merge commit message lengkap dengan daftar konten Sprint 1.
+- Gate wajib setelah Sprint 1 merge:
+  - Typecheck: 3 workspace PASS, 0 error
+  - Test: 61/61 PASS (38 domain + 23 shared)
+  - Build: 79 modules, 373KB JS / 113KB gzip, 1.88s
+- Merge Sprint 2 ke main (--no-ff, commit ca3b9fd). Merge commit message lengkap dengan CRITICAL PROMES RULE ter-verifikasi.
+- Gate wajib setelah Sprint 2 merge:
+  - Typecheck: 3 workspace PASS, 0 error
+  - Test: 101/101 PASS (78 domain + 23 shared) — 40 test baru dari Sprint 2
+  - Build: 87 modules (+8 dari Sprint 1), 422KB JS / 124KB gzip, 2.07s
+- Coba push ke GitHub: gagal (no credential helper, no GH_TOKEN env, token lama compromised).
+- Buat bundle final: download/guru-admin-flow-main-sprint2.bundle (219KB, 10 commits di main, 7 refs).
+
+Stage Summary:
+- main lokal: 10 commits (Sprint 0 + Sprint 1 merge + Sprint 2 merge + audit + design).
+- HEAD: ca3b9fd "Merge Sprint 2: Kalender + Prota + Promes"
+- Semua gate hijau. Siap push.
+- Push PENDING: user push sendiri via gh auth login (token lama compromised, tidak akan dipakai).
+- Bundle disiapkan supaya user bisa push tanpa perlu rebuild lokal.
+
+Instruksi push untuk user:
+  git clone https://github.com/daunyil/guru-admin-flow.git guru-admin-flow-push
+  cd guru-admin-flow-push
+  git bundle verify /path/to/guru-admin-flow-main-sprint2.bundle
+  git fetch /path/to/guru-admin-flow-main-sprint2.bundle main:main-updated
+  git checkout main-updated
+  gh auth login  # bila belum
+  git push origin main-updated:main --force  # force karena main lokal akan overwrite origin/main
