@@ -143,3 +143,41 @@ export {
   ensureSingleActiveYear,
   planNewYearFromPrevious,
 } from "./rules";
+
+/* Sprint 2 — Calendar import */
+export {
+  calendarImportSchema,
+  calendarImportEventSchema,
+  validateCalendarImport,
+  calendarImportToEvents,
+  type CalendarImport,
+  type CalendarImportEvent,
+  type CalendarImportValidation,
+} from "./calendar-import";
+
+/* Sprint 2 — Prota import */
+export {
+  protaImportSchema,
+  protaImportUnitSchema,
+  validateProtaImport,
+  protaImportToProfile,
+  type ProtaImport,
+  type ProtaImportUnit,
+  type ProtaImportValidation,
+} from "./prota-import";
+
+/* Sprint 2 — Promes engine + types */
+export {
+  generatePromes,
+} from "./promes-engine";
+
+export {
+  type PromesOptions,
+  type PromesResult,
+  type PromesWeek,
+  type KORow,
+  type KOMode,
+  type UnitDistribution,
+  type PromesSummary,
+  type GeneratePromesInput,
+} from "./promes-types";

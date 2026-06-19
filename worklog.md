@@ -239,3 +239,48 @@ Implication:
 Next:
 - Mulai opsi B (CI/CD GitHub Actions file lokal) + opsi A (Sprint 2 design doc) sesuai rekomendasi senior dev.
 - Kedua opsi tidak butuh token, tidak butuh push.
+
+---
+
+Task ID: 2-execution
+Agent: main (Sprint 2 batch execution)
+Task: Eksekusi Sprint 2 (Kalender + Prota + Promes) sampai PR siap. Mode batch — tidak berhenti untuk hal kecil.
+
+Work Log:
+- Verifikasi PR #1 belum merged di origin/main (origin/main masih di Sprint 0 e9aa537).
+- Tetap eksekusi Sprint 2 dari branch sprint-1-local-foundation (base Sprint 1 lengkap).
+- Branch: sprint-2-calendar-prota-promes dibuat dari sprint-1-local-foundation.
+- Cherry-pick docs/SPRINT_2_DESIGN.md v0.2 (1.300 baris) dari sprint-2-design branch.
+- Update packages/shared/src/constants.ts: tambah CALENDAR_IMPORT_SCHEMA, PROTA_IMPORT_SCHEMA, DEFAULT_INTRA_JP_PER_WEEK_PPKN=2, DEFAULT_KO_JP_PER_WEEK_PPKN=1, DEFAULT_CADANGAN_JP=6, KO_MODES, KO_MODE_LABELS_ID, CALENDAR_EVENT_TYPE_LABELS_ID.
+- Implement packages/domain/src/promes-types.ts: PromesOptions, PromesResult, PromesWeek, KORow, UnitDistribution, PromesSummary, GeneratePromesInput (sesuai §0 CRITICAL PROMES RULE).
+- Implement packages/domain/src/promes-engine.ts: pure function generatePromes dengan 9 langkah algoritma. Cadangan dari INTRA (bukan total 3 JP). KO row terpisah. Cadangan>intra → ERROR.
+- Implement packages/domain/src/calendar-import.ts: Zod schema untuk JSON kalender (guru-admin-flow/calendar/v1) + validateCalendarImport + calendarImportToEvents (auto-fix holiday blocksLearning=true).
+- Implement packages/domain/src/prota-import.ts: Zod schema untuk JSON Prota (guru-admin-flow/prota/v1) + validateProtaImport + protaImportToProfile.
+- Update packages/domain/src/index.ts: export semua modul Sprint 2.
+- Tulis packages/domain/test/promes-fixtures.ts: helper fixture (makeAcademicYear dengan 18 minggu semester, makeProtaProfile, makeProtaUnit, makeCalendar, defaultPPKnOptions).
+- Tulis packages/domain/test/promes-engine.test.ts: 17 test case (16 sesuai §5.5 + 1 defensive). Semua 17 PASS.
+- Tulis packages/domain/test/calendar-import.test.ts: 11 test (schema validation + logic + auto-fix + konversi). PASS.
+- Tulis packages/domain/test/prota-import.test.ts: 12 test (schema validation + logic + duplikat order + konversi). PASS.
+- Implement apps/teacher-admin/src/shared/db/calendar-repo.ts: listCalendarEvents, saveCalendarEvent, updateCalendarEvent, deleteCalendarEvent, importCalendarFromJSON (replace + soft-delete lama).
+- Implement apps/teacher-admin/src/shared/db/prota-repo.ts: listProtaProfiles, getProtaProfile, findProtaProfile, saveProtaProfile (dengan units), saveProtaUnit, deleteProtaUnit, deleteProtaProfile, setProtaProfileStatus, importProtaFromJSON, createProtaSnapshot.
+- Update apps/teacher-admin/src/shared/db/crud.ts: relax constraint softDelete & updateEntityFields untuk accept deletedAt optional (fix type compatibility dengan Zod schema).
+- Implement apps/teacher-admin/src/modules/calendar/CalendarPage.tsx: halaman /calendar dengan daftar event, form tambah/edit, modal impor JSON. Color-coded badge per jenis event.
+- Implement apps/teacher-admin/src/modules/prota/ProtaPage.tsx: halaman /prota dengan daftar profile, form identitas (intra+KO), daftar unit per semester dengan validasi JP real-time, form unit, modal impor JSON, tab status dokumen (draft→ready_for_review→final→revised/locked).
+- Implement apps/teacher-admin/src/modules/promes/PromesPage.tsx: halaman /promes dengan generate panel (intraJpPerWeek + koJpPerWeek + cadanganJP + koMode), result summary (2 section: INTRA + KO terpisah), tabel distribusi mingguan (2 row per minggu: intra + KO), status per materi, row kokurikuler (catatan, bukan materi). Cetak preview via window.print().
+- Update apps/teacher-admin/src/App.tsx: 7 routes (Today, Profile, NewYear, Backup, Calendar, Prota, Promes).
+- Update apps/teacher-admin/src/shared/layout/AppShell.tsx: 7 menu (Hari Ini, Kalender, Prota, Promes, Profil, Tahun Baru, Backup).
+- Update apps/teacher-admin/src/shared/layout/icons.tsx: tambah ClipboardList + FileText icons.
+- Update apps/teacher-admin/src/routes/TodayPage.tsx: status sprint update (Sprint 2 items checked done).
+
+Verifikasi:
+- Typecheck PASS: 3 workspace (shared, domain, teacher-admin), 0 error.
+- Test PASS: 101/101 (78 domain + 23 shared). Sprint 2 tambah 40 test (17 engine + 11 calendar + 12 prota).
+- Build PASS: vite build sukses 2.07s, 87 modules (sebelumnya 79, +8 dari modul Sprint 2), 422KB JS / 124KB gzip.
+- CI audit: tidak ada Supabase, tidak ada dist/node_modules, tidak ada credential, schemaVersion=1, test files ≥ 7 (8 file).
+
+Stage Summary:
+- Sprint 2 selesai lokal. 21 file changed (10 baru, 11 modifikasi).
+- Branch: sprint-2-calendar-prota-promes, siap commit + push.
+- CRITICAL PROMES RULE terimplementasi: engine pakai intraJpPerWeek + koJpPerWeek, KO row terpisah, cadangan dari intra (bukan total 3 JP). Test #13 (KO row terpisah verification) PASS — verifikasi materialCapacityJP = 30 (bukan 48).
+- Issue: PR #1 belum merged di origin/main. Branch Sprint 2 dibuat dari sprint-1-local-foundation (bukan main). Bila PR #1 di-merge, Sprint 2 perlu rebase ke main sebelum push untuk hindari double-diff.
+- Next: commit + push branch sprint-2-calendar-prota-promes + buat PR #2 (atau flag ke user bila tidak ada token).

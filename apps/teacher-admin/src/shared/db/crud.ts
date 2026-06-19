@@ -39,7 +39,7 @@ export function createEntity<T extends Record<string, unknown>>(
 }
 
 /** Update entitas yang sudah ada. updatedAt di-update otomatis. */
-export function updateEntityFields<T extends { id: string; updatedAt: string; syncStatus: SyncStatus }>(
+export function updateEntityFields<T extends { id: string; updatedAt: string; syncStatus: SyncStatus; deletedAt?: string | null }>(
   current: T,
   patch: Partial<T>
 ): T {
@@ -53,7 +53,7 @@ export function updateEntityFields<T extends { id: string; updatedAt: string; sy
 }
 
 /** Soft delete: set deletedAt, jangan hapus fisik. */
-export function softDelete<T extends { id: string; updatedAt: string; deletedAt: string | null; syncStatus: SyncStatus }>(
+export function softDelete<T extends { id: string; updatedAt: string; deletedAt?: string | null; syncStatus: SyncStatus }>(
   current: T
 ): T {
   return {
