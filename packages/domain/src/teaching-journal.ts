@@ -31,6 +31,7 @@ export const teachingJournalSchema = baseEntitySchema.extend({
   presentCount: z.number().int().nonnegative(),
   sickCount: z.number().int().nonnegative(),
   excusedCount: z.number().int().nonnegative(),
+  lateCount: z.number().int().nonnegative().optional(),
   absentCount: z.number().int().nonnegative(),
   totalStudents: z.number().int().nonnegative(),
 
