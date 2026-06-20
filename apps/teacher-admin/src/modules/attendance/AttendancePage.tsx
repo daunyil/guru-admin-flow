@@ -280,16 +280,17 @@ function AttendanceEditor({
                       <span className="text-xs text-slate-400 w-6 shrink-0">{r.studentNumber}</span>
                       <span className="text-sm font-medium truncate">{r.studentName}</span>
                     </div>
-                    <div className="flex gap-1 shrink-0">
+                    <div className="flex flex-wrap gap-1 shrink-0 max-w-[60%] justify-end">
                       {STATUSES.map((s) => (
                         <button
                           key={s.value}
                           onClick={() => setStudentStatus(r.studentId, s.value)}
-                          className={`px-2 py-1 text-xs rounded font-medium ${
+                          className={`px-2.5 py-1.5 text-xs rounded-md font-medium min-w-[44px] ${
                             status === s.value
                               ? s.value === "present" ? "bg-brand-600 text-white"
                                 : s.value === "sick" ? "bg-amber-500 text-white"
                                 : s.value === "excused" ? "bg-slate-500 text-white"
+                                : s.value === "late" ? "bg-orange-500 text-white"
                                 : "bg-rose-600 text-white"
                               : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                           }`}

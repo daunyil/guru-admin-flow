@@ -345,128 +345,120 @@ function ModeDokumen({
   return (
     <Card>
       <div className="print-area">
-        {/* Header dokumen */}
-        <div className="text-center mb-6 border-b-2 border-slate-400 pb-4">
-          <h2 className="text-lg font-bold uppercase">{school?.name ?? "Sekolah"}</h2>
-          <p className="text-sm">{school?.address ?? ""}</p>
-          <h3 className="text-base font-bold uppercase mt-4">Laporan Akhir Semester {report.semester === 1 ? "Ganjil" : "Genap"}</h3>
-          <p className="text-sm">Tahun Pelajaran {academicYear.label}</p>
-        </div>
+        <div className="document-page document-portrait">
+          <div className="document-title">LAPORAN AKHIR SEMESTER {report.semester === 1 ? "GANJIL" : "GENAP"}</div>
+          <div className="document-subtitle">{school?.name ?? "Sekolah"} — {school?.address ?? ""}</div>
+          <div className="document-subtitle">Tahun Pelajaran {academicYear.label}</div>
 
-        {/* Identitas */}
-        <table className="w-full text-sm border-collapse mb-4">
-          <tbody>
-            <tr>
-              <td className="py-1 px-2 border border-slate-300 font-semibold w-1/4">Mata Pelajaran</td>
-              <td className="py-1 px-2 border border-slate-300">{report.subject}</td>
-              <td className="py-1 px-2 border border-slate-300 font-semibold w-1/4">Kelas / Fase</td>
-              <td className="py-1 px-2 border border-slate-300">{report.grade} / {report.phase}</td>
-            </tr>
-            <tr>
-              <td className="py-1 px-2 border border-slate-300 font-semibold">Guru</td>
-              <td className="py-1 px-2 border border-slate-300">{teacher.name}</td>
-              <td className="py-1 px-2 border border-slate-300 font-semibold">NIP</td>
-              <td className="py-1 px-2 border border-slate-300">{teacher.nip ?? "-"}</td>
-            </tr>
-          </tbody>
-        </table>
+          <table className="document-identity">
+            <tbody>
+              <tr>
+                <td>Mata Pelajaran</td><td>{report.subject}</td>
+                <td>Kelas / Fase</td><td>{report.grade} / {report.phase}</td>
+              </tr>
+              <tr>
+                <td>Guru</td><td>{teacher.name}</td>
+                <td>NIP</td><td>{teacher.nip ?? "-"}</td>
+              </tr>
+            </tbody>
+          </table>
 
-        {/* Rekap Pertemuan */}
-        <h4 className="font-bold text-sm mb-2">A. Rekap Pertemuan</h4>
-        <table className="w-full text-sm border-collapse mb-4">
-          <thead>
-            <tr className="bg-slate-100">
-              <th className="py-1.5 px-2 border border-slate-300 text-left">No</th>
-              <th className="py-1.5 px-2 border border-slate-300 text-left">Uraian</th>
-              <th className="py-1.5 px-2 border border-slate-300 text-center">Jumlah</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr><td className="py-1 px-2 border border-slate-300">1</td><td className="py-1 px-2 border border-slate-300">Total Sesi Terjadwal</td><td className="py-1 px-2 border border-slate-300 text-center">{report.totalPlannedSessions}</td></tr>
-            <tr><td className="py-1 px-2 border border-slate-300">2</td><td className="py-1 px-2 border border-slate-300">Sesi Terlaksana (Selesai)</td><td className="py-1 px-2 border border-slate-300 text-center">{report.totalDoneSessions}</td></tr>
-            <tr><td className="py-1 px-2 border border-slate-300">3</td><td className="py-1 px-2 border border-slate-300">Sesi Dilanjutkan</td><td className="py-1 px-2 border border-slate-300 text-center">{report.totalContinuedSessions}</td></tr>
-            <tr><td className="py-1 px-2 border border-slate-300">4</td><td className="py-1 px-2 border border-slate-300">Sesi Tidak Terlaksana</td><td className="py-1 px-2 border border-slate-300 text-center">{report.totalCancelledSessions}</td></tr>
-          </tbody>
-        </table>
+          <div className="document-section-title">A. REKAP PERTEMUAN</div>
+          <table className="document-table">
+            <thead>
+              <tr><th style={{ width: "5%" }}>No</th><th>Uraian</th><th style={{ width: "15%" }}>Jumlah</th></tr>
+            </thead>
+            <tbody>
+              <tr><td className="text-center">1</td><td>Total Sesi Terjadwal</td><td className="text-center">{report.totalPlannedSessions}</td></tr>
+              <tr><td className="text-center">2</td><td>Sesi Terlaksana (Selesai)</td><td className="text-center">{report.totalDoneSessions}</td></tr>
+              <tr><td className="text-center">3</td><td>Sesi Dilanjutkan</td><td className="text-center">{report.totalContinuedSessions}</td></tr>
+              <tr><td className="text-center">4</td><td>Sesi Tidak Terlaksana</td><td className="text-center">{report.totalCancelledSessions}</td></tr>
+            </tbody>
+          </table>
 
-        {/* Rekap Materi */}
-        <h4 className="font-bold text-sm mb-2">B. Rekap Materi</h4>
-        <table className="w-full text-sm border-collapse mb-4">
-          <thead>
-            <tr className="bg-slate-100">
-              <th className="py-1.5 px-2 border border-slate-300 text-left">No</th>
-              <th className="py-1.5 px-2 border border-slate-300 text-left">Status Materi</th>
-              <th className="py-1.5 px-2 border border-slate-300 text-center">Jumlah</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr><td className="py-1 px-2 border border-slate-300">1</td><td className="py-1 px-2 border border-slate-300">Materi Selesai</td><td className="py-1 px-2 border border-slate-300 text-center">{report.totalCompletedUnits}</td></tr>
-            <tr><td className="py-1 px-2 border border-slate-300">2</td><td className="py-1 px-2 border border-slate-300">Materi Sebagian</td><td className="py-1 px-2 border border-slate-300 text-center">{report.totalPartialUnits}</td></tr>
-            <tr><td className="py-1 px-2 border border-slate-300">3</td><td className="py-1 px-2 border border-slate-300">Materi Belum Dimulai</td><td className="py-1 px-2 border border-slate-300 text-center">{report.totalNotStartedUnits}</td></tr>
-            <tr><td className="py-1 px-2 border border-slate-300">4</td><td className="py-1 px-2 border border-slate-300">Total Materi (Prota)</td><td className="py-1 px-2 border border-slate-300 text-center">{report.totalPlannedUnits}</td></tr>
-          </tbody>
-        </table>
+          <div className="document-section-title">B. REKAP MATERI</div>
+          <table className="document-table">
+            <thead>
+              <tr><th style={{ width: "5%" }}>No</th><th>Status Materi</th><th style={{ width: "15%" }}>Jumlah</th></tr>
+            </thead>
+            <tbody>
+              <tr><td className="text-center">1</td><td>Materi Selesai</td><td className="text-center">{report.totalCompletedUnits}</td></tr>
+              <tr><td className="text-center">2</td><td>Materi Sebagian</td><td className="text-center">{report.totalPartialUnits}</td></tr>
+              <tr><td className="text-center">3</td><td>Materi Belum Dimulai</td><td className="text-center">{report.totalNotStartedUnits}</td></tr>
+              <tr><td className="text-center">4</td><td>Total Materi (Prota)</td><td className="text-center">{report.totalPlannedUnits}</td></tr>
+            </tbody>
+          </table>
 
-        {/* Rekap Absensi per Kelas */}
-        <h4 className="font-bold text-sm mb-2">C. Rekap Kehadiran Siswa per Kelas</h4>
-        <table className="w-full text-sm border-collapse mb-4">
-          <thead>
-            <tr className="bg-slate-100">
-              <th className="py-1.5 px-2 border border-slate-300 text-left">Kelas</th>
-              <th className="py-1.5 px-2 border border-slate-300 text-center">Hadir</th>
-              <th className="py-1.5 px-2 border border-slate-300 text-center">Sakit</th>
-              <th className="py-1.5 px-2 border border-slate-300 text-center">Izin</th>
-              <th className="py-1.5 px-2 border border-slate-300 text-center">Alpa</th>
-              <th className="py-1.5 px-2 border border-slate-300 text-center">Total Sesi</th>
-            </tr>
-          </thead>
-          <tbody>
-            {report.perClassAbsence.length === 0 ? (
-              <tr><td colSpan={6} className="py-2 px-2 border border-slate-300 text-center text-slate-400">Tidak ada data</td></tr>
-            ) : (
-              report.perClassAbsence.map((c) => (
-                <tr key={c.classId}>
-                  <td className="py-1 px-2 border border-slate-300">{c.classLabel}</td>
-                  <td className="py-1 px-2 border border-slate-300 text-center">{c.presentCount}</td>
-                  <td className="py-1 px-2 border border-slate-300 text-center">{c.sickCount}</td>
-                  <td className="py-1 px-2 border border-slate-300 text-center">{c.excusedCount}</td>
-                  <td className="py-1 px-2 border border-slate-300 text-center">{c.absentCount}</td>
-                  <td className="py-1 px-2 border border-slate-300 text-center">{c.totalSessions}</td>
-                </tr>
-              ))
-            )}
-          </tbody>
-          <tfoot>
-            <tr className="font-bold bg-slate-50">
-              <td className="py-1.5 px-2 border border-slate-300">Total</td>
-              <td className="py-1.5 px-2 border border-slate-300 text-center">{report.totalPresent}</td>
-              <td className="py-1.5 px-2 border border-slate-300 text-center">{report.totalSick}</td>
-              <td className="py-1.5 px-2 border border-slate-300 text-center">{report.totalExcused}</td>
-              <td className="py-1.5 px-2 border border-slate-300 text-center">{report.totalAbsent}</td>
-              <td className="py-1.5 px-2 border border-slate-300 text-center">{report.totalPlannedSessions}</td>
-            </tr>
-          </tfoot>
-        </table>
+          <div className="document-section-title">C. REKAP KEHADIRAN SISWA PER KELAS</div>
+          <table className="document-table">
+            <thead>
+              <tr>
+                <th>Kelas</th>
+                <th>H</th><th>S</th><th>I</th><th>T</th><th>A</th>
+                <th>Total Sesi</th>
+              </tr>
+            </thead>
+            <tbody>
+              {report.perClassAbsence.length === 0 ? (
+                <tr><td colSpan={7} className="text-center">Tidak ada data</td></tr>
+              ) : (
+                report.perClassAbsence.map((c) => (
+                  <tr key={c.classId}>
+                    <td>{c.classLabel}</td>
+                    <td className="text-center">{c.presentCount}</td>
+                    <td className="text-center">{c.sickCount}</td>
+                    <td className="text-center">{c.excusedCount}</td>
+                    <td className="text-center">{c.absentCount}</td>
+                    <td className="text-center">{c.absentCount}</td>
+                    <td className="text-center">{c.totalSessions}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+            <tfoot>
+              <tr>
+                <td>TOTAL</td>
+                <td className="text-center">{report.totalPresent}</td>
+                <td className="text-center">{report.totalSick}</td>
+                <td className="text-center">{report.totalExcused}</td>
+                <td className="text-center">-</td>
+                <td className="text-center">{report.totalAbsent}</td>
+                <td className="text-center">{report.totalPlannedSessions}</td>
+              </tr>
+            </tfoot>
+          </table>
 
-        {/* Catatan */}
-        <h4 className="font-bold text-sm mb-2">D. Catatan</h4>
-        <div className="border border-slate-300 p-3 min-h-[80px] text-sm mb-4">
-          {report.teacherNotes || report.materialAdjustments || "(kosong)"}
-        </div>
+          <div className="document-section-title">D. REKAP JURNAL</div>
+          <table className="document-table">
+            <thead>
+              <tr><th>No</th><th>Uraian</th><th>Jumlah</th></tr>
+            </thead>
+            <tbody>
+              <tr><td className="text-center">1</td><td>Jurnal Final</td><td className="text-center">{report.journalsFinalized}</td></tr>
+              <tr><td className="text-center">2</td><td>Jurnal Draft/Pending</td><td className="text-center">{report.journalsPending}</td></tr>
+            </tbody>
+          </table>
 
-        {/* Tanda Tangan */}
-        <div className="flex justify-between mt-12">
-          <div className="text-center text-sm">
-            <p>Mengetahui,</p>
-            <p>Kepala Sekolah</p>
-            <p className="mt-20 font-bold underline">{school?.headmasterName ?? "(...........................)"}</p>
-            <p>NIP. {school?.headmasterNip ?? "-"}</p>
+          <div className="document-section-title">E. CATATAN</div>
+          <div style={{ border: "1px solid #000", padding: "8pt", minHeight: "60pt", marginBottom: "12pt" }}>
+            {report.teacherNotes || report.materialAdjustments || "(kosong)"}
           </div>
-          <div className="text-center text-sm">
-            <p>{school?.regency ?? ""}, {report.finalizedAt ? formatLongDateID(report.finalizedAt.split("T")[0]) : "..."}</p>
-            <p>Guru Mata Pelajaran</p>
-            <p className="mt-20 font-bold underline">{teacher.name}</p>
-            <p>NIP. {teacher.nip ?? "-"}</p>
+
+          <div className="signature-grid">
+            <div>
+              <p>Mengetahui,</p>
+              <p>Kepala Sekolah</p>
+              <div className="sig-space" />
+              <p className="sig-name">{school?.headmasterName ?? "(...........................)"}</p>
+              <p>NIP. {school?.headmasterNip ?? "-"}</p>
+            </div>
+            <div>
+              <p>{school?.regency ?? "..........."}, {report.finalizedAt ? formatLongDateID(report.finalizedAt.split("T")[0]) : "..."}</p>
+              <p>Guru Mata Pelajaran</p>
+              <div className="sig-space" />
+              <p className="sig-name">{teacher.name}</p>
+              <p>NIP. {teacher.nip ?? "-"}</p>
+            </div>
           </div>
         </div>
       </div>
