@@ -1,14 +1,13 @@
 /**
- * Dashboard Hari Ini — halaman utama.
+ * Dashboard Hari Ini — Meja Kerja Guru.
  * Sumber: docs/PROJECT_CONTRACT.md §8.1
  *
- * Sprint 3: dashboard fungsional — tampilkan sesi mengajar hari ini dari LessonSession.
+ * Sprint 6B: rewrite sebagai halaman kerja harian, bukan status teknis.
  */
 
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Card, CardHeader, Button, EmptyState, Badge } from "../shared/ui";
-import { Calendar, Plus, AlertTriangle } from "../shared/layout/icons";
 import {
   getActiveAcademicYear,
   getSchoolProfile,
@@ -55,21 +54,26 @@ export function TodayPage() {
 
   return (
     <div className="space-y-4">
-      {/* Header hari ini */}
-      <div>
+      {/* Header kecil */}
+      <div className="page-header">
         <p className="text-xs text-slate-500 uppercase tracking-wider font-semibold">{todayLabel}</p>
         <h1 className="text-2xl font-bold text-slate-900 mt-1">Hari Ini</h1>
+        {activeYear && (
+          <p className="text-sm text-slate-500 mt-1">
+            {school?.name ?? "Sekolah"} · TP {activeYear.label} · {teacher?.name ?? "Guru"}
+          </p>
+        )}
       </div>
 
-      {/* Status profil */}
+      {/* Bila belum ada profil */}
       {(!school || !teacher) && (
         <Card className="border-amber-200 bg-amber-50">
           <div className="flex items-start gap-3">
-            <AlertTriangle className="w-5 h-5 text-amber-600 mt-0.5 shrink-0" />
+            <span className="text-amber-600 text-xl">⚠</span>
             <div>
               <p className="font-semibold text-amber-900">Profil belum lengkap</p>
               <p className="text-sm text-amber-800 mt-1">
-                Lengkapi profil sekolah dan profil guru sebelum membuat tahun pelajaran baru.
+                Lengkapi profil sekolah dan profil guru di menu Profil.
               </p>
               <Link to="/profile" className="inline-block mt-2">
                 <Button variant="secondary" className="text-sm">Lengkapi Profil</Button>
@@ -79,13 +83,12 @@ export function TodayPage() {
         </Card>
       )}
 
-      {/* Status tahun pelajaran */}
+      {/* Bila belum ada tahun pelajaran */}
       {!activeYear ? (
         <Card>
-          <CardHeader title="Tahun Pelajaran Aktif" />
           <EmptyState
             title="Belum ada tahun pelajaran aktif"
-            description="Buat tahun pelajaran pertama secara manual, gunakan wizard Tahun Baru, atau pakai data contoh SMPN 8 Bantan untuk uji coba cepat."
+            description="Buat tahun pelajaran, gunakan wizard Tahun Baru, atau pakai data contoh SMPN 8 Bantan untuk uji coba cepat."
             action={
               <div className="flex gap-2 justify-center flex-wrap">
                 <Button
@@ -97,7 +100,6 @@ export function TodayPage() {
                     setSeedMsg(result.message);
                     setSeeding(false);
                     if (result.success) {
-                      // Reload page
                       setTimeout(() => window.location.reload(), 2000);
                     }
                   }}
@@ -105,39 +107,39 @@ export function TodayPage() {
                   {seeding ? "Memuat..." : "Pakai Data Contoh"}
                 </Button>
                 <Link to="/new-year">
-                  <Button>
-                    <Plus className="w-4 h-4" />
-                    Wizard Tahun Baru
-                  </Button>
+                  <Button>Wizard Tahun Baru</Button>
                 </Link>
               </div>
             }
           />
           {seedMsg && (
-            <div className={`mt-3 p-3 rounded-md text-sm ${seedMsg.includes("berhasil") ? "bg-brand-50 border border-brand-200 text-brand-700" : "bg-rose-50 border border-rose-200 text-rose-700"}`}>
+            <div className={`mt-3 p-3 rounded-md text-sm ${seedMsg.includes("berhasil") ? "info-banner-success" : "info-banner-error"}`}>
               {seedMsg}
             </div>
           )}
         </Card>
       ) : (
         <>
+          {/* Mulai Cepat */}
           <Card>
-            <CardHeader title="Tahun Pelajaran Aktif" />
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="flex items-center gap-2">
-                  <Calendar className="w-5 h-5 text-brand-600" />
-                  <span className="text-xl font-bold text-slate-900">{activeYear.label}</span>
-                  <Badge variant="success">Aktif</Badge>
-                </div>
-                <p className="text-xs text-slate-500 mt-1">
-                  {formatLongDateID(activeYear.startDate)} — {formatLongDateID(activeYear.endDate)}
-                </p>
-              </div>
+            <CardHeader title="Mulai Cepat" />
+            <div className="flex gap-2 flex-wrap">
+              <Link to="/attendance">
+                <Button variant="secondary">Absen Hari Ini</Button>
+              </Link>
+              <Link to="/journal">
+                <Button variant="secondary">Jurnal Hari Ini</Button>
+              </Link>
+              <Link to="/semester-report">
+                <Button variant="secondary">Laporan Semester</Button>
+              </Link>
+              <Link to="/completeness">
+                <Button variant="secondary">Cek Kelengkapan</Button>
+              </Link>
             </div>
           </Card>
 
-          {/* Sesi Mengajar Hari Ini — Sprint 4 dengan tombol cepat */}
+          {/* Sesi Mengajar Hari Ini */}
           <Card>
             <CardHeader
               title="Sesi Mengajar Hari Ini"
@@ -145,8 +147,8 @@ export function TodayPage() {
             />
             {todaySessions.length === 0 ? (
               <EmptyState
-                title="Tidak ada sesi mengajar hari ini"
-                description="Bisa jadi hari libur, atau jadwal belum di-generate. Buka menu Jadwal untuk generate sesi."
+                title="Tidak ada jadwal mengajar hari ini"
+                description="Bisa jadi hari libur atau jadwal belum dibuat. Buka menu Jadwal untuk membuat jadwal."
                 action={
                   <Link to="/schedule">
                     <Button variant="secondary">Buka Jadwal</Button>
@@ -170,20 +172,16 @@ export function TodayPage() {
                           <span className="text-sm font-medium">
                             {s.startTime}–{s.endTime} · Jam ke {s.startPeriod}
                           </span>
-                          <Badge variant={s.status === "planned" ? "success" : "error"}>
-                            {s.status === "planned" ? "Planned" : "Cancelled"}
-                          </Badge>
+                          {s.status === "planned" ? (
+                            <Badge variant="success">Tersedia</Badge>
+                          ) : (
+                            <Badge variant="error">Dibatalkan</Badge>
+                          )}
                         </div>
                         <p className="text-sm font-medium text-slate-900 mt-1">
                           {s.subject} — {s.classLabel}
                         </p>
-                        {s.plannedUnitId && (
-                          <p className="text-xs text-slate-500 mt-0.5">
-                            Materi: ter-assign (lihat detail di menu Promes)
-                          </p>
-                        )}
                       </div>
-                      {/* Tombol cepat: Absen, Jurnal — bawa sessionId */}
                       {s.status === "planned" && (
                         <div className="flex flex-col gap-1 shrink-0">
                           <Link to={`/attendance?sessionId=${s.id}`}>
@@ -201,46 +199,16 @@ export function TodayPage() {
             )}
           </Card>
 
+          {/* Belum Selesai */}
           <Card>
             <CardHeader title="Belum Selesai" />
             <EmptyState
-              title="Belum ada tracking pekerjaan tertunda"
-              description="Daftar pekerjaan belum selesai (jurnal kosong, absensi belum sinkron, Promes perlu perbaikan) akan muncul di sini mulai Sprint 4+."
+              title="Tidak ada pekerjaan tertunda"
+              description="Daftar pekerjaan belum selesai akan muncul di sini."
             />
           </Card>
         </>
       )}
-
-      <Card>
-        <CardHeader title="Status Sprint" description="Sprint 5 — Laporan Akhir Semester + Linker" />
-        <ul className="text-sm space-y-2">
-          <StatusItem done label="Profil sekolah, guru, tahun pelajaran (Sprint 1)" />
-          <StatusItem done label="Backup/restore JSON + wizard tahun baru (Sprint 1)" />
-          <StatusItem done label="Kalender + Prota + Promes engine (Sprint 2)" />
-          <StatusItem done label="Jadwal guru + generator LessonSession (Sprint 3)" />
-          <StatusItem done label="Absensi HP + jurnal otomatis + Document Preview (Sprint 4)" />
-          <StatusItem done label="Laporan akhir semester + rekap lengkap (Sprint 5)" />
-          <StatusItem done label="Halaman kelengkapan (completeness check) (Sprint 5)" />
-          <StatusItem done label="UI Linker Promes-Lesson (assign plannedUnitId massal) (Sprint 5)" />
-          <StatusItem done label="Document Preview laporan (Word/Excel-like, print CSS) (Sprint 5)" />
-          <StatusItem label="Supabase sync (Sprint 6)" />
-        </ul>
-      </Card>
     </div>
-  );
-}
-
-function StatusItem({ label, done = false }: { label: string; done?: boolean }) {
-  return (
-    <li className="flex items-start gap-2">
-      <div
-        className={`w-4 h-4 rounded-full mt-0.5 shrink-0 flex items-center justify-center text-[10px] ${
-          done ? "bg-brand-600 text-white" : "border border-slate-300"
-        }`}
-      >
-        {done ? "✓" : ""}
-      </div>
-      <span className={done ? "text-slate-700" : "text-slate-400"}>{label}</span>
-    </li>
   );
 }
