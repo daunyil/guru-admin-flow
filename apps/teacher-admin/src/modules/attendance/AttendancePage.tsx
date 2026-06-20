@@ -10,6 +10,7 @@
  */
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Card, CardHeader, Input, Button, EmptyState, Badge } from "../../shared/ui";
 import { getLessonSessionsByDate, getLessonSession } from "../../shared/db/lesson-session-repo";
 import { initAttendanceForSession, updateAttendance } from "../../shared/db/attendance-repo";
@@ -20,11 +21,12 @@ import { formatLongDateID, todayISODate } from "@guru-admin/shared";
 import { summarizeAttendance } from "@guru-admin/domain";
 
 type Status = AttendanceRecord["status"];
-const STATUSES: Array<{ value: Status; label: string; color: string }> = [
-  { value: "present", label: "Hadir", color: "success" },
-  { value: "sick", label: "Sakit", color: "warning" },
-  { value: "excused", label: "Izin", color: "neutral" },
-  { value: "absent", label: "Alpa", color: "error" },
+const STATUSES: Array<{ value: Status; label: string; short: string; color: string }> = [
+  { value: "present", label: "Hadir", short: "H", color: "success" },
+  { value: "sick", label: "Sakit", short: "S", color: "warning" },
+  { value: "excused", label: "Izin", short: "I", color: "neutral" },
+  { value: "late", label: "Terlambat", short: "T", color: "warning" },
+  { value: "absent", label: "Alpa", short: "A", color: "error" },
 ];
 
 export function AttendancePage() {
@@ -35,6 +37,7 @@ export function AttendancePage() {
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [searchParams] = useSearchParams();
 
   async function reloadSessions() {
     const teacher = await getTeacherProfile();
@@ -48,6 +51,9 @@ export function AttendancePage() {
       const year = await getActiveAcademicYear();
       setActiveYear(year ?? null);
       await reloadSessions();
+      // Bila ada sessionId di URL, langsung pilih sesi itu
+      const urlSessionId = searchParams.get("sessionId");
+      if (urlSessionId) setSelectedSessionId(urlSessionId);
       setLoading(false);
     })();
   }, []);
@@ -234,7 +240,7 @@ function AttendanceEditor({
       />
 
       {/* Summary */}
-      <div className="grid grid-cols-4 gap-2 mb-4 text-center">
+      <div className="grid grid-cols-5 gap-2 mb-4 text-center">
         <div className="p-2 bg-brand-50 rounded">
           <p className="text-lg font-bold text-brand-700">{summary.present}</p>
           <p className="text-xs text-brand-600">Hadir</p>
@@ -246,6 +252,10 @@ function AttendanceEditor({
         <div className="p-2 bg-slate-100 rounded">
           <p className="text-lg font-bold text-slate-700">{summary.excused}</p>
           <p className="text-xs text-slate-600">Izin</p>
+        </div>
+        <div className="p-2 bg-orange-50 rounded">
+          <p className="text-lg font-bold text-orange-700">{summary.late}</p>
+          <p className="text-xs text-orange-600">Terlambat</p>
         </div>
         <div className="p-2 bg-rose-50 rounded">
           <p className="text-lg font-bold text-rose-700">{summary.absent}</p>
@@ -322,6 +332,7 @@ function AttendanceEditor({
                   <th className="py-2 px-2 text-center border border-slate-300">H</th>
                   <th className="py-2 px-2 text-center border border-slate-300">S</th>
                   <th className="py-2 px-2 text-center border border-slate-300">I</th>
+                  <th className="py-2 px-2 text-center border border-slate-300">T</th>
                   <th className="py-2 px-2 text-center border border-slate-300">A</th>
                   <th className="py-2 px-2 text-left border border-slate-300">Keterangan</th>
                 </tr>
@@ -334,6 +345,7 @@ function AttendanceEditor({
                     <td className="py-1.5 px-2 text-center border border-slate-300">{r.status === "present" ? "✓" : ""}</td>
                     <td className="py-1.5 px-2 text-center border border-slate-300">{r.status === "sick" ? "✓" : ""}</td>
                     <td className="py-1.5 px-2 text-center border border-slate-300">{r.status === "excused" ? "✓" : ""}</td>
+                    <td className="py-1.5 px-2 text-center border border-slate-300">{r.status === "late" ? "✓" : ""}</td>
                     <td className="py-1.5 px-2 text-center border border-slate-300">{r.status === "absent" ? "✓" : ""}</td>
                     <td className="py-1.5 px-2 border border-slate-300">{r.note ?? ""}</td>
                   </tr>
@@ -345,6 +357,7 @@ function AttendanceEditor({
                   <td className="py-2 px-2 text-center border border-slate-300">{summary.present}</td>
                   <td className="py-2 px-2 text-center border border-slate-300">{summary.sick}</td>
                   <td className="py-2 px-2 text-center border border-slate-300">{summary.excused}</td>
+                  <td className="py-2 px-2 text-center border border-slate-300">{summary.late}</td>
                   <td className="py-2 px-2 text-center border border-slate-300">{summary.absent}</td>
                   <td className="py-2 px-2 border border-slate-300">Total: {summary.total}</td>
                 </tr>

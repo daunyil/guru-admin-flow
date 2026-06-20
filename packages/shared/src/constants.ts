@@ -4,7 +4,7 @@
  */
 
 export const APP_NAME = "Guru Admin Flow";
-export const APP_VERSION = "0.1.0-sprint1";
+export const APP_VERSION = "0.5.0-sprint5";
 
 /**
  * Versi skema data. Wajib dinaikkan setiap kali struktur data berubah
@@ -108,6 +108,7 @@ export const ATTENDANCE_STATUSES = [
   "sick",
   "excused",
   "absent",
+  "late",
 ] as const;
 
 /** Status realisasi jurnal sesuai docs/DATA_MODEL_DRAFT.md §9. */

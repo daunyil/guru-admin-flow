@@ -4,98 +4,102 @@ Asisten administrasi guru SMP — local-first PWA. Mengurangi pekerjaan berulang
 
 > **Filosofi:** *Yang rutin dibuat otomatis. Yang berbeda saja yang diisi guru.*
 
-## Status: Sprint 0 — Product Contract & Technical Foundation
+## Status: Sprint 5 — MVP v1 Lengkap (Local-First)
 
-Repo ini berada pada Sprint 0. Yang sudah ada:
+Sprint 0–5 selesai. Aplikasi punya 13 modul fungsional:
 
-- 3 dokumen kontrak di `docs/` (PROJECT_CONTRACT, TECHNICAL_PLAN, DATA_MODEL_DRAFT).
-- Sumber otoritas produk di `docs/GURU_ADMIN_FLOW_REFERENCE.md`.
-- Struktur monorepo (pnpm workspace): `apps/teacher-admin`, `packages/domain`, `packages/shared`.
-- Scaffold minimal Vite + React + TS (tanpa UI besar, tanpa Supabase).
+- Profil sekolah/guru/tahun pelajaran
+- Kalender pendidikan (impor JSON + editor)
+- Prota (input + validasi JP + status dokumen)
+- Promes (engine pure function, KO row terpisah, print CSS)
+- Jadwal guru (input manual + impor Smart Roster)
+- Sesi mengajar (generator dari jadwal + kalender)
+- Daftar siswa (roster per kelas, impor massal)
+- Absensi HP (default semua hadir, 4+1 tombol status)
+- Jurnal otomatis (auto-fill dari sesi+Prota+absensi)
+- Laporan akhir semester (rekap lengkap + Document Preview)
+- Halaman kelengkapan (completeness check)
+- Backup/restore JSON
+- Wizard tahun baru (salin profil+Prota, kosongkan realisasi)
 
-Yang **belum** ada (sesuai acceptance criteria Sprint 0):
-
-- Tidak ada modul fitur (Prota, Promes, absensi, dst.).
-- Tidak ada skema Dexie.
-- Tidak ada Supabase (ditunda ke Sprint 6).
-- Tidak ada UI layout besar.
+**Belum ada**: Supabase sync (Sprint 6/7 — ditunda sampai smoke test lolos).
 
 ## Baca Dulu
 
-Wajib dibaca sebelum menulis kode apa pun, berurutan:
+Wajib dibaca sebelum menulis kode:
 
-1. `docs/GURU_ADMIN_FLOW_REFERENCE.md` — sumber otoritas produk (read-only).
-2. `docs/PROJECT_CONTRACT.md` — kontrak produk: visi, scope MVP v1, non-goals, AC.
-3. `docs/TECHNICAL_PLAN.md` — keputusan teknis: stack, struktur folder, strategi local-first & sync.
-4. `docs/DATA_MODEL_DRAFT.md` — 11 entitas inti + 2 entitas pendukung.
+1. `docs/GURU_ADMIN_FLOW_REFERENCE.md` — sumber otoritas produk.
+2. `docs/PROJECT_CONTRACT.md` — kontrak produk.
+3. `docs/TECHNICAL_PLAN.md` — keputusan teknis (§1.4: npm workspaces, bukan pnpm).
+4. `docs/DATA_MODEL_DRAFT.md` — 11 entitas inti.
 
 ## Struktur Repo
 
 ```text
 guru-admin-flow/
 ├── apps/
-│   └── teacher-admin/         # aplikasi guru (PWA, Sprint 1+)
+│   └── teacher-admin/         # aplikasi guru (Vite + React + TS)
 ├── packages/
-│   ├── domain/                # tipe data + Zod + business rules (Sprint 1+)
-│   └── shared/                # util + konstanta shared (Sprint 1+)
-├── docs/                      # dokumen kontrak
-├── scripts/                   # skrip build/util
+│   ├── domain/                # tipe data + Zod + business rules + pure functions
+│   └── shared/                # util + konstanta shared
+├── docs/                      # dokumen kontrak + design docs
 ├── worklog.md                 # log kerja lintas sprint
-├── package.json               # root workspace
-├── pnpm-workspace.yaml
-├── tsconfig.base.json
-└── README.md                  # dokumen ini
+├── package.json               # root workspace (npm workspaces)
+└── README.md
 ```
 
-## Stack (Sprint 0)
+## Stack
 
 | Lapisan | Teknologi |
 |---|---|
 | Bahasa | TypeScript (strict) |
 | Build | Vite 5+ |
 | Frontend | React 18+ |
-| Local DB | Dexie.js (IndexedDB) — pasang di Sprint 1 |
-| Cloud | Supabase — pasang di Sprint 6, **bukan sebelumnya** |
-| Monorepo | pnpm workspaces |
+| Local DB | Dexie.js (IndexedDB) |
+| Cloud | Supabase — ditunda (Sprint 6/7) |
+| Monorepo | npm workspaces (bukan pnpm) |
+| Testing | Vitest |
 
-Detail di `docs/TECHNICAL_PLAN.md` §1.
-
-## Cara Menjalankan (Sprint 0)
+## Cara Menjalankan
 
 ```bash
 # Install dependencies
-pnpm install
+npm install
 
-# Jalankan aplikasi (scaffold only)
-pnpm dev
+# Jalankan aplikasi
+npm run dev
 
 # Typecheck semua paket
-pnpm typecheck
+npm run typecheck
+
+# Test
+npm run test:run
+
+# Build
+cd apps/teacher-admin && npx vite build
 ```
 
-## Roadmap Singkat
+## Roadmap
 
-| Sprint | Output Utama |
-|---|---|
-| Sprint 0 | Kontrak & fondasi (status: selesai) |
-| Sprint 1 | Fondasi lokal: shell, Dexie, modul Profil, modul Backup/Restore |
-| Sprint 2 | Kalender + Prota + Promes |
-| Sprint 3 | Jadwal Guru + Sesi Mengajar |
-| Sprint 4 | Absensi HP + Jurnal Otomatis |
-| Sprint 5 | Laporan Akhir Semester |
-| Sprint 6 | Supabase Sync |
+| Sprint | Output Utama | Status |
+|---|---|---|
+| Sprint 0 | Kontrak & fondasi | ✅ selesai |
+| Sprint 1 | Profil + Backup/Restore + Wizard + CI/CD | ✅ selesai |
+| Sprint 2 | Kalender + Prota + Promes (CRITICAL PROMES RULE) | ✅ selesai |
+| Sprint 3 | Jadwal Guru + Sesi Mengajar + Dashboard | ✅ selesai |
+| Sprint 4 | Absensi HP + Jurnal Otomatis + Document Preview | ✅ selesai |
+| Sprint 5 | Laporan Akhir Semester + Linker + Kelengkapan | ✅ selesai |
+| Sprint 6A | Audit Fix + Polish Dokumen + Data Contoh | 🔄 sedang dikerjakan |
+| Sprint 6/7 | Supabase Sync | ⏳ ditunda |
 
-Detail per sprint di `docs/TECHNICAL_PLAN.md` §9.
+## Aturan untuk Dev/AI
 
-## Aturan untuk Dev/AI Berikutnya
-
-1. **Baca ke-4 dokumen di `docs/` sebelum menulis kode.**
-2. Jangan memperluas scope sebelum MVP v1 selesai (lihat `docs/PROJECT_CONTRACT.md` §5 non-goals).
-3. Setiap perubahan tipe data wajib memperbarui `docs/DATA_MODEL_DRAFT.md` **terlebih dahulu**, baru kode.
-4. Setiap perubahan stack/struktur wajib memperbarui `docs/TECHNICAL_PLAN.md` **terlebih dahulu**, baru kode.
-5. Setiap perubahan UX wajib konsisten dengan `docs/PROJECT_CONTRACT.md` §8.
-6. Catat pekerjaan di `worklog.md` setelah selesai (lihat format di file tersebut).
+1. **Baca dokumen di `docs/` sebelum menulis kode.**
+2. Jangan memperluas scope sebelum MVP v1 selesai.
+3. Package manager resmi: **npm workspaces** (bukan pnpm). Lihat `docs/TECHNICAL_PLAN.md` §1.4.
+4. Engine Promes wajib pakai `intraJpPerWeek` + `koJpPerWeek`, BUKAN `jpPerWeek`. Lihat `docs/SPRINT_2_DESIGN.md` §0.
+5. Catat pekerjaan di `worklog.md`.
 
 ## Lisensi
 
-Internal SMPN 8 Bantan. Tidak untuk distribusi publik pada tahap ini.
+Internal SMPN 8 Bantan. Tidak untuk distribusi publik.
