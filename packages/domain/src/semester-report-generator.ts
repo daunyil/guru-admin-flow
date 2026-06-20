@@ -142,6 +142,7 @@ export function generateSemesterReport(
       presentCount: sum.present,
       sickCount: sum.sick,
       excusedCount: sum.excused,
+      lateCount: sum.late,
       absentCount: sum.absent,
       totalSessions: c.totalSessions,
     };
@@ -203,6 +204,7 @@ export function generateSemesterReport(
     totalPresent: attendanceTotals.present,
     totalSick: attendanceTotals.sick,
     totalExcused: attendanceTotals.excused,
+    totalLate: attendanceTotals.late,
     totalAbsent: attendanceTotals.absent,
     perClassAbsence,
 
