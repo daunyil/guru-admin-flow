@@ -408,7 +408,7 @@ function ModeDokumen({
                     <td className="text-center">{c.presentCount}</td>
                     <td className="text-center">{c.sickCount}</td>
                     <td className="text-center">{c.excusedCount}</td>
-                    <td className="text-center">{c.absentCount}</td>
+                    <td className="text-center">{c.lateCount ?? 0}</td>
                     <td className="text-center">{c.absentCount}</td>
                     <td className="text-center">{c.totalSessions}</td>
                   </tr>
@@ -421,7 +421,7 @@ function ModeDokumen({
                 <td className="text-center">{report.totalPresent}</td>
                 <td className="text-center">{report.totalSick}</td>
                 <td className="text-center">{report.totalExcused}</td>
-                <td className="text-center">-</td>
+                <td className="text-center">{report.totalLate ?? 0}</td>
                 <td className="text-center">{report.totalAbsent}</td>
                 <td className="text-center">{report.totalPlannedSessions}</td>
               </tr>

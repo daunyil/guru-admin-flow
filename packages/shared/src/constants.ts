@@ -4,7 +4,7 @@
  */
 
 export const APP_NAME = "Guru Admin Flow";
-export const APP_VERSION = "0.5.0-sprint5";
+export const APP_VERSION = "0.5.1";
 
 /**
  * Versi skema data. Wajib dinaikkan setiap kali struktur data berubah

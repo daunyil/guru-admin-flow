@@ -229,13 +229,14 @@
     display: none !important;
   }
 
-  /* Hide app chrome */
+  /* Hide app chrome only — NOT .card, because .print-area can be inside .card */
   header,
   nav,
   footer,
-  .card,
   .btn,
-  .badge {
+  .badge,
+  .AppShell-header,
+  .AppShell-nav {
     display: none !important;
   }
 
@@ -261,18 +262,6 @@
     margin: 0 !important;
   }
 
-  .document-landscape {
-    @page {
-      size: A4 landscape;
-    }
-  }
-
-  .document-portrait {
-    @page {
-      size: A4 portrait;
-    }
-  }
-
   table {
     width: 100% !important;
     border-collapse: collapse !important;
@@ -293,7 +282,6 @@
     color: black !important;
   }
 
-  /* Prevent page break inside table rows */
   tr {
     page-break-inside: avoid;
   }

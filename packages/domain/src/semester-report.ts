@@ -15,6 +15,7 @@ export const classAbsenceSummarySchema = z.object({
   presentCount: z.number().int().nonnegative(),
   sickCount: z.number().int().nonnegative(),
   excusedCount: z.number().int().nonnegative(),
+  lateCount: z.number().int().nonnegative().optional(),
   absentCount: z.number().int().nonnegative(),
   totalSessions: z.number().int().nonnegative(),
 });
@@ -46,6 +47,7 @@ export const semesterReportSchema = baseEntitySchema.extend({
   totalPresent: z.number().int().nonnegative(),
   totalSick: z.number().int().nonnegative(),
   totalExcused: z.number().int().nonnegative(),
+  totalLate: z.number().int().nonnegative().optional(),
   totalAbsent: z.number().int().nonnegative(),
   perClassAbsence: z.array(classAbsenceSummarySchema),
 

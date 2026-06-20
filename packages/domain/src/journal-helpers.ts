@@ -65,6 +65,7 @@ export function generateJournalFromSession(args: {
     presentCount: summary.present,
     sickCount: summary.sick,
     excusedCount: summary.excused,
+    lateCount: summary.late,
     absentCount: summary.absent,
     totalStudents: summary.total,
 
@@ -121,6 +122,7 @@ export function resyncJournalAttendance(
     presentCount: summary.present,
     sickCount: summary.sick,
     excusedCount: summary.excused,
+    lateCount: summary.late,
     absentCount: summary.absent,
     totalStudents: summary.total,
     updatedAt: now,
