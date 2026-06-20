@@ -15,6 +15,7 @@ import {
   getTeacherProfile,
 } from "../shared/db/profile-repo";
 import { getLessonSessionsByDate } from "../shared/db/lesson-session-repo";
+import { seedSampleData } from "../shared/db/seed-sample-data";
 import type { AcademicYear, SchoolProfile, TeacherProfile, LessonSession } from "@guru-admin/domain";
 import { formatLongDateID, todayISODate } from "@guru-admin/shared";
 
@@ -24,6 +25,8 @@ export function TodayPage() {
   const [school, setSchool] = useState<SchoolProfile | undefined>();
   const [teacher, setTeacher] = useState<TeacherProfile | undefined>();
   const [todaySessions, setTodaySessions] = useState<LessonSession[]>([]);
+  const [seeding, setSeeding] = useState(false);
+  const [seedMsg, setSeedMsg] = useState<string | null>(null);
 
   useEffect(() => {
     void (async () => {
@@ -82,21 +85,39 @@ export function TodayPage() {
           <CardHeader title="Tahun Pelajaran Aktif" />
           <EmptyState
             title="Belum ada tahun pelajaran aktif"
-            description="Buat tahun pelajaran pertama secara manual, atau gunakan wizard Tahun Baru untuk menyalin dari tahun sebelumnya."
+            description="Buat tahun pelajaran pertama secara manual, gunakan wizard Tahun Baru, atau pakai data contoh SMPN 8 Bantan untuk uji coba cepat."
             action={
-              <div className="flex gap-2 justify-center">
+              <div className="flex gap-2 justify-center flex-wrap">
+                <Button
+                  variant="secondary"
+                  disabled={seeding}
+                  onClick={async () => {
+                    setSeeding(true);
+                    const result = await seedSampleData();
+                    setSeedMsg(result.message);
+                    setSeeding(false);
+                    if (result.success) {
+                      // Reload page
+                      setTimeout(() => window.location.reload(), 2000);
+                    }
+                  }}
+                >
+                  {seeding ? "Memuat..." : "Pakai Data Contoh"}
+                </Button>
                 <Link to="/new-year">
                   <Button>
                     <Plus className="w-4 h-4" />
                     Wizard Tahun Baru
                   </Button>
                 </Link>
-                <Link to="/profile">
-                  <Button variant="secondary">Buat Manual</Button>
-                </Link>
               </div>
             }
           />
+          {seedMsg && (
+            <div className={`mt-3 p-3 rounded-md text-sm ${seedMsg.includes("berhasil") ? "bg-brand-50 border border-brand-200 text-brand-700" : "bg-rose-50 border border-rose-200 text-rose-700"}`}>
+              {seedMsg}
+            </div>
+          )}
         </Card>
       ) : (
         <>
@@ -162,13 +183,13 @@ export function TodayPage() {
                           </p>
                         )}
                       </div>
-                      {/* Tombol cepat: Absen, Jurnal */}
+                      {/* Tombol cepat: Absen, Jurnal — bawa sessionId */}
                       {s.status === "planned" && (
                         <div className="flex flex-col gap-1 shrink-0">
-                          <Link to="/attendance">
+                          <Link to={`/attendance?sessionId=${s.id}`}>
                             <Button variant="secondary" className="text-xs px-3 py-1.5">Absen</Button>
                           </Link>
-                          <Link to="/journal">
+                          <Link to={`/journal?sessionId=${s.id}`}>
                             <Button className="text-xs px-3 py-1.5">Jurnal</Button>
                           </Link>
                         </div>

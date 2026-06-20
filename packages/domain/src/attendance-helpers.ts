@@ -52,6 +52,7 @@ export type AttendanceSummary = {
   sick: number;
   excused: number;
   absent: number;
+  late: number;
 };
 
 /** Hitung ringkasan dari daftar AttendanceRecord. */
@@ -62,9 +63,14 @@ export function summarizeAttendance(records: AttendanceRecord[]): AttendanceSumm
     sick: 0,
     excused: 0,
     absent: 0,
+    late: 0,
   };
   for (const r of records) {
-    summary[r.status]++;
+    if (r.status === "present") summary.present++;
+    else if (r.status === "sick") summary.sick++;
+    else if (r.status === "excused") summary.excused++;
+    else if (r.status === "absent") summary.absent++;
+    else if (r.status === "late") summary.late++;
   }
   return summary;
 }

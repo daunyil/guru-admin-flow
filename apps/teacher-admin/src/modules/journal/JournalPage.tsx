@@ -10,6 +10,7 @@
  */
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Card, CardHeader, Input, Textarea, Button, EmptyState, Badge, Select } from "../../shared/ui";
 import { getLessonSessionsByDate, getLessonSession } from "../../shared/db/lesson-session-repo";
 import { findClassRoster } from "../../shared/db/class-roster-repo";
@@ -46,6 +47,7 @@ export function JournalPage() {
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [searchParams] = useSearchParams();
 
   async function reloadSessions() {
     const teacher = await getTeacherProfile();
@@ -63,6 +65,9 @@ export function JournalPage() {
       setActiveYear(year ?? null);
       setSchool(sp);
       await reloadSessions();
+      // Bila ada sessionId di URL, langsung pilih sesi itu
+      const urlSessionId = searchParams.get("sessionId");
+      if (urlSessionId) setSelectedSessionId(urlSessionId);
       setLoading(false);
     })();
   }, []);
