@@ -365,71 +365,102 @@ function JournalEditor({
       {showDocumentPreview && (
         <>
           <div className="print-area">
-            <div className="text-center mb-4">
-              <h2 className="text-lg font-bold uppercase">Jurnal Mengajar</h2>
-              <p className="text-sm font-semibold">{schoolName}</p>
-              <p className="text-sm">Tahun Pelajaran {activeYearLabel(journal)}</p>
-            </div>
+            <div className="document-page document-portrait">
+              <div className="document-title">JURNAL MENGAJAR</div>
+              <div className="document-subtitle">{schoolName}</div>
 
-            <table className="w-full text-sm border-collapse mb-4">
-              <tbody>
-                <tr>
-                  <td className="py-1 px-2 border border-slate-300 font-semibold w-1/4">Mata Pelajaran</td>
-                  <td className="py-1 px-2 border border-slate-300">{journal.subject}</td>
-                  <td className="py-1 px-2 border border-slate-300 font-semibold w-1/4">Kelas</td>
-                  <td className="py-1 px-2 border border-slate-300">{journal.classLabel}</td>
-                </tr>
-                <tr>
-                  <td className="py-1 px-2 border border-slate-300 font-semibold">Tanggal</td>
-                  <td className="py-1 px-2 border border-slate-300">{formatLongDateID(journal.date)}</td>
-                  <td className="py-1 px-2 border border-slate-300 font-semibold">Jam ke</td>
-                  <td className="py-1 px-2 border border-slate-300">{session.startPeriod} ({session.startTime}–{session.endTime})</td>
-                </tr>
-                <tr>
-                  <td className="py-1 px-2 border border-slate-300 font-semibold">Materi (Rencana)</td>
-                  <td className="py-1 px-2 border border-slate-300" colSpan={3}>{journal.plannedMaterialTitle ?? "-"}</td>
-                </tr>
-                <tr>
-                  <td className="py-1 px-2 border border-slate-300 font-semibold">Materi (Aktual)</td>
-                  <td className="py-1 px-2 border border-slate-300" colSpan={3}>{actualMaterialTitle || journal.plannedMaterialTitle || "-"}</td>
-                </tr>
-                <tr>
-                  <td className="py-1 px-2 border border-slate-300 font-semibold">Tujuan Pembelajaran</td>
-                  <td className="py-1 px-2 border border-slate-300" colSpan={3}>{journal.plannedLearningOutcome ?? "-"}</td>
-                </tr>
-                <tr>
-                  <td className="py-1 px-2 border border-slate-300 font-semibold">Kehadiran</td>
-                  <td className="py-1 px-2 border border-slate-300" colSpan={3}>
-                    H: {journal.presentCount} · S: {journal.sickCount} · I: {journal.excusedCount} · A: {journal.absentCount} · Total: {journal.totalStudents}
-                  </td>
-                </tr>
-                <tr>
-                  <td className="py-1 px-2 border border-slate-300 font-semibold">Realisasi</td>
-                  <td className="py-1 px-2 border border-slate-300" colSpan={3}>
-                    {REALIZATION_STATUSES.find((s) => s.value === realizationStatus)?.label}
-                  </td>
-                </tr>
-                <tr>
-                  <td className="py-1 px-2 border border-slate-300 font-semibold align-top">Catatan</td>
-                  <td className="py-1 px-2 border border-slate-300" colSpan={3}>{note || "-"}</td>
-                </tr>
-                <tr>
-                  <td className="py-1 px-2 border border-slate-300 font-semibold align-top">Tindak Lanjut</td>
-                  <td className="py-1 px-2 border border-slate-300" colSpan={3}>{followUp || "-"}</td>
-                </tr>
-              </tbody>
-            </table>
+              <table className="document-identity">
+                <tbody>
+                  <tr>
+                    <td>Mata Pelajaran</td><td>{journal.subject}</td>
+                    <td>Kelas</td><td>{journal.classLabel}</td>
+                  </tr>
+                  <tr>
+                    <td>Tanggal</td><td>{formatLongDateID(journal.date)}</td>
+                    <td>Jam ke</td><td>{session.startPeriod} ({session.startTime}–{session.endTime})</td>
+                  </tr>
+                  <tr>
+                    <td>Semester</td><td>{journal.semester === 1 ? "Ganjil" : "Genap"}</td>
+                    <td>Tahun Pelajaran</td><td>{activeYearLabel(journal)}</td>
+                  </tr>
+                </tbody>
+              </table>
 
-            <div className="flex justify-end mt-8">
-              <div className="text-center">
-                <p className="text-sm">{schoolName.split(" ").slice(-2).join(" ")}, {formatLongDateID(journal.date).split(",")[1]?.trim()}</p>
-                <p className="text-sm mt-12">Guru Mata Pelajaran,</p>
-                <p className="text-sm mt-16 font-bold underline">(...........................)</p>
+              <div className="document-section-title">A. MATERI PEMBELAJARAN</div>
+              <table className="document-table">
+                <tbody>
+                  <tr>
+                    <td style={{ width: "30%", fontWeight: "bold", background: "#f5f5f5" }}>Materi (Rencana)</td>
+                    <td>{journal.plannedMaterialTitle ?? "-"}</td>
+                  </tr>
+                  <tr>
+                    <td style={{ fontWeight: "bold", background: "#f5f5f5" }}>Materi (Realisasi)</td>
+                    <td>{actualMaterialTitle || journal.plannedMaterialTitle || "-"}</td>
+                  </tr>
+                  <tr>
+                    <td style={{ fontWeight: "bold", background: "#f5f5f5" }}>Tujuan Pembelajaran</td>
+                    <td>{journal.plannedLearningOutcome ?? "-"}</td>
+                  </tr>
+                </tbody>
+              </table>
+
+              <div className="document-section-title">B. KEHADIRAN SISWA</div>
+              <table className="document-table">
+                <thead>
+                  <tr>
+                    <th>Hadir</th><th>Sakit</th><th>Izin</th><th>Terlambat</th><th>Alpa</th><th>Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td className="text-center">{journal.presentCount}</td>
+                    <td className="text-center">{journal.sickCount}</td>
+                    <td className="text-center">{journal.excusedCount}</td>
+                    <td className="text-center">{journal.lateCount ?? 0}</td>
+                    <td className="text-center">{journal.absentCount}</td>
+                    <td className="text-center">{journal.totalStudents}</td>
+                  </tr>
+                </tbody>
+              </table>
+
+              <div className="document-section-title">C. REALISASI PEMBELAJARAN</div>
+              <table className="document-table">
+                <tbody>
+                  <tr>
+                    <td style={{ fontWeight: "bold", background: "#f5f5f5" }}>Status</td>
+                    <td>{REALIZATION_STATUSES.find((s) => s.value === realizationStatus)?.label ?? "-"}</td>
+                  </tr>
+                  <tr>
+                    <td style={{ fontWeight: "bold", background: "#f5f5f5", verticalAlign: "top" }}>Catatan</td>
+                    <td>{note || "-"}</td>
+                  </tr>
+                  <tr>
+                    <td style={{ fontWeight: "bold", background: "#f5f5f5", verticalAlign: "top" }}>Tindak Lanjut</td>
+                    <td>{followUp || "-"}</td>
+                  </tr>
+                </tbody>
+              </table>
+
+              <div className="signature-grid">
+                <div>
+                  <p>Mengetahui,</p>
+                  <p>Kepala Sekolah</p>
+                  <div className="sig-space" />
+                  <p className="sig-name">(...........................)</p>
+                  <p>NIP. .....................</p>
+                </div>
+                <div>
+                  <p>{schoolName.split(" ").slice(-2).join(" ")}, {formatLongDateID(journal.date).split(",")[1]?.trim()}</p>
+                  <p>Guru Mata Pelajaran</p>
+                  <div className="sig-space" />
+                  <p className="sig-name">(...........................)</p>
+                  <p>NIP. .....................</p>
+                </div>
               </div>
             </div>
           </div>
 
-          <div className="flex gap-2 mt-4 no-print">
+          <div className="print-toolbar">
             <Button variant="secondary" onClick={() => setShowDocumentPreview(false)}>Mode Kerja</Button>
             <Button onClick={() => window.print()}>Cetak</Button>
             {!isLocked && (

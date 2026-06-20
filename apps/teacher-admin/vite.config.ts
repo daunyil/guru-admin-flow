@@ -1,9 +1,11 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import tailwindcss from "tailwindcss";
+import autoprefixer from "autoprefixer";
 
-// Sprint 1: konfigurasi minimal. PWA plugin akan ditambahkan di Sprint 4.
 export default defineConfig({
   plugins: [react()],
+  base: "/teacher-admin/",
   server: {
     port: 5173,
     strictPort: false,
@@ -14,7 +16,7 @@ export default defineConfig({
   },
   css: {
     postcss: {
-      plugins: [],
+      plugins: [tailwindcss(), autoprefixer()],
     },
   },
   test: {
