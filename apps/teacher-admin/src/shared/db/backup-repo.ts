@@ -21,6 +21,7 @@ import {
   type ClassRoster,
   type TeachingJournal,
   type SemesterReport,
+  type GradeBook,
   type DocumentSnapshot,
 } from "@guru-admin/domain";
 import { APP_VERSION, DATA_SCHEMA_VERSION, nowTimestamp } from "@guru-admin/shared";
@@ -43,6 +44,7 @@ export async function exportBackup(): Promise<BackupFile> {
     classRosters,
     teachingJournals,
     semesterReports,
+    gradeBooks,
     documentSnapshots,
   ] = await Promise.all([
     listEntities<AcademicYear>("academicYears"),
@@ -57,6 +59,7 @@ export async function exportBackup(): Promise<BackupFile> {
     listEntities<ClassRoster>("classRosters"),
     listEntities<TeachingJournal>("teachingJournals"),
     listEntities<SemesterReport>("semesterReports"),
+    listEntities<GradeBook>("gradeBooks"),
     listEntities<DocumentSnapshot>("documentSnapshots"),
   ]);
 
@@ -82,6 +85,7 @@ export async function exportBackup(): Promise<BackupFile> {
       classRosters,
       teachingJournals,
       semesterReports,
+      gradeBooks,
       documentSnapshots,
     },
   };
@@ -134,6 +138,7 @@ export async function restoreBackup(input: unknown): Promise<BackupSummary> {
       db.classRosters,
       db.teachingJournals,
       db.semesterReports,
+      db.gradeBooks,
       db.documentSnapshots,
       db.syncQueue,
     ],
@@ -152,6 +157,7 @@ export async function restoreBackup(input: unknown): Promise<BackupSummary> {
         db.classRosters.clear(),
         db.teachingJournals.clear(),
         db.semesterReports.clear(),
+        db.gradeBooks.clear(),
         db.documentSnapshots.clear(),
         db.syncQueue.clear(),
       ]);
@@ -182,6 +188,7 @@ export async function restoreBackup(input: unknown): Promise<BackupSummary> {
       await db.classRosters.bulkPut(backup.data.classRosters);
       await db.teachingJournals.bulkPut(backup.data.teachingJournals);
       await db.semesterReports.bulkPut(backup.data.semesterReports);
+      await db.gradeBooks.bulkPut(backup.data.gradeBooks);
       await db.documentSnapshots.bulkPut(backup.data.documentSnapshots);
     }
   );
