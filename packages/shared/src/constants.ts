@@ -35,7 +35,7 @@ export const DAY_LABELS_ID: Record<number, string> = {
   1: "Senin",
   2: "Selasa",
   3: "Rabu",
-  4: "Rabu".replace("Rabu", "Kamis"),
+  4: "Kamis",
   5: "Jumat",
   6: "Sabtu",
   7: "Minggu",
