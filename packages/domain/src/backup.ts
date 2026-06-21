@@ -13,6 +13,7 @@ import { lessonSessionSchema } from "./lesson-session";
 import { attendanceRecordSchema, classRosterSchema } from "./attendance";
 import { teachingJournalSchema } from "./teaching-journal";
 import { semesterReportSchema } from "./semester-report";
+import { gradeBookSchema } from "./gradebook";
 import { documentSnapshotSchema } from "./snapshot-sync";
 import { DATA_SCHEMA_VERSION } from "@guru-admin/shared";
 
@@ -32,6 +33,7 @@ export const backupFileSchema = z.object({
     classRosters: z.array(classRosterSchema),
     teachingJournals: z.array(teachingJournalSchema),
     semesterReports: z.array(semesterReportSchema),
+    gradeBooks: z.array(gradeBookSchema).default([]),
     documentSnapshots: z.array(documentSnapshotSchema),
   }),
 });
@@ -81,6 +83,7 @@ export function validateBackup(input: unknown):
       classRosters: backup.data.classRosters.length,
       teachingJournals: backup.data.teachingJournals.length,
       semesterReports: backup.data.semesterReports.length,
+      gradeBooks: backup.data.gradeBooks.length,
       documentSnapshots: backup.data.documentSnapshots.length,
     },
     hasSchoolProfile: backup.data.schoolProfile !== null,
@@ -104,6 +107,7 @@ export type BackupSummary = {
     classRosters: number;
     teachingJournals: number;
     semesterReports: number;
+    gradeBooks: number;
     documentSnapshots: number;
   };
   hasSchoolProfile: boolean;
