@@ -61,10 +61,6 @@
     @apply badge bg-slate-100 text-slate-700;
   }
 
-  /* ============================================
-     SPRINT 6B — Design System Components
-     ============================================ */
-
   .page-header {
     @apply mb-4;
   }
@@ -116,10 +112,6 @@
   .print-toolbar {
     @apply flex gap-2 mt-4 no-print;
   }
-
-  /* ============================================
-     SPRINT 6B — Document Preview Styles
-     ============================================ */
 
   .document-page {
     background: white;
@@ -218,18 +210,70 @@
     font-weight: bold;
     text-decoration: underline;
   }
-}
 
-/* ============================================
-   SPRINT 6B — Global Print CSS
-   ============================================ */
+  /* SIAKAD mobile adoption */
+  .siakad-header {
+    @apply md:hidden sticky top-0 z-20 rounded-b-[32px] px-5 pt-4 pb-6 text-white shadow-lg;
+    background: linear-gradient(135deg, #0f2356 0%, #1e3a8a 100%);
+  }
+  .siakad-card {
+    @apply bg-white rounded-[24px] shadow-sm border border-slate-100 p-5;
+    box-shadow: 0 2px 16px rgba(15, 35, 86, 0.08);
+  }
+  .siakad-title {
+    @apply text-[11px] font-extrabold uppercase tracking-[0.08em] text-brand-800 mb-4;
+  }
+  .siakad-student-row {
+    @apply bg-white rounded-2xl border border-slate-100 px-3 py-2 flex items-center justify-between gap-2 shadow-sm;
+  }
+  .abs-status-btn {
+    @apply w-10 h-10 rounded-xl border-2 border-slate-200 bg-white text-xs font-extrabold text-slate-400 active:scale-95 transition;
+  }
+  .abs-status-btn.active-present {
+    @apply bg-emerald-600 border-emerald-600 text-white;
+  }
+  .abs-status-btn.active-sick {
+    @apply bg-blue-600 border-blue-600 text-white;
+  }
+  .abs-status-btn.active-excused {
+    @apply bg-amber-500 border-amber-500 text-white;
+  }
+  .abs-status-btn.active-late {
+    @apply bg-orange-500 border-orange-500 text-white;
+  }
+  .abs-status-btn.active-absent {
+    @apply bg-rose-600 border-rose-600 text-white;
+  }
+  .report-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 10px;
+    color: #000;
+  }
+  .report-table th,
+  .report-table td {
+    border: 1px solid #000;
+    padding: 4px 6px;
+    text-align: center;
+  }
+  .report-table th {
+    background: #e2e8f0;
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+  .report-name-cell {
+    text-align: left !important;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+}
 
 @media print {
   .no-print {
     display: none !important;
   }
 
-  /* Hide app chrome only — NOT .card, because .print-area can be inside .card */
   header,
   nav,
   footer,
@@ -240,7 +284,6 @@
     display: none !important;
   }
 
-  /* Show only print area */
   .print-area {
     display: block !important;
   }
