@@ -9,11 +9,6 @@
 #   2. test       — Vitest run, 61+ test harus PASS
 #   3. build      — vite build sukses + upload artifact
 #   4. audit      — Security & scope check (no Supabase, no secrets, no dist)
-#
-# Aturan:
-#   - Bila salah satu job fail, PR tidak boleh di-merge.
-#   - Tidak ada job yang boleh skip.
-#   - Workflow ini wajib lulus sebelum merge ke main (lihat branch protection di repo settings).
 
 name: CI
 
@@ -26,15 +21,11 @@ on:
     branches:
       - main
 
-# Cancel in-progress workflow bila push baru datang di branch yang sama
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  # ----------------------------------------------------------------
-  # Job 1: Typecheck (TypeScript strict)
-  # ----------------------------------------------------------------
   typecheck:
     name: Typecheck (3 workspace)
     runs-on: ubuntu-latest
@@ -42,22 +33,16 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "20"
           cache: "npm"
-
       - name: Install dependencies
         run: npm install --no-audit --no-fund
-
       - name: Typecheck all workspaces
         run: npm run typecheck
 
-  # ----------------------------------------------------------------
-  # Job 2: Test (Vitest)
-  # ----------------------------------------------------------------
   test:
     name: Test (Vitest)
     runs-on: ubuntu-latest
@@ -65,19 +50,15 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "20"
           cache: "npm"
-
       - name: Install dependencies
         run: npm install --no-audit --no-fund
-
       - name: Run tests
         run: npm run test:run
-
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
@@ -89,9 +70,6 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
-  # ----------------------------------------------------------------
-  # Job 3: Build (Vite)
-  # ----------------------------------------------------------------
   build:
     name: Build (Vite)
     runs-on: ubuntu-latest
@@ -99,20 +77,16 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "20"
           cache: "npm"
-
       - name: Install dependencies
         run: npm install --no-audit --no-fund
-
       - name: Build teacher-admin app
         run: npx vite build
         working-directory: apps/teacher-admin
-
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
@@ -120,9 +94,6 @@ jobs:
           path: apps/teacher-admin/dist/
           retention-days: 7
 
-  # ----------------------------------------------------------------
-  # Job 4: Audit (security & scope)
-  # ----------------------------------------------------------------
   audit:
     name: Audit (security & scope)
     runs-on: ubuntu-latest
@@ -138,10 +109,10 @@ jobs:
              | grep -v node_modules \
              | grep -v package-lock.json \
              | grep -E '"@supabase|supabase-js|"supabase":'; then
-            echo "❌ FAIL: Ditemukan dependency Supabase"
+            echo "FAIL: Ditemukan dependency Supabase"
             exit 1
           fi
-          echo "✅ PASS: Tidak ada dependency Supabase"
+          echo "PASS: Tidak ada dependency Supabase"
 
       - name: Audit 2 — Tidak ada import @supabase di kode
         run: |
@@ -149,84 +120,69 @@ jobs:
           if grep -rni "@supabase" \
              --include="*.ts" --include="*.tsx" --include="*.js" --include="*.jsx" \
              . | grep -v node_modules; then
-            echo "❌ FAIL: Ditemukan import @supabase di kode"
+            echo "FAIL: Ditemukan import @supabase di kode"
             exit 1
           fi
-          echo "✅ PASS: Tidak ada import @supabase"
+          echo "PASS: Tidak ada import @supabase"
 
       - name: Audit 3 — Tidak ada token/credential ter-commit
         run: |
           echo "=== Cek pattern credential berbahaya ==="
-          # GitHub Personal Access Token (classic)
           if grep -rn "ghp_[A-Za-z0-9]\{36\}" --include="*.ts" --include="*.tsx" --include="*.js" --include="*.json" --include="*.yml" --include="*.yaml" --include="*.md" . | grep -v node_modules; then
-            echo "❌ FAIL: Ditemukan GitHub PAT di kode/dokumen"
+            echo "FAIL: Ditemukan GitHub PAT di kode/dokumen"
             exit 1
           fi
-          # GitHub Fine-grained PAT
           if grep -rn "github_pat_[A-Za-z0-9_]\{82\}" --include="*.ts" --include="*.tsx" --include="*.js" --include="*.json" --include="*.yml" --include="*.yaml" --include="*.md" . | grep -v node_modules; then
-            echo "❌ FAIL: Ditemukan GitHub fine-grained PAT di kode/dokumen"
+            echo "FAIL: Ditemukan GitHub fine-grained PAT di kode/dokumen"
             exit 1
           fi
-          # AWS access key (contoh pola umum)
           if grep -rn "AKIA[0-9A-Z]\{16\}" --include="*.ts" --include="*.tsx" --include="*.js" --include="*.json" --include="*.yml" --include="*.yaml" . | grep -v node_modules; then
-            echo "❌ FAIL: Ditemukan AWS access key"
+            echo "FAIL: Ditemukan AWS access key"
             exit 1
           fi
-          echo "✅ PASS: Tidak ada token/credential ter-commit"
+          echo "PASS: Tidak ada token/credential ter-commit"
 
       - name: Audit 4 — Tidak ada dist/ atau node_modules/ ter-track
         run: |
           echo "=== Cek file build/dependency yang ter-track ==="
           TRACKED_BUILD=$(git ls-files | grep -E "^(dist/|node_modules/|apps/[^/]+/dist/|apps/[^/]+/node_modules/|packages/[^/]+/dist/|packages/[^/]+/node_modules/)" || true)
           if [ -n "$TRACKED_BUILD" ]; then
-            echo "❌ FAIL: Ditemukan file build/dependency ter-track:"
+            echo "FAIL: Ditemukan file build/dependency ter-track:"
             echo "$TRACKED_BUILD"
             exit 1
           fi
-          echo "✅ PASS: Tidak ada dist/ atau node_modules/ ter-track"
+          echo "PASS: Tidak ada dist/ atau node_modules/ ter-track"
 
       - name: Audit 5 — Tidak ada file .env ter-track
         run: |
           echo "=== Cek file .env ter-track ==="
           TRACKED_ENV=$(git ls-files | grep -E "^\.env" || true)
           if [ -n "$TRACKED_ENV" ]; then
-            echo "❌ FAIL: Ditemukan file .env ter-track:"
+            echo "FAIL: Ditemukan file .env ter-track:"
             echo "$TRACKED_ENV"
             exit 1
           fi
-          echo "✅ PASS: Tidak ada file .env ter-track"
+          echo "PASS: Tidak ada file .env ter-track"
 
       - name: Audit 6 — Backup schemaVersion konsisten
         run: |
           echo "=== Cek DATA_SCHEMA_VERSION ==="
-          if ! grep -q "export const DATA_SCHEMA_VERSION = 1;" packages/shared/src/constants.ts; then
-            echo "❌ FAIL: DATA_SCHEMA_VERSION tidak ditemukan atau bukan 1"
+          if ! grep -q "export const DATA_SCHEMA_VERSION = 2;" packages/shared/src/constants.ts; then
+            echo "FAIL: DATA_SCHEMA_VERSION tidak ditemukan atau bukan 2"
             exit 1
           fi
-          echo "✅ PASS: DATA_SCHEMA_VERSION = 1 terverifikasi"
+          echo "PASS: DATA_SCHEMA_VERSION = 2 terverifikasi"
 
-      - name: Audit 7 — Test files ada (regression check untuk bug .gitignore)
+      - name: Audit 7 — Test files ada
         run: |
-          echo "=== Cek test files ter-track (regression check .gitignore bug) ==="
+          echo "=== Cek test files ter-track ==="
           TEST_COUNT=$(git ls-files | grep -c "test/.*\.test\.ts$" || echo "0")
           if [ "$TEST_COUNT" -lt 7 ]; then
-            echo "❌ FAIL: Hanya $TEST_COUNT test files ter-track, seharusnya ≥ 7"
-            echo "Bug .gitignore mungkin kambuh. Cek pola 'test' di .gitignore."
+            echo "FAIL: Hanya $TEST_COUNT test files ter-track, seharusnya minimal 7"
             exit 1
           fi
-          echo "✅ PASS: $TEST_COUNT test files ter-track"
+          echo "PASS: $TEST_COUNT test files ter-track"
 
       - name: Audit summary
         run: |
-          echo "============================================"
-          echo "  AUDIT SELESAI — SEMUA CEK PASS"
-          echo "============================================"
-          echo ""
-          echo "Checked:"
-          echo "  1. No Supabase dependency"
-          echo "  2. No @supabase import"
-          echo "  3. No credentials/secrets"
-          echo "  4. No dist/node_modules tracked"
-          echo "  5. No .env files tracked"
-          echo "  6. DATA_SCHEMA_VERSION = 1"
-          echo "  7. Test files tracked (≥ 7)"
+          echo "AUDIT SELESAI — SEMUA CEK PASS"
