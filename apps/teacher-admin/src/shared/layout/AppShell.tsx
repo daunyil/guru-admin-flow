@@ -22,19 +22,20 @@ const NAV_ITEMS: NavItem[] = [
   { to: "/roster", label: "Siswa", icon: Users },
   { to: "/attendance", label: "Absensi", icon: CheckCircle },
   { to: "/journal", label: "Jurnal", icon: BookOpen },
-  { to: "/completeness", label: "Kelengkapan", icon: ListChecks },
   { to: "/semester-report", label: "Laporan", icon: FileSpreadsheet },
+  { to: "/grades", label: "Nilai", icon: FileSpreadsheet },
+  { to: "/completeness", label: "Kelengkapan", icon: ListChecks },
   { to: "/profile", label: "Profil", icon: User },
   { to: "/new-year", label: "Tahun Baru", icon: Plus },
   { to: "/backup", label: "Backup", icon: Database },
 ];
 
-// Mobile bottom nav: 5 item utama + tombol "Lainnya"
+// Mobile bottom nav: 4 item utama + tombol "Lainnya"
 const MOBILE_PRIMARY: NavItem[] = [
   { to: "/", label: "Hari Ini", icon: Calendar },
   { to: "/attendance", label: "Absen", icon: CheckCircle },
   { to: "/journal", label: "Jurnal", icon: BookOpen },
-  { to: "/semester-report", label: "Laporan", icon: FileSpreadsheet },
+  { to: "/grades", label: "Nilai", icon: FileSpreadsheet },
 ];
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -55,7 +56,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               <GraduationCap className="w-5 h-5" />
             </div>
             <span className="font-semibold text-slate-900">Guru Admin Flow</span>
-            <span className="text-xs text-slate-400 ml-2">v0.5</span>
+            <span className="text-xs text-slate-400 ml-2">v0.6</span>
           </div>
           <nav className="flex items-center gap-1 flex-wrap">
             {NAV_ITEMS.map((item) => (
