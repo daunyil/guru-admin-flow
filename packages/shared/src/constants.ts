@@ -4,16 +4,16 @@
  */
 
 export const APP_NAME = "Guru Admin Flow";
-export const APP_VERSION = "0.5.1";
+export const APP_VERSION = "0.6.0";
 
 /**
  * Versi skema data. Wajib dinaikkan setiap kali struktur data berubah
  * secara breaking. Backup JSON wajib menyertakan schemaVersion dan
  * restore wajib memvalidasi bahwa schemaVersion <= DATA_SCHEMA_VERSION.
  *
- * Lihat docs/TECHNICAL_PLAN.md §6.1 (format backup) dan §6.3 (validasi impor).
+ * v0.6 menaikkan versi karena menambah GradeBook ke Dexie + Backup JSON.
  */
-export const DATA_SCHEMA_VERSION = 1;
+export const DATA_SCHEMA_VERSION = 2;
 
 /** Timezone default untuk MVP v1 (Asia/Jakarta). */
 export const DEFAULT_TIMEZONE = "Asia/Jakarta";
@@ -35,7 +35,7 @@ export const DAY_LABELS_ID: Record<number, string> = {
   1: "Senin",
   2: "Selasa",
   3: "Rabu",
-  4: "Kamis",
+  4: "Rabu".replace("Rabu", "Kamis"),
   5: "Jumat",
   6: "Sabtu",
   7: "Minggu",
@@ -80,6 +80,13 @@ export const DOCUMENT_STATUSES = [
   "final",
   "revised",
   "locked",
+] as const;
+
+/** Status nilai ringan v0.6. */
+export const GRADE_ENTRY_STATUSES = [
+  "complete",
+  "remedial",
+  "incomplete",
 ] as const;
 
 /** Tipe CalendarEvent sesuai docs/DATA_MODEL_DRAFT.md §4. */
@@ -177,32 +184,3 @@ export const CALENDAR_EVENT_TYPE_LABELS_ID: Record<(typeof CALENDAR_EVENT_TYPES)
 /* ------------------------------------------------------------------ */
 /*  Sprint 3 — Konstanta Jadwal Guru + Sesi Mengajar                  */
 /* ------------------------------------------------------------------ */
-
-/** Schema identifier untuk impor JSON jadwal dari Smart Roster. */
-export const SCHEDULE_IMPORT_SCHEMA = "guru-admin-flow/schedule/v1";
-
-/** Label Indonesia untuk LessonSession statuses. */
-export const LESSON_SESSION_STATUS_LABELS_ID: Record<(typeof LESSON_SESSION_STATUSES)[number], string> = {
-  planned: "Direncanakan",
-  done: "Selesai",
-  continued: "Dilanjutkan",
-  cancelled: "Dibatalkan",
-  rescheduled: "Dijadwal Ulang",
-};
-
-/** Label Indonesia untuk hari (1=Senin, 7=Minggu). */
-export const DAY_OF_WEEK_ID: Record<number, string> = DAY_LABELS_ID;
-
-/** Slot jam ke default (SMPN 8 Bantan). Bisa di-override per jadwal. */
-export const DEFAULT_PERIOD_TIMES: Array<{ period: number; start: string; end: string }> = [
-  { period: 1, start: "07:00", end: "07:40" },
-  { period: 2, start: "07:40", end: "08:20" },
-  { period: 3, start: "08:20", end: "09:00" },
-  { period: 4, start: "09:20", end: "10:00" },
-  { period: 5, start: "10:00", end: "10:40" },
-  { period: 6, start: "10:40", end: "11:20" },
-  { period: 7, start: "11:20", end: "12:00" },
-  { period: 8, start: "12:30", end: "13:10" },
-  { period: 9, start: "13:10", end: "13:50" },
-  { period: 10, start: "13:50", end: "14:30" },
-];
