@@ -49,6 +49,7 @@ export function BackupPage() {
           classRosters: backup.data.classRosters.length,
           teachingJournals: backup.data.teachingJournals.length,
           semesterReports: backup.data.semesterReports.length,
+          gradeBooks: backup.data.gradeBooks.length,
           documentSnapshots: backup.data.documentSnapshots.length,
         },
         hasSchoolProfile: backup.data.schoolProfile !== null,
@@ -92,7 +93,7 @@ export function BackupPage() {
     setSuccess(null);
     try {
       const result = await restoreBackup(pendingFile.data);
-      setSuccess(`Restore berhasil. ${result.counts.academicYears} tahun pelajaran, ${result.counts.protaProfiles} Prota, ${result.counts.teachingSchedules} jadwal.`);
+      setSuccess(`Restore berhasil. ${result.counts.academicYears} tahun pelajaran, ${result.counts.protaProfiles} Prota, ${result.counts.teachingSchedules} jadwal, ${result.counts.gradeBooks} rekap nilai.`);
       setPendingFile(null);
       setPendingSummary(null);
     } catch (e) {
@@ -119,7 +120,7 @@ export function BackupPage() {
       <Card>
         <CardHeader
           title="Export Backup"
-          description="Unduh seluruh data lokal ke satu file JSON."
+          description="Unduh seluruh data lokal ke satu file JSON. Termasuk nilai ringan v0.6."
         />
         <Button onClick={handleExport} disabled={exporting}>
           <Download className="w-4 h-4" />
@@ -140,6 +141,7 @@ export function BackupPage() {
               <Stat label="Absensi" value={summary.counts.attendanceRecords} />
               <Stat label="Jurnal" value={summary.counts.teachingJournals} />
               <Stat label="Laporan" value={summary.counts.semesterReports} />
+              <Stat label="Nilai" value={summary.counts.gradeBooks} />
               <Stat label="Snapshot" value={summary.counts.documentSnapshots} />
             </dl>
             <p className="text-xs text-brand-700 mt-2">
@@ -187,6 +189,7 @@ export function BackupPage() {
                     <Stat label="Absensi" value={pendingSummary.counts.attendanceRecords} />
                     <Stat label="Jurnal" value={pendingSummary.counts.teachingJournals} />
                     <Stat label="Laporan" value={pendingSummary.counts.semesterReports} />
+                    <Stat label="Nilai" value={pendingSummary.counts.gradeBooks} />
                   </dl>
                   <p className="text-xs text-amber-800 mb-3">
                     schemaVersion: {pendingSummary.schemaVersion} • di-export: {pendingSummary.exportedAt}
@@ -222,10 +225,10 @@ export function BackupPage() {
       <Card>
         <CardHeader title="Catatan Keamanan" />
         <ul className="text-sm text-slate-600 space-y-1.5 list-disc pl-5">
-          <li>File backup berisi seluruh data sekolah, guru, dan siswa. Simpan di tempat aman.</li>
+          <li>File backup berisi seluruh data sekolah, guru, siswa, dan nilai. Simpan di tempat aman.</li>
           <li>schemaVersion divalidasi saat import. File dari versi app yang lebih baru akan ditolak.</li>
-          <li>Restore bersifat <strong>overwrite penuh</strong>. Tidak ada merge di MVP v1.</li>
-          <li>Setelah restore, semua entitas ber-status <Badge variant="neutral">local_only</Badge> sampai sinkronisasi cloud (Sprint 6).</li>
+          <li>Restore bersifat <strong>overwrite penuh</strong>. Tidak ada merge di MVP lokal.</li>
+          <li>Setelah restore, semua entitas ber-status <Badge variant="neutral">local_only</Badge> sampai sinkronisasi cloud tersedia.</li>
         </ul>
       </Card>
     </div>
