@@ -36,7 +36,8 @@ export function MobileAttendancePage() {
 
   useEffect(() => {
     void (async () => {
-      setYear(await getActiveAcademicYear());
+      const activeYear = await getActiveAcademicYear();
+      setYear(activeYear ?? null);
       await loadSessions();
       const sid = searchParams.get("sessionId");
       if (sid) setSelectedSessionId(sid);
