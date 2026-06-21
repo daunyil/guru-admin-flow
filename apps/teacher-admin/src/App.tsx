@@ -1,8 +1,3 @@
-/**
- * Root App: router + AppShell.
- * Sprint 5: 13 routes — +SemesterReport, +Completeness.
- */
-
 import { HashRouter, Routes, Route } from "react-router-dom";
 import { AppShell } from "./shared/layout/AppShell";
 import { TodayPage } from "./routes/TodayPage";
@@ -18,6 +13,7 @@ import { AttendancePage } from "./modules/attendance/AttendancePage";
 import { JournalPage } from "./modules/journal/JournalPage";
 import { SemesterReportPage } from "./modules/semester-report/SemesterReportPage";
 import { CompletenessPage } from "./modules/completeness/CompletenessPage";
+import { GradesPage } from "./modules/grades/GradesPage";
 
 export function App() {
   return (
@@ -36,6 +32,7 @@ export function App() {
           <Route path="/attendance" element={<AttendancePage />} />
           <Route path="/journal" element={<JournalPage />} />
           <Route path="/semester-report" element={<SemesterReportPage />} />
+          <Route path="/grades" element={<GradesPage />} />
           <Route path="/completeness" element={<CompletenessPage />} />
           <Route path="*" element={<TodayPage />} />
         </Routes>
