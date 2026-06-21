@@ -20,6 +20,7 @@ type TableName =
   | "classRosters"
   | "teachingJournals"
   | "semesterReports"
+  | "gradeBooks"
   | "documentSnapshots"
   | "syncQueue";
 
