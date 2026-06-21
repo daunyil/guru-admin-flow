@@ -120,6 +120,21 @@ export {
   type ClassAbsenceSummary,
 } from "./semester-report";
 
+export {
+  gradeBookSchema,
+  gradeEntrySchema,
+  gradeEntryStatusSchema,
+  calculateGradeEntry,
+  calculateGradeBookEntries,
+  summarizeGradeBook,
+  parseGradeBook,
+  safeParseGradeBook,
+  type GradeBook,
+  type GradeEntry,
+  type GradeEntryStatus,
+  type GradeBookSummary,
+} from "./gradebook";
+
 /* Entitas pendukung */
 export {
   documentSnapshotSchema,
