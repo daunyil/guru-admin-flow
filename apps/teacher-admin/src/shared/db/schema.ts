@@ -17,6 +17,7 @@ import type {
   ClassRoster,
   TeachingJournal,
   SemesterReport,
+  GradeBook,
   DocumentSnapshot,
   SyncQueueItem,
 } from "@guru-admin/domain";
@@ -34,6 +35,7 @@ export class GuruAdminDB extends Dexie {
   classRosters!: Table<ClassRoster, string>;
   teachingJournals!: Table<TeachingJournal, string>;
   semesterReports!: Table<SemesterReport, string>;
+  gradeBooks!: Table<GradeBook, string>;
   documentSnapshots!: Table<DocumentSnapshot, string>;
   syncQueue!: Table<SyncQueueItem, string>;
 
@@ -55,6 +57,10 @@ export class GuruAdminDB extends Dexie {
       semesterReports: "id, academicYearId, teacherId, subject, grade, semester, status",
       documentSnapshots: "id, entityType, entityId, snapshotAt",
       syncQueue: "id, entityType, entityId, status, createdAt",
+    });
+
+    this.version(2).stores({
+      gradeBooks: "id, academicYearId, teacherId, classId, subject, semester, status, [academicYearId+teacherId+classId+semester]",
     });
   }
 }
