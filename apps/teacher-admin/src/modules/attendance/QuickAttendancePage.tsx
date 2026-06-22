@@ -14,7 +14,7 @@
 
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Card, CardHeader, Input, Select, Button, EmptyState, Badge } from "../../shared/ui";
+import { Card, CardHeader, Input, Select, Button, EmptyState, Badge, ContextCard } from "../../shared/ui";
 import { getLessonSessionsByDate, getLessonSession, findOrCreateManualSession, listLessonSessions } from "../../shared/db/lesson-session-repo";
 import {
   initAttendanceForSession,
@@ -31,6 +31,7 @@ import {
   generateDefaultAttendance,
   summarizeAttendance,
   recapAttendanceForAssignment,
+  buildContextInfo,
 } from "@guru-admin/domain";
 import type {
   AcademicYear,
@@ -302,6 +303,11 @@ export function QuickAttendancePage() {
 
           {assignment && recap && (
             <>
+              {/* Context card */}
+              {year && (
+                <ContextCard info={buildContextInfo({ assignment, academicYear: year })} />
+              )}
+
               {/* Rekap absensi */}
               <Card>
                 <CardHeader
@@ -362,7 +368,7 @@ export function QuickAttendancePage() {
                               <p className="font-medium text-sm">{formatLongDateID(s.date)}</p>
                               <p className="text-xs text-slate-500">
                                 {isManual ? "Manual" : `Jam ${s.startPeriod} · ${s.startTime}–${s.endTime}`}
-                                {s.plannedUnitId ? " · Punya rencana Prota" : ""}
+                                {s.plannedUnitId ? " · Punya rencana materi" : ""}
                               </p>
                             </div>
                             <Badge variant="warning">

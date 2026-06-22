@@ -1,36 +1,25 @@
 /**
- * PATCH-06: Bank ATP/TP + LKPD + AI Prompt Generator.
- * Sumber: docs/V0_6_2_PRODUCT_DECISIONS.md §6, §7
+ * Bank ATP/TP — Tujuan Pembelajaran per guru per mapel per kelas.
  *
- * ATP/TP menyimpan: kelas, bab, elemen, CP, TP, profil Pelajar Pancasila, kata kunci, alokasi JP.
- * LKPD wajib pilih TP.
- * AI hanya prompt generator — guru klik "Salin Prompt".
+ * APP-USABLE-RC1: pakai atp-entry-repo formal (Dexie schema resmi),
+ * bukan db.table("atp_entries") dynamic.
+ *
+ * ATP/TP menyimpan: kelas, bab, elemen, CP, TP, profil Pelajar Pancasila,
+ * kata kunci, alokasi JP. LKPD wajib pilih TP (lihat menu LKPD).
+ * AI Prompt tetap ada sebagai generator prompt (guru salin manual).
  */
 
 import { useEffect, useState } from "react";
 import { Card, CardHeader, Input, Textarea, Button, EmptyState, Badge } from "../../shared/ui";
 import { getActiveAcademicYear, getTeacherProfile } from "../../shared/db/profile-repo";
-import { db } from "../../shared/db/schema";
-import { uuid, nowTimestamp } from "@guru-admin/shared";
-import type { AcademicYear, TeacherProfile } from "@guru-admin/domain";
-
-interface ATPEntry {
-  id: string;
-  academicYearId: string;
-  teacherId: string;
-  subject: string;
-  grade: string;
-  phase: string;
-  bab: string;
-  elemen: string;
-  cp: string;
-  tp: string;
-  profilPelajar: string;
-  kataKunci: string;
-  alokasiJP: number;
-  createdAt: string;
-  updatedAt: string;
-}
+import {
+  listATPEntries,
+  saveATPEntry,
+  updateATPEntry,
+  deleteATPEntry,
+} from "../../shared/db/atp-entry-repo";
+import type { AcademicYear, TeacherProfile, ATPEntry } from "@guru-admin/domain";
+import { atpEntryLabel } from "@guru-admin/domain";
 
 export function ATPPage() {
   const [loading, setLoading] = useState(true);
@@ -48,8 +37,7 @@ export function ATPPage() {
       setYear(y ?? null);
       setTeacher(tp);
       if (y && tp) {
-        const all = await db.table("atp_entries").toArray().catch(() => []);
-        setEntries((all as ATPEntry[]).filter((e) => e.academicYearId === y.id && e.teacherId === tp.id));
+        setEntries(await listATPEntries({ academicYearId: y.id, teacherId: tp.id }));
       }
       setLoading(false);
     })();
@@ -57,35 +45,36 @@ export function ATPPage() {
 
   async function reload() {
     if (!year || !teacher) return;
-    const all = await db.table("atp_entries").toArray().catch(() => []);
-    setEntries((all as ATPEntry[]).filter((e) => e.academicYearId === year.id && e.teacherId === teacher.id));
+    setEntries(await listATPEntries({ academicYearId: year.id, teacherId: teacher.id }));
   }
 
-  async function handleSave(data: Omit<ATPEntry, "id" | "createdAt" | "updatedAt" | "academicYearId" | "teacherId">) {
+  async function handleSave(data: Omit<ATPEntry, "id" | "createdAt" | "updatedAt" | "deletedAt" | "syncStatus" | "academicYearId" | "teacherId" | "status">) {
     if (!year || !teacher) return;
-    const now = nowTimestamp();
-    if (editing) {
-      await db.table("atp_entries").put({ ...editing, ...data, updatedAt: now });
-      setMessage("TP diperbarui.");
-    } else {
-      const entry: ATPEntry = {
-        ...data,
-        id: uuid(),
-        academicYearId: year.id,
-        teacherId: teacher.id,
-        createdAt: now,
-        updatedAt: now,
-      };
-      await db.table("atp_entries").put(entry);
-      setMessage("TP ditambahkan.");
+    try {
+      if (editing) {
+        await updateATPEntry(editing.id, data);
+        setMessage("TP diperbarui.");
+      } else {
+        await saveATPEntry({
+          ...data,
+          academicYearId: year.id,
+          teacherId: teacher.id,
+          teacherName: teacher.name,
+          status: "draft",
+        });
+        setMessage("TP ditambahkan.");
+      }
+      setShowForm(false);
+      setEditing(null);
+      void reload();
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message : "Gagal simpan.");
     }
-    setShowForm(false);
-    setEditing(null);
-    void reload();
   }
 
   async function handleDelete(id: string) {
-    await db.table("atp_entries").delete(id);
+    if (!confirm("Hapus TP ini? LKPD yang memakai TP ini tetap ada (TP-nya jadi snapshot).")) return;
+    await deleteATPEntry(id);
     setMessage("TP dihapus.");
     void reload();
   }
@@ -96,9 +85,9 @@ export function ATPPage() {
 Tujuan Pembelajaran: ${entry.tp}
 Elemen: ${entry.elemen}
 Capaian Pembelajaran: ${entry.cp}
-Bab: ${entry.bab}
-Profil Pelajar Pancasila: ${entry.profilPelajar}
-Kata Kunci: ${entry.kataKunci}
+Bab: ${entry.bab ?? "-"}
+Profil Pelajar Pancasila: ${entry.profilPelajar ?? "-"}
+Kata Kunci: ${entry.kataKunci ?? "-"}
 Alokasi JP: ${entry.alokasiJP} JP
 
 Format: sesuaikan dengan standar Kurikulum Merdeka untuk ${entry.grade}.`;
@@ -123,13 +112,22 @@ Format: sesuaikan dengan standar Kurikulum Merdeka untuk ${entry.grade}.`;
   return (
     <div className="space-y-4">
       <div className="page-header">
-        <h1 className="text-2xl font-bold text-slate-900">Bank ATP/TP</h1>
-        <p className="text-sm text-slate-500 mt-1">Pusat sinkron semua dokumen perangkat.</p>
+        <h1 className="text-2xl font-bold text-slate-900">Bank TP (Tujuan Pembelajaran)</h1>
+        <p className="text-sm text-slate-500 mt-1">
+          {year ? `TP ${year.label}` : "Belum ada tahun aktif"} · {teacher?.name ?? "Belum ada guru"}
+        </p>
       </div>
 
       {message && <div className="info-banner-success">{message}</div>}
 
-      <Button onClick={() => { setEditing(null); setShowForm(true); }}>+ Tambah TP</Button>
+      <Card>
+        <div className="flex justify-between items-center">
+          <p className="text-sm text-slate-600">
+            Pusat bank Tujuan Pembelajaran. Dipakai untuk membuat LKPD, RPP, dan jurnal.
+          </p>
+          <Button onClick={() => { setEditing(null); setShowForm(true); }}>+ Tambah TP</Button>
+        </div>
+      </Card>
 
       {showForm && (
         <ATPForm
@@ -143,7 +141,7 @@ Format: sesuaikan dengan standar Kurikulum Merdeka untuk ${entry.grade}.`;
       )}
 
       {entries.length === 0 ? (
-        <Card><EmptyState title="Belum ada TP" description="Tambah TP untuk sinkronisasi dokumen." /></Card>
+        <Card><EmptyState title="Belum ada TP" description="Tambah TP untuk membuat LKPD, RPP, dan jurnal." /></Card>
       ) : (
         <div className="space-y-2">
           {entries.map((e) => (
@@ -151,9 +149,10 @@ Format: sesuaikan dengan standar Kurikulum Merdeka untuk ${entry.grade}.`;
               <div className="flex items-start justify-between gap-2">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-medium text-sm">{e.subject} — {e.grade}</span>
-                    <Badge variant="neutral">Bab: {e.bab}</Badge>
-                    <Badge variant="neutral">{e.alokasiJP} JP</Badge>
+                    <span className="font-medium text-sm">{atpEntryLabel(e)}</span>
+                    <Badge variant={e.status === "final" ? "success" : "neutral"}>
+                      {e.status === "final" ? "Final" : "Draft"}
+                    </Badge>
                   </div>
                   <p className="text-sm text-slate-700 mt-1"><strong>TP:</strong> {e.tp}</p>
                   <p className="text-xs text-slate-500 mt-1">Elemen: {e.elemen} · CP: {e.cp}</p>
@@ -163,7 +162,7 @@ Format: sesuaikan dengan standar Kurikulum Merdeka untuk ${entry.grade}.`;
                 <div className="flex flex-col gap-1 shrink-0">
                   <Button variant="secondary" className="text-xs px-2 py-1" onClick={() => { setEditing(e); setShowForm(true); }}>Edit</Button>
                   <Button variant="danger" className="text-xs px-2 py-1" onClick={() => handleDelete(e.id)}>Hapus</Button>
-                  <Button variant="secondary" className="text-xs px-2 py-1" onClick={() => setShowAIPrompt(e.id)}>AI Prompt</Button>
+                  <Button variant="secondary" className="text-xs px-2 py-1" onClick={() => setShowAIPrompt(showAIPrompt === e.id ? null : e.id)}>Prompt AI</Button>
                 </div>
               </div>
 
@@ -209,7 +208,7 @@ function ATPForm({
   defaultSubject: string;
   defaultGrade: string;
   defaultPhase: string;
-  onSave: (data: Omit<ATPEntry, "id" | "createdAt" | "updatedAt" | "academicYearId" | "teacherId">) => void;
+  onSave: (data: Omit<ATPEntry, "id" | "createdAt" | "updatedAt" | "deletedAt" | "syncStatus" | "academicYearId" | "teacherId" | "status">) => void;
   onCancel: () => void;
 }) {
   const [form, setForm] = useState({
@@ -223,6 +222,7 @@ function ATPForm({
     profilPelajar: editing?.profilPelajar ?? "",
     kataKunci: editing?.kataKunci ?? "",
     alokasiJP: editing?.alokasiJP ?? 2,
+    teacherName: editing?.teacherName ?? "",
   });
 
   const set = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) =>
@@ -230,15 +230,15 @@ function ATPForm({
 
   return (
     <Card>
-      <CardHeader title={editing ? "Edit TP" : "Tambah TP"} />
+      <CardHeader title={editing ? "Edit TP" : "Tambah TP"} description="Wajib: Mapel, Kelas, Fase, Elemen, CP, TP, Alokasi JP." />
       <div className="space-y-3">
         <div className="grid sm:grid-cols-3 gap-3">
           <Input label="Mapel" id="atp-subject" value={form.subject} onChange={(v) => set("subject", v)} />
-          <Input label="Kelas" id="atp-grade" value={form.grade} onChange={(v) => set("grade", v)} />
-          <Input label="Fase" id="atp-phase" value={form.phase} onChange={(v) => set("phase", v)} />
+          <Input label="Kelas" id="atp-grade" value={form.grade} onChange={(v) => set("grade", v)} placeholder="VII" />
+          <Input label="Fase" id="atp-phase" value={form.phase} onChange={(v) => set("phase", v)} placeholder="D" />
         </div>
         <div className="grid sm:grid-cols-2 gap-3">
-          <Input label="Bab" id="atp-bab" value={form.bab} onChange={(v) => set("bab", v)} />
+          <Input label="Bab" id="atp-bab" value={form.bab} onChange={(v) => set("bab", v)} placeholder="Bab 1" />
           <Input label="Elemen" id="atp-elemen" value={form.elemen} onChange={(v) => set("elemen", v)} />
         </div>
         <Textarea label="Capaian Pembelajaran (CP)" id="atp-cp" value={form.cp} onChange={(v) => set("cp", v)} rows={2} />

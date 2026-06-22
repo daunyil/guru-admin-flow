@@ -1,6 +1,6 @@
 /**
  * Root App: router + AppShell.
- * v0.6.3 (PATCH-FLOW-RC2C): 18 routes — +/assignments (Data Mengajar).
+ * APP-USABLE-RC1: 20 routes — +/lkpd, +/atp tetap, semua flow pakai assignment.
  */
 
 import { HashRouter, Routes, Route } from "react-router-dom";
@@ -19,6 +19,7 @@ import { QuickAttendancePage } from "./modules/attendance/QuickAttendancePage";
 import { QuickJournalPage } from "./modules/journal/QuickJournalPage";
 import { GradesPage } from "./modules/grades/GradesPage";
 import { ATPPage } from "./modules/atp/ATPPage";
+import { LKPDPage } from "./modules/lkpd/LKPDPage";
 import { RPPPage } from "./modules/rpp/RPPPage";
 import { SemesterReportPage } from "./modules/semester-report/SemesterReportPage";
 import { CompletenessPage } from "./modules/completeness/CompletenessPage";
@@ -42,6 +43,7 @@ export function App() {
           <Route path="/journal" element={<QuickJournalPage />} />
           <Route path="/grades" element={<GradesPage />} />
           <Route path="/atp" element={<ATPPage />} />
+          <Route path="/lkpd" element={<LKPDPage />} />
           <Route path="/rpp" element={<RPPPage />} />
           <Route path="/semester-report" element={<SemesterReportPage />} />
           <Route path="/completeness" element={<CompletenessPage />} />

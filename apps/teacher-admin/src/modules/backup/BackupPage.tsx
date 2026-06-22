@@ -51,6 +51,8 @@ export function BackupPage() {
           teachingJournals: backup.data.teachingJournals.length,
           semesterReports: backup.data.semesterReports.length,
           gradeBooks: backup.data.gradeBooks.length,
+          atpEntries: backup.data.atpEntries.length,
+          lkpds: backup.data.lkpds.length,
           documentSnapshots: backup.data.documentSnapshots.length,
         },
         hasSchoolProfile: backup.data.schoolProfile !== null,

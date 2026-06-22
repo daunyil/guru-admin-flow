@@ -23,6 +23,8 @@ import {
   type TeachingJournal,
   type SemesterReport,
   type GradeBook,
+  type ATPEntry,
+  type LKPD,
   type DocumentSnapshot,
 } from "@guru-admin/domain";
 import { APP_VERSION, DATA_SCHEMA_VERSION, nowTimestamp } from "@guru-admin/shared";
@@ -47,6 +49,8 @@ export async function exportBackup(): Promise<BackupFile> {
     teachingJournals,
     semesterReports,
     gradeBooks,
+    atpEntries,
+    lkpds,
     documentSnapshots,
   ] = await Promise.all([
     listEntities<AcademicYear>("academicYears"),
@@ -63,6 +67,8 @@ export async function exportBackup(): Promise<BackupFile> {
     listEntities<TeachingJournal>("teachingJournals"),
     listEntities<SemesterReport>("semesterReports"),
     listEntities<GradeBook>("gradeBooks"),
+    listEntities<ATPEntry>("atpEntries"),
+    listEntities<LKPD>("lkpds"),
     listEntities<DocumentSnapshot>("documentSnapshots"),
   ]);
 
@@ -90,6 +96,8 @@ export async function exportBackup(): Promise<BackupFile> {
       teachingJournals,
       semesterReports,
       gradeBooks,
+      atpEntries,
+      lkpds,
       documentSnapshots,
     },
   };
@@ -144,6 +152,8 @@ export async function restoreBackup(input: unknown): Promise<BackupSummary> {
       db.teachingJournals,
       db.semesterReports,
       db.gradeBooks,
+      db.atpEntries,
+      db.lkpds,
       db.documentSnapshots,
       db.syncQueue,
     ],
@@ -164,6 +174,8 @@ export async function restoreBackup(input: unknown): Promise<BackupSummary> {
         db.teachingJournals.clear(),
         db.semesterReports.clear(),
         db.gradeBooks.clear(),
+        db.atpEntries.clear(),
+        db.lkpds.clear(),
         db.documentSnapshots.clear(),
         db.syncQueue.clear(),
       ]);
@@ -198,6 +210,11 @@ export async function restoreBackup(input: unknown): Promise<BackupSummary> {
       await db.teachingJournals.bulkPut(backup.data.teachingJournals);
       await db.semesterReports.bulkPut(backup.data.semesterReports);
       await db.gradeBooks.bulkPut(backup.data.gradeBooks);
+      // APP-USABLE-RC1: atpEntries + lkpds (backward compat: default [])
+      const atpEntries = (backup.data as { atpEntries?: ATPEntry[] }).atpEntries ?? [];
+      const lkpds = (backup.data as { lkpds?: LKPD[] }).lkpds ?? [];
+      await db.atpEntries.bulkPut(atpEntries);
+      await db.lkpds.bulkPut(lkpds);
       await db.documentSnapshots.bulkPut(backup.data.documentSnapshots);
     }
   );

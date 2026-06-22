@@ -15,7 +15,7 @@
 
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Card, CardHeader, Input, Textarea, Button, EmptyState, Badge, Select } from "../../shared/ui";
+import { Card, CardHeader, Input, Textarea, Button, EmptyState, Badge, Select, ContextCard } from "../../shared/ui";
 import {
   getLessonSessionsByDate,
   getLessonSession,
@@ -46,6 +46,7 @@ import type {
 import {
   assignmentShortLabel,
   recapJournalsForAssignment,
+  buildContextInfo,
 } from "@guru-admin/domain";
 import { formatLongDateID, todayISODate } from "@guru-admin/shared";
 
@@ -227,6 +228,11 @@ export function QuickJournalPage() {
 
       {assignment && recap && (
         <>
+          {/* Context card */}
+          {year && (
+            <ContextCard info={buildContextInfo({ assignment, academicYear: year })} />
+          )}
+
           {/* Rekap jurnal */}
           <Card>
             <CardHeader
@@ -383,7 +389,7 @@ export function QuickJournalPage() {
                             </p>
                             <p className="text-xs text-slate-500">
                               {isManual ? "Manual" : `Jam ${s.startPeriod} · ${s.startTime}–${s.endTime}`}
-                              {s.plannedUnitId ? " · Punya rencana Prota" : ""}
+                              {s.plannedUnitId ? " · Punya rencana materi" : ""}
                             </p>
                           </div>
                           <Badge variant="warning">
