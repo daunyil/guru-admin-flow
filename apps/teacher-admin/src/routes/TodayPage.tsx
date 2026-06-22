@@ -21,6 +21,7 @@ import {
 import { getLessonSessionsByDate } from "../shared/db/lesson-session-repo";
 import { listJournals } from "../shared/db/journal-repo";
 import { getAttendanceByTeacherDate } from "../shared/db/attendance-repo";
+import { listAssignmentsByTeacher } from "../shared/db/teaching-assignment-repo";
 import { seedSampleData } from "../shared/db/seed-sample-data";
 import type {
   AcademicYear,
@@ -29,6 +30,7 @@ import type {
   LessonSession,
   TeachingJournal,
   AttendanceRecord,
+  TeachingAssignment,
 } from "@guru-admin/domain";
 import { formatLongDateID, todayISODate } from "@guru-admin/shared";
 
@@ -47,6 +49,7 @@ export function TodayPage() {
   const [todaySessions, setTodaySessions] = useState<LessonSession[]>([]);
   const [journals, setJournals] = useState<TeachingJournal[]>([]);
   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
+  const [assignments, setAssignments] = useState<TeachingAssignment[]>([]);
   const [seeding, setSeeding] = useState(false);
   const [seedMsg, setSeedMsg] = useState<string | null>(null);
 
@@ -73,6 +76,13 @@ export function TodayPage() {
         if (year) {
           const allJournals = await listJournals(year.id);
           setJournals(allJournals);
+
+          // PATCH-FLOW-RC2C: load assignments for context
+          const today = new Date();
+          const todayISO = today.toISOString().slice(0, 10);
+          const sem: 1 | 2 =
+            year.semester2Start <= todayISO && todayISO <= year.semester2End ? 2 : 1;
+          setAssignments(await listAssignmentsByTeacher(tp.id, year.id, sem));
         }
       }
       setLoading(false);
@@ -193,12 +203,32 @@ export function TodayPage() {
         </Card>
       ) : (
         <>
+          {/* PATCH-FLOW-RC2C: warning bila belum ada Data Mengajar */}
+          {assignments.length === 0 && (
+            <Card className="border-amber-200 bg-amber-50">
+              <div className="flex items-start gap-3">
+                <span className="text-amber-600 text-xl">⚠</span>
+                <div className="flex-1">
+                  <p className="font-semibold text-amber-900">Belum ada Data Mengajar</p>
+                  <p className="text-sm text-amber-800 mt-1">
+                    Buat Data Mengajar dulu sebelum absen/jurnal/nilai. Assignment mengikat
+                    guru+mapel+kelas+semester+tahun pelajaran supaya data tidak bercampur.
+                  </p>
+                  <Link to="/assignments">
+                    <Button variant="secondary" className="text-sm mt-2">Buat Data Mengajar</Button>
+                  </Link>
+                </div>
+              </div>
+            </Card>
+          )}
+
           {/* Tombol utama */}
           <Card>
             <CardHeader title="Mulai Cepat" />
             <div className="flex gap-2 flex-wrap">
               <Link to="/attendance"><Button variant="secondary">Absen Sekarang</Button></Link>
               <Link to="/journal"><Button variant="secondary">Buat Jurnal</Button></Link>
+              <Link to="/grades"><Button variant="secondary">Input Nilai</Button></Link>
               <Link to="/semester-report"><Button variant="secondary">Dokumen</Button></Link>
               <Link to="/backup"><Button variant="secondary">Backup</Button></Link>
             </div>

@@ -78,6 +78,18 @@ export {
   type TeachingSchedule,
 } from "./teaching-schedule";
 
+/* PATCH-FLOW-RC2C — TeachingAssignment (Data Mengajar) */
+export {
+  teachingAssignmentSchema,
+  parseTeachingAssignment,
+  safeParseTeachingAssignment,
+  assignmentCompositeKey,
+  isSameAssignmentContext,
+  assignmentLabel,
+  assignmentShortLabel,
+  type TeachingAssignment,
+} from "./teaching-assignment";
+
 export {
   lessonSessionSchema,
   lessonSessionStatusSchema,

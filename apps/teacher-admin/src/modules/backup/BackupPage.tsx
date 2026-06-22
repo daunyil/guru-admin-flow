@@ -44,6 +44,7 @@ export function BackupPage() {
           calendarEvents: backup.data.calendarEvents.length,
           protaProfiles: backup.data.protaProfiles.length,
           teachingSchedules: backup.data.teachingSchedules.length,
+          teachingAssignments: backup.data.teachingAssignments.length,
           lessonSessions: backup.data.lessonSessions.length,
           attendanceRecords: backup.data.attendanceRecords.length,
           classRosters: backup.data.classRosters.length,

@@ -478,3 +478,50 @@ Stage Summary:
 - 9 file changed (2 baru, 7 modifikasi).
 - Status: READY FOR SENIOR AUDIT.
 - Push PENDING: butuh token.
+
+---
+
+Task ID: PATCH-FLOW-RC2C
+Agent: main (PATCH-FLOW-RC2C batch execution)
+Task: Introduce TeachingAssignment ("Data Mengajar") + meeting-first jurnal. Semua flow dikunci ke (academicYearId, semester, teacherId, subject, classId).
+
+Work Log:
+- Branch: patch-flow-rc2c dari main (ac598ce).
+- Domain layer:
+  - packages/domain/src/teaching-assignment.ts (NEW): schema + parse + safeParse + assignmentCompositeKey + isSameAssignmentContext + assignmentLabel + assignmentShortLabel.
+  - packages/domain/src/backup.ts: + teachingAssignments field di backupFileSchema (default []), + teachingAssignments count di BackupSummary.
+  - packages/domain/src/index.ts: export TeachingAssignment + helpers.
+  - packages/shared/src/constants.ts: DATA_SCHEMA_VERSION naik ke 3.
+- Domain tests:
+  - test/teaching-assignment.test.ts (NEW): 13 test (schema validation, composite key, isSameAssignmentContext, labels).
+- App DB layer:
+  - apps/teacher-admin/src/shared/db/schema.ts: + teachingAssignments table dengan composite index [academicYearId+semester+teacherId+classId+subject]. Dexie version(3).
+  - apps/teacher-admin/src/shared/db/crud.ts: + "teachingAssignments" di TableName union.
+  - apps/teacher-admin/src/shared/db/backup-repo.ts: + teachingAssignments di exportBackup + restoreBackup (dengan backward compat: default [] bila backup lama tidak punya field).
+  - apps/teacher-admin/src/shared/db/teaching-assignment-repo.ts (NEW): listAssignments, listAssignmentsByTeacher, getAssignment, findAssignment (by 5-tuple), saveAssignment (validate unique), updateAssignment, deleteAssignment, autoGenerateFromSchedules (dari TeachingSchedule, skip existing).
+- App UI layer:
+  - apps/teacher-admin/src/modules/assignments/AssignmentsPage.tsx (NEW): halaman /assignments. List assignments per semester, tambah manual (pilih roster + mapel + JP), auto-gen dari jadwal, hapus. Info card cara pakai.
+  - apps/teacher-admin/src/modules/grades/GradesPage.tsx: REWRITE. Pakai assignment picker (bukan pilih kelas+mapel terpisah). gradeBooks difilter via findGradeBook dengan context dari assignment.
+  - apps/teacher-admin/src/modules/attendance/QuickAttendancePage.tsx: REWRITE manual/susulan. Pakai assignment picker. Setelah assignment dipilih, guru + mapel + kelas otomatis terikat. CTA ke /assignments bila belum ada assignment.
+  - apps/teacher-admin/src/modules/journal/QuickJournalPage.tsx: REWRITE jadi MEETING-FIRST. Step 1: pilih assignment. Step 2: pilih pertemuan (dari LessonSession) — badge ✓ Jurnal / Belum jurnal. Editor auto-fill dari assignment + session + Prota + absensi. Jurnal Susulan: tampilkan daftar pertemuan lewat yang belum jurnal.
+  - apps/teacher-admin/src/routes/TodayPage.tsx: + warning card bila belum ada assignments. CTA "Buat Data Mengajar". + tombol Input Nilai di mulai cepat.
+  - apps/teacher-admin/src/App.tsx: + route /assignments.
+  - apps/teacher-admin/src/shared/layout/AppShell.tsx: + menu "Data Mengajar" (icon BookMarked).
+  - apps/teacher-admin/src/shared/layout/icons.tsx: + BookMarked icon.
+  - apps/teacher-admin/src/modules/backup/BackupPage.tsx: + teachingAssignments count di summary.
+
+Verifikasi:
+- Typecheck: 3 workspace PASS, 0 error.
+- Test: 212/212 PASS (189 domain + 23 shared). RC2C tambah 13 test (teaching-assignment).
+- Build: vite build 2.82s, 116 modules, 557KB JS / 155KB gzip.
+
+Stage Summary:
+- TeachingAssignment sekarang entitas first-class dengan composite key (academicYearId, semester, teacherId, subject, classId). Unique by 5-tuple.
+- Semua flow utama (Nilai, Absensi manual/susulan, Jurnal) sekarang memakai assignment picker. Guru tidak lagi pilih kelas+mapel secara terpisah.
+- Jurnal jadi MEETING-FIRST: pilih assignment → pilih pertemuan → auto-fill → Setujui & Simpan.
+- Auto-gen dari TeachingSchedule: bila jadwal sudah ada, klik 1 tombol di /assignments untuk auto-buat semua assignment.
+- Backup/Restore: backward compatible. Backup lama (schemaVersion 2) tetap bisa di-restore (teachingAssignments default []).
+- TodayPage warning bila belum ada assignment: guru tidak akan nyasar ke flow tanpa context.
+- 16 file changed (5 baru, 11 modifikasi).
+- Status: READY FOR SENIOR AUDIT.
+- Push PENDING: butuh token.

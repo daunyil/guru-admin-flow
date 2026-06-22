@@ -2,25 +2,49 @@
  * PATCH-03: Quick Journal — jurnal 10-30 detik.
  * Sumber: docs/V0_6_2_PRODUCT_DECISIONS.md §4
  *
- * Guru cukup: Setujui & Simpan / Ganti Materi / Salin Sebelumnya
- * Tidak pakai kolom Terlambat/T di dokumen.
+ * PATCH-FLOW-RC2C: jurnal MEETING-FIRST (bukan form-first).
  *
- * PATCH-FLOW-RC1:
- *   - Tombol "Jurnal Manual" tidak palsu: ada mode Manual yang benar-benar
- *     membuat LessonSession ad-hoc (sama dengan absensi manual).
- *   - Karena session sekarang NYATA (bukan virtual ID), editor jurnal
- *     bisa menemukan session via getLessonSession.
+ * Flow:
+ *   1. Pilih Data Mengajar (assignment) — kunci context.
+ *   2. App tampilkan daftar PERTEMUAN (LessonSession) untuk assignment itu.
+ *      - Pertemuan yang sudah ada jurnal → badge "✓ Jurnal".
+ *      - Pertemuan yang belum → badge "Belum jurnal".
+ *   3. Guru klik pertemuan → editor jurnal auto-fill:
+ *      - Guru, Mapel, Kelas: dari assignment
+ *      - Tanggal, Jam ke: dari pertemuan (LessonSession)
+ *      - Materi, TP: dari Promes (plannedUnit)
+ *      - Kehadiran: dari absensi
+ *   4. Guru klik Setujui & Simpan.
+ *
+ * Jurnal Manual: bila tidak ada pertemuan di tanggal yang dipilih, guru bisa
+ * buat pertemuan ad-hoc dari assignment + tanggal.
  */
 
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Card, CardHeader, Input, Textarea, Button, EmptyState, Badge, Select } from "../../shared/ui";
-import { getLessonSessionsByDate, getLessonSession, findOrCreateManualSession } from "../../shared/db/lesson-session-repo";
-import { findClassRoster, listClassRosters } from "../../shared/db/class-roster-repo";
+import {
+  getLessonSessionsByDate,
+  getLessonSession,
+  findOrCreateManualSession,
+  listLessonSessions,
+} from "../../shared/db/lesson-session-repo";
+import { findClassRoster } from "../../shared/db/class-roster-repo";
 import { initJournalForSessionFull, updateJournal, listJournals } from "../../shared/db/journal-repo";
 import { listProtaProfiles } from "../../shared/db/prota-repo";
 import { getActiveAcademicYear, getTeacherProfile, getSchoolProfile } from "../../shared/db/profile-repo";
-import type { LessonSession, TeachingJournal, ProtaUnit, AcademicYear, SchoolProfile, TeacherProfile, ProtaProfile, ClassRoster } from "@guru-admin/domain";
+import { listAssignmentsByTeacher } from "../../shared/db/teaching-assignment-repo";
+import type {
+  LessonSession,
+  TeachingJournal,
+  ProtaUnit,
+  AcademicYear,
+  SchoolProfile,
+  TeacherProfile,
+  ProtaProfile,
+  TeachingAssignment,
+} from "@guru-admin/domain";
+import { assignmentShortLabel } from "@guru-admin/domain";
 import { formatLongDateID, todayISODate } from "@guru-admin/shared";
 
 type RealizationStatus = TeachingJournal["realizationStatus"];
@@ -30,20 +54,21 @@ const REALIZATION_OPTIONS: Array<{ value: RealizationStatus; label: string }> = 
   { value: "cancelled", label: "Tidak Terlaksana" },
 ];
 
-type JournalMode = "jadwal" | "manual";
+type JournalMode = "pertemuan" | "manual";
 
 export function QuickJournalPage() {
   const [loading, setLoading] = useState(true);
   const [year, setActiveYear] = useState<AcademicYear | null>(null);
   const [school, setSchool] = useState<SchoolProfile | undefined>();
   const [teacher, setTeacher] = useState<TeacherProfile | undefined>();
+  const [assignments, setAssignments] = useState<TeachingAssignment[]>([]);
+  const [selectedAssignmentId, setSelectedAssignmentId] = useState("");
   const [date, setDate] = useState(todayISODate());
   const [sessions, setSessions] = useState<LessonSession[]>([]);
+  const [allAssignmentSessions, setAllAssignmentSessions] = useState<LessonSession[]>([]);
+  const [journals, setJournals] = useState<TeachingJournal[]>([]);
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
-  const [mode, setMode] = useState<JournalMode>("jadwal");
-  const [rosters, setRosters] = useState<ClassRoster[]>([]);
-  const [manualClassId, setManualClassId] = useState("");
-  const [manualSubject, setManualSubject] = useState("");
+  const [mode, setMode] = useState<JournalMode>("pertemuan");
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [searchParams] = useSearchParams();
 
@@ -53,11 +78,12 @@ export function QuickJournalPage() {
       setActiveYear(y ?? null);
       setSchool(sp);
       setTeacher(tp);
-      if (tp) {
-        setSessions(await getLessonSessionsByDate(tp.id, date));
-      }
-      if (y) {
-        setRosters(await listClassRosters(y.id));
+      if (y && tp) {
+        const today = new Date();
+        const todayISO = today.toISOString().slice(0, 10);
+        const sem: 1 | 2 =
+          y.semester2Start <= todayISO && todayISO <= y.semester2End ? 2 : 1;
+        setAssignments(await listAssignmentsByTeacher(tp.id, y.id, sem));
       }
       const urlSessionId = searchParams.get("sessionId");
       if (urlSessionId) setSelectedSessionId(urlSessionId);
@@ -70,39 +96,80 @@ export function QuickJournalPage() {
     if (message?.type === "success") setTimeout(() => setMessage(null), 3000);
   }, [message]);
 
-  async function reloadSessions() {
-    if (!teacher) return;
-    setSessions(await getLessonSessionsByDate(teacher.id, date));
+  function selectedAssignment(): TeachingAssignment | undefined {
+    return assignments.find((a) => a.id === selectedAssignmentId);
+  }
+
+  // Load semua sesi + jurnal untuk assignment yang dipilih
+  async function loadAssignmentData() {
+    if (!year || !teacher) return;
+    const assignment = selectedAssignment();
+    if (!assignment) {
+      setSessions([]);
+      setAllAssignmentSessions([]);
+      setJournals([]);
+      return;
+    }
+    // Sesi untuk tanggal yang dipilih
+    const allToday = await getLessonSessionsByDate(teacher.id, date);
+    const todayForAssignment = allToday.filter(
+      (s) => s.classId === assignment.classId && s.subject === assignment.subject
+    );
+    setSessions(todayForAssignment);
+
+    // Semua sesi untuk assignment (untuk daftar "belum jurnal")
+    const allSessions = await listLessonSessions(year.id, assignment.semester);
+    const assignmentSessions = allSessions.filter(
+      (s) =>
+        s.classId === assignment.classId &&
+        s.subject === assignment.subject &&
+        s.teacherId === assignment.teacherId &&
+        !s.deletedAt
+    );
+    setAllAssignmentSessions(assignmentSessions);
+
+    // Semua jurnal untuk assignment
+    const allJournals = await listJournals(year.id, assignment.semester);
+    const assignmentJournals = allJournals.filter(
+      (j) =>
+        j.classId === assignment.classId &&
+        j.subject === assignment.subject &&
+        j.teacherId === assignment.teacherId
+    );
+    setJournals(assignmentJournals);
   }
 
   useEffect(() => {
-    void reloadSessions();
-  }, [date]);
+    void loadAssignmentData();
+  }, [selectedAssignmentId, date, year]);
 
   async function handleStartManualJournal() {
-    if (!year || !teacher) {
-      setMessage({ type: "error", text: "Tahun pelajaran atau profil guru belum siap." });
+    if (!year || !teacher) return;
+    const assignment = selectedAssignment();
+    if (!assignment) {
+      setMessage({ type: "error", text: "Pilih Data Mengajar dulu." });
       return;
     }
-    const roster = rosters.find((r) => r.id === manualClassId);
+    const roster = await findClassRoster(year.id, assignment.classId);
     if (!roster) {
-      setMessage({ type: "error", text: "Pilih kelas dulu." });
+      setMessage({
+        type: "error",
+        text: `Belum ada roster untuk kelas ${assignment.classLabel}.`,
+      });
       return;
     }
-    const subject = manualSubject || teacher.subjects[0]?.subject || "Manual";
     try {
       const { session } = await findOrCreateManualSession({
         mode: "manual",
         academicYear: year,
         teacherId: teacher.id,
         roster,
-        subject,
+        subject: assignment.subject,
         date,
       });
       setSelectedSessionId(session.id);
-      // Reload sessions list agar muncul di daftar
-      await reloadSessions();
-      setMessage({ type: "success", text: "Sesi manual dibuat. Lanjut isi jurnal." });
+      await loadAssignmentData();
+      setMessage({ type: "success", text: "Sesi jurnal manual dibuat. Isi jurnal di bawah." });
     } catch (e) {
       setMessage({
         type: "error",
@@ -112,6 +179,9 @@ export function QuickJournalPage() {
   }
 
   if (loading) return <p className="text-sm text-slate-500">Memuat...</p>;
+
+  const assignment = selectedAssignment();
+  const journalSessionIds = new Set(journals.map((j) => j.sessionId));
 
   return (
     <div className="space-y-4">
@@ -128,117 +198,178 @@ export function QuickJournalPage() {
         </div>
       )}
 
+      {/* Step 1: Pilih Data Mengajar */}
       <Card>
-        <Input label="" id="jrn-date" type="date" value={date} onChange={setDate} />
-      </Card>
-
-      {/* Mode selector */}
-      <Card>
-        <div className="flex gap-2 flex-wrap">
-          <Button
-            variant={mode === "jadwal" ? "primary" : "secondary"}
-            onClick={() => { setMode("jadwal"); setSelectedSessionId(null); }}
-            className="text-sm"
-          >
-            Dari Jadwal
-          </Button>
-          <Button
-            variant={mode === "manual" ? "primary" : "secondary"}
-            onClick={() => { setMode("manual"); setSelectedSessionId(null); }}
-            className="text-sm"
-          >
-            Jurnal Manual
-          </Button>
-        </div>
-      </Card>
-
-      {/* Mode: Jadwal — list sesi yang ada */}
-      {mode === "jadwal" && (
-        <Card>
-          <CardHeader title="Sesi Mengajar" description={`${sessions.length} sesi`} />
-          {sessions.length === 0 ? (
-            <EmptyState
-              title="Tidak ada sesi hari ini"
-              description="Pakai mode Jurnal Manual, atau buka menu Jadwal untuk generate sesi dari jadwal mengajar."
-            />
-          ) : (
-            <div className="space-y-2">
-              {sessions.map((s) => {
-                const isManual = s.teachingScheduleId === "manual" || s.teachingScheduleId === "susulan";
-                return (
-                  <button
-                    key={s.id}
-                    onClick={() => setSelectedSessionId(s.id)}
-                    className={`w-full text-left p-3 border rounded-md ${
-                      selectedSessionId === s.id ? "border-brand-400 bg-brand-50" : "border-slate-200"
-                    } ${s.status === "cancelled" ? "opacity-50" : ""}`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <span className="font-medium text-sm">
-                          {isManual ? "Manual" : `${s.startTime}–${s.endTime}`}
-                        </span>
-                        <span className="text-sm text-slate-700 ml-2">{s.subject}</span>
-                        <Badge variant="neutral">{s.classLabel}</Badge>
-                      </div>
-                      {s.status === "planned" ? (
-                        isManual
-                          ? <Badge variant="warning">Manual</Badge>
-                          : <Badge variant="success">Tersedia</Badge>
-                      ) : <Badge variant="error">Batal</Badge>}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </Card>
-      )}
-
-      {/* Mode: Manual — form untuk buat sesi ad-hoc */}
-      {mode === "manual" && (
-        <Card>
-          <CardHeader title="Jurnal Manual" description="Buat jurnal untuk kelas+mapel tanpa jadwal." />
-          <div className="space-y-3">
-            <Select
-              label="Kelas"
-              id="jmanual-class"
-              value={manualClassId}
-              onChange={setManualClassId}
-              options={[
-                { value: "", label: "-- Pilih Kelas --" },
-                ...rosters.map((r) => ({ value: r.id, label: r.classLabel })),
-              ]}
-            />
-            <Input
-              label="Mata Pelajaran"
-              id="jmanual-subject"
-              value={manualSubject}
-              onChange={setManualSubject}
-              placeholder={teacher?.subjects[0]?.subject ?? "Pendidikan Pancasila"}
-            />
-            {manualClassId && (
-              <Button onClick={handleStartManualJournal}>
-                Mulai Jurnal Manual
-              </Button>
-            )}
-            <p className="text-xs text-slate-500 mt-1">
-              Catatan: bila absensi manual untuk kelas+mapel+tanggal yang sama sudah ada,
-              sesi akan dipakai ulang (tidak dobel).
-            </p>
-          </div>
-        </Card>
-      )}
-
-      {selectedSessionId && (
-        <QuickJournalEditor
-          sessionId={selectedSessionId}
-          academicYearId={year?.id ?? ""}
-          schoolName={school?.name ?? ""}
-          teacherName={teacher?.name ?? ""}
-          onSaved={(msg) => setMessage({ type: "success", text: msg })}
-          onError={(msg) => setMessage({ type: "error", text: msg })}
+        <CardHeader
+          title="1. Pilih Data Mengajar"
+          description="Pilih paket mengajar. Mapel+kelas+guru otomatis terikat."
         />
+        {assignments.length === 0 ? (
+          <EmptyState
+            title="Belum ada Data Mengajar"
+            description="Buka menu 'Data Mengajar' untuk membuat assignment dulu."
+            action={<Button variant="secondary" onClick={() => (window.location.hash = "#/assignments")}>Buka Data Mengajar</Button>}
+          />
+        ) : (
+          <Select
+            label="Data Mengajar"
+            id="jrn-assignment"
+            value={selectedAssignmentId}
+            onChange={setSelectedAssignmentId}
+            options={[
+              { value: "", label: "-- Pilih --" },
+              ...assignments.map((a) => ({
+                value: a.id,
+                label: `${a.classLabel} · ${a.subject} · ${a.teacherName}`,
+              })),
+            ]}
+          />
+        )}
+      </Card>
+
+      {assignment && (
+        <>
+          {/* Mode selector + date */}
+          <Card>
+            <div className="flex gap-2 flex-wrap items-end">
+              <div className="flex-1 min-w-[160px]">
+                <Input label="" id="jrn-date" type="date" value={date} onChange={setDate} />
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant={mode === "pertemuan" ? "primary" : "secondary"}
+                  onClick={() => setMode("pertemuan")}
+                  className="text-sm"
+                >
+                  Daftar Pertemuan
+                </Button>
+                <Button
+                  variant={mode === "manual" ? "primary" : "secondary"}
+                  onClick={() => setMode("manual")}
+                  className="text-sm"
+                >
+                  Jurnal Manual
+                </Button>
+              </div>
+            </div>
+          </Card>
+
+          {/* Mode: Daftar Pertemuan */}
+          {mode === "pertemuan" && (
+            <Card>
+              <CardHeader
+                title="2. Pilih Pertemuan"
+                description={`Tanggal ${formatLongDateID(date)} · ${sessions.length} sesi`}
+              />
+              {sessions.length === 0 ? (
+                <EmptyState
+                  title="Tidak ada pertemuan di tanggal ini"
+                  description="Pilih tanggal lain, atau pakai Jurnal Manual."
+                  action={
+                    <Button variant="secondary" onClick={() => setMode("manual")}>
+                      Jurnal Manual
+                    </Button>
+                  }
+                />
+              ) : (
+                <div className="space-y-2">
+                  {sessions.map((s) => {
+                    const hasJournal = journalSessionIds.has(s.id);
+                    const isManual = s.teachingScheduleId === "manual" || s.teachingScheduleId === "susulan";
+                    return (
+                      <button
+                        key={s.id}
+                        onClick={() => setSelectedSessionId(s.id)}
+                        className={`w-full text-left p-3 border rounded-md ${
+                          selectedSessionId === s.id ? "border-brand-400 bg-brand-50" : "border-slate-200"
+                        } ${s.status === "cancelled" ? "opacity-50" : ""}`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <span className="font-medium text-sm">
+                              {isManual ? "Manual" : `${s.startTime}–${s.endTime} · Jam ${s.startPeriod}`}
+                            </span>
+                            <Badge variant="neutral">{s.classLabel}</Badge>
+                          </div>
+                          <div className="flex gap-1">
+                            {s.status === "planned" ? (
+                              hasJournal ? (
+                                <Badge variant="success">✓ Jurnal</Badge>
+                              ) : (
+                                <Badge variant="warning">Belum jurnal</Badge>
+                              )
+                            ) : (
+                              <Badge variant="error">Batal</Badge>
+                            )}
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Daftar pertemuan yang belum jurnal (susulan) */}
+              {allAssignmentSessions.filter(
+                (s) => !journalSessionIds.has(s.id) && s.date < todayISODate() && s.status === "planned"
+              ).length > 0 && (
+                <div className="mt-4 pt-4 border-t border-slate-200">
+                  <p className="text-xs text-slate-500 mb-2">
+                    Belum berjurnal (susulan, tanggal lewat):
+                  </p>
+                  <div className="space-y-1 max-h-48 overflow-y-auto">
+                    {allAssignmentSessions
+                      .filter(
+                        (s) => !journalSessionIds.has(s.id) && s.date < todayISODate() && s.status === "planned"
+                      )
+                      .slice(0, 10)
+                      .map((s) => (
+                        <button
+                          key={s.id}
+                          onClick={() => {
+                            setDate(s.date);
+                            setSelectedSessionId(s.id);
+                          }}
+                          className="w-full text-left p-2 border border-amber-200 bg-amber-50 rounded-md text-xs hover:bg-amber-100"
+                        >
+                          {formatLongDateID(s.date)} · Jam {s.startPeriod} ·{" "}
+                          {s.plannedUnitId ? "Punya rencana Prota" : "Tanpa rencana"}
+                        </button>
+                      ))}
+                  </div>
+                </div>
+              )}
+            </Card>
+          )}
+
+          {/* Mode: Jurnal Manual */}
+          {mode === "manual" && (
+            <Card>
+              <CardHeader
+                title="Jurnal Manual"
+                description={`Buat jurnal ad-hoc untuk ${assignmentShortLabel(assignment)} di ${formatLongDateID(date)}`}
+              />
+              <Button onClick={handleStartManualJournal}>Mulai Jurnal Manual</Button>
+              <p className="text-xs text-slate-500 mt-2">
+                Catatan: bila sudah ada sesi manual untuk tanggal+kelas+mapel ini, sesi akan dipakai ulang.
+              </p>
+            </Card>
+          )}
+
+          {selectedSessionId && (
+            <QuickJournalEditor
+              sessionId={selectedSessionId}
+              academicYearId={year?.id ?? ""}
+              schoolName={school?.name ?? ""}
+              teacherName={assignment?.teacherName ?? teacher?.name ?? ""}
+              onSaved={(msg) => {
+                setMessage({ type: "success", text: msg });
+                void loadAssignmentData();
+              }}
+              onError={(msg) => setMessage({ type: "error", text: msg })}
+            />
+          )}
+        </>
       )}
     </div>
   );
@@ -279,11 +410,9 @@ function QuickJournalEditor({
 
       const roster = academicYearId ? await findClassRoster(academicYearId, sess.classId) : null;
 
-      // Load prota for unit options
       if (academicYearId) {
         const ps = await listProtaProfiles(academicYearId); void protas;
         setProtas(ps);
-        // Find units for this subject
         const matchingProta = ps.find((p) => p.subject === sess.subject);
         if (matchingProta) {
           const units = matchingProta.units.filter((u) => u.semester === sess.semester);
@@ -291,7 +420,6 @@ function QuickJournalEditor({
         }
       }
 
-      // Init journal
       const j = await initJournalForSessionFull({
         session: sess,
         roster: roster ?? null,
@@ -330,10 +458,14 @@ function QuickJournalEditor({
   async function handleCopyPrevious() {
     if (!session || !journal) return;
     try {
-      // Find previous journal for same class+subject
       const allJournals = await listJournals(session.academicYearId, session.semester);
       const prev = allJournals
-        .filter((j) => j.classId === session.classId && j.subject === session.subject && j.date < session.date)
+        .filter(
+          (j) =>
+            j.classId === session.classId &&
+            j.subject === session.subject &&
+            j.date < session.date
+        )
         .sort((a, b) => b.date.localeCompare(a.date))[0];
 
       if (prev) {
@@ -346,6 +478,7 @@ function QuickJournalEditor({
         onError("Tidak ada jurnal sebelumnya untuk kelas+mapel ini.");
       }
     } catch (e) {
+      void e;
       onError("Gagal salin jurnal sebelumnya.");
     }
   }
@@ -382,16 +515,19 @@ function QuickJournalEditor({
 
       {/* Auto-fill info */}
       <div className="p-3 bg-slate-50 rounded-md space-y-1 text-sm mb-4">
-        <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">Auto-fill (dari absensi + Prota)</p>
+        <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">
+          Auto-fill (dari assignment + sesi + Prota + absensi)
+        </p>
         <div className="grid grid-cols-2 gap-2 text-xs">
+          <div><span className="text-slate-500">Guru:</span> <strong>{teacherName}</strong></div>
           <div><span className="text-slate-500">Mapel:</span> <strong>{journal.subject}</strong></div>
           <div><span className="text-slate-500">Kelas:</span> <strong>{journal.classLabel}</strong></div>
           <div><span className="text-slate-500">Tanggal:</span> <strong>{formatLongDateID(journal.date)}</strong></div>
           <div><span className="text-slate-500">Materi (Promes):</span> <strong>{journal.plannedMaterialTitle ?? "-"}</strong></div>
+          <div><span className="text-slate-500">TP:</span> <strong>{journal.plannedLearningOutcome ?? "-"}</strong></div>
         </div>
       </div>
 
-      {/* Quick actions */}
       <div className="flex gap-2 flex-wrap mb-4">
         <Button onClick={handleApproveAndSave} disabled={isLocked} className="bg-brand-600">
           ✓ Setujui & Simpan
@@ -404,7 +540,6 @@ function QuickJournalEditor({
         </Button>
       </div>
 
-      {/* Input fields */}
       <div className="space-y-3">
         {availableUnits.length > 0 && (
           <Select
@@ -454,7 +589,6 @@ function QuickJournalEditor({
         />
       </div>
 
-      {/* Mode Dokumen */}
       {showDocument && (
         <div className="print-area mt-4">
           <div className="document-page document-portrait">
@@ -467,16 +601,20 @@ function QuickJournalEditor({
                   <td>Kelas</td><td>{journal.classLabel}</td>
                 </tr>
                 <tr>
+                  <td>Guru</td><td>{teacherName}</td>
                   <td>Tanggal</td><td>{formatLongDateID(journal.date)}</td>
+                </tr>
+                <tr>
                   <td>Jam ke</td><td>{isManualSession ? "Manual" : `${session.startPeriod} (${session.startTime}–${session.endTime})`}</td>
+                  <td>Realisasi</td><td>{REALIZATION_OPTIONS.find((s) => s.value === realizationStatus)?.label}</td>
                 </tr>
               </tbody>
             </table>
             <table className="document-table">
               <tbody>
                 <tr><td style={{ fontWeight: "bold", background: "#f5f5f5" }}>Materi</td><td>{actualMaterialTitle || journal.plannedMaterialTitle || "-"}</td></tr>
+                <tr><td style={{ fontWeight: "bold", background: "#f5f5f5" }}>Tujuan Pembelajaran</td><td>{journal.plannedLearningOutcome ?? "-"}</td></tr>
                 <tr><td style={{ fontWeight: "bold", background: "#f5f5f5" }}>Kehadiran</td><td>H: {journal.presentCount} · S: {journal.sickCount} · I: {journal.excusedCount} · A: {journal.absentCount} · Total: {journal.totalStudents}</td></tr>
-                <tr><td style={{ fontWeight: "bold", background: "#f5f5f5" }}>Realisasi</td><td>{REALIZATION_OPTIONS.find((s) => s.value === realizationStatus)?.label}</td></tr>
                 <tr><td style={{ fontWeight: "bold", background: "#f5f5f5" }}>Catatan</td><td>{note || "-"}</td></tr>
                 <tr><td style={{ fontWeight: "bold", background: "#f5f5f5" }}>Tindak Lanjut</td><td>{followUp || "-"}</td></tr>
               </tbody>

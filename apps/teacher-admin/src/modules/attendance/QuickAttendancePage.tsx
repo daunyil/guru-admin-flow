@@ -2,16 +2,15 @@
  * PATCH-02: Quick Attendance Core — absensi tercepat, tidak terkunci jadwal.
  * Sumber: docs/V0_6_2_PRODUCT_DECISIONS.md §3
  *
- * 3 mode: Dari Jadwal, Manual, Susulan
- * Status: H/S/I/A (tidak ada T di UI)
- * Default: semua H
+ * PATCH-FLOW-RC2C: mode manual/susulan memakai TeachingAssignment sebagai
+ * konteks (bukan pilih kelas+mapel terpisah). Setiap absensi manual otomatis
+ * terikat ke (academicYearId, semester, teacherId, subject, classId) yang
+ * sudah ditetapkan di awal tahun.
  *
- * PATCH-FLOW-RC1:
- *   - Mode manual/susulan memakai LessonSession NYATA (bukan virtual ID),
- *     sehingga jurnal bisa terhubung dan laporan tidak putus.
- *   - Default attendance untuk manual/susulan TIDAK langsung disimpan ke DB.
- *     Disimpan hanya setelah guru klik Simpan.
- *   - findOrCreateManualSession mencegah dobel tanggal+kelas+mapel.
+ * 3 mode:
+ *   - Dari Jadwal: pilih LessonSession dari jadwal mengajar
+ *   - Manual: pilih Data Mengajar + tanggal → auto create LessonSession ad-hoc
+ *   - Susulan: sama dengan Manual, untuk tanggal lewat
  */
 
 import { useEffect, useState } from "react";
@@ -24,10 +23,18 @@ import {
   saveDefaultAttendance,
   getAttendanceBySession,
 } from "../../shared/db/attendance-repo";
-import { findClassRoster, listClassRosters } from "../../shared/db/class-roster-repo";
+import { findClassRoster } from "../../shared/db/class-roster-repo";
 import { getActiveAcademicYear, getTeacherProfile } from "../../shared/db/profile-repo";
+import { listAssignmentsByTeacher } from "../../shared/db/teaching-assignment-repo";
 import { generateDefaultAttendance, summarizeAttendance } from "@guru-admin/domain";
-import type { AcademicYear, AttendanceRecord, ClassRoster, LessonSession, TeacherProfile } from "@guru-admin/domain";
+import type {
+  AcademicYear,
+  AttendanceRecord,
+  ClassRoster,
+  LessonSession,
+  TeacherProfile,
+  TeachingAssignment,
+} from "@guru-admin/domain";
 import { formatLongDateID, todayISODate, nowTimestamp } from "@guru-admin/shared";
 
 type Status = "present" | "sick" | "excused" | "absent";
@@ -49,9 +56,8 @@ export function QuickAttendancePage() {
   const [date, setDate] = useState(todayISODate());
   const [sessions, setSessions] = useState<LessonSession[]>([]);
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
-  const [rosters, setRosters] = useState<ClassRoster[]>([]);
-  const [manualClassId, setManualClassId] = useState<string>("");
-  const [manualSubject, setManualSubject] = useState<string>("");
+  const [assignments, setAssignments] = useState<TeachingAssignment[]>([]);
+  const [selectedAssignmentId, setSelectedAssignmentId] = useState<string>("");
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [searchParams] = useSearchParams();
 
@@ -60,8 +66,12 @@ export function QuickAttendancePage() {
       const [y, tp] = await Promise.all([getActiveAcademicYear(), getTeacherProfile()]);
       setYear(y ?? null);
       setTeacher(tp);
-      if (y) {
-        setRosters(await listClassRosters(y.id));
+      if (y && tp) {
+        const today = new Date();
+        const todayISO = today.toISOString().slice(0, 10);
+        const sem: 1 | 2 =
+          y.semester2Start <= todayISO && todayISO <= y.semester2End ? 2 : 1;
+        setAssignments(await listAssignmentsByTeacher(tp.id, y.id, sem));
       }
       if (tp) {
         const sess = await getLessonSessionsByDate(tp.id, date);
@@ -86,11 +96,54 @@ export function QuickAttendancePage() {
     void reloadSessions();
   }, [date]);
 
+  function selectedAssignment(): TeachingAssignment | undefined {
+    return assignments.find((a) => a.id === selectedAssignmentId);
+  }
+
+  async function handleStartManual() {
+    if (!year || !teacher) return;
+    const assignment = selectedAssignment();
+    if (!assignment) {
+      setMessage({ type: "error", text: "Pilih Data Mengajar dulu." });
+      return;
+    }
+    // Cari roster untuk classId assignment
+    const roster = await findClassRoster(year.id, assignment.classId);
+    if (!roster) {
+      setMessage({
+        type: "error",
+        text: `Belum ada roster untuk kelas ${assignment.classLabel}. Buat dulu di menu Siswa.`,
+      });
+      return;
+    }
+    try {
+      const { session } = await findOrCreateManualSession({
+        mode: mode === "jadwal" ? "manual" : mode,
+        academicYear: year,
+        teacherId: teacher.id,
+        roster,
+        subject: assignment.subject,
+        date,
+      });
+      setSelectedSessionId(session.id);
+      // Reload sessions agar muncul di list
+      await reloadSessions();
+      setMessage({
+        type: "success",
+        text: `Sesi ${mode} dibuat untuk ${assignment.classLabel} · ${assignment.subject}.`,
+      });
+    } catch (e) {
+      setMessage({
+        type: "error",
+        text: e instanceof Error ? e.message : "Gagal membuat sesi.",
+      });
+    }
+  }
+
   if (loading) return <p className="text-sm text-slate-500">Memuat...</p>;
 
   return (
     <div className="space-y-4">
-      {/* Header */}
       <div className="page-header">
         <h1 className="text-2xl font-bold text-slate-900">Absensi Cepat</h1>
         <p className="text-sm text-slate-500 mt-1">
@@ -133,9 +186,7 @@ export function QuickAttendancePage() {
 
       {/* Date picker */}
       <Card>
-        <div className="flex items-center gap-3">
-          <Input label="" id="att-date" type="date" value={date} onChange={setDate} />
-        </div>
+        <Input label="" id="att-date" type="date" value={date} onChange={setDate} />
       </Card>
 
       {/* Mode: Jadwal */}
@@ -145,7 +196,7 @@ export function QuickAttendancePage() {
           {sessions.length === 0 ? (
             <EmptyState
               title="Tidak ada sesi jadwal hari ini"
-              description="Tidak masalah. Pakai mode Manual atau Susulan untuk absen tanpa jadwal."
+              description="Pakai mode Manual atau Susulan dengan Data Mengajar."
             />
           ) : (
             <div className="space-y-2">
@@ -172,43 +223,48 @@ export function QuickAttendancePage() {
         </Card>
       )}
 
-      {/* Mode: Manual */}
-      {mode === "manual" && (
+      {/* Mode: Manual / Susulan — pilih assignment */}
+      {(mode === "manual" || mode === "susulan") && (
         <Card>
-          <CardHeader title="Absen Manual" description="Pilih kelas + mapel, tidak butuh jadwal." />
-          <ManualSessionForm
-            rosters={rosters}
-            teacher={teacher}
-            manualClassId={manualClassId}
-            setManualClassId={setManualClassId}
-            manualSubject={manualSubject}
-            setManualSubject={setManualSubject}
-            mode="manual"
-            year={year}
-            date={date}
-            onSessionReady={(sessionId) => setSelectedSessionId(sessionId)}
-            onError={(msg) => setMessage({ type: "error", text: msg })}
+          <CardHeader
+            title={mode === "manual" ? "Absen Manual" : "Absen Susulan"}
+            description="Pilih Data Mengajar. Mapel+kelas+guru otomatis terikat."
           />
-        </Card>
-      )}
-
-      {/* Mode: Susulan */}
-      {mode === "susulan" && (
-        <Card>
-          <CardHeader title="Absen Susulan" description="Isi absen untuk tanggal yang sudah lewat." />
-          <ManualSessionForm
-            rosters={rosters}
-            teacher={teacher}
-            manualClassId={manualClassId}
-            setManualClassId={setManualClassId}
-            manualSubject={manualSubject}
-            setManualSubject={setManualSubject}
-            mode="susulan"
-            year={year}
-            date={date}
-            onSessionReady={(sessionId) => setSelectedSessionId(sessionId)}
-            onError={(msg) => setMessage({ type: "error", text: msg })}
-          />
+          {assignments.length === 0 ? (
+            <EmptyState
+              title="Belum ada Data Mengajar"
+              description="Buka menu 'Data Mengajar' untuk membuat assignment dulu."
+              action={<Button variant="secondary" onClick={() => (window.location.hash = "#/assignments")}>Buka Data Mengajar</Button>}
+            />
+          ) : (
+            <div className="space-y-3">
+              <Select
+                label="Data Mengajar"
+                id={`${mode}-asg`}
+                value={selectedAssignmentId}
+                onChange={setSelectedAssignmentId}
+                options={[
+                  { value: "", label: "-- Pilih --" },
+                  ...assignments.map((a) => ({
+                    value: a.id,
+                    label: `${a.classLabel} · ${a.subject} · ${a.teacherName}`,
+                  })),
+                ]}
+              />
+              {selectedAssignmentId && (
+                <div className="p-3 bg-slate-50 rounded-md text-sm">
+                  <p><span className="text-slate-500">Guru:</span> <strong>{selectedAssignment()?.teacherName}</strong></p>
+                  <p><span className="text-slate-500">Mapel:</span> <strong>{selectedAssignment()?.subject}</strong></p>
+                  <p><span className="text-slate-500">Kelas:</span> <strong>{selectedAssignment()?.classLabel}</strong></p>
+                </div>
+              )}
+              {selectedAssignmentId && (
+                <Button onClick={handleStartManual}>
+                  {mode === "manual" ? "Mulai Absen" : "Mulai Absen Susulan"}
+                </Button>
+              )}
+            </div>
+          )}
         </Card>
       )}
 
@@ -219,99 +275,9 @@ export function QuickAttendancePage() {
           mode={mode}
           date={date}
           year={year}
-          rosters={rosters}
-          manualSubject={manualSubject}
           onSaved={(msg) => setMessage({ type: "success", text: msg })}
           onError={(msg) => setMessage({ type: "error", text: msg })}
         />
-      )}
-    </div>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/*  Manual Session Form — find-or-create LessonSession ad-hoc         */
-/* ------------------------------------------------------------------ */
-
-function ManualSessionForm({
-  rosters,
-  teacher,
-  manualClassId,
-  setManualClassId,
-  manualSubject,
-  setManualSubject,
-  mode,
-  year,
-  date,
-  onSessionReady,
-  onError,
-}: {
-  rosters: ClassRoster[];
-  teacher?: TeacherProfile;
-  manualClassId: string;
-  setManualClassId: (v: string) => void;
-  manualSubject: string;
-  setManualSubject: (v: string) => void;
-  mode: "manual" | "susulan";
-  year: AcademicYear | null;
-  date: string;
-  onSessionReady: (sessionId: string) => void;
-  onError: (msg: string) => void;
-}) {
-  const [creating, setCreating] = useState(false);
-
-  async function handleStart() {
-    if (!year || !teacher) {
-      onError("Tahun pelajaran atau profil guru belum siap.");
-      return;
-    }
-    const roster = rosters.find((r) => r.id === manualClassId);
-    if (!roster) {
-      onError("Pilih kelas dulu.");
-      return;
-    }
-    const subject = manualSubject || teacher.subjects[0]?.subject || "Manual";
-    setCreating(true);
-    try {
-      const { session } = await findOrCreateManualSession({
-        mode,
-        academicYear: year,
-        teacherId: teacher.id,
-        roster,
-        subject,
-        date,
-      });
-      onSessionReady(session.id);
-    } catch (e) {
-      onError(e instanceof Error ? e.message : "Gagal membuat sesi manual.");
-    } finally {
-      setCreating(false);
-    }
-  }
-
-  return (
-    <div className="space-y-3">
-      <Select
-        label="Kelas"
-        id={`${mode}-class`}
-        value={manualClassId}
-        onChange={setManualClassId}
-        options={[
-          { value: "", label: "-- Pilih Kelas --" },
-          ...rosters.map((r) => ({ value: r.id, label: r.classLabel })),
-        ]}
-      />
-      <Input
-        label="Mata Pelajaran"
-        id={`${mode}-subject`}
-        value={manualSubject}
-        onChange={setManualSubject}
-        placeholder={teacher?.subjects[0]?.subject ?? "Pendidikan Pancasila"}
-      />
-      {manualClassId && (
-        <Button onClick={handleStart} disabled={creating}>
-          {creating ? "Memuat..." : mode === "manual" ? "Mulai Absen" : "Mulai Absen Susulan"}
-        </Button>
       )}
     </div>
   );
@@ -326,8 +292,6 @@ function AttendanceEditor({
   mode,
   date,
   year,
-  rosters,
-  manualSubject,
   onSaved,
   onError,
 }: {
@@ -335,8 +299,6 @@ function AttendanceEditor({
   mode: AttendanceMode;
   date: string;
   year: AcademicYear | null;
-  rosters: ClassRoster[];
-  manualSubject: string;
   onSaved: (msg: string) => void;
   onError: (msg: string) => void;
 }) {
@@ -347,7 +309,7 @@ function AttendanceEditor({
   const [changes, setChanges] = useState<Map<string, Status>>(new Map());
   const [isDraft, setIsDraft] = useState(mode === "susulan");
   const [showDoc, setShowDoc] = useState(false);
-  const [isNewDraft, setIsNewDraft] = useState(false); // true bila default records belum di-persist
+  const [isNewDraft, setIsNewDraft] = useState(false);
 
   useEffect(() => {
     void (async () => {
@@ -355,26 +317,17 @@ function AttendanceEditor({
       if (!sess) { onError("Sesi tidak ditemukan"); setLoading(false); return; }
       setSession(sess);
 
-      // Cari roster untuk sesi ini
-      const r = year
-        ? await findClassRoster(year.id, sess.classId)
-        : rosters.find((rr) => rr.classId === sess.classId) ?? null;
+      const r = year ? await findClassRoster(year.id, sess.classId) : null;
       setRoster(r ?? null);
 
-      // PATCH-FLOW-RC1 P0-5: jangan langsung simpan default records.
-      // Untuk mode manual/susulan, cek dulu apakah records sudah ada di DB.
-      // Bila belum ada → generate default in-memory saja (isNewDraft=true).
-      // Bila sudah ada → load existing.
       const isManualMode = sess.teachingScheduleId === "manual" || sess.teachingScheduleId === "susulan";
 
       if (isManualMode) {
-        // Manual/susulan: cek existing records tanpa auto-save
         const existing = await getAttendanceBySession(sess.id);
         if (existing.length > 0) {
           setRecords(existing);
           setIsNewDraft(false);
         } else if (r) {
-          // Generate default in-memory (TIDAK disimpan dulu)
           const defaults = generateDefaultAttendance({
             roster: r,
             sessionId: sess.id,
@@ -385,7 +338,6 @@ function AttendanceEditor({
           setIsDraft(true);
         }
       } else {
-        // Mode jadwal: pakai initAttendanceForSession (existing behavior, auto-save default)
         const initialized = await initAttendanceForSession({
           sessionId: sess.id,
           date: sess.date,
@@ -413,7 +365,6 @@ function AttendanceEditor({
       if (!session) return;
 
       if (isNewDraft) {
-        // PATCH-FLOW-RC1 P0-5: simpan default records + apply changes di satu transaksi
         const now = nowTimestamp();
         const recordsToSave = records.map((r) => {
           const newStatus = changes.get(r.studentId);
@@ -430,7 +381,6 @@ function AttendanceEditor({
         return;
       }
 
-      // Existing records (mode jadwal atau manual yang sudah pernah disimpan)
       const changesArray = Array.from(changes.entries()).map(([studentId, status]) => ({
         studentId,
         status: status as AttendanceRecord["status"],
@@ -477,12 +427,13 @@ function AttendanceEditor({
     status: getEffectiveStatus(r) as AttendanceRecord["status"],
   }));
   const summary = summarizeAttendance(effectiveRecords);
+  const isManualSession = session?.teachingScheduleId === "manual" || session?.teachingScheduleId === "susulan";
 
   return (
     <Card>
       <CardHeader
         title={`Absensi — ${roster.classLabel}`}
-        description={`${manualSubject || session?.subject || "Mapel"} · ${formatLongDateID(date)}${isDraft ? " · DRAFT" : ""}`}
+        description={`${session?.subject ?? "Mapel"} · ${formatLongDateID(date)}${isDraft ? " · DRAFT" : ""}`}
       />
 
       {/* Summary */}
@@ -505,14 +456,19 @@ function AttendanceEditor({
         </div>
       </div>
 
-      {/* Quick actions */}
+      {isManualSession && (
+        <div className="mb-3 p-2 bg-amber-50 rounded text-xs text-amber-800">
+          {session?.teachingScheduleId === "susulan" ? "Absen Susulan" : "Absen Manual"} —
+          tidak terikat jadwal tetap.
+        </div>
+      )}
+
       <div className="flex gap-2 mb-3 flex-wrap">
         <Button variant="secondary" className="text-xs" onClick={handleFillAllPresent}>
           Isi Semua H
         </Button>
       </div>
 
-      {/* Student list */}
       <div className="space-y-2 max-h-96 overflow-y-auto">
         {records.map((r) => {
           const status = getEffectiveStatus(r);
@@ -548,7 +504,6 @@ function AttendanceEditor({
         })}
       </div>
 
-      {/* Save + Document buttons */}
       <div className="sticky bottom-0 mt-4 pt-3 bg-white border-t border-slate-200 flex gap-2">
         <Button
           onClick={handleSave}
@@ -566,13 +521,12 @@ function AttendanceEditor({
         </Button>
       </div>
 
-      {/* Mode Dokumen — matrix absensi untuk print */}
       {showDoc && (
         <div className="print-area mt-4">
           <div className="document-page document-portrait">
             <div className="document-title">DAFTAR HADIR SISWA</div>
             <div className="document-subtitle">
-              {manualSubject || session?.subject || "Mapel"} — Kelas {roster.classLabel}
+              {session?.subject ?? "Mapel"} — Kelas {roster.classLabel}
             </div>
             <div className="document-subtitle">{formatLongDateID(date)}</div>
             <table className="document-table">

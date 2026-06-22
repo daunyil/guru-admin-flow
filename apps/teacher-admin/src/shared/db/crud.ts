@@ -15,6 +15,7 @@ type TableName =
   | "protaProfiles"
   | "protaUnits"
   | "teachingSchedules"
+  | "teachingAssignments"
   | "lessonSessions"
   | "attendanceRecords"
   | "classRosters"

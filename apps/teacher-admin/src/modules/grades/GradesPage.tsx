@@ -2,34 +2,42 @@
  * PATCH-05: Nilai Cepat — administrasi ringan, bukan sistem ujian.
  * Sumber: docs/V0_6_2_PRODUCT_DECISIONS.md §5
  *
- * Fitur: Isi Semua 80, Acak Terkontrol, Salin Sebelumnya, Paste Excel
- * Remedial otomatis < KKTP, Pengayaan ≥ 90
- *
- * PATCH-FLOW-RC1: pakai gradeBooks schema yang sudah ada (bukan db.table("grades") dynamic).
- * GradeBook adalah entitas per (academicYearId, teacherId, classId, subject, semester),
- * dengan entries[] berisi GradeEntry per student.
+ * PATCH-FLOW-RC2C: pakai TeachingAssignment sebagai konteks utama.
+ *   - Pilih assignment → otomatis dapat (classId, subject, teacherId, semester, academicYearId).
+ *   - Tidak lagi pilih kelas+mapel secara terpisah.
+ *   - gradeBooks difilter via findGradeBook memakai context dari assignment.
+ *   - Hindari campur data antar guru/mapel/kelas.
  */
 
 import { useEffect, useState } from "react";
-import { Card, CardHeader, Input, Select, Button, Badge, Textarea } from "../../shared/ui";
+import { Card, CardHeader, Input, Select, Button, Badge, Textarea, EmptyState } from "../../shared/ui";
 import { listClassRosters } from "../../shared/db/class-roster-repo";
 import { getActiveAcademicYear, getTeacherProfile } from "../../shared/db/profile-repo";
+import {
+  listAssignmentsByTeacher,
+} from "../../shared/db/teaching-assignment-repo";
 import {
   findGradeBook,
   saveGradeBook,
   updateGradeBook,
 } from "../../shared/db/gradebook-repo";
-import type { AcademicYear, TeacherProfile, ClassRoster, GradeBook, GradeEntry } from "@guru-admin/domain";
-import { calculateGradeBookEntries } from "@guru-admin/domain";
+import type {
+  AcademicYear,
+  TeacherProfile,
+  ClassRoster,
+  GradeBook,
+  GradeEntry,
+  TeachingAssignment,
+} from "@guru-admin/domain";
+import { calculateGradeBookEntries, assignmentShortLabel } from "@guru-admin/domain";
 
 export function GradesPage() {
   const [loading, setLoading] = useState(true);
   const [year, setYear] = useState<AcademicYear | null>(null);
   const [teacher, setTeacher] = useState<TeacherProfile | undefined>();
+  const [assignments, setAssignments] = useState<TeachingAssignment[]>([]);
   const [rosters, setRosters] = useState<ClassRoster[]>([]);
-  const [selectedClassId, setSelectedClassId] = useState("");
-  const [selectedSubject, setSelectedSubject] = useState("");
-  const [semester, setSemester] = useState<1 | 2>(1);
+  const [selectedAssignmentId, setSelectedAssignmentId] = useState("");
   const [kktp, setKktp] = useState(75);
   const [entries, setEntries] = useState<GradeEntry[]>([]);
   const [gradeBook, setGradeBook] = useState<GradeBook | null>(null);
@@ -42,23 +50,44 @@ export function GradesPage() {
       setYear(y ?? null);
       setTeacher(tp);
       if (y) setRosters(await listClassRosters(y.id));
-      if (tp?.subjects[0]) setSelectedSubject(tp.subjects[0].subject);
+      if (y && tp) {
+        // Default semester dari tanggal hari ini
+        const today = new Date();
+        const todayISO = today.toISOString().slice(0, 10);
+        const defaultSemester =
+          y.semester2Start <= todayISO && todayISO <= y.semester2End ? 2 : 1;
+        setAssignments(await listAssignmentsByTeacher(tp.id, y.id, defaultSemester));
+      }
       setLoading(false);
     })();
   }, []);
 
-  async function loadEntries() {
-    if (!year || !teacher || !selectedClassId || !selectedSubject) return;
-    const roster = rosters.find((r) => r.id === selectedClassId);
-    if (!roster) return;
+  function selectedAssignment(): TeachingAssignment | undefined {
+    return assignments.find((a) => a.id === selectedAssignmentId);
+  }
 
-    // Cari GradeBook existing via findGradeBook (academicYearId + teacherId + classId + semester + subject)
+  async function loadEntries() {
+    if (!year || !teacher) return;
+    const assignment = selectedAssignment();
+    if (!assignment) {
+      setEntries([]);
+      setGradeBook(null);
+      return;
+    }
+    const roster = rosters.find((r) => r.classId === assignment.classId);
+    if (!roster) {
+      setEntries([]);
+      setGradeBook(null);
+      return;
+    }
+
+    // Cari GradeBook existing via context assignment
     const existing = await findGradeBook({
-      academicYearId: year.id,
-      teacherId: teacher.id,
-      classId: roster.classId,
-      semester,
-      subject: selectedSubject,
+      academicYearId: assignment.academicYearId,
+      teacherId: assignment.teacherId,
+      classId: assignment.classId,
+      semester: assignment.semester,
+      subject: assignment.subject,
     });
 
     if (existing) {
@@ -70,7 +99,7 @@ export function GradesPage() {
           .sort((a, b) => (a.studentNumber ?? 0) - (b.studentNumber ?? 0))
       );
     } else {
-      // Buat entries baru dari roster (in-memory only, belum disimpan sampai klik Simpan)
+      // Buat entries baru dari roster (in-memory only)
       setGradeBook(null);
       const newEntries: GradeEntry[] = roster.students.map((s) => ({
         studentId: s.id,
@@ -91,7 +120,7 @@ export function GradesPage() {
 
   useEffect(() => {
     void loadEntries();
-  }, [selectedClassId, selectedSubject, semester]);
+  }, [selectedAssignmentId]);
 
   function setScore(idx: number, field: "dailyScore" | "finalScore", value: string) {
     const num = value === "" ? null : Math.max(0, Math.min(100, Number(value)));
@@ -110,7 +139,7 @@ export function GradesPage() {
   function handleRandomControlled() {
     setEntries(
       entries.map((e) => {
-        const base = 75 + Math.floor(Math.random() * 20); // 75-94
+        const base = 75 + Math.floor(Math.random() * 20);
         return { ...e, dailyScore: base, finalScore: base };
       })
     );
@@ -136,12 +165,11 @@ export function GradesPage() {
 
   async function handleSave() {
     if (!year || !teacher) return;
-    const roster = rosters.find((r) => r.id === selectedClassId);
-    if (!roster) return;
+    const assignment = selectedAssignment();
+    if (!assignment) return;
 
     try {
       if (gradeBook) {
-        // Update existing GradeBook
         const updated = await updateGradeBook(gradeBook.id, {
           passingScore: kktp,
           entries,
@@ -157,14 +185,13 @@ export function GradesPage() {
           setMessage("Nilai tersimpan.");
         }
       } else {
-        // Create new GradeBook
         const created = await saveGradeBook({
-          academicYearId: year.id,
-          teacherId: teacher.id,
-          classId: roster.classId,
-          classLabel: roster.classLabel,
-          subject: selectedSubject,
-          semester,
+          academicYearId: assignment.academicYearId,
+          teacherId: assignment.teacherId,
+          classId: assignment.classId,
+          classLabel: assignment.classLabel,
+          subject: assignment.subject,
+          semester: assignment.semester,
           passingScore: kktp,
           entries,
           status: "draft",
@@ -185,57 +212,78 @@ export function GradesPage() {
 
   if (loading) return <p className="text-sm text-slate-500">Memuat...</p>;
 
-  // Hitung summary pakai domain helper (auto-derive status)
   const calculated = calculateGradeBookEntries(entries, kktp);
-  const finalScores = calculated
-    .map((e) => e.finalScore)
-    .filter((s): s is number => typeof s === "number");
   const remedialCount = calculated.filter((e) => e.status === "remedial").length;
   const enrichmentCount = calculated.filter((e) => (e.finalScore ?? 0) >= 90).length;
-  const classAverage =
-    finalScores.length > 0
-      ? Math.round((finalScores.reduce((sum, s) => sum + s, 0) / finalScores.length) * 100) / 100
-      : null;
-  void classAverage; // reserved for future display
+  const assignment = selectedAssignment();
 
   return (
     <div className="space-y-4">
       <div className="page-header">
         <h1 className="text-2xl font-bold text-slate-900">Nilai Cepat</h1>
-        <p className="text-sm text-slate-500 mt-1">Administrasi ringan — bukan sistem ujian.</p>
+        <p className="text-sm text-slate-500 mt-1">
+          {assignment
+            ? assignmentShortLabel(assignment)
+            : "Pilih Data Mengajar dulu."}
+        </p>
       </div>
 
       {message && <div className="info-banner-success">{message}</div>}
 
-      {/* Selector */}
+      {/* Assignment selector */}
       <Card>
-        <div className="grid sm:grid-cols-4 gap-3">
-          <Select label="Kelas" id="g-class" value={selectedClassId} onChange={setSelectedClassId}
-            options={[{ value: "", label: "-- Pilih --" }, ...rosters.map((r) => ({ value: r.id, label: r.classLabel }))]} />
-          <Select label="Mapel" id="g-subject" value={selectedSubject} onChange={setSelectedSubject}
-            options={(teacher?.subjects ?? []).map((s) => ({ value: s.subject, label: s.subject }))} />
-          <Select label="Semester" id="g-sem" value={String(semester)} onChange={(v) => setSemester(Number(v) as 1 | 2)}
-            options={[{ value: "1", label: "Semester 1" }, { value: "2", label: "Semester 2" }]} />
-          <Input label="KKTP" id="g-kktp" type="number" value={String(kktp)} onChange={(v) => { setKktp(Number(v) || 75); setDirty(true); }} />
-        </div>
+        <CardHeader
+          title="Pilih Data Mengajar"
+          description="Pilih paket mengajar. Mapel+kelas+guru otomatis terikat."
+        />
+        {assignments.length === 0 ? (
+          <EmptyState
+            title="Belum ada Data Mengajar"
+            description="Buka menu 'Data Mengajar' untuk membuat assignment dulu."
+            action={<Button variant="secondary" onClick={() => (window.location.hash = "#/assignments")}>Buka Data Mengajar</Button>}
+          />
+        ) : (
+          <Select
+            label="Data Mengajar"
+            id="g-assignment"
+            value={selectedAssignmentId}
+            onChange={setSelectedAssignmentId}
+            options={[
+              { value: "", label: "-- Pilih --" },
+              ...assignments.map((a) => ({
+                value: a.id,
+                label: `${a.classLabel} · ${a.subject} · ${a.teacherName}`,
+              })),
+            ]}
+          />
+        )}
       </Card>
 
-      {selectedClassId && entries.length > 0 && (
+      {assignment && entries.length > 0 && (
         <>
-          {/* Quick actions */}
+          {/* KKTP + quick actions */}
           <Card>
-            <div className="flex gap-2 flex-wrap items-center">
-              <Button variant="secondary" className="text-sm" onClick={handleFillAll80}>Isi Semua 80</Button>
-              <Button variant="secondary" className="text-sm" onClick={handleRandomControlled}>Acak Terkontrol</Button>
-              <Button onClick={handleSave} disabled={!dirty} className="text-sm">
-                {dirty ? "Simpan" : "Tersimpan"}
-              </Button>
-              {gradeBook && (
-                <Badge variant="neutral">
-                  GradeBook: {gradeBook.status}
-                </Badge>
-              )}
+            <div className="grid sm:grid-cols-2 gap-3 items-end">
+              <Input
+                label="KKTP"
+                id="g-kktp"
+                type="number"
+                value={String(kktp)}
+                onChange={(v) => { setKktp(Number(v) || 75); setDirty(true); }}
+              />
+              <div className="flex gap-2 flex-wrap">
+                <Button variant="secondary" className="text-sm" onClick={handleFillAll80}>Isi Semua 80</Button>
+                <Button variant="secondary" className="text-sm" onClick={handleRandomControlled}>Acak Terkontrol</Button>
+                <Button onClick={handleSave} disabled={!dirty} className="text-sm">
+                  {dirty ? "Simpan" : "Tersimpan"}
+                </Button>
+              </div>
             </div>
+            {gradeBook && (
+              <div className="mt-3">
+                <Badge variant="neutral">GradeBook: {gradeBook.status}</Badge>
+              </div>
+            )}
           </Card>
 
           {/* Summary */}

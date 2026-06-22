@@ -12,8 +12,11 @@ export const APP_VERSION = "0.6.0";
  * restore wajib memvalidasi bahwa schemaVersion <= DATA_SCHEMA_VERSION.
  *
  * v0.6 menaikkan versi karena menambah GradeBook ke Dexie + Backup JSON.
+ * v0.6.3 (PATCH-FLOW-RC2C) menaikkan versi karena menambah TeachingAssignment
+ * ke Dexie + Backup JSON. Backup lama (v2) tetap bisa di-restore karena
+ * teachingAssignments default=[] bila tidak ada.
  */
-export const DATA_SCHEMA_VERSION = 2;
+export const DATA_SCHEMA_VERSION = 3;
 
 /** Timezone default untuk MVP v1 (Asia/Jakarta). */
 export const DEFAULT_TIMEZONE = "Asia/Jakarta";

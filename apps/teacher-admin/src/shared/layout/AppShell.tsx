@@ -1,6 +1,6 @@
 import { type ReactNode, useEffect, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
-import { GraduationCap, Calendar, User, Database, Plus, ClipboardList, FileText, Clock, Users, CheckCircle, BookOpen, FileSpreadsheet, ListChecks, MoreHorizontal } from "./icons";
+import { GraduationCap, Calendar, User, Database, Plus, ClipboardList, FileText, Clock, Users, CheckCircle, BookOpen, FileSpreadsheet, ListChecks, MoreHorizontal, BookMarked } from "./icons";
 
 interface NavItem {
   to: string;
@@ -13,6 +13,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: "/attendance", label: "Absen", icon: CheckCircle },
   { to: "/journal", label: "Jurnal", icon: BookOpen },
   { to: "/grades", label: "Nilai", icon: FileSpreadsheet },
+  { to: "/assignments", label: "Data Mengajar", icon: BookMarked },
   { to: "/calendar", label: "Kalender", icon: Calendar },
   { to: "/prota", label: "Prota", icon: ClipboardList },
   { to: "/promes", label: "Promes", icon: FileText },
