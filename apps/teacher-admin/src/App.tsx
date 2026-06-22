@@ -1,6 +1,6 @@
 /**
  * Root App: router + AppShell.
- * APP-USABLE-RC1: 20 routes — +/lkpd, +/atp tetap, semua flow pakai assignment.
+ * GENERATOR-COMPLETION-RC1: 23 routes — +/rpp-bulk, /remedial, /pengayaan, /admin-package.
  */
 
 import { HashRouter, Routes, Route } from "react-router-dom";
@@ -21,6 +21,10 @@ import { GradesPage } from "./modules/grades/GradesPage";
 import { ATPPage } from "./modules/atp/ATPPage";
 import { LKPDPage } from "./modules/lkpd/LKPDPage";
 import { RPPPage } from "./modules/rpp/RPPPage";
+import { RppBulkReplacePage } from "./modules/rpp-bulk/RppBulkReplacePage";
+import { RemedialPage } from "./modules/remedial/RemedialPage";
+import { EnrichmentPage } from "./modules/pengayaan/EnrichmentPage";
+import { AdminPackagePage } from "./modules/admin-package/AdminPackagePage";
 import { SemesterReportPage } from "./modules/semester-report/SemesterReportPage";
 import { CompletenessPage } from "./modules/completeness/CompletenessPage";
 
@@ -45,6 +49,10 @@ export function App() {
           <Route path="/atp" element={<ATPPage />} />
           <Route path="/lkpd" element={<LKPDPage />} />
           <Route path="/rpp" element={<RPPPage />} />
+          <Route path="/rpp-bulk" element={<RppBulkReplacePage />} />
+          <Route path="/remedial" element={<RemedialPage />} />
+          <Route path="/pengayaan" element={<EnrichmentPage />} />
+          <Route path="/admin-package" element={<AdminPackagePage />} />
           <Route path="/semester-report" element={<SemesterReportPage />} />
           <Route path="/completeness" element={<CompletenessPage />} />
           <Route path="*" element={<TodayPage />} />

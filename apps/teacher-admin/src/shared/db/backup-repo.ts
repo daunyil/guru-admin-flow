@@ -25,6 +25,9 @@ import {
   type GradeBook,
   type ATPEntry,
   type LKPD,
+  type RppDocument,
+  type RemedialProgram,
+  type EnrichmentProgram,
   type DocumentSnapshot,
 } from "@guru-admin/domain";
 import { APP_VERSION, DATA_SCHEMA_VERSION, nowTimestamp } from "@guru-admin/shared";
@@ -51,6 +54,9 @@ export async function exportBackup(): Promise<BackupFile> {
     gradeBooks,
     atpEntries,
     lkpds,
+    rppDocuments,
+    remedialPrograms,
+    enrichmentPrograms,
     documentSnapshots,
   ] = await Promise.all([
     listEntities<AcademicYear>("academicYears"),
@@ -69,6 +75,9 @@ export async function exportBackup(): Promise<BackupFile> {
     listEntities<GradeBook>("gradeBooks"),
     listEntities<ATPEntry>("atpEntries"),
     listEntities<LKPD>("lkpds"),
+    listEntities<RppDocument>("rppDocuments"),
+    listEntities<RemedialProgram>("remedialPrograms"),
+    listEntities<EnrichmentProgram>("enrichmentPrograms"),
     listEntities<DocumentSnapshot>("documentSnapshots"),
   ]);
 
@@ -98,6 +107,9 @@ export async function exportBackup(): Promise<BackupFile> {
       gradeBooks,
       atpEntries,
       lkpds,
+      rppDocuments,
+      remedialPrograms,
+      enrichmentPrograms,
       documentSnapshots,
     },
   };
@@ -154,6 +166,9 @@ export async function restoreBackup(input: unknown): Promise<BackupSummary> {
       db.gradeBooks,
       db.atpEntries,
       db.lkpds,
+      db.rppDocuments,
+      db.remedialPrograms,
+      db.enrichmentPrograms,
       db.documentSnapshots,
       db.syncQueue,
     ],
@@ -176,6 +191,9 @@ export async function restoreBackup(input: unknown): Promise<BackupSummary> {
         db.gradeBooks.clear(),
         db.atpEntries.clear(),
         db.lkpds.clear(),
+        db.rppDocuments.clear(),
+        db.remedialPrograms.clear(),
+        db.enrichmentPrograms.clear(),
         db.documentSnapshots.clear(),
         db.syncQueue.clear(),
       ]);
@@ -201,7 +219,6 @@ export async function restoreBackup(input: unknown): Promise<BackupSummary> {
       await db.protaUnits.bulkPut(allUnits);
 
       await db.teachingSchedules.bulkPut(backup.data.teachingSchedules);
-      // teachingAssignments default [] bila tidak ada di backup lama
       const assignments = (backup.data as { teachingAssignments?: TeachingAssignment[] }).teachingAssignments ?? [];
       await db.teachingAssignments.bulkPut(assignments);
       await db.lessonSessions.bulkPut(backup.data.lessonSessions);
@@ -210,11 +227,16 @@ export async function restoreBackup(input: unknown): Promise<BackupSummary> {
       await db.teachingJournals.bulkPut(backup.data.teachingJournals);
       await db.semesterReports.bulkPut(backup.data.semesterReports);
       await db.gradeBooks.bulkPut(backup.data.gradeBooks);
-      // APP-USABLE-RC1: atpEntries + lkpds (backward compat: default [])
       const atpEntries = (backup.data as { atpEntries?: ATPEntry[] }).atpEntries ?? [];
       const lkpds = (backup.data as { lkpds?: LKPD[] }).lkpds ?? [];
+      const rppDocuments = (backup.data as { rppDocuments?: RppDocument[] }).rppDocuments ?? [];
+      const remedialPrograms = (backup.data as { remedialPrograms?: RemedialProgram[] }).remedialPrograms ?? [];
+      const enrichmentPrograms = (backup.data as { enrichmentPrograms?: EnrichmentProgram[] }).enrichmentPrograms ?? [];
       await db.atpEntries.bulkPut(atpEntries);
       await db.lkpds.bulkPut(lkpds);
+      await db.rppDocuments.bulkPut(rppDocuments);
+      await db.remedialPrograms.bulkPut(remedialPrograms);
+      await db.enrichmentPrograms.bulkPut(enrichmentPrograms);
       await db.documentSnapshots.bulkPut(backup.data.documentSnapshots);
     }
   );

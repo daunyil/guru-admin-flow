@@ -291,6 +291,48 @@ export {
   type ContextInfo,
 } from "./context-card";
 
+/* GENERATOR-COMPLETION-RC1 — RppDocument (bulk identity replacement) */
+export {
+  rppDocumentSchema,
+  rppIdentityContextSchema,
+  RPP_IDENTITY_PLACEHOLDERS,
+  parseRppDocument,
+  safeParseRppDocument,
+  buildPlaceholderMap,
+  replaceRppIdentityPlaceholders,
+  countPlaceholders,
+  hasAnyPlaceholder,
+  type RppDocument,
+  type RppIdentityContext,
+} from "./rpp-document";
+
+/* GENERATOR-COMPLETION-RC1 — RemedialProgram */
+export {
+  remedialProgramSchema,
+  remedialStudentSchema,
+  parseRemedialProgram,
+  safeParseRemedialProgram,
+  filterRemedialStudents,
+  isRemedialProgramComplete,
+  finalizeRemedialProgram,
+  type RemedialProgram,
+  type RemedialStudent,
+} from "./remedial-program";
+
+/* GENERATOR-COMPLETION-RC1 — EnrichmentProgram */
+export {
+  enrichmentProgramSchema,
+  enrichmentStudentSchema,
+  DEFAULT_ENRICHMENT_THRESHOLD,
+  parseEnrichmentProgram,
+  safeParseEnrichmentProgram,
+  filterEnrichmentStudents,
+  isEnrichmentProgramComplete,
+  finalizeEnrichmentProgram,
+  type EnrichmentProgram,
+  type EnrichmentStudent,
+} from "./enrichment-program";
+
 /* Sprint 4 — Journal helpers (auto-fill dari sesi + Prota + absensi) */
 export {
   generateJournalFromSession,
