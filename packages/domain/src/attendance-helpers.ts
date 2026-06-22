@@ -31,6 +31,7 @@ export function generateDefaultAttendance(args: {
       studentId: student.id,
       studentName: student.name,
       studentNumber: student.number,
+      nis: student.nis,
       classId: roster.classId,
       classLabel: roster.classLabel,
       date,

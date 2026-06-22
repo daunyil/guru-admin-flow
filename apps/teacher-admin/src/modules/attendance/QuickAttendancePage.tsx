@@ -291,6 +291,7 @@ function AttendanceEditor({
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [changes, setChanges] = useState<Map<string, Status>>(new Map());
   const [isDraft, setIsDraft] = useState(mode === "susulan");
+  const [showDoc, setShowDoc] = useState(false);
 
   useEffect(() => {
     void (async () => {
@@ -490,12 +491,69 @@ function AttendanceEditor({
         })}
       </div>
 
-      {/* Save button — always visible */}
-      <div className="sticky bottom-0 mt-4 pt-3 bg-white border-t border-slate-200">
-        <Button onClick={handleSave} disabled={changes.size === 0 && !isDraft} className="w-full">
+      {/* Save + Document buttons */}
+      <div className="sticky bottom-0 mt-4 pt-3 bg-white border-t border-slate-200 flex gap-2">
+        <Button onClick={handleSave} disabled={changes.size === 0 && !isDraft} className="flex-1">
           {changes.size > 0 ? `Simpan (${changes.size} perubahan)` : "Simpan"}
         </Button>
+        <Button variant="secondary" onClick={() => setShowDoc(!showDoc)}>
+          {showDoc ? "Mode Kerja" : "Mode Dokumen"}
+        </Button>
       </div>
+
+      {/* Mode Dokumen — matrix absensi untuk print */}
+      {showDoc && (
+        <div className="print-area mt-4">
+          <div className="document-page document-portrait">
+            <div className="document-title">DAFTAR HADIR SISWA</div>
+            <div className="document-subtitle">
+              {manualSubject || session?.subject || "Mapel"} — Kelas {roster.classLabel}
+            </div>
+            <div className="document-subtitle">{formatLongDateID(date)}</div>
+            <table className="document-table">
+              <thead>
+                <tr>
+                  <th style={{ width: "5%" }}>No</th>
+                  <th style={{ width: "12%" }}>NIS</th>
+                  <th>Nama Siswa</th>
+                  <th style={{ width: "6%" }}>H</th>
+                  <th style={{ width: "6%" }}>S</th>
+                  <th style={{ width: "6%" }}>I</th>
+                  <th style={{ width: "6%" }}>A</th>
+                  <th style={{ width: "15%" }}>Keterangan</th>
+                </tr>
+              </thead>
+              <tbody>
+                {effectiveRecords.map((r) => (
+                  <tr key={r.id}>
+                    <td className="text-center">{r.studentNumber}</td>
+                    <td>{r.nis ?? "-"}</td>
+                    <td>{r.studentName}</td>
+                    <td className="text-center">{r.status === "present" ? "✓" : ""}</td>
+                    <td className="text-center">{r.status === "sick" ? "✓" : ""}</td>
+                    <td className="text-center">{r.status === "excused" ? "✓" : ""}</td>
+                    <td className="text-center">{r.status === "absent" ? "✓" : ""}</td>
+                    <td>{r.note ?? ""}</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr>
+                  <td colSpan={3} className="text-center">JUMLAH</td>
+                  <td className="text-center">{summary.present}</td>
+                  <td className="text-center">{summary.sick}</td>
+                  <td className="text-center">{summary.excused}</td>
+                  <td className="text-center">{summary.absent}</td>
+                  <td className="text-center">Total: {summary.total}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+          <div className="print-toolbar">
+            <Button onClick={() => window.print()}>Cetak</Button>
+          </div>
+        </div>
+      )}
     </Card>
   );
 }

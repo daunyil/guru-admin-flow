@@ -329,11 +329,11 @@ function AttendanceEditor({
               <thead>
                 <tr className="border-b-2 border-slate-400">
                   <th className="py-2 px-2 text-left border border-slate-300">No</th>
+                  <th className="py-2 px-2 text-left border border-slate-300">NIS</th>
                   <th className="py-2 px-2 text-left border border-slate-300">Nama Siswa</th>
                   <th className="py-2 px-2 text-center border border-slate-300">H</th>
                   <th className="py-2 px-2 text-center border border-slate-300">S</th>
                   <th className="py-2 px-2 text-center border border-slate-300">I</th>
-                  <th className="py-2 px-2 text-center border border-slate-300">T</th>
                   <th className="py-2 px-2 text-center border border-slate-300">A</th>
                   <th className="py-2 px-2 text-left border border-slate-300">Keterangan</th>
                 </tr>
@@ -342,11 +342,11 @@ function AttendanceEditor({
                 {effectiveRecords.map((r) => (
                   <tr key={r.id} className="border-b border-slate-200">
                     <td className="py-1.5 px-2 border border-slate-300">{r.studentNumber}</td>
+                    <td className="py-1.5 px-2 border border-slate-300 text-xs">{r.nis ?? "-"}</td>
                     <td className="py-1.5 px-2 border border-slate-300">{r.studentName}</td>
                     <td className="py-1.5 px-2 text-center border border-slate-300">{r.status === "present" ? "✓" : ""}</td>
                     <td className="py-1.5 px-2 text-center border border-slate-300">{r.status === "sick" ? "✓" : ""}</td>
                     <td className="py-1.5 px-2 text-center border border-slate-300">{r.status === "excused" ? "✓" : ""}</td>
-                    <td className="py-1.5 px-2 text-center border border-slate-300">{r.status === "late" ? "✓" : ""}</td>
                     <td className="py-1.5 px-2 text-center border border-slate-300">{r.status === "absent" ? "✓" : ""}</td>
                     <td className="py-1.5 px-2 border border-slate-300">{r.note ?? ""}</td>
                   </tr>
@@ -354,11 +354,10 @@ function AttendanceEditor({
               </tbody>
               <tfoot>
                 <tr className="border-t-2 border-slate-400 font-bold">
-                  <td colSpan={2} className="py-2 px-2 border border-slate-300 text-right">Jumlah:</td>
+                  <td colSpan={3} className="py-2 px-2 border border-slate-300 text-right">Jumlah:</td>
                   <td className="py-2 px-2 text-center border border-slate-300">{summary.present}</td>
                   <td className="py-2 px-2 text-center border border-slate-300">{summary.sick}</td>
                   <td className="py-2 px-2 text-center border border-slate-300">{summary.excused}</td>
-                  <td className="py-2 px-2 text-center border border-slate-300">{summary.late}</td>
                   <td className="py-2 px-2 text-center border border-slate-300">{summary.absent}</td>
                   <td className="py-2 px-2 border border-slate-300">Total: {summary.total}</td>
                 </tr>
