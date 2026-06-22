@@ -1,6 +1,8 @@
 /**
- * Modul ClassRoster — halaman /roster
- * Daftar siswa per kelas. Input manual atau paste dari Excel.
+ * PATCH-01B: Import Data Siswa — paste Excel, preview, simpan ke roster.
+ * Sumber: docs/V0_6_2_PRODUCT_DECISIONS.md §3 (updated)
+ *
+ * Flow: Pilih Kelas → Paste Excel/Upload CSV → Preview → Cek duplikat → Simpan
  */
 
 import { useEffect, useState } from "react";
@@ -8,16 +10,24 @@ import { Card, CardHeader, Input, Textarea, Button, EmptyState, Badge } from "..
 import {
   listClassRosters,
   saveClassRoster,
+  importStudents,
   addStudent,
   removeStudent,
-  importStudents,
 } from "../../shared/db/class-roster-repo";
 import { getActiveAcademicYear } from "../../shared/db/profile-repo";
-import type { ClassRoster, AcademicYear } from "@guru-admin/domain";
+import type { ClassRoster, AcademicYear, StudentEntry } from "@guru-admin/domain";
+import { uuid } from "@guru-admin/shared";
+
+interface ParsedStudent {
+  number: number;
+  nis: string;
+  name: string;
+  warning?: string;
+}
 
 export function RosterPage() {
   const [loading, setLoading] = useState(true);
-  const [activeYear, setActiveYear] = useState<AcademicYear | null>(null);
+  const [year, setYear] = useState<AcademicYear | null>(null);
   const [rosters, setRosters] = useState<ClassRoster[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showNew, setShowNew] = useState(false);
@@ -26,18 +36,16 @@ export function RosterPage() {
   const [success, setSuccess] = useState<string | null>(null);
 
   async function reload() {
-    if (!activeYear) return;
-    const rs = await listClassRosters(activeYear.id);
+    if (!year) return;
+    const rs = await listClassRosters(year.id);
     setRosters(rs);
   }
 
   useEffect(() => {
     void (async () => {
-      const year = await getActiveAcademicYear();
-      if (year) {
-        setActiveYear(year);
-        setRosters(await listClassRosters(year.id));
-      }
+      const y = await getActiveAcademicYear();
+      setYear(y);
+      if (y) setRosters(await listClassRosters(y.id));
       setLoading(false);
     })();
   }, []);
@@ -49,7 +57,7 @@ export function RosterPage() {
 
   if (loading) return <p className="text-sm text-slate-500">Memuat...</p>;
 
-  if (!activeYear) {
+  if (!year) {
     return (
       <div className="space-y-4">
         <Header />
@@ -62,23 +70,23 @@ export function RosterPage() {
 
   return (
     <div className="space-y-4">
-      <Header yearLabel={activeYear.label} count={rosters.length} />
+      <Header yearLabel={year.label} count={rosters.length} />
 
-      {error && <div className="p-3 rounded-md bg-rose-50 border border-rose-200 text-sm text-rose-700">{error}</div>}
-      {success && <div className="p-3 rounded-md bg-brand-50 border border-brand-200 text-sm text-brand-700">{success}</div>}
+      {error && <div className="info-banner-error">{error}</div>}
+      {success && <div className="info-banner-success">{success}</div>}
 
       <div className="flex gap-2">
-        <Button onClick={() => setShowNew(true)}>+ Buat Roster Baru</Button>
-        <Button variant="secondary" onClick={() => selected ? setShowImport(true) : setError("Pilih roster dulu")}>
-          Impor Massal (paste Excel)
+        <Button onClick={() => setShowNew(true)}>+ Buat Kelas</Button>
+        <Button variant="secondary" onClick={() => selected ? setShowImport(true) : setError("Pilih kelas dulu")}>
+          Import Siswa (Paste Excel)
         </Button>
       </div>
 
       {showNew && (
         <NewRosterForm
-          academicYearId={activeYear.id}
+          academicYearId={year.id}
           onClose={() => setShowNew(false)}
-          onSaved={(r) => { setShowNew(false); setSelectedId(r.id); setSuccess(`Roster ${r.classLabel} dibuat.`); void reload(); }}
+          onSaved={(r) => { setShowNew(false); setSelectedId(r.id); setSuccess(`Kelas ${r.classLabel} dibuat.`); void reload(); }}
           onError={(msg) => setError(msg)}
         />
       )}
@@ -93,9 +101,9 @@ export function RosterPage() {
       )}
 
       <Card>
-        <CardHeader title="Daftar Roster" description={`${rosters.length} kelas`} />
+        <CardHeader title="Daftar Kelas" description={`${rosters.length} kelas`} />
         {rosters.length === 0 ? (
-          <EmptyState title="Belum ada roster" description="Buat roster per kelas untuk mengisi absensi." />
+          <EmptyState title="Belum ada kelas" description="Buat kelas dulu, lalu import siswa." />
         ) : (
           <div className="space-y-2">
             {rosters.map((r) => (
@@ -111,6 +119,9 @@ export function RosterPage() {
                     <span className="font-medium text-slate-900">{r.classLabel}</span>
                     <Badge variant="neutral">{r.students.length} siswa</Badge>
                   </div>
+                  <Button variant="secondary" className="text-xs px-2 py-1" onClick={(e) => { e.stopPropagation(); setShowImport(true); setSelectedId(r.id); }}>
+                    Import
+                  </Button>
                 </div>
               </button>
             ))}
@@ -132,10 +143,10 @@ export function RosterPage() {
 
 function Header({ yearLabel, count }: { yearLabel?: string; count?: number }) {
   return (
-    <div>
-      <h1 className="text-2xl font-bold text-slate-900">Daftar Siswa (Roster)</h1>
+    <div className="page-header">
+      <h1 className="text-2xl font-bold text-slate-900">Siswa</h1>
       <p className="text-sm text-slate-500 mt-1">
-        {yearLabel ? `Tahun: ${yearLabel} · ${count ?? 0} kelas` : "Daftar siswa per kelas untuk absensi."}
+        {yearLabel ? `TP ${yearLabel} · ${count ?? 0} kelas` : "Daftar siswa per kelas."}
       </p>
     </div>
   );
@@ -167,7 +178,7 @@ function NewRosterForm({
       });
       onSaved(saved);
     } catch (e) {
-      onError(e instanceof Error ? e.message : "Gagal membuat roster.");
+      onError(e instanceof Error ? e.message : "Gagal membuat kelas.");
     } finally {
       setSaving(false);
     }
@@ -175,7 +186,7 @@ function NewRosterForm({
 
   return (
     <Card>
-      <CardHeader title="Buat Roster Baru" />
+      <CardHeader title="Buat Kelas Baru" />
       <form onSubmit={handleSubmit} className="space-y-3">
         <Input label="Label Kelas" id="r-class" required value={classLabel} onChange={setClassLabel} placeholder="VII A" />
         <div className="flex gap-2">
@@ -186,6 +197,309 @@ function NewRosterForm({
     </Card>
   );
 }
+
+/* ------------------------------------------------------------------ */
+/*  Import Modal — paste Excel, preview, cek duplikat, simpan          */
+/* ------------------------------------------------------------------ */
+
+function ImportModal({
+  roster,
+  onClose,
+  onImported,
+  onError,
+}: {
+  roster: ClassRoster;
+  onClose: () => void;
+  onImported: () => void;
+  onError: (msg: string) => void;
+}) {
+  const [text, setText] = useState("");
+  const [parsed, setParsed] = useState<ParsedStudent[]>([]);
+  const [showPreview, setShowPreview] = useState(false);
+  const [importMode, setImportMode] = useState<"replace" | "append">("replace");
+  const [importing, setImporting] = useState(false);
+
+  function parseExcelPaste(raw: string): ParsedStudent[] {
+    const lines = raw.trim().split("\n").map((l) => l.trim()).filter(Boolean);
+    const result: ParsedStudent[] = [];
+    const seenNames = new Set<string>();
+    const seenNIS = new Set<string>();
+
+    lines.forEach((line, idx) => {
+      // Coba beberapa format:
+      // 1. "1\t12345\tANDI SAPUTRA" (tab-separated)
+      // 2. "1 12345 ANDI SAPUTRA" (spasi, nomor + NIS + nama)
+      // 3. "1. ANDI SAPUTRA" (dengan titik)
+      // 4. "ANDI SAPUTRA" (hanya nama)
+      // 5. "1,12345,ANDI SAPUTRA" (CSV koma)
+
+      let parts: string[];
+      if (line.includes("\t")) {
+        parts = line.split("\t").map((p) => p.trim());
+      } else if (line.includes(",")) {
+        parts = line.split(",").map((p) => p.trim());
+      } else if (line.includes(";")) {
+        parts = line.split(";").map((p) => p.trim());
+      } else {
+        // Coba split spasi: jika ada 3+ parts dan part[0] + part[1] adalah angka, sisanya nama
+        parts = line.split(/\s+/);
+        if (parts.length >= 3 && /^\d+$/.test(parts[0]) && /^\d+$/.test(parts[1])) {
+          // Format: "No NIS Nama Lengkap"
+          const no = parts[0];
+          const nis = parts[1];
+          const name = parts.slice(2).join(" ");
+          parts = [no, nis, name];
+        } else if (parts.length >= 2 && /^\d+$/.test(parts[0])) {
+          // Format: "No Nama Lengkap" atau "No. Nama"
+          const no = parts[0].replace(/[.]/g, "");
+          const name = parts.slice(1).join(" ");
+          parts = [no, "", name];
+        } else {
+          // Hanya nama
+          parts = ["", "", line];
+        }
+      }
+
+      let number: number;
+      let nis: string;
+      let name: string;
+
+      if (parts.length >= 3) {
+        number = parseInt(parts[0]) || (idx + 1);
+        nis = parts[1] || "";
+        name = parts.slice(2).join(" ").trim();
+      } else if (parts.length === 2) {
+        number = parseInt(parts[0]) || (idx + 1);
+        nis = "";
+        name = parts[1].trim();
+      } else {
+        number = idx + 1;
+        nis = "";
+        name = parts[0].trim();
+      }
+
+      if (!name) {
+        result.push({ number, nis, name: `(baris ${idx + 1}: kosong)`, warning: "Nama kosong" });
+        return;
+      }
+
+      const warnings: string[] = [];
+      if (seenNames.has(name.toLowerCase())) warnings.push("Nama dobel");
+      seenNames.add(name.toLowerCase());
+
+      if (nis && seenNIS.has(nis)) warnings.push("NIS dobel");
+      if (nis) seenNIS.add(nis);
+
+      result.push({
+        number,
+        nis,
+        name,
+        warning: warnings.length > 0 ? warnings.join(", ") : undefined,
+      });
+    });
+
+    return result;
+  }
+
+  function handleParse() {
+    if (!text.trim()) {
+      onError("Tempel data dulu.");
+      return;
+    }
+    const result = parseExcelPaste(text);
+    setParsed(result);
+    setShowPreview(true);
+  }
+
+  function handleEditNumber(idx: number, value: string) {
+    const next = [...parsed];
+    next[idx] = { ...next[idx], number: Number(value) || 0 };
+    setParsed(next);
+  }
+
+  function handleEditNIS(idx: number, value: string) {
+    const next = [...parsed];
+    next[idx] = { ...next[idx], nis: value };
+    setParsed(next);
+  }
+
+  function handleEditName(idx: number, value: string) {
+    const next = [...parsed];
+    next[idx] = { ...next[idx], name: value };
+    setParsed(next);
+  }
+
+  function handleRemoveRow(idx: number) {
+    setParsed(parsed.filter((_, i) => i !== idx));
+  }
+
+  async function handleImport() {
+    setImporting(true);
+    try {
+      const valid = parsed.filter((p) => p.name && !p.name.startsWith("(baris"));
+      if (valid.length === 0) {
+        onError("Tidak ada siswa valid untuk diimpor.");
+        setImporting(false);
+        return;
+      }
+
+      if (importMode === "replace") {
+        // Ganti semua siswa
+        await importStudents(roster.id, valid.map((p) => ({ name: p.name, number: p.number })));
+      } else {
+        // Tambahkan ke siswa existing
+        const startNumber = roster.students.length + 1;
+        for (let i = 0; i < valid.length; i++) {
+          await addStudent(roster.id, { name: valid[i].name, number: startNumber + i });
+        }
+      }
+      onImported();
+    } catch (e) {
+      onError(e instanceof Error ? e.message : "Gagal impor.");
+    } finally {
+      setImporting(false);
+    }
+  }
+
+  const hasWarnings = parsed.some((p) => p.warning);
+  const validCount = parsed.filter((p) => p.name && !p.name.startsWith("(baris")).length;
+
+  return (
+    <Card>
+      <CardHeader
+        title={`Import Siswa — ${roster.classLabel}`}
+        description="Tempel dari Excel: format 'No NIS Nama' atau 'No Nama' per baris. Bisa juga tab/koma separated."
+      />
+
+      {!showPreview ? (
+        <div className="space-y-3">
+          <Textarea
+            label="Tempel Data Siswa"
+            id="import-paste"
+            value={text}
+            onChange={setText}
+            rows={12}
+            placeholder={`1\t12345\tANDI SAPUTRA
+2\t12346\tBUDI PRATAMA
+3\t12347\tCITRA LESTARI
+
+Atau:
+1. ANDI SAPUTRA
+2. BUDI PRATAMA
+3. CITRA LESTARI
+
+Atau cukup nama:
+ANDI SAPUTRA
+BUDI PRATAMA
+CITRA LESTARI`}
+          />
+          <div className="flex gap-2">
+            <Button onClick={handleParse}>Preview Data</Button>
+            <Button variant="secondary" onClick={onClose}>Batal</Button>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {/* Summary + warnings */}
+          <div className="flex items-center gap-3 flex-wrap">
+            <Badge variant="neutral">{validCount} siswa valid</Badge>
+            {hasWarnings && <Badge variant="warning">Ada peringatan duplikat</Badge>}
+            {roster.students.length > 0 && (
+              <Badge variant="neutral">{roster.students.length} siswa existing</Badge>
+            )}
+          </div>
+
+          {/* Mode: Replace / Append */}
+          {roster.students.length > 0 && (
+            <div className="flex gap-2">
+              <Button
+                variant={importMode === "replace" ? "primary" : "secondary"}
+                onClick={() => setImportMode("replace")}
+                className="text-sm"
+              >
+                Ganti Semua
+              </Button>
+              <Button
+                variant={importMode === "append" ? "primary" : "secondary"}
+                onClick={() => setImportMode("append")}
+                className="text-sm"
+              >
+                Tambahkan
+              </Button>
+            </div>
+          )}
+
+          {/* Preview table */}
+          <div className="overflow-x-auto max-h-80 overflow-y-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-slate-200 text-left">
+                  <th className="py-2 px-2 w-16">No</th>
+                  <th className="py-2 px-2 w-28">NIS/NISN</th>
+                  <th className="py-2 px-2">Nama Siswa</th>
+                  <th className="py-2 px-2 w-24">Status</th>
+                  <th className="py-2 px-2 w-16">Aksi</th>
+                </tr>
+              </thead>
+              <tbody>
+                {parsed.map((p, i) => (
+                  <tr key={i} className={`border-b border-slate-100 ${p.warning ? "bg-amber-50" : ""}`}>
+                    <td className="py-1.5 px-2">
+                      <input
+                        type="number"
+                        className="w-12 px-1 py-0.5 border border-slate-300 rounded text-sm"
+                        value={p.number}
+                        onChange={(e) => handleEditNumber(i, e.target.value)}
+                      />
+                    </td>
+                    <td className="py-1.5 px-2">
+                      <input
+                        type="text"
+                        className="w-24 px-1 py-0.5 border border-slate-300 rounded text-sm"
+                        value={p.nis}
+                        onChange={(e) => handleEditNIS(i, e.target.value)}
+                        placeholder="-"
+                      />
+                    </td>
+                    <td className="py-1.5 px-2">
+                      <input
+                        type="text"
+                        className="w-full px-1 py-0.5 border border-slate-300 rounded text-sm"
+                        value={p.name}
+                        onChange={(e) => handleEditName(i, e.target.value)}
+                      />
+                    </td>
+                    <td className="py-1.5 px-2">
+                      {p.warning ? <Badge variant="warning">{p.warning}</Badge> : <Badge variant="success">OK</Badge>}
+                    </td>
+                    <td className="py-1.5 px-2">
+                      <button onClick={() => handleRemoveRow(i)} className="text-rose-600 hover:underline text-xs">Hapus</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Actions */}
+          <div className="flex gap-2">
+            <Button onClick={handleImport} disabled={importing || validCount === 0}>
+              {importing ? "Mengimpor..." : `Simpan ${validCount} Siswa ${importMode === "replace" ? "(Ganti)" : "(Tambah)"}`}
+            </Button>
+            <Button variant="secondary" onClick={() => { setShowPreview(false); setParsed([]); }}>
+              Ubah Data
+            </Button>
+            <Button variant="secondary" onClick={onClose}>Batal</Button>
+          </div>
+        </div>
+      )}
+    </Card>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Roster Detail — list + add/remove/edit siswa                       */
+/* ------------------------------------------------------------------ */
 
 function RosterDetail({
   roster,
@@ -207,7 +521,7 @@ function RosterDetail({
       <CardHeader title={`Roster ${roster.classLabel}`} description={`${roster.students.length} siswa`} />
       <div className="space-y-2">
         {roster.students.length === 0 ? (
-          <p className="text-sm text-slate-400 italic">Belum ada siswa. Tambah manual atau impor massal.</p>
+          <p className="text-sm text-slate-400 italic">Belum ada siswa. Klik Import untuk paste dari Excel.</p>
         ) : (
           <div className="max-h-96 overflow-y-auto">
             <table className="w-full text-sm">
@@ -257,80 +571,17 @@ function RosterDetail({
                 setNewName("");
                 setNewNumber(newNumber + 1);
                 onChanged();
+                onSuccess("Siswa ditambahkan.");
               }}
             >Tambah</Button>
             <Button variant="secondary" onClick={() => setShowAdd(false)}>Selesai</Button>
           </div>
         </div>
       ) : (
-        <Button className="mt-3" variant="secondary" onClick={() => setShowAdd(true)}>+ Tambah Siswa</Button>
+        <div className="flex gap-2 mt-3">
+          <Button variant="secondary" onClick={() => setShowAdd(true)}>+ Tambah Siswa Manual</Button>
+        </div>
       )}
-    </Card>
-  );
-}
-
-function ImportModal({
-  roster,
-  onClose,
-  onImported,
-  onError,
-}: {
-  roster: ClassRoster;
-  onClose: () => void;
-  onImported: () => void;
-  onError: (msg: string) => void;
-}) {
-  const [text, setText] = useState("");
-  const [importing, setImporting] = useState(false);
-
-  async function handleImport() {
-    setImporting(true);
-    try {
-      // Parse format: "1. Andi\n2. Budi\n3. Cici" atau "Andi\nBudi\nCici"
-      const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
-      const students: Array<{ name: string; number: number }> = [];
-      lines.forEach((line, idx) => {
-        const match = line.match(/^(\d+)[\.\)]\s*(.+)$/);
-        if (match) {
-          students.push({ number: Number(match[1]), name: match[2].trim() });
-        } else {
-          students.push({ number: idx + 1, name: line });
-        }
-      });
-      if (students.length === 0) {
-        onError("Tidak ada siswa yang terparse.");
-        setImporting(false);
-        return;
-      }
-      await importStudents(roster.id, students);
-      onImported();
-    } catch (e) {
-      onError(e instanceof Error ? e.message : "Gagal impor.");
-    } finally {
-      setImporting(false);
-    }
-  }
-
-  return (
-    <Card>
-      <CardHeader
-        title={`Impor Massal — ${roster.classLabel}`}
-        description="Paste dari Excel. Format: '1. Andi' per baris, atau hanya nama per baris. Siswa existing akan diganti."
-      />
-      <Textarea
-        label="Daftar Siswa"
-        id="import-students"
-        value={text}
-        onChange={setText}
-        rows={12}
-        placeholder={`1. Andi Saputra\n2. Budi Pratama\n3. Cici Lestari\n...`}
-      />
-      <div className="flex gap-2 mt-3">
-        <Button onClick={handleImport} disabled={importing || !text.trim()}>
-          {importing ? "Mengimpor..." : "Impor & Ganti"}
-        </Button>
-        <Button variant="secondary" onClick={onClose} disabled={importing}>Batal</Button>
-      </div>
     </Card>
   );
 }
