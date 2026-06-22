@@ -8,7 +8,11 @@
 import { db } from "./schema";
 import { updateEntityFields, saveEntity } from "./crud";
 import type { AttendanceRecord, ClassRoster } from "@guru-admin/domain";
-import { generateDefaultAttendance, applyAttendanceChanges } from "@guru-admin/domain";
+import {
+  generateDefaultAttendance,
+  applyAttendanceChanges,
+  backfillNisInRecords,
+} from "@guru-admin/domain";
 
 /** Get AttendanceRecord[] untuk satu sesi. */
 export async function getAttendanceBySession(sessionId: string): Promise<AttendanceRecord[]> {
@@ -34,8 +38,30 @@ export async function getAttendanceByDate(
 }
 
 /**
+ * Get AttendanceRecord untuk satu tanggal (semua kelas/mapel).
+ * Dipakai Home untuk cek "sudah absen belum" per tanggal.
+ *
+ * Parameter teacherId disimpan untuk konsistensi API (meskipun tidak dipakai
+ * di filter — attendanceRecords tidak di-index by teacherId). Bila suatu saat
+ * perlu filter per guru, implement dengan join ke lessonSessions.
+ */
+export async function getAttendanceByTeacherDate(
+  _teacherId: string,
+  dateISO: string
+): Promise<AttendanceRecord[]> {
+  void _teacherId;
+  const all = await db.attendanceRecords.toArray();
+  return all.filter(
+    (r) => !r.deletedAt && r.date === dateISO
+  ) as AttendanceRecord[];
+}
+
+/**
  * Inisialisasi absensi untuk sesi: bila belum ada records, generate default (semua hadir).
- * Bila sudah ada, return existing.
+ * Bila sudah ada, return existing — dengan backfill NIS dari roster bila ada yang kosong.
+ *
+ * Side effect: bila existing records punya NIS kosong dan roster punya NIS,
+ * records di-DB akan di-update (backfill) dan return versi yang sudah di-backfill.
  */
 export async function initAttendanceForSession(args: {
   sessionId: string;
@@ -43,7 +69,24 @@ export async function initAttendanceForSession(args: {
   roster: ClassRoster | null;
 }): Promise<AttendanceRecord[]> {
   const existing = await getAttendanceBySession(args.sessionId);
-  if (existing.length > 0) return existing;
+  if (existing.length > 0) {
+    // PATCH-FLOW-RC1 P1-6: backfill NIS bila ada yang kosong
+    if (args.roster) {
+      const { records: backfilled, changed } = backfillNisInRecords(existing, args.roster);
+      if (changed) {
+        const now = new Date().toISOString();
+        await db.transaction("rw", db.attendanceRecords, async () => {
+          for (const r of backfilled) {
+            if (r.nis && existing.find((e) => e.id === r.id && !e.nis)) {
+              await db.attendanceRecords.put({ ...r, updatedAt: now });
+            }
+          }
+        });
+        return backfilled;
+      }
+    }
+    return existing;
+  }
 
   if (!args.roster) return []; // tidak ada roster → tidak ada records
 
@@ -59,6 +102,21 @@ export async function initAttendanceForSession(args: {
     }
   });
   return records;
+}
+
+/**
+ * Save default attendance records ke DB.
+ * Dipakai saat user klik Simpan di mode manual/susulan (sebelumnya default
+ * di-generate in-memory dan belum di-persist).
+ */
+export async function saveDefaultAttendance(
+  records: AttendanceRecord[]
+): Promise<void> {
+  await db.transaction("rw", db.attendanceRecords, async () => {
+    for (const r of records) {
+      await db.attendanceRecords.put(r);
+    }
+  });
 }
 
 /**

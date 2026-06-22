@@ -5,8 +5,13 @@
 
 import { db } from "./schema";
 import { updateEntityFields, saveEntity, softDelete } from "./crud";
-import type { LessonSession, AcademicYear, TeachingSchedule, CalendarEvent } from "@guru-admin/domain";
-import { generateLessonSessions } from "@guru-admin/domain";
+import type { LessonSession, AcademicYear, TeachingSchedule, CalendarEvent, ClassRoster } from "@guru-admin/domain";
+import {
+  generateLessonSessions,
+  createManualLessonSession,
+  isMatchingManualSession,
+  type ManualSessionMode,
+} from "@guru-admin/domain";
 import { uuid, nowTimestamp } from "@guru-admin/shared";
 
 /** List LessonSession untuk academicYearId + semester. */
@@ -150,4 +155,56 @@ export async function applyPromesLink(
     patch: { plannedUnitId: s.plannedUnitId } as Partial<LessonSession>,
   }));
   await bulkUpdateLessonSessions(updates);
+}
+
+/**
+ * PATCH-FLOW-RC1: Find-or-create LessonSession untuk mode manual/susulan.
+ *
+ * Algoritma:
+ *   1. Cari existing manual/susulan session dengan (classId, subject, date) yang sama.
+ *   2. Bila ada → return existing (hindari dobel tanggal+kelas+mapel).
+ *   3. Bila tidak ada → buat baru via createManualLessonSession + simpan.
+ *
+ * Return: { session, created } — created=true bila baru dibuat.
+ */
+export async function findOrCreateManualSession(args: {
+  mode: ManualSessionMode;
+  academicYear: AcademicYear;
+  teacherId: string;
+  roster: ClassRoster;
+  subject: string;
+  date: string;
+}): Promise<{ session: LessonSession; created: boolean }> {
+  // Cari existing manual/susulan session untuk tanggal+kelas+mapel ini
+  const allForClass = await db.lessonSessions
+    .where("classId")
+    .equals(args.roster.classId)
+    .toArray();
+
+  const existing = allForClass.find(
+    (s) =>
+      !s.deletedAt &&
+      isMatchingManualSession(s as LessonSession, {
+        classId: args.roster.classId,
+        subject: args.subject,
+        date: args.date,
+      })
+  );
+
+  if (existing) {
+    return { session: existing as LessonSession, created: false };
+  }
+
+  // Buat baru
+  const session = createManualLessonSession({
+    mode: args.mode,
+    academicYear: args.academicYear,
+    teacherId: args.teacherId,
+    roster: args.roster,
+    subject: args.subject,
+    date: args.date,
+  });
+
+  await db.lessonSessions.put(session);
+  return { session, created: true };
 }

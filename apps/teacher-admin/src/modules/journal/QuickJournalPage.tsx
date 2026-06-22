@@ -4,17 +4,23 @@
  *
  * Guru cukup: Setujui & Simpan / Ganti Materi / Salin Sebelumnya
  * Tidak pakai kolom Terlambat/T di dokumen.
+ *
+ * PATCH-FLOW-RC1:
+ *   - Tombol "Jurnal Manual" tidak palsu: ada mode Manual yang benar-benar
+ *     membuat LessonSession ad-hoc (sama dengan absensi manual).
+ *   - Karena session sekarang NYATA (bukan virtual ID), editor jurnal
+ *     bisa menemukan session via getLessonSession.
  */
 
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Card, CardHeader, Input, Textarea, Button, EmptyState, Badge, Select } from "../../shared/ui";
-import { getLessonSessionsByDate, getLessonSession } from "../../shared/db/lesson-session-repo";
-import { findClassRoster } from "../../shared/db/class-roster-repo";
+import { getLessonSessionsByDate, getLessonSession, findOrCreateManualSession } from "../../shared/db/lesson-session-repo";
+import { findClassRoster, listClassRosters } from "../../shared/db/class-roster-repo";
 import { initJournalForSessionFull, updateJournal, listJournals } from "../../shared/db/journal-repo";
 import { listProtaProfiles } from "../../shared/db/prota-repo";
 import { getActiveAcademicYear, getTeacherProfile, getSchoolProfile } from "../../shared/db/profile-repo";
-import type { LessonSession, TeachingJournal, ProtaUnit, AcademicYear, SchoolProfile, TeacherProfile, ProtaProfile } from "@guru-admin/domain";
+import type { LessonSession, TeachingJournal, ProtaUnit, AcademicYear, SchoolProfile, TeacherProfile, ProtaProfile, ClassRoster } from "@guru-admin/domain";
 import { formatLongDateID, todayISODate } from "@guru-admin/shared";
 
 type RealizationStatus = TeachingJournal["realizationStatus"];
@@ -24,6 +30,8 @@ const REALIZATION_OPTIONS: Array<{ value: RealizationStatus; label: string }> = 
   { value: "cancelled", label: "Tidak Terlaksana" },
 ];
 
+type JournalMode = "jadwal" | "manual";
+
 export function QuickJournalPage() {
   const [loading, setLoading] = useState(true);
   const [year, setActiveYear] = useState<AcademicYear | null>(null);
@@ -32,6 +40,10 @@ export function QuickJournalPage() {
   const [date, setDate] = useState(todayISODate());
   const [sessions, setSessions] = useState<LessonSession[]>([]);
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
+  const [mode, setMode] = useState<JournalMode>("jadwal");
+  const [rosters, setRosters] = useState<ClassRoster[]>([]);
+  const [manualClassId, setManualClassId] = useState("");
+  const [manualSubject, setManualSubject] = useState("");
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [searchParams] = useSearchParams();
 
@@ -43,6 +55,9 @@ export function QuickJournalPage() {
       setTeacher(tp);
       if (tp) {
         setSessions(await getLessonSessionsByDate(tp.id, date));
+      }
+      if (y) {
+        setRosters(await listClassRosters(y.id));
       }
       const urlSessionId = searchParams.get("sessionId");
       if (urlSessionId) setSelectedSessionId(urlSessionId);
@@ -63,6 +78,38 @@ export function QuickJournalPage() {
   useEffect(() => {
     void reloadSessions();
   }, [date]);
+
+  async function handleStartManualJournal() {
+    if (!year || !teacher) {
+      setMessage({ type: "error", text: "Tahun pelajaran atau profil guru belum siap." });
+      return;
+    }
+    const roster = rosters.find((r) => r.id === manualClassId);
+    if (!roster) {
+      setMessage({ type: "error", text: "Pilih kelas dulu." });
+      return;
+    }
+    const subject = manualSubject || teacher.subjects[0]?.subject || "Manual";
+    try {
+      const { session } = await findOrCreateManualSession({
+        mode: "manual",
+        academicYear: year,
+        teacherId: teacher.id,
+        roster,
+        subject,
+        date,
+      });
+      setSelectedSessionId(session.id);
+      // Reload sessions list agar muncul di daftar
+      await reloadSessions();
+      setMessage({ type: "success", text: "Sesi manual dibuat. Lanjut isi jurnal." });
+    } catch (e) {
+      setMessage({
+        type: "error",
+        text: e instanceof Error ? e.message : "Gagal membuat sesi jurnal manual.",
+      });
+    }
+  }
 
   if (loading) return <p className="text-sm text-slate-500">Memuat...</p>;
 
@@ -85,33 +132,103 @@ export function QuickJournalPage() {
         <Input label="" id="jrn-date" type="date" value={date} onChange={setDate} />
       </Card>
 
+      {/* Mode selector */}
       <Card>
-        <CardHeader title="Sesi Mengajar" description={`${sessions.length} sesi`} />
-        {sessions.length === 0 ? (
-          <EmptyState title="Tidak ada sesi hari ini" description="Buka menu Jadwal untuk generate sesi." />
-        ) : (
-          <div className="space-y-2">
-            {sessions.map((s) => (
-              <button
-                key={s.id}
-                onClick={() => setSelectedSessionId(s.id)}
-                className={`w-full text-left p-3 border rounded-md ${
-                  selectedSessionId === s.id ? "border-brand-400 bg-brand-50" : "border-slate-200"
-                } ${s.status === "cancelled" ? "opacity-50" : ""}`}
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <span className="font-medium text-sm">{s.startTime}–{s.endTime}</span>
-                    <span className="text-sm text-slate-700 ml-2">{s.subject}</span>
-                    <Badge variant="neutral">{s.classLabel}</Badge>
-                  </div>
-                  {s.status === "planned" ? <Badge variant="success">Tersedia</Badge> : <Badge variant="error">Batal</Badge>}
-                </div>
-              </button>
-            ))}
-          </div>
-        )}
+        <div className="flex gap-2 flex-wrap">
+          <Button
+            variant={mode === "jadwal" ? "primary" : "secondary"}
+            onClick={() => { setMode("jadwal"); setSelectedSessionId(null); }}
+            className="text-sm"
+          >
+            Dari Jadwal
+          </Button>
+          <Button
+            variant={mode === "manual" ? "primary" : "secondary"}
+            onClick={() => { setMode("manual"); setSelectedSessionId(null); }}
+            className="text-sm"
+          >
+            Jurnal Manual
+          </Button>
+        </div>
       </Card>
+
+      {/* Mode: Jadwal — list sesi yang ada */}
+      {mode === "jadwal" && (
+        <Card>
+          <CardHeader title="Sesi Mengajar" description={`${sessions.length} sesi`} />
+          {sessions.length === 0 ? (
+            <EmptyState
+              title="Tidak ada sesi hari ini"
+              description="Pakai mode Jurnal Manual, atau buka menu Jadwal untuk generate sesi dari jadwal mengajar."
+            />
+          ) : (
+            <div className="space-y-2">
+              {sessions.map((s) => {
+                const isManual = s.teachingScheduleId === "manual" || s.teachingScheduleId === "susulan";
+                return (
+                  <button
+                    key={s.id}
+                    onClick={() => setSelectedSessionId(s.id)}
+                    className={`w-full text-left p-3 border rounded-md ${
+                      selectedSessionId === s.id ? "border-brand-400 bg-brand-50" : "border-slate-200"
+                    } ${s.status === "cancelled" ? "opacity-50" : ""}`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="font-medium text-sm">
+                          {isManual ? "Manual" : `${s.startTime}–${s.endTime}`}
+                        </span>
+                        <span className="text-sm text-slate-700 ml-2">{s.subject}</span>
+                        <Badge variant="neutral">{s.classLabel}</Badge>
+                      </div>
+                      {s.status === "planned" ? (
+                        isManual
+                          ? <Badge variant="warning">Manual</Badge>
+                          : <Badge variant="success">Tersedia</Badge>
+                      ) : <Badge variant="error">Batal</Badge>}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </Card>
+      )}
+
+      {/* Mode: Manual — form untuk buat sesi ad-hoc */}
+      {mode === "manual" && (
+        <Card>
+          <CardHeader title="Jurnal Manual" description="Buat jurnal untuk kelas+mapel tanpa jadwal." />
+          <div className="space-y-3">
+            <Select
+              label="Kelas"
+              id="jmanual-class"
+              value={manualClassId}
+              onChange={setManualClassId}
+              options={[
+                { value: "", label: "-- Pilih Kelas --" },
+                ...rosters.map((r) => ({ value: r.id, label: r.classLabel })),
+              ]}
+            />
+            <Input
+              label="Mata Pelajaran"
+              id="jmanual-subject"
+              value={manualSubject}
+              onChange={setManualSubject}
+              placeholder={teacher?.subjects[0]?.subject ?? "Pendidikan Pancasila"}
+            />
+            {manualClassId && (
+              <Button onClick={handleStartManualJournal}>
+                Mulai Jurnal Manual
+              </Button>
+            )}
+            <p className="text-xs text-slate-500 mt-1">
+              Catatan: bila absensi manual untuk kelas+mapel+tanggal yang sama sudah ada,
+              sesi akan dipakai ulang (tidak dobel).
+            </p>
+          </div>
+        </Card>
+      )}
 
       {selectedSessionId && (
         <QuickJournalEditor
@@ -245,12 +362,13 @@ function QuickJournalEditor({
   if (!session || !journal) return null;
 
   const isLocked = journal.locked;
+  const isManualSession = session.teachingScheduleId === "manual" || session.teachingScheduleId === "susulan";
 
   return (
     <Card>
       <CardHeader
         title={`Jurnal — ${session.classLabel}`}
-        description={`${session.subject} · ${formatLongDateID(journal.date)} · Jam ${session.startPeriod}`}
+        description={`${session.subject} · ${formatLongDateID(journal.date)}${isManualSession ? " · Manual" : ` · Jam ${session.startPeriod}`}`}
       />
 
       <div className="flex gap-2 mb-4 flex-wrap">
@@ -350,7 +468,7 @@ function QuickJournalEditor({
                 </tr>
                 <tr>
                   <td>Tanggal</td><td>{formatLongDateID(journal.date)}</td>
-                  <td>Jam ke</td><td>{session.startPeriod} ({session.startTime}–{session.endTime})</td>
+                  <td>Jam ke</td><td>{isManualSession ? "Manual" : `${session.startPeriod} (${session.startTime}–${session.endTime})`}</td>
                 </tr>
               </tbody>
             </table>

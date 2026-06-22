@@ -229,8 +229,18 @@ export {
   applyAttendanceChanges,
   isAllPresent,
   validateAttendanceConsistency,
+  backfillNisInRecords,
   type AttendanceSummary,
 } from "./attendance-helpers";
+
+/* PATCH-FLOW-RC1 — Manual LessonSession helper (absensi/jurnal manual & susulan) */
+export {
+  createManualLessonSession,
+  isMatchingManualSession,
+  semesterForDate,
+  type ManualSessionMode,
+  type CreateManualLessonSessionInput,
+} from "./manual-session";
 
 /* Sprint 4 — Journal helpers (auto-fill dari sesi + Prota + absensi) */
 export {

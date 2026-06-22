@@ -101,6 +101,36 @@ export function applyAttendanceChanges(
   });
 }
 
+/**
+ * Backfill NIS pada records yang tidak punya NIS dari roster.
+ * Mengembalikan records baru dengan NIS terisi bila roster punya NIS untuk studentId tersebut.
+ *
+ * Pure function. Caller wajib simpan bila ingin persist perubahan.
+ *
+ * Use case: records lama yang dibuat sebelum field NIS ada, atau roster
+ * diperbarui setelah absensi dibuat.
+ */
+export function backfillNisInRecords(
+  records: AttendanceRecord[],
+  roster: ClassRoster
+): { records: AttendanceRecord[]; changed: boolean } {
+  const nisByStudentId = new Map<string, string>();
+  for (const s of roster.students) {
+    if (s.nis) nisByStudentId.set(s.id, s.nis);
+  }
+
+  let changed = false;
+  const updated = records.map((r) => {
+    if (r.nis) return r; // sudah ada NIS
+    const nis = nisByStudentId.get(r.studentId);
+    if (!nis) return r;
+    changed = true;
+    return { ...r, nis };
+  });
+
+  return { records: updated, changed };
+}
+
 /** Cek apakah semua siswa hadir (tidak ada perubahan dari default). */
 export function isAllPresent(records: AttendanceRecord[]): boolean {
   return records.every((r) => r.status === "present");
