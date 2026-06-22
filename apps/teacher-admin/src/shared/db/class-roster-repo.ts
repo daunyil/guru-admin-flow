@@ -106,7 +106,7 @@ export async function updateStudent(
  */
 export async function importStudents(
   rosterId: string,
-  students: Array<{ name: string; number: number }>
+  students: Array<{ name: string; number: number; nis?: string }>
 ): Promise<ClassRoster | undefined> {
   const existing = await getClassRoster(rosterId);
   if (!existing) return undefined;
@@ -114,6 +114,7 @@ export async function importStudents(
     id: uuid(),
     name: s.name,
     number: s.number,
+    nis: s.nis || undefined,
   }));
   return await updateClassRoster(rosterId, { students: newStudents });
 }

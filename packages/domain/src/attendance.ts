@@ -25,6 +25,7 @@ export const studentEntrySchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
   number: z.number().int().positive(),
+  nis: z.string().optional(),
 });
 
 export const classRosterSchema = baseEntitySchema.extend({

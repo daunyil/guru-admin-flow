@@ -225,57 +225,90 @@ function ImportModal({
     const seenNames = new Set<string>();
     const seenNIS = new Set<string>();
 
+    // Existing students for append duplicate check
+    const existingNames = new Set(roster.students.map((s) => s.name.toLowerCase()));
+    const existingNIS = new Set(roster.students.map((s) => s.nis).filter(Boolean));
+
     lines.forEach((line, idx) => {
-      // Coba beberapa format:
-      // 1. "1\t12345\tANDI SAPUTRA" (tab-separated)
-      // 2. "1 12345 ANDI SAPUTRA" (spasi, nomor + NIS + nama)
-      // 3. "1. ANDI SAPUTRA" (dengan titik)
-      // 4. "ANDI SAPUTRA" (hanya nama)
-      // 5. "1,12345,ANDI SAPUTRA" (CSV koma)
-
-      let parts: string[];
-      if (line.includes("\t")) {
-        parts = line.split("\t").map((p) => p.trim());
-      } else if (line.includes(",")) {
-        parts = line.split(",").map((p) => p.trim());
-      } else if (line.includes(";")) {
-        parts = line.split(";").map((p) => p.trim());
-      } else {
-        // Coba split spasi: jika ada 3+ parts dan part[0] + part[1] adalah angka, sisanya nama
-        parts = line.split(/\s+/);
-        if (parts.length >= 3 && /^\d+$/.test(parts[0]) && /^\d+$/.test(parts[1])) {
-          // Format: "No NIS Nama Lengkap"
-          const no = parts[0];
-          const nis = parts[1];
-          const name = parts.slice(2).join(" ");
-          parts = [no, nis, name];
-        } else if (parts.length >= 2 && /^\d+$/.test(parts[0])) {
-          // Format: "No Nama Lengkap" atau "No. Nama"
-          const no = parts[0].replace(/[.]/g, "");
-          const name = parts.slice(1).join(" ");
-          parts = [no, "", name];
-        } else {
-          // Hanya nama
-          parts = ["", "", line];
-        }
-      }
-
       let number: number;
       let nis: string;
       let name: string;
 
-      if (parts.length >= 3) {
-        number = parseInt(parts[0]) || (idx + 1);
-        nis = parts[1] || "";
-        name = parts.slice(2).join(" ").trim();
-      } else if (parts.length === 2) {
-        number = parseInt(parts[0]) || (idx + 1);
-        nis = "";
-        name = parts[1].trim();
+      if (line.includes("\t")) {
+        // Tab-separated: "1\t12345\tANDI SAPUTRA"
+        const parts = line.split("\t").map((p) => p.trim());
+        if (parts.length >= 3) {
+          number = parseInt(parts[0]) || (idx + 1);
+          nis = parts[1] || "";
+          name = parts.slice(2).join(" ").trim();
+        } else if (parts.length === 2) {
+          number = parseInt(parts[0]) || (idx + 1);
+          nis = "";
+          name = parts[1].trim();
+        } else {
+          number = idx + 1;
+          nis = "";
+          name = parts[0].trim();
+        }
+      } else if (line.includes(",")) {
+        // CSV koma: "1,12345,ANDI SAPUTRA"
+        const parts = line.split(",").map((p) => p.trim());
+        if (parts.length >= 3) {
+          number = parseInt(parts[0]) || (idx + 1);
+          nis = parts[1] || "";
+          name = parts.slice(2).join(" ").trim();
+        } else if (parts.length === 2) {
+          number = parseInt(parts[0]) || (idx + 1);
+          nis = "";
+          name = parts[1].trim();
+        } else {
+          number = idx + 1;
+          nis = "";
+          name = parts[0].trim();
+        }
+      } else if (line.includes(";")) {
+        // CSV titik koma: "1;12345;ANDI SAPUTRA"
+        const parts = line.split(";").map((p) => p.trim());
+        if (parts.length >= 3) {
+          number = parseInt(parts[0]) || (idx + 1);
+          nis = parts[1] || "";
+          name = parts.slice(2).join(" ").trim();
+        } else if (parts.length === 2) {
+          number = parseInt(parts[0]) || (idx + 1);
+          nis = "";
+          name = parts[1].trim();
+        } else {
+          number = idx + 1;
+          nis = "";
+          name = parts[0].trim();
+        }
       } else {
-        number = idx + 1;
-        nis = "";
-        name = parts[0].trim();
+        // Spasi-separated — deteksi pola
+        const dotMatch = line.match(/^(\d+)[.\)]\s+(.+)$/);
+        if (dotMatch) {
+          // Format: "1. ANDI SAPUTRA" atau "1) ANDI SAPUTRA"
+          number = parseInt(dotMatch[1]);
+          nis = "";
+          name = dotMatch[2].trim();
+        } else {
+          const parts = line.split(/\s+/);
+          if (parts.length >= 3 && /^\d+$/.test(parts[0]) && /^\d+$/.test(parts[1])) {
+            // Format: "1 12345 ANDI SAPUTRA"
+            number = parseInt(parts[0]);
+            nis = parts[1];
+            name = parts.slice(2).join(" ").trim();
+          } else if (parts.length >= 2 && /^\d+$/.test(parts[0])) {
+            // Format: "1 ANDI SAPUTRA"
+            number = parseInt(parts[0]);
+            nis = "";
+            name = parts.slice(1).join(" ").trim();
+          } else {
+            // Hanya nama
+            number = idx + 1;
+            nis = "";
+            name = line.trim();
+          }
+        }
       }
 
       if (!name) {
@@ -284,11 +317,16 @@ function ImportModal({
       }
 
       const warnings: string[] = [];
-      if (seenNames.has(name.toLowerCase())) warnings.push("Nama dobel");
+      // Cek duplikat dalam batch import
+      if (seenNames.has(name.toLowerCase())) warnings.push("Nama dobel (dalam import)");
       seenNames.add(name.toLowerCase());
 
-      if (nis && seenNIS.has(nis)) warnings.push("NIS dobel");
+      if (nis && seenNIS.has(nis)) warnings.push("NIS dobel (dalam import)");
       if (nis) seenNIS.add(nis);
+
+      // Cek duplikat dengan siswa existing (untuk mode append)
+      if (existingNames.has(name.toLowerCase())) warnings.push("Nama sudah ada di roster");
+      if (nis && existingNIS.has(nis)) warnings.push("NIS sudah ada di roster");
 
       result.push({
         number,
@@ -344,13 +382,13 @@ function ImportModal({
       }
 
       if (importMode === "replace") {
-        // Ganti semua siswa
-        await importStudents(roster.id, valid.map((p) => ({ name: p.name, number: p.number })));
+        // Ganti semua siswa — simpan dengan NIS
+        await importStudents(roster.id, valid.map((p) => ({ name: p.name, number: p.number, nis: p.nis || undefined })));
       } else {
-        // Tambahkan ke siswa existing
+        // Tambahkan ke siswa existing — simpan dengan NIS
         const startNumber = roster.students.length + 1;
         for (let i = 0; i < valid.length; i++) {
-          await addStudent(roster.id, { name: valid[i].name, number: startNumber + i });
+          await addStudent(roster.id, { name: valid[i].name, number: startNumber + i, nis: valid[i].nis || undefined });
         }
       }
       onImported();
@@ -528,6 +566,7 @@ function RosterDetail({
               <thead>
                 <tr className="border-b border-slate-200 text-left">
                   <th className="py-2 px-2 w-12">No</th>
+                  <th className="py-2 px-2 w-28">NIS/NISN</th>
                   <th className="py-2 px-2">Nama</th>
                   <th className="py-2 px-2 w-20">Aksi</th>
                 </tr>
@@ -536,6 +575,7 @@ function RosterDetail({
                 {roster.students.map((s) => (
                   <tr key={s.id} className="border-b border-slate-100">
                     <td className="py-1.5 px-2">{s.number}</td>
+                    <td className="py-1.5 px-2 text-xs text-slate-500">{s.nis ?? "-"}</td>
                     <td className="py-1.5 px-2">{s.name}</td>
                     <td className="py-1.5 px-2">
                       <button
