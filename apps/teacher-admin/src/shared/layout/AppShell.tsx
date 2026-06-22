@@ -10,9 +10,13 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { to: "/", label: "Hari Ini", icon: Calendar },
+  { to: "/admin-package", label: "Paket Administrasi", icon: BookMarked },
   { to: "/attendance", label: "Absen", icon: CheckCircle },
   { to: "/journal", label: "Jurnal", icon: BookOpen },
   { to: "/grades", label: "Nilai", icon: FileSpreadsheet },
+  { to: "/remedial", label: "Remedial", icon: FileSpreadsheet },
+  { to: "/pengayaan", label: "Pengayaan", icon: FileSpreadsheet },
+  { to: "/rpp-bulk", label: "RPP Ganti Identitas", icon: FileText },
   { to: "/assignments", label: "Data Mengajar", icon: BookMarked },
   { to: "/calendar", label: "Kalender", icon: Calendar },
   { to: "/prota", label: "Program Tahunan", icon: ClipboardList },
@@ -21,7 +25,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: "/roster", label: "Siswa", icon: Users },
   { to: "/atp", label: "Bank TP", icon: ListChecks },
   { to: "/lkpd", label: "LKPD", icon: BookOpen },
-  { to: "/rpp", label: "RPP", icon: FileText },
+  { to: "/rpp", label: "RPP Template", icon: FileText },
   { to: "/completeness", label: "Kelengkapan", icon: ListChecks },
   { to: "/semester-report", label: "Laporan", icon: FileSpreadsheet },
   { to: "/profile", label: "Profil", icon: User },

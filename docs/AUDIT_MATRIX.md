@@ -1,125 +1,136 @@
-# Audit Matrix — APP-USABLE-RC1B
+# Audit Matrix — GENERATOR-COMPLETION-RC1
 
-Tujuan: cek setiap menu punya route + data + tombol utama yang bisa dipakai guru.
+Tujuan: cek setiap modul core App Generator punya route + data + tombol utama.
 
-## Cara Pakai
+## Status Produk
 
-Setelah seed data (klik "Pakai Data Contoh" di Home), cek setiap menu.
+```text
+GENERATOR-COMPLETION-RC1
+Fokus: App Generator sebagai pusat dokumen administrasi guru
+Apps Script = input harian (tidak dirombak)
+Absen/Jurnal internal app = freeze (tidak dikembangkan besar)
+Supabase = FUTURE (ditunda)
+```
 
-## Matrix
+## Matrix 18 Modul Core (Roadmap §4)
 
-| # | Menu | Route | Data Seed | Tombol Utama | Status |
+| # | Modul | Route | Data Seed | Tombol Utama | Status |
 |---|------|-------|-----------|--------------|--------|
-| 1 | Hari Ini | `/` | ✅ Profil + tahun + assignments + sesi | "Pakai Data Contoh", "Mulai Cepat", "Sesi Mengajar Hari Ini" | ✅ Siap |
-| 2 | Profil | `/profile` | ✅ Sekolah + guru | Simpan profil sekolah + guru | ✅ Siap |
-| 3 | Kalender | `/calendar` | ✅ 6 events | Tambah event, impor JSON | ✅ Siap |
-| 4 | Program Tahunan | `/prota` | ✅ 1 Prota PPKn VII (6 unit) | Tambah unit, impor JSON | ✅ Siap |
-| 5 | Program Semester | `/promes` | ✅ Auto-generate saat buka halaman (Prota+Kalender sudah ada) | Generate, Mode Dokumen, Cetak | ✅ Siap |
-| 6 | Jadwal | `/schedule` | ✅ 1 jadwal (VII A Senin) | Tambah/edit jadwal, Generate Sesi, Linker Promes | ✅ Siap |
-| 7 | Siswa | `/roster` | ✅ 1 roster VII A (10 siswa + NIS) | Tambah siswa, impor massal | ✅ Siap |
-| 8 | Data Mengajar | `/assignments` | ✅ 1 assignment (VII A · PPKn, auto-gen) | Tambah manual, Auto-Gen dari Jadwal, Hapus | ✅ Siap |
-| 9 | Bank TP | `/atp` | ✅ 2 ATP/TP (Norma bab 1, bab 2) | Tambah TP, Edit, Hapus, Prompt AI | ✅ Siap |
-| 10 | LKPD | `/lkpd` | ✅ 1 LKPD draft ("Norma dalam Masyarakat") | Buat LKPD (dari TP), Edit, Finalkan, Preview/Cetak, Hapus | ✅ Siap |
-| 11 | RPP | `/rpp` | Template generator (tidak butuh data persist) | Pilih konteks, Salin placeholder, Generate template | ✅ Siap (template) |
-| 12 | Absen | `/attendance` | ✅ Sesi dari jadwal + 1 sesi sudah ada absensi contoh | 3 mode: Dari Jadwal / Susulan / **Absen Manual** | ✅ Siap |
-| 13 | Jurnal | `/journal` | ✅ Sesi dari jadwal + 1 jurnal final contoh | 3 mode: Hari Ini / Susulan / Manual | ✅ Siap |
-| 14 | Nilai | `/grades` | ✅ 1 GradeBook contoh (10 siswa, nilai 75-94) | Pilih Data Mengajar, Isi Semua 80, Acak, Paste Excel, Simpan | ✅ Siap |
-| 15 | Kelengkapan | `/completeness` | ✅ Cek otomatis dari data | Per-modul checklist + link | ✅ Siap |
-| 16 | Laporan | `/semester-report` | ✅ Pilih Data Mengajar → generate. Filter by assignment 5-tuple. | Generate, Finalize, Mode Dokumen, Cetak | ✅ Siap |
-| 17 | Backup | `/backup` | — | Export, Import, Restore | ✅ Siap |
-| 18 | Tahun Baru | `/new-year` | — | Wizard tahun baru | ✅ Siap |
+| 1 | Program Tahunan | `/prota` | ✅ 1 Prota PPKn VII (6 unit) | Tambah unit, impor JSON | ✅ |
+| 2 | Program Semester | `/promes` | ✅ Auto-generate saat buka | Generate, Mode Dokumen, Cetak | ✅ |
+| 3 | ATP / Bank TP | `/atp` | ✅ 2 TP (Norma bab 1, 2) | Tambah TP, Edit, Hapus, Prompt AI | ✅ |
+| 4 | Kalender Pendidikan + Hari Besar | `/calendar` | ✅ 6 events | Tambah event, impor JSON | ✅ |
+| 5 | Jadwal Mengajar | `/schedule` | ✅ 1 jadwal (VII A Senin) | Tambah/edit, Generate Sesi, Linker | ✅ |
+| 6 | Daftar Siswa | `/roster` | ✅ 1 roster VII A (10 siswa + NIS) | Tambah siswa, impor massal | ✅ |
+| 7 | Absensi Semester | `/attendance` | ✅ 1 sesi ada absensi contoh | 3 mode: Dari Jadwal / Susulan / Absen Manual | ✅ |
+| 8 | Jurnal Mengajar | `/journal` | ✅ 1 jurnal final contoh | 3 mode: Hari Ini / Susulan / Manual | ✅ |
+| 9 | Daftar Nilai | `/grades` | ✅ 1 GradeBook (10 siswa, 75-94) | Pilih Assignment, Isi 80, Acak, Paste, Simpan | ✅ |
+| 10 | Analisis Ketuntasan | `/completeness` | ✅ Cek otomatis | Checklist per modul + link | ✅ |
+| 11 | **Program Remedial** | `/remedial` | ✅ Generate dari GradeBook | Pilih Assignment, Generate, Edit Siswa, Finalkan, Cetak | ✅ **BARU** |
+| 12 | **Program Pengayaan** | `/pengayaan` | ✅ Generate dari GradeBook | Pilih Assignment, Generate, Edit Siswa, Finalkan, Cetak | ✅ **BARU** |
+| 13 | LKPD | `/lkpd` | ✅ 1 LKPD draft | Buat dari TP, Edit, Finalkan, Preview/Cetak | ✅ |
+| 14 | **RPP Bulk Identity Replacement** | `/rpp-bulk` | — (guru upload/paste) | Upload/Paste, Auto-fill Identitas, Preview, Download, Cetak | ✅ **BARU** |
+| 14b | RPP Template (legacy) | `/rpp` | — (template generator) | Pilih konteks, Salin placeholder | ✅ (legacy) |
+| 15 | Laporan Akhir Semester | `/semester-report` | ✅ Generate dari assignment | Pilih Assignment, Generate, Finalize, Cetak | ✅ |
+| 16 | **Paket Administrasi Guru** | `/admin-package` | ✅ Checklist 14 dokumen | Pilih Assignment, Lihat Skor, Buka per Dokumen | ✅ **BARU** |
+| 17 | Backup / Restore | `/backup` | — | Export, Import, Restore (include rppDocuments + remedial + enrichment) | ✅ |
+| 18 | Import Apps Script | (planned Phase 7) | — | — | ⏳ Phase 7 |
 
-## APP-USABLE-RC1B — Laporan Assignment Context
+## Modul Pendukung
 
-Laporan sekarang **pilih Data Mengajar** (bukan Prota). Filter data by 5-tuple:
-- teacherId === assignment.teacherId
-- subject === assignment.subject
-- classId === assignment.classId
-- semester === assignment.semester
-- academicYearId (dari tahun pelajaran aktif)
-
-Report identity menampilkan kelas nyata `VII A` (bukan hanya grade `VII`).
-
-Test domain (#8, #9) memverifikasi:
-- Data guru lain / kelas lain tidak masuk ke laporan assignment ini
-- Report punya classId + classLabel dari assignment
-
-## Alur Data Contoh Lengkap (Seed → Laporan)
-
-Setelah klik "Pakai Data Contoh":
-
-```
-Profil sekolah + guru (Siti Aminah, S.Pd.)
-  → Tahun pelajaran 2025/2026
-  → Kalender (6 events)
-  → Prota PPKn VII (6 unit)
-  → Jadwal VII A (Senin jam 1-2)
-  → Roster VII A (10 siswa + NIS)
-  → Data Mengajar (1 assignment auto-gen: VII A · PPKn)
-  → ATP/TP (2 entry: Norma bab 1, bab 2)
-  → LKPD (1 draft: "Norma dalam Masyarakat")
-  → Generate Sesi (otomatis dari jadwal+kalender)
-  → 1 sesi sudah diisi:
-      - Absensi (9 H, 1 S)
-      - Jurnal (final/locked, materi "Norma dalam Masyarakat")
-      - Nilai (GradeBook, 10 siswa, nilai 75-94)
-  → Promes (auto-generate saat buka menu Program Semester)
-  → Laporan (pilih Data Mengajar "VII A · PPKn · Siti Aminah" →
-              Generate → data hanya dari assignment itu, tidak bercampur)
-```
-
-## Full-Flow Test Scenario
-
-1. **Home** → klik "Pakai Data Contoh" → reload
-2. **Data Mengajar** → pastikan 1 assignment muncul (VII A · PPKn · Siti Aminah)
-3. **Bank TP** → pastikan 2 TP muncul
-4. **LKPD** → pastikan 1 LKPD muncul → klik **Preview** → klik **Cetak**
-5. **Program Semester** → pastikan Promes **otomatis muncul** (tidak perlu klik Generate)
-6. **Jadwal** → pastikan 1 jadwal + sesi sudah ter-generate
-7. **Absen** → mode "Dari Jadwal" → pilih tanggal Senin → klik sesi → pastikan ada absensi contoh → ubah 1 siswa → Simpan
-8. **Absen** → mode "Absen Susulan" → pilih Data Mengajar → pastikan ContextCard + rekap + daftar belum absen
-9. **Absen** → mode "**Absen Manual**" → pilih Data Mengajar → Mulai Absen → isi → Simpan
-10. **Jurnal** → pilih Data Mengajar → mode "Hari Ini" → klik pertemuan → pastikan ada jurnal contoh (final) → klik "Buka Kembali" → edit → "Setujui & Finalkan"
-11. **Jurnal** → mode "Jurnal Susulan" → pastikan ContextCard + daftar belum jurnal
-12. **Nilai** → pilih Data Mengajar → pastikan ContextCard + GradeBook contoh muncul → edit nilai → Simpan
-13. **Laporan** → pilih Data Mengajar "VII A · PPKn · Siti Aminah" → pastikan ContextCard menampilkan kelas **VII A** (bukan VII) → klik **Generate Laporan** → pastikan summary muncul dengan data hanya dari assignment itu
-14. **RPP** → pilih konteks → pastikan ContextCard → klik "Salin Semua"
-15. **Backup** → Export → pastikan file JSON terunduh
-16. **Kelengkapan** → pastikan skor > 0
-
-## ContextCard Coverage
-
-| Layar Kerja | ContextCard/InfoCard | Field ditampilkan |
+| Modul | Route | Status |
 |---|---|---|
-| Nilai | ✅ ContextCard | Guru, Mapel, Kelas, Semester, TP |
-| Absen Susulan | ✅ ContextCard | Guru, Mapel, Kelas, Semester, TP |
-| Absen (editor, semua mode) | ✅ InfoCard | Mapel, Kelas, Tanggal, Jam, Semester |
-| Jurnal (setelah pilih assignment) | ✅ ContextCard | Guru, Mapel, Kelas, Semester, TP |
-| LKPD (form, setelah pilih TP) | ✅ InfoCard | Guru, Mapel, Kelas, Fase, Bab |
-| RPP (setelah pilih konteks) | ✅ InfoCard | Guru, Mapel, Kelas, Semester, TP |
-| **Laporan** (RC1B) | ✅ InfoCard | Guru, Mapel, **Kelas (VII A)**, Semester, TP |
+| Data Mengajar | `/assignments` | ✅ |
+| Profil Sekolah + Guru | `/profile` | ✅ |
+| Tahun Baru Wizard | `/new-year` | ✅ |
 
-## Istilah Teknis yang Sudah Dibersihkan
+## Phase Status (Roadmap §9)
 
-| Sebelum | Sesudah |
+| Phase | Status | Catatan |
+|---|---|---|
+| Phase 0 — Roadmap Reset & Contract Lock | ✅ DONE | Roadmap V3 diadopsi, audit matrix baru ini |
+| Phase 1 — RPP Bulk Identity Replacement | ✅ DONE | `/rpp-bulk` lengkap dengan upload/paste/preview/cetak |
+| Phase 2 — Remedial | ✅ DONE | `/remedial` generate dari GradeBook < KKTP |
+| Phase 3 — Pengayaan | ✅ DONE | `/pengayaan` generate dari GradeBook ≥ 90 |
+| Phase 4 — LKPD Completion | ✅ DONE (sebelumnya) | `/lkpd` sudah ada dari APP-USABLE-RC1 |
+| Phase 5 — Auto Document Engine | ⏳ PLANNED | Tombol "Generate Paket Dokumen" = future work |
+| Phase 6 — Paket Administrasi Guru | ✅ DONE | `/admin-package` checklist 14 dokumen |
+| Phase 7 — Apps Script Bridge | ⏳ PLANNED | Import JSON dari Apps Script = future work |
+| Phase 8 — Print/Export Polish | ⏳ PARTIAL | Print CSS sudah ada, export HTML/PDF/Word = future |
+| Phase 9 — Supabase Migration | ⏳ FUTURE | Ditunda sampai generator matang |
+
+## Sistem Auto (Roadmap §5)
+
+| Fitur Auto | Status |
 |---|---|
-| "ATP/TP" (menu) | "Bank TP" |
-| "Prota" (menu) | "Program Tahunan" |
-| "Promes" (menu) | "Program Semester" |
-| "Punya rencana Prota" (UI text) | "Punya rencana materi" |
-| "Total ... pertemuan (sesuai LessonSession)" | "Total ... pertemuan terjadwal" |
-| "Sesi Mengajar (LessonSession)" (Kelengkapan) | "Sesi Mengajar (Pertemuan)" |
-| "Manual (Ad-hoc)" (button) | "Absen Manual" |
-| "Absen Manual (Ad-hoc)" (header) | "Absen Manual" |
-| "Manual" (button, RC1A) | "Absen Manual" (RC1B) |
-| "Pilih Prota" (Laporan, RC1) | "Pilih Data Mengajar" (RC1B) |
+| Generate LKPD dari TP | ✅ (LKPDPage: pilih TP → auto-fill subject/grade/tp) |
+| Bulk ganti identitas RPP lama | ✅ **BARU** (`/rpp-bulk`) |
+| Generate Jurnal dari pertemuan/absensi | ✅ (QuickJournalPage meeting-first) |
+| Generate Remedial dari nilai | ✅ **BARU** (`/remedial`) |
+| Generate Pengayaan dari nilai | ✅ **BARU** (`/pengayaan`) |
+| Generate Laporan Akhir Semester | ✅ (`/semester-report` pilih assignment → generate) |
+| Generate Paket Dokumen | ⏳ PLANNED (Phase 5) |
 
-Istilah yang dibiarkan karena baku Kurikulum Merdeka: JP (Jam Pelajaran), KKTP (Kriteria Ketercapaian Tujuan Pembelajaran).
+## Filter Assignment 5-tuple (Roadmap §5 "tidak bercampur")
+
+Modul yang sudah filter by (teacherId + subject + classId + semester + academicYearId):
+
+| Modul | Filter | Verified |
+|---|---|---|
+| Nilai | ✅ findGradeBook by 5-tuple | ✅ |
+| Absen Susulan | ✅ recapAttendanceForAssignment | ✅ |
+| Absen Manual | ✅ findOrCreateManualSession | ✅ |
+| Jurnal | ✅ recapJournalsForAssignment | ✅ |
+| Laporan | ✅ generator filter by assignment (Test #8 domain) | ✅ |
+| Remedial | ✅ generateRemedialProgram by assignment | ✅ |
+| Pengayaan | ✅ generateEnrichmentProgram by assignment | ✅ |
+| Paket Administrasi | ✅ filter sessions/journals/attendance by assignment | ✅ |
+
+## ContextCard Coverage (Roadmap §"tidak ada istilah teknis")
+
+| Layar Kerja | InfoCard | Field |
+|---|---|---|
+| Nilai | ✅ | Guru, Mapel, Kelas, Semester, TP |
+| Absen Susulan | ✅ | Guru, Mapel, Kelas, Semester, TP |
+| Absen editor | ✅ | Mapel, Kelas, Tanggal, Jam, Semester |
+| Jurnal | ✅ | Guru, Mapel, Kelas, Semester, TP |
+| LKPD form | ✅ | Guru, Mapel, Kelas, Fase, Bab |
+| RPP Template | ✅ | Guru, Mapel, Kelas, Semester, TP |
+| RPP Bulk Replace | ✅ | Sekolah, Guru, Mapel, Kelas, Semester |
+| Laporan | ✅ | Guru, Mapel, Kelas (VII A), Semester, TP |
+| Remedial | ✅ | Guru, Mapel, Kelas, Semester, TP |
+| Pengayaan | ✅ | Guru, Mapel, Kelas, Semester, TP |
+| Paket Administrasi | ✅ | Guru, Mapel, Kelas, Semester, TP |
+
+## Backup/Restore Coverage
+
+Entitas yang di-include di export + restore (dengan backward compat default `[]`):
+
+```
+academicYears, schoolProfile, teacherProfile, calendarEvents,
+protaProfiles (+units), teachingSchedules, teachingAssignments,
+lessonSessions, attendanceRecords, classRosters, teachingJournals,
+semesterReports, gradeBooks, atpEntries, lkpds,
+rppDocuments (BARU), remedialPrograms (BARU), enrichmentPrograms (BARU),
+documentSnapshots
+```
+
+DATA_SCHEMA_VERSION = 6.
 
 ## Known Issues Tersisa
 
-1. **Multi-guru belum penuh** — semua filter pakai teacherId, tapi AssignmentsPage masih admin-style (single-teacher MVP). Master Guru = future work.
-2. **Build warning** — chunk >500KB (bukan blocker).
-3. **CI belum verified** — GitHub workflow masih pending. Lokal PASS untuk typecheck/test/build.
-4. **RPP hanya template generator** — tidak menyimpan RPP persist, hanya bantu identitas + placeholder untuk Word.
+1. **Phase 5 — Auto Document Engine** belum ada. Tombol "Generate Paket Dokumen" yang menghasilkan RPP+LKPD+Remedial+Pengayaan+Laporan sekaligus = future work.
+2. **Phase 7 — Apps Script Bridge** belum ada. Import JSON dari Apps Script = future work.
+3. **Phase 8 — Print/Export Polish** partial. Print CSS sudah ada, tapi export PDF/Word belum.
+4. **Multi-guru belum penuh** — AssignmentsPage masih admin-style (single-teacher MVP). Master Guru = future work.
+5. **Build warning** — chunk >500KB (bukan blocker).
+6. **CI belum verified** — GitHub workflow masih pending. Lokal PASS.
+7. **RPP bulk replace hanya placeholder-based** — literal text replacement (ganti teks "SMA Negeri 1" → "SMPN 8 Bantan") = future work. Saat ini hanya placeholder `{{...}}` yang di-replace.
 
+## Larangan yang Dipatuhi (Roadmap §11)
+
+- ❌ Tidak buat Supabase
+- ❌ Tidak rebuild absen/jurnal internal
+- ❌ Tidak login multi-user penuh
+- ❌ Tidak hapus modul absen/jurnal yang sudah ada
+- ❌ Tidak klaim CLOSED

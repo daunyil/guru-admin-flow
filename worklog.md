@@ -760,3 +760,79 @@ Stage Summary:
 - 7 file changed (0 baru, 7 modifikasi).
 - Status: READY FOR SENIOR AUDIT.
 - Push PENDING: butuh token.
+
+---
+
+Task ID: GENERATOR-COMPLETION-RC1
+Agent: main (GENERATOR-COMPLETION-RC1 batch execution)
+Task: Roadmap Reset V3 — lengkapi App Generator sebagai pusat dokumen administrasi guru.
+
+Work Log:
+- Branch: generator-completion-rc1 dari main (69536df).
+- Domain layer (3 schema baru):
+  - packages/domain/src/rpp-document.ts (NEW): RppDocument schema + RppIdentityContext + RPP_IDENTITY_PLACEHOLDERS + buildPlaceholderMap + replaceRppIdentityPlaceholders + countPlaceholders + hasAnyPlaceholder.
+  - packages/domain/src/remedial-program.ts (NEW): RemedialProgram + RemedialStudent + filterRemedialStudents (filter siswa < KKTP) + isRemedialProgramComplete + finalizeRemedialProgram.
+  - packages/domain/src/enrichment-program.ts (NEW): EnrichmentProgram + EnrichmentStudent + DEFAULT_ENRICHMENT_THRESHOLD=90 + filterEnrichmentStudents + finalizeEnrichmentProgram.
+  - packages/domain/src/backup.ts: + rppDocuments + remedialPrograms + enrichmentPrograms (default [] backward compat).
+  - packages/domain/src/index.ts: export 3 entitas baru + helpers.
+  - packages/shared/src/constants.ts: DATA_SCHEMA_VERSION 5 -> 6.
+- App DB layer:
+  - schema.ts: Dexie v6 — + rppDocuments + remedialPrograms + enrichmentPrograms tables dengan composite index untuk filter by assignment.
+  - crud.ts: + 3 TableName baru.
+  - backup-repo.ts: + 3 entitas di export/restore.
+  - rpp-document-repo.ts (NEW): listRppDocuments, getRppDocument, saveRppDocument (auto-replace placeholder), updateRppDocument, deleteRppDocument, reprocessRppDocument.
+  - remedial-repo.ts (NEW): listRemedialPrograms, findRemedialProgram, generateRemedialProgram (filter GradeBook < KKTP, UPSERT dengan preserve data siswa lama), updateRemedialProgram, finalizeRemedialProgram, deleteRemedialProgram.
+  - enrichment-repo.ts (NEW): mirror remedial, threshold default 90.
+- App UI layer (4 page baru):
+  - modules/rpp-bulk/RppBulkReplacePage.tsx (NEW): Phase 1 RPP Bulk Identity Replacement.
+    - Auto-fill identitas dari Profil Sekolah + Guru.
+    - Pilih Data Mengajar untuk auto-fill mapel/kelas/semester.
+    - Upload file .txt/.html/.md atau paste teks.
+    - Live preview: placeholder count + hasil replace.
+    - Simpan arsip + download .html + cetak.
+    - Daftar placeholder didukung (13 placeholder).
+  - modules/remedial/RemedialPage.tsx (NEW): Phase 2 Remedial.
+    - Pilih Data Mengajar + KKTP + tanggal.
+    - Generate dari GradeBook (filter siswa < KKTP).
+    - Edit per siswa: nilai remedial, bentuk, jadwal, catatan.
+    - Rencana umum + Finalkan + Mode Dokumen (cetak).
+    - InfoCard konteks assignment.
+  - modules/pengayaan/EnrichmentPage.tsx (NEW): Phase 3 Pengayaan.
+    - Mirror Remedial tapi threshold ≥ 90.
+    - Edit per siswa: aktivitas, materi lanjutan, catatan.
+    - Mode Dokumen cetak.
+  - modules/admin-package/AdminPackagePage.tsx (NEW): Phase 6 Paket Administrasi Guru.
+    - Pilih Data Mengajar.
+    - Checklist 14 dokumen dengan status lengkap/belum/kosong.
+    - Skor kelengkapan %.
+    - Tombol "Buka" per dokumen ke route masing-masing.
+    - InfoCard konteks assignment.
+- Routes + nav:
+  - App.tsx: + 4 route (/rpp-bulk, /remedial, /pengayaan, /admin-package). Total 23 routes.
+  - AppShell.tsx: + 4 menu. "Paket Administrasi" ditaruh ke atas (setelah Hari Ini) sebagai entry point utama. "RPP Template" (lama) dipisah dari "RPP Ganti Identitas" (baru).
+- Backup UI:
+  - BackupPage.tsx: + rppDocuments + remedialPrograms + enrichmentPrograms count di summary.
+- Audit matrix:
+  - docs/AUDIT_MATRIX.md: rewrite total untuk RC1. 18 modul core dicek. Phase status (0-9). Sistem auto checklist. Filter assignment coverage. ContextCard coverage (11 layar). Backup coverage. Known issues (Phase 5, 7, 8 = future). Larangan yang dipatuhi.
+
+Verifikasi:
+- Typecheck: 3 workspace PASS, 0 error.
+- Test: 221/221 PASS (198 domain + 23 shared). Tidak ada test baru (focus pada UI + schema).
+- Build: ROOT npm run build PASS — typecheck + vite build 3.27s, 137 modules, 634KB JS / 170KB gzip.
+
+Stage Summary:
+- 4 deliverable utama dari Roadmap V3 selesai:
+  - Phase 1 RPP Bulk Identity Replacement ✅
+  - Phase 2 Remedial ✅
+  - Phase 3 Pengayaan ✅
+  - Phase 6 Paket Administrasi Guru ✅
+- 5 deliverable tambahan:
+  - Audit matrix baru (18 modul core) ✅
+  - Schema formal + backup untuk 3 entitas baru ✅
+  - ContextCard di semua layar kerja baru ✅
+  - Filter assignment 5-tuple di semua modul baru ✅
+  - Tidak ada istilah teknis di UI ✅
+- 22 file changed (8 baru, 14 modifikasi).
+- Phase 5 (Auto Document Engine), Phase 7 (Apps Script Bridge), Phase 8 (Print/Export Polish PDF/Word) = future work sesuai roadmap.
+- Status: READY FOR SENIOR AUDIT.
+- Push PENDING: butuh token.

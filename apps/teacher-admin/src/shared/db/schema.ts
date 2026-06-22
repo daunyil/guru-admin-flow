@@ -21,6 +21,9 @@ import type {
   GradeBook,
   ATPEntry,
   LKPD,
+  RppDocument,
+  RemedialProgram,
+  EnrichmentProgram,
   DocumentSnapshot,
   SyncQueueItem,
 } from "@guru-admin/domain";
@@ -42,6 +45,9 @@ export class GuruAdminDB extends Dexie {
   gradeBooks!: Table<GradeBook, string>;
   atpEntries!: Table<ATPEntry, string>;
   lkpds!: Table<LKPD, string>;
+  rppDocuments!: Table<RppDocument, string>;
+  remedialPrograms!: Table<RemedialProgram, string>;
+  enrichmentPrograms!: Table<EnrichmentProgram, string>;
   documentSnapshots!: Table<DocumentSnapshot, string>;
   syncQueue!: Table<SyncQueueItem, string>;
 
@@ -69,20 +75,24 @@ export class GuruAdminDB extends Dexie {
       gradeBooks: "id, academicYearId, teacherId, classId, subject, semester, status, [academicYearId+teacherId+classId+semester]",
     });
 
-    // PATCH-FLOW-RC2C: add teachingAssignments table.
     this.version(3).stores({
       teachingAssignments: "id, academicYearId, semester, teacherId, subject, classId, [academicYearId+semester+teacherId+classId+subject]",
     });
 
-    // APP-USABLE-RC1: add atpEntries + lkpds tables.
     this.version(4).stores({
       atpEntries: "id, academicYearId, teacherId, subject, grade, classId, atpEntryId",
       lkpds: "id, academicYearId, teacherId, subject, classId, atpEntryId, status",
     });
 
-    // APP-USABLE-RC1B: add classId index to semesterReports for filter by assignment.
     this.version(5).stores({
       semesterReports: "id, academicYearId, teacherId, subject, classId, grade, semester, status, [academicYearId+teacherId+subject+classId+semester]",
+    });
+
+    // GENERATOR-COMPLETION-RC1: add rppDocuments + remedialPrograms + enrichmentPrograms.
+    this.version(6).stores({
+      rppDocuments: "id, academicYearId, teacherId, subject, classLabel, semester, status, source",
+      remedialPrograms: "id, academicYearId, teacherId, subject, classId, semester, status, [academicYearId+teacherId+subject+classId+semester]",
+      enrichmentPrograms: "id, academicYearId, teacherId, subject, classId, semester, status, [academicYearId+teacherId+subject+classId+semester]",
     });
   }
 }

@@ -17,6 +17,9 @@ import { semesterReportSchema } from "./semester-report";
 import { gradeBookSchema } from "./gradebook";
 import { atpEntrySchema } from "./atp-entry";
 import { lkpdSchema } from "./lkpd";
+import { rppDocumentSchema } from "./rpp-document";
+import { remedialProgramSchema } from "./remedial-program";
+import { enrichmentProgramSchema } from "./enrichment-program";
 import { documentSnapshotSchema } from "./snapshot-sync";
 import { DATA_SCHEMA_VERSION } from "@guru-admin/shared";
 
@@ -40,6 +43,9 @@ export const backupFileSchema = z.object({
     gradeBooks: z.array(gradeBookSchema).default([]),
     atpEntries: z.array(atpEntrySchema).default([]),
     lkpds: z.array(lkpdSchema).default([]),
+    rppDocuments: z.array(rppDocumentSchema).default([]),
+    remedialPrograms: z.array(remedialProgramSchema).default([]),
+    enrichmentPrograms: z.array(enrichmentProgramSchema).default([]),
     documentSnapshots: z.array(documentSnapshotSchema),
   }),
 });
@@ -93,6 +99,9 @@ export function validateBackup(input: unknown):
       gradeBooks: backup.data.gradeBooks.length,
       atpEntries: backup.data.atpEntries.length,
       lkpds: backup.data.lkpds.length,
+      rppDocuments: backup.data.rppDocuments.length,
+      remedialPrograms: backup.data.remedialPrograms.length,
+      enrichmentPrograms: backup.data.enrichmentPrograms.length,
       documentSnapshots: backup.data.documentSnapshots.length,
     },
     hasSchoolProfile: backup.data.schoolProfile !== null,
@@ -120,6 +129,9 @@ export type BackupSummary = {
     gradeBooks: number;
     atpEntries: number;
     lkpds: number;
+    rppDocuments: number;
+    remedialPrograms: number;
+    enrichmentPrograms: number;
     documentSnapshots: number;
   };
   hasSchoolProfile: boolean;

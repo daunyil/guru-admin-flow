@@ -24,6 +24,9 @@ type TableName =
   | "gradeBooks"
   | "atpEntries"
   | "lkpds"
+  | "rppDocuments"
+  | "remedialPrograms"
+  | "enrichmentPrograms"
   | "documentSnapshots"
   | "syncQueue";
 
