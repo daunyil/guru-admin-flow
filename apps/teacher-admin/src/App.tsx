@@ -1,6 +1,6 @@
 /**
  * Root App: router + AppShell.
- * v0.6.2: 17 routes — +QuickAttendance, +QuickJournal, +Grades, +ATP, +RPP.
+ * v0.6.3 (PATCH-FLOW-RC2C): 18 routes — +/assignments (Data Mengajar).
  */
 
 import { HashRouter, Routes, Route } from "react-router-dom";
@@ -14,6 +14,7 @@ import { ProtaPage } from "./modules/prota/ProtaPage";
 import { PromesPage } from "./modules/promes/PromesPage";
 import { SchedulePage } from "./modules/schedule/SchedulePage";
 import { RosterPage } from "./modules/roster/RosterPage";
+import { AssignmentsPage } from "./modules/assignments/AssignmentsPage";
 import { QuickAttendancePage } from "./modules/attendance/QuickAttendancePage";
 import { QuickJournalPage } from "./modules/journal/QuickJournalPage";
 import { GradesPage } from "./modules/grades/GradesPage";
@@ -36,6 +37,7 @@ export function App() {
           <Route path="/promes" element={<PromesPage />} />
           <Route path="/schedule" element={<SchedulePage />} />
           <Route path="/roster" element={<RosterPage />} />
+          <Route path="/assignments" element={<AssignmentsPage />} />
           <Route path="/attendance" element={<QuickAttendancePage />} />
           <Route path="/journal" element={<QuickJournalPage />} />
           <Route path="/grades" element={<GradesPage />} />

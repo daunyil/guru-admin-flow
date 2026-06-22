@@ -16,6 +16,7 @@ import {
   type ProtaProfile,
   type ProtaUnit,
   type TeachingSchedule,
+  type TeachingAssignment,
   type LessonSession,
   type AttendanceRecord,
   type ClassRoster,
@@ -39,6 +40,7 @@ export async function exportBackup(): Promise<BackupFile> {
     protaProfiles,
     protaUnits,
     teachingSchedules,
+    teachingAssignments,
     lessonSessions,
     attendanceRecords,
     classRosters,
@@ -54,6 +56,7 @@ export async function exportBackup(): Promise<BackupFile> {
     listEntities<ProtaProfile>("protaProfiles"),
     listEntities<ProtaUnit>("protaUnits"),
     listEntities<TeachingSchedule>("teachingSchedules"),
+    listEntities<TeachingAssignment>("teachingAssignments"),
     listEntities<LessonSession>("lessonSessions"),
     listEntities<AttendanceRecord>("attendanceRecords"),
     listEntities<ClassRoster>("classRosters"),
@@ -80,6 +83,7 @@ export async function exportBackup(): Promise<BackupFile> {
       calendarEvents,
       protaProfiles: protaProfilesWithUnits,
       teachingSchedules,
+      teachingAssignments,
       lessonSessions,
       attendanceRecords,
       classRosters,
@@ -133,6 +137,7 @@ export async function restoreBackup(input: unknown): Promise<BackupSummary> {
       db.protaProfiles,
       db.protaUnits,
       db.teachingSchedules,
+      db.teachingAssignments,
       db.lessonSessions,
       db.attendanceRecords,
       db.classRosters,
@@ -152,6 +157,7 @@ export async function restoreBackup(input: unknown): Promise<BackupSummary> {
         db.protaProfiles.clear(),
         db.protaUnits.clear(),
         db.teachingSchedules.clear(),
+        db.teachingAssignments.clear(),
         db.lessonSessions.clear(),
         db.attendanceRecords.clear(),
         db.classRosters.clear(),
@@ -183,6 +189,9 @@ export async function restoreBackup(input: unknown): Promise<BackupSummary> {
       await db.protaUnits.bulkPut(allUnits);
 
       await db.teachingSchedules.bulkPut(backup.data.teachingSchedules);
+      // teachingAssignments default [] bila tidak ada di backup lama
+      const assignments = (backup.data as { teachingAssignments?: TeachingAssignment[] }).teachingAssignments ?? [];
+      await db.teachingAssignments.bulkPut(assignments);
       await db.lessonSessions.bulkPut(backup.data.lessonSessions);
       await db.attendanceRecords.bulkPut(backup.data.attendanceRecords);
       await db.classRosters.bulkPut(backup.data.classRosters);

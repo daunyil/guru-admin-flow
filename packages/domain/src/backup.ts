@@ -9,6 +9,7 @@ import { teacherProfileSchema } from "./teacher-profile";
 import { calendarEventSchema } from "./calendar-event";
 import { protaProfileSchema } from "./prota";
 import { teachingScheduleSchema } from "./teaching-schedule";
+import { teachingAssignmentSchema } from "./teaching-assignment";
 import { lessonSessionSchema } from "./lesson-session";
 import { attendanceRecordSchema, classRosterSchema } from "./attendance";
 import { teachingJournalSchema } from "./teaching-journal";
@@ -28,6 +29,7 @@ export const backupFileSchema = z.object({
     calendarEvents: z.array(calendarEventSchema),
     protaProfiles: z.array(protaProfileSchema),
     teachingSchedules: z.array(teachingScheduleSchema),
+    teachingAssignments: z.array(teachingAssignmentSchema).default([]),
     lessonSessions: z.array(lessonSessionSchema),
     attendanceRecords: z.array(attendanceRecordSchema),
     classRosters: z.array(classRosterSchema),
@@ -78,6 +80,7 @@ export function validateBackup(input: unknown):
       calendarEvents: backup.data.calendarEvents.length,
       protaProfiles: backup.data.protaProfiles.length,
       teachingSchedules: backup.data.teachingSchedules.length,
+      teachingAssignments: backup.data.teachingAssignments.length,
       lessonSessions: backup.data.lessonSessions.length,
       attendanceRecords: backup.data.attendanceRecords.length,
       classRosters: backup.data.classRosters.length,
@@ -102,6 +105,7 @@ export type BackupSummary = {
     calendarEvents: number;
     protaProfiles: number;
     teachingSchedules: number;
+    teachingAssignments: number;
     lessonSessions: number;
     attendanceRecords: number;
     classRosters: number;

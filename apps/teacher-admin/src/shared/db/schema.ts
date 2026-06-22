@@ -12,6 +12,7 @@ import type {
   ProtaProfile,
   ProtaUnit,
   TeachingSchedule,
+  TeachingAssignment,
   LessonSession,
   AttendanceRecord,
   ClassRoster,
@@ -30,6 +31,7 @@ export class GuruAdminDB extends Dexie {
   protaProfiles!: Table<ProtaProfile, string>;
   protaUnits!: Table<ProtaUnit, string>;
   teachingSchedules!: Table<TeachingSchedule, string>;
+  teachingAssignments!: Table<TeachingAssignment, string>;
   lessonSessions!: Table<LessonSession, string>;
   attendanceRecords!: Table<AttendanceRecord, string>;
   classRosters!: Table<ClassRoster, string>;
@@ -61,6 +63,13 @@ export class GuruAdminDB extends Dexie {
 
     this.version(2).stores({
       gradeBooks: "id, academicYearId, teacherId, classId, subject, semester, status, [academicYearId+teacherId+classId+semester]",
+    });
+
+    // PATCH-FLOW-RC2C: add teachingAssignments table.
+    // Composite index [academicYearId+semester+teacherId+classId+subject]
+    // untuk lookup cepat "apakah assignment ini sudah ada?"
+    this.version(3).stores({
+      teachingAssignments: "id, academicYearId, semester, teacherId, subject, classId, [academicYearId+semester+teacherId+classId+subject]",
     });
   }
 }
