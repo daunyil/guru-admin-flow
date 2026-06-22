@@ -10,7 +10,7 @@
  */
 
 import { useEffect, useState } from "react";
-import { Card, CardHeader, Input, Select, Button, Badge, Textarea, EmptyState } from "../../shared/ui";
+import { Card, CardHeader, Input, Select, Button, Badge, Textarea, EmptyState, ContextCard } from "../../shared/ui";
 import { listClassRosters } from "../../shared/db/class-roster-repo";
 import { getActiveAcademicYear, getTeacherProfile } from "../../shared/db/profile-repo";
 import {
@@ -29,7 +29,7 @@ import type {
   GradeEntry,
   TeachingAssignment,
 } from "@guru-admin/domain";
-import { calculateGradeBookEntries, assignmentShortLabel } from "@guru-admin/domain";
+import { calculateGradeBookEntries, assignmentShortLabel, buildContextInfo } from "@guru-admin/domain";
 
 export function GradesPage() {
   const [loading, setLoading] = useState(true);
@@ -261,6 +261,11 @@ export function GradesPage() {
 
       {assignment && entries.length > 0 && (
         <>
+          {/* Context card */}
+          {year && (
+            <ContextCard info={buildContextInfo({ assignment, academicYear: year })} />
+          )}
+
           {/* KKTP + quick actions */}
           <Card>
             <div className="grid sm:grid-cols-2 gap-3 items-end">

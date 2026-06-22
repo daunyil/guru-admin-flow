@@ -263,6 +263,34 @@ export {
   type MeetingStatus,
 } from "./catchup-helpers";
 
+/* APP-USABLE-RC1 — ATP/TP formal schema */
+export {
+  atpEntrySchema,
+  parseATPEntry,
+  safeParseATPEntry,
+  atpEntryLabel,
+  type ATPEntry,
+} from "./atp-entry";
+
+/* APP-USABLE-RC1 — LKPD modul nyata */
+export {
+  lkpdSchema,
+  parseLKPD,
+  safeParseLKPD,
+  isLKPDComplete,
+  finalizeLKPD,
+  lkpdLabel,
+  type LKPD,
+} from "./lkpd";
+
+/* APP-USABLE-RC1 — ContextCard helpers */
+export {
+  buildContextInfo,
+  formatContextLine,
+  contextEntries,
+  type ContextInfo,
+} from "./context-card";
+
 /* Sprint 4 — Journal helpers (auto-fill dari sesi + Prota + absensi) */
 export {
   generateJournalFromSession,

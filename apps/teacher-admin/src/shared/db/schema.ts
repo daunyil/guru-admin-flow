@@ -19,6 +19,8 @@ import type {
   TeachingJournal,
   SemesterReport,
   GradeBook,
+  ATPEntry,
+  LKPD,
   DocumentSnapshot,
   SyncQueueItem,
 } from "@guru-admin/domain";
@@ -38,6 +40,8 @@ export class GuruAdminDB extends Dexie {
   teachingJournals!: Table<TeachingJournal, string>;
   semesterReports!: Table<SemesterReport, string>;
   gradeBooks!: Table<GradeBook, string>;
+  atpEntries!: Table<ATPEntry, string>;
+  lkpds!: Table<LKPD, string>;
   documentSnapshots!: Table<DocumentSnapshot, string>;
   syncQueue!: Table<SyncQueueItem, string>;
 
@@ -66,10 +70,14 @@ export class GuruAdminDB extends Dexie {
     });
 
     // PATCH-FLOW-RC2C: add teachingAssignments table.
-    // Composite index [academicYearId+semester+teacherId+classId+subject]
-    // untuk lookup cepat "apakah assignment ini sudah ada?"
     this.version(3).stores({
       teachingAssignments: "id, academicYearId, semester, teacherId, subject, classId, [academicYearId+semester+teacherId+classId+subject]",
+    });
+
+    // APP-USABLE-RC1: add atpEntries + lkpds tables.
+    this.version(4).stores({
+      atpEntries: "id, academicYearId, teacherId, subject, grade, classId, atpEntryId",
+      lkpds: "id, academicYearId, teacherId, subject, classId, atpEntryId, status",
     });
   }
 }

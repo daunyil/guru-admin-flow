@@ -15,8 +15,11 @@ export const APP_VERSION = "0.6.0";
  * v0.6.3 (PATCH-FLOW-RC2C) menaikkan versi karena menambah TeachingAssignment
  * ke Dexie + Backup JSON. Backup lama (v2) tetap bisa di-restore karena
  * teachingAssignments default=[] bila tidak ada.
+ * v0.6.4 (APP-USABLE-RC1) menaikkan versi karena menambah atpEntries + lkpds
+ * ke Dexie + Backup JSON. Backup lama (v3) tetap bisa di-restore karena
+ * atpEntries/lkpds default=[] bila tidak ada.
  */
-export const DATA_SCHEMA_VERSION = 3;
+export const DATA_SCHEMA_VERSION = 4;
 
 /** Timezone default untuk MVP v1 (Asia/Jakarta). */
 export const DEFAULT_TIMEZONE = "Asia/Jakarta";

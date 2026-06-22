@@ -22,6 +22,8 @@ type TableName =
   | "teachingJournals"
   | "semesterReports"
   | "gradeBooks"
+  | "atpEntries"
+  | "lkpds"
   | "documentSnapshots"
   | "syncQueue";
 

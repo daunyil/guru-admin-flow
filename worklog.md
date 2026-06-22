@@ -582,3 +582,76 @@ Stage Summary:
 - 9 file changed (2 baru, 7 modifikasi).
 - Status: READY FOR SENIOR AUDIT.
 - Push PENDING: butuh token.
+
+---
+
+Task ID: APP-USABLE-RC1
+Agent: main (APP-USABLE-RC1 batch execution)
+Task: Full Flow Completion & Audit. Fix 8 known issues dari audit Pak. Bukan patch kecil — refactor besar.
+
+Work Log:
+- Branch: app-usable-rc1 dari main (03f5412, hasil restore dari GitHub setelah lokal ter-reset).
+- Domain layer:
+  - packages/domain/src/atp-entry.ts (NEW): ATPEntry schema + parse + safeParse + atpEntryLabel. Field: academicYearId, teacherId, teacherName, subject, grade, phase, classId?, bab?, elemen, cp, tp, profilPelajar?, kataKunci?, alokasiJP, status.
+  - packages/domain/src/lkpd.ts (NEW): LKPD schema + parse + safeParse + isLKPDComplete + finalizeLKPD + lkpdLabel. Field: academicYearId, teacherId, subject, grade, classId?, atpEntryId (wajib link ke TP), tp (snapshot), title, objective, materials?, steps, guidingQuestions?, assessment?, notes?, status, finalizedAt.
+  - packages/domain/src/context-card.ts (NEW): buildContextInfo, formatContextLine, contextEntries. Pure helpers untuk ContextCard UI.
+  - packages/domain/src/backup.ts: + atpEntries + lkpds field (default [] untuk backward compat dengan backup v3).
+  - packages/domain/src/index.ts: export ATPEntry + LKPD + ContextInfo + helpers.
+  - packages/shared/src/constants.ts: DATA_SCHEMA_VERSION 3 -> 4.
+- App DB layer:
+  - schema.ts: + atpEntries + lkpds tables (Dexie v4). Composite index untuk filter cepat.
+  - crud.ts: + "atpEntries" + "lkpds" di TableName union.
+  - backup-repo.ts: + atpEntries + lkpds di export/restore (backward compat: default []).
+  - atp-entry-repo.ts (NEW): listATPEntries, getATPEntry, saveATPEntry, updateATPEntry, deleteATPEntry.
+  - lkpd-repo.ts (NEW): listLKPDs, getLKPD, saveLKPD, updateLKPD, finalizeLKPD, deleteLKPD.
+- App UI layer:
+  - shared/ui/ContextCard.tsx (NEW): reusable component untuk tampilkan Guru/Mapel/Kelas/Semester/TP.
+  - shared/ui/index.tsx: export ContextCard.
+  - modules/atp/ATPPage.tsx: REWRITE. Buang db.table("atp_entries") dynamic. Pakai atp-entry-repo formal. Title "Bank TP" (bukan "Bank ATP/TP"). Tombol "Tambah TP" jelas.
+  - modules/lkpd/LKPDPage.tsx (NEW): modul LKPD nyata. List LKPD + Buat LKPD dari TP (pilih ATPEntry -> auto-fill subject/grade/TP) + Form lengkap (judul, tujuan, alat/bahan, langkah, pertanyaan pemandu, penilaian) + Simpan Draft vs Finalkan + Preview/Cetak (mode dokumen).
+  - modules/grades/GradesPage.tsx: + ContextCard setelah assignment dipilih.
+  - modules/attendance/QuickAttendancePage.tsx: + ContextCard di mode Susulan. Ganti teks "Punya rencana Prota" -> "Punya rencana materi".
+  - modules/journal/QuickJournalPage.tsx: + ContextCard setelah assignment dipilih. Ganti teks "Punya rencana Prota" -> "Punya rencana materi".
+  - modules/backup/BackupPage.tsx: + atpEntries + lkpds count di summary.
+  - App.tsx: + route /lkpd (20 routes total).
+  - shared/layout/AppShell.tsx: + menu "LKPD" (icon BookOpen). Ganti label "ATP/TP" -> "Bank TP", "Prota" -> "Program Tahunan", "Promes" -> "Program Semester" (hilangkan istilah teknis).
+- Seed data (REWRITE):
+  - seed-sample-data.ts: lengkap untuk semua menu utama:
+    1. Profil sekolah + guru
+    2. Tahun pelajaran 2025/2026
+    3. Kalender (6 events)
+    4. Prota PPKn (6 unit)
+    5. Jadwal (2: VII A Senin, VIII B Selasa)
+    6. Roster (VII A 10 siswa + NIS, VIII B 5 siswa + NIS)
+    7. Data Mengajar (auto-gen dari jadwal -> 2 assignment)
+    8. ATP/TP (2 entry: Norma bab 1 + bab 2)
+    9. LKPD (1 draft "Norma dalam Masyarakat", link ke TP pertama)
+    10. Generate LessonSession (otomatis dari jadwal+kalender)
+- Audit matrix:
+  - docs/AUDIT_MATRIX.md (NEW): 18 menu dicek route+data+tombol. Full-flow test scenario 14 langkah.
+
+Verifikasi:
+- Typecheck: 3 workspace PASS, 0 error.
+- Test: 219/219 PASS (196 domain + 23 shared). Tidak ada test baru di RC1 (focus pada refactor + UI).
+- Build: ROOT npm run build PASS — typecheck + vite build 3.15s, 124 modules, 584KB JS / 161KB gzip.
+
+Issue 7 (istilah teknis) yang sudah dibersihkan:
+- "ATP/TP" -> "Bank TP" (menu)
+- "Prota" -> "Program Tahunan" (menu)
+- "Promes" -> "Program Semester" (menu)
+- "Punya rencana Prota" -> "Punya rencana materi" (UI text di absensi+jurnal)
+- "JP" dan "KKTP" dibiarkan karena istilah baku Kurikulum Merdeka.
+
+Stage Summary:
+- 8 known issues dari audit Pak FIXED:
+  - Issue 1 Absen Manual jelas ✅ (3 mode: Dari Jadwal / Susulan / Manual)
+  - Issue 2 Jurnal Manual jelas ✅ (3 mode: Hari Ini / Susulan / Manual)
+  - Issue 3 Kartu konteks ✅ (ContextCard di Nilai, Absen Susulan, Jurnal)
+  - Issue 4 LKPD modul nyata ✅ (route /lkpd, menu, schema, repo, backup, preview/cetak)
+  - Issue 5 ATP/TP formal schema ✅ (Dexie table resmi, buang db.table dynamic)
+  - Issue 6 Seed lengkap ✅ (semua menu utama punya data contoh, generate sesi otomatis)
+  - Issue 7 Istilah teknis dibersihkan ✅ (sebagian; JP/KKTP dibiarkan karena baku)
+  - Issue 8 Audit matrix ✅ (docs/AUDIT_MATRIX.md dengan 18 menu + 14-langkah test scenario)
+- 15 file changed (7 baru, 8 modifikasi).
+- Status: READY FOR SENIOR AUDIT (full-flow).
+- Push PENDING: butuh token.

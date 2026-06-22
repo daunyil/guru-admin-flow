@@ -1,14 +1,30 @@
 /**
  * Data contoh SMPN 8 Bantan — untuk smoke test cepat.
  * Tombol "Pakai Data Contoh" di dashboard akan memanggil ini.
+ *
+ * APP-USABLE-RC1 Issue 6: seed lengkap untuk semua menu utama:
+ *   1. Profil sekolah + guru
+ *   2. Tahun pelajaran
+ *   3. Kalender
+ *   4. Prota (Program Tahunan)
+ *   5. Jadwal mengajar
+ *   6. Roster siswa (2 kelas)
+ *   7. Data Mengajar (2 assignment via auto-gen dari jadwal)
+ *   8. ATP/TP (2 entry)
+ *   9. LKPD (1 entry, draft)
+ *  10. Generate LessonSession dari jadwal+kalender
  */
 
-import { saveSchoolProfile, saveTeacherProfile, saveAcademicYear } from "./profile-repo";
+import { saveSchoolProfile, saveTeacherProfile, saveAcademicYear, getActiveAcademicYear, getTeacherProfile } from "./profile-repo";
 import { importCalendarFromJSON } from "./calendar-repo";
 import { saveProtaProfile } from "./prota-repo";
-import { saveTeachingSchedule } from "./teaching-schedule-repo";
+import { saveTeachingSchedule, listTeachingSchedules } from "./teaching-schedule-repo";
 import { saveClassRoster, importStudents } from "./class-roster-repo";
-import { getActiveAcademicYear, getTeacherProfile } from "./profile-repo";
+import { autoGenerateFromSchedules } from "./teaching-assignment-repo";
+import { saveATPEntry } from "./atp-entry-repo";
+import { saveLKPD } from "./lkpd-repo";
+import { generateAndSaveLessonSessions } from "./lesson-session-repo";
+import { listCalendarEvents } from "./calendar-repo";
 
 /** Jalankan seed data contoh SMPN 8 Bantan. */
 export async function seedSampleData(): Promise<{ success: boolean; message: string }> {
@@ -74,7 +90,7 @@ export async function seedSampleData(): Promise<{ success: boolean; message: str
     };
     await importCalendarFromJSON(calendarJSON, year.id);
 
-    // 5. Prota
+    // 5. Prota (Program Tahunan)
     await saveProtaProfile({
       academicYearId: year.id,
       teacherId: teacher.id,
@@ -99,14 +115,14 @@ export async function seedSampleData(): Promise<{ success: boolean; message: str
       ],
     });
 
-    // 6. Jadwal
+    // 6. Jadwal mengajar (2 jadwal: VII A Senin, VIII B Selasa)
     await saveTeachingSchedule({
       academicYearId: year.id,
       teacherId: teacher.id,
       subject: "Pendidikan Pancasila",
       classId: "VII A",
       classLabel: "VII A",
-      dayOfWeek: 1,
+      dayOfWeek: 1, // Senin
       startPeriod: 1,
       durationJP: 2,
       startTime: "07:00",
@@ -120,7 +136,7 @@ export async function seedSampleData(): Promise<{ success: boolean; message: str
       subject: "Pendidikan Pancasila",
       classId: "VIII B",
       classLabel: "VIII B",
-      dayOfWeek: 2,
+      dayOfWeek: 2, // Selasa
       startPeriod: 4,
       durationJP: 2,
       startTime: "09:20",
@@ -129,27 +145,121 @@ export async function seedSampleData(): Promise<{ success: boolean; message: str
       source: "manual",
     });
 
-    // 7. Roster
-    const roster = await saveClassRoster({
+    // 7. Roster siswa (2 kelas)
+    const roster7A = await saveClassRoster({
       classId: "VII A",
       classLabel: "VII A",
       academicYearId: year.id,
       students: [],
     });
-    await importStudents(roster.id, [
-      { name: "Andi Saputra", number: 1 },
-      { name: "Budi Pratama", number: 2 },
-      { name: "Cici Lestari", number: 3 },
-      { name: "Dedi Kurniawan", number: 4 },
-      { name: "Eka Putri", number: 5 },
-      { name: "Fajar Hidayat", number: 6 },
-      { name: "Gita Maharani", number: 7 },
-      { name: "Hadi Wijaya", number: 8 },
-      { name: "Indah Permata", number: 9 },
-      { name: "Joko Susilo", number: 10 },
+    await importStudents(roster7A.id, [
+      { name: "Andi Saputra", number: 1, nis: "2025001" },
+      { name: "Budi Pratama", number: 2, nis: "2025002" },
+      { name: "Cici Lestari", number: 3, nis: "2025003" },
+      { name: "Dedi Kurniawan", number: 4, nis: "2025004" },
+      { name: "Eka Putri", number: 5, nis: "2025005" },
+      { name: "Fajar Hidayat", number: 6, nis: "2025006" },
+      { name: "Gita Maharani", number: 7, nis: "2025007" },
+      { name: "Hadi Wijaya", number: 8, nis: "2025008" },
+      { name: "Indah Permata", number: 9, nis: "2025009" },
+      { name: "Joko Susilo", number: 10, nis: "2025010" },
     ]);
 
-    return { success: true, message: "Data contoh SMPN 8 Bantan berhasil dimuat. Lengkapi dengan generate sesi di menu Jadwal." };
+    const roster8B = await saveClassRoster({
+      classId: "VIII B",
+      classLabel: "VIII B",
+      academicYearId: year.id,
+      students: [],
+    });
+    await importStudents(roster8B.id, [
+      { name: "Kartika Sari", number: 1, nis: "2025011" },
+      { name: "Lukman Hakim", number: 2, nis: "2025012" },
+      { name: "Mira Anggraini", number: 3, nis: "2025013" },
+      { name: "Nanda Putra", number: 4, nis: "2025014" },
+      { name: "Oka Pradana", number: 5, nis: "2025015" },
+    ]);
+
+    // 8. Data Mengajar (auto-gen dari jadwal)
+    const schedules = await listTeachingSchedules(year.id);
+    const asgResult = await autoGenerateFromSchedules({
+      academicYear: year,
+      teacher,
+      schedules,
+      semester: 1,
+    });
+
+    // 9. ATP/TP (2 entry)
+    const atp1 = await saveATPEntry({
+      academicYearId: year.id,
+      teacherId: teacher.id,
+      teacherName: teacher.name,
+      subject: "Pendidikan Pancasila",
+      grade: "VII",
+      phase: "D",
+      bab: "1",
+      elemen: "Norma",
+      cp: "Peserta didik mampu memahami norma-norma yang berlaku dalam kehidupan bermasyarakat, berbangsa, dan bernegara.",
+      tp: "Peserta didik mampu mengidentifikasi jenis-jenis norma yang berlaku di masyarakat dan memberikan contoh penerapannya.",
+      profilPelajar: "Beriman, Bertakwa kepada Tuhan YME, dan Berakhlak Mulia",
+      kataKunci: "norma, hukum, agama, kesusilaan, sopan santun",
+      alokasiJP: 4,
+      status: "draft",
+    });
+
+    await saveATPEntry({
+      academicYearId: year.id,
+      teacherId: teacher.id,
+      teacherName: teacher.name,
+      subject: "Pendidikan Pancasila",
+      grade: "VII",
+      phase: "D",
+      bab: "2",
+      elemen: "Norma",
+      cp: "Peserta didik mampu memahami norma-norma yang berlaku dalam kehidupan bermasyarakat, berbangsa, dan bernegara.",
+      tp: "Peserta didik mampu menganalisis dampak pelanggaran norma bagi kehidupan bermasyarakat.",
+      profilPelajar: "Gotong Royong",
+      kataKunci: "pelanggaran, sanksi, dampak, sosial",
+      alokasiJP: 4,
+      status: "draft",
+    });
+
+    // 10. LKPD (1 draft)
+    await saveLKPD({
+      academicYearId: year.id,
+      teacherId: teacher.id,
+      teacherName: teacher.name,
+      subject: "Pendidikan Pancasila",
+      grade: "VII",
+      classId: "VII A",
+      classLabel: "VII A",
+      atpEntryId: atp1.id,
+      tp: atp1.tp,
+      title: "LKPD Norma dalam Kehidupan Masyarakat",
+      objective: "Peserta didik mampu mengidentifikasi 4 jenis norma (agama, kesusilaan, kesopanan, hukum) dan memberikan contoh penerapannya dalam kehidupan sehari-hari.",
+      materials: "Buku Pendidikan Pancasila Kelas VII, LKPD, pulpen, kertas flap untuk presentasi.",
+      steps: "1. Guru membuka dengan pertanyaan: \"Apa yang terjadi bila tidak ada norma di masyarakat?\"\n2. Peserta didik berdiskusi kelompok (4-5 orang) mengidentifikasi 4 jenis norma.\n3. Setiap kelompok membuat contoh penerapan norma di sekolah dan di rumah.\n4. Perwakilan kelompok presentasi.\n5. Guru dan peserta didik menyimpulkan bersama.",
+      guidingQuestions: "1. Apa yang dimaksud dengan norma?\n2. Sebutkan 4 jenis norma yang berlaku di masyarakat!\n3. Berikan contoh penerapan norma agama di sekolah!\n4. Mengapa norma hukum perlu ditegakkan?",
+      assessment: "Observasi partisipasi diskusi (rubrik), hasil presentasi kelompok, kelengkapan contoh penerapan norma.",
+      notes: "LKPD ini disesuaikan untuk kelas VII A. Bisa diadaptasi untuk VIII B dengan menambahkan contoh kasus yang lebih kompleks.",
+      status: "draft",
+    });
+
+    // 11. Generate LessonSession dari jadwal+kalender
+    const calendar = await listCalendarEvents(year.id);
+    const generateResult = await generateAndSaveLessonSessions({
+      academicYear: year,
+      schedules,
+      calendar,
+      semester: 1,
+      teacherId: teacher.id,
+    });
+
+    const sessionCount = generateResult.summary?.totalSessions ?? 0;
+
+    return {
+      success: true,
+      message: `Data contoh berhasil dimuat. ${asgResult.created.length} Data Mengajar dibuat. ${sessionCount} sesi mengajar ter-generate. Coba mulai dari menu Hari Ini atau Absen.`,
+    };
   } catch (e) {
     return { success: false, message: e instanceof Error ? e.message : "Gagal memuat data contoh." };
   }
