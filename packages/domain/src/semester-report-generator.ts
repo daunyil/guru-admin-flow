@@ -22,15 +22,30 @@ import type {
 } from "./index";
 import { summarizeAttendance, type AttendanceSummary } from "./attendance-helpers";
 
-/** Input untuk generateSemesterReport. */
+/** Input untuk generateSemesterReport.
+ *
+ * APP-USABLE-RC1B: assignment context wajib (classId + classLabel).
+ * Generator filter sessions/journals/attendance by 5-tuple assignment:
+ *   teacherId + subject + classId + semester + academicYearId.
+ */
 export type GenerateSemesterReportInput = {
   academicYear: AcademicYear;
   protaProfile: ProtaProfile | null;
+  /** APP-USABLE-RC1B: assignment context untuk filter data. */
+  assignment: {
+    teacherId: string;
+    subject: string;
+    classId: string;
+    classLabel: string;
+    semester: 1 | 2;
+  };
   sessions: LessonSession[];
   journals: TeachingJournal[];
   attendanceRecords: AttendanceRecord[];
-  semester: 1 | 2;
-  teacherId: string;
+  /** Legacy: bila assignment tidak diberikan, fallback ke teacherId+semester saja
+   *  (untuk backward compat dengan test lama). */
+  semester?: 1 | 2;
+  teacherId?: string;
 };
 
 /** Hasil generate — draft laporan + summary untuk UI. */
@@ -61,34 +76,52 @@ export type GenerateSemesterReportResult = {
 /**
  * Generate draft Laporan Akhir Semester dari data existing.
  * Pure function. Caller simpan ke Dexie.
+ *
+ * APP-USABLE-RC1B: filter data by assignment 5-tuple (teacherId + subject +
+ * classId + semester). Tidak lagi ambil semua sessions/journals semester.
  */
 export function generateSemesterReport(
   input: GenerateSemesterReportInput
 ): GenerateSemesterReportResult {
-  const { academicYear, protaProfile, sessions, journals, attendanceRecords, semester, teacherId } = input;
+  const { academicYear, protaProfile, assignment, sessions, journals, attendanceRecords } = input;
   const warnings: string[] = [];
   const errors: string[] = [];
 
-  // Filter data untuk semester ini
-  const semesterSessions = sessions.filter((s) => s.semester === semester);
-  const semesterJournals = journals.filter((j) => j.semester === semester);
-  const semesterAttendance = attendanceRecords.filter((a) => {
-    // Cek apakah attendance ada di sesi semester ini
-    return semesterSessions.some((s) => s.id === a.sessionId);
-  });
+  const semester = assignment.semester;
+  const teacherId = assignment.teacherId;
+
+  // APP-USABLE-RC1B: filter by assignment 5-tuple
+  const assignmentSessions = sessions.filter(
+    (s) =>
+      s.semester === semester &&
+      s.teacherId === teacherId &&
+      s.subject === assignment.subject &&
+      s.classId === assignment.classId
+  );
+  const assignmentJournals = journals.filter(
+    (j) =>
+      j.semester === semester &&
+      j.teacherId === teacherId &&
+      j.subject === assignment.subject &&
+      j.classId === assignment.classId
+  );
+  const assignmentSessionIds = new Set(assignmentSessions.map((s) => s.id));
+  const assignmentAttendance = attendanceRecords.filter(
+    (a) => assignmentSessionIds.has(a.sessionId)
+  );
 
   // Rekap sesi
-  const plannedSessions = semesterSessions.filter((s) => s.status === "planned").length;
-  const doneSessions = semesterJournals.filter((j) => j.realizationStatus === "done").length;
-  const continuedSessions = semesterJournals.filter((j) => j.realizationStatus === "continued").length;
-  const cancelledSessions = semesterJournals.filter((j) => j.realizationStatus === "cancelled").length;
+  const plannedSessions = assignmentSessions.filter((s) => s.status === "planned").length;
+  const doneSessions = assignmentJournals.filter((j) => j.realizationStatus === "done").length;
+  const continuedSessions = assignmentJournals.filter((j) => j.realizationStatus === "continued").length;
+  const cancelledSessions = assignmentJournals.filter((j) => j.realizationStatus === "cancelled").length;
 
   // Rekap jurnal
-  const journalsFinalized = semesterJournals.filter((j) => j.status === "final" || j.locked).length;
-  const journalsPending = semesterJournals.filter((j) => j.status === "draft" && !j.locked).length;
+  const journalsFinalized = assignmentJournals.filter((j) => j.status === "final" || j.locked).length;
+  const journalsPending = assignmentJournals.filter((j) => j.status === "draft" && !j.locked).length;
 
   // Rekap absensi
-  const attendanceTotals = summarizeAttendance(semesterAttendance);
+  const attendanceTotals = summarizeAttendance(assignmentAttendance);
 
   // Rekap materi (dari ProtaUnit + plannedUnitId di sessions/journals)
   const semesterUnits = protaProfile?.units.filter((u) => u.semester === semester) ?? [];
@@ -97,12 +130,10 @@ export function generateSemesterReport(
   const notStartedUnitIds: string[] = [];
 
   for (const unit of semesterUnits) {
-    // Cari journals yang plannedUnitId = unit.id DAN realizationStatus = "done"
-    const doneJournalsForUnit = semesterJournals.filter(
+    const doneJournalsForUnit = assignmentJournals.filter(
       (j) => j.plannedUnitId === unit.id && j.realizationStatus === "done"
     );
-    // Cari journals yang plannedUnitId = unit.id (any status)
-    const allJournalsForUnit = semesterJournals.filter(
+    const allJournalsForUnit = assignmentJournals.filter(
       (j) => j.plannedUnitId === unit.id
     );
 
@@ -115,41 +146,20 @@ export function generateSemesterReport(
     }
   }
 
-  // Rekap absensi per kelas
-  const classMap = new Map<string, { classId: string; classLabel: string; records: AttendanceRecord[]; totalSessions: number }>();
-  for (const session of semesterSessions) {
-    if (!classMap.has(session.classId)) {
-      classMap.set(session.classId, {
-        classId: session.classId,
-        classLabel: session.classLabel,
-        records: [],
-        totalSessions: 0,
-      });
-    }
-    classMap.get(session.classId)!.totalSessions++;
-  }
-  for (const att of semesterAttendance) {
-    const session = semesterSessions.find((s) => s.id === att.sessionId);
-    if (!session) continue;
-    const entry = classMap.get(session.classId);
-    if (entry) entry.records.push(att);
-  }
-  const perClassAbsence: ClassAbsenceSummary[] = Array.from(classMap.values()).map((c) => {
-    const sum = summarizeAttendance(c.records);
-    return {
-      classId: c.classId,
-      classLabel: c.classLabel,
-      presentCount: sum.present,
-      sickCount: sum.sick,
-      excusedCount: sum.excused,
-      lateCount: sum.late,
-      absentCount: sum.absent,
-      totalSessions: c.totalSessions,
-    };
-  });
+  // Rekap absensi per kelas (hanya 1 kelas karena filter by classId)
+  const perClassAbsence: ClassAbsenceSummary[] = [{
+    classId: assignment.classId,
+    classLabel: assignment.classLabel,
+    presentCount: attendanceTotals.present,
+    sickCount: attendanceTotals.sick,
+    excusedCount: attendanceTotals.excused,
+    lateCount: attendanceTotals.late,
+    absentCount: attendanceTotals.absent,
+    totalSessions: assignmentSessions.length,
+  }];
 
   // Pending journal dates
-  const pendingJournalDates = semesterJournals
+  const pendingJournalDates = assignmentJournals
     .filter((j) => j.status === "draft" && !j.locked)
     .map((j) => j.date)
     .sort();
@@ -157,13 +167,13 @@ export function generateSemesterReport(
   // Completeness check
   const completenessIssues: string[] = [];
   if (!protaProfile) {
-    completenessIssues.push("ProtaProfile belum dipilih");
+    completenessIssues.push("Prota belum dipilih");
   }
-  if (semesterSessions.length === 0) {
-    completenessIssues.push("Belum ada LessonSession untuk semester ini");
+  if (assignmentSessions.length === 0) {
+    completenessIssues.push("Belum ada pertemuan untuk assignment ini");
   }
-  if (semesterJournals.length === 0) {
-    completenessIssues.push("Belum ada TeachingJournal untuk semester ini");
+  if (assignmentJournals.length === 0) {
+    completenessIssues.push("Belum ada jurnal untuk assignment ini");
   }
   if (journalsPending > 0) {
     completenessIssues.push(`${journalsPending} jurnal belum difinalisasi`);
@@ -176,7 +186,7 @@ export function generateSemesterReport(
   const completenessScore = Math.max(0, 100 - completenessIssues.length * 20);
 
   // Build report draft
-  const subject = protaProfile?.subject ?? "(tidak ada Prota)";
+  const subject = protaProfile?.subject ?? assignment.subject;
   const grade = protaProfile?.grade ?? "?";
   const phase = protaProfile?.phase ?? "?";
 
@@ -186,9 +196,11 @@ export function generateSemesterReport(
     subject,
     grade,
     phase,
+    classId: assignment.classId,
+    classLabel: assignment.classLabel,
     semester,
 
-    totalPlannedSessions: semesterSessions.length,
+    totalPlannedSessions: assignmentSessions.length,
     totalDoneSessions: doneSessions,
     totalContinuedSessions: continuedSessions,
     totalCancelledSessions: cancelledSessions,
@@ -228,7 +240,7 @@ export function generateSemesterReport(
   return {
     report,
     summary: {
-      totalSessions: semesterSessions.length,
+      totalSessions: assignmentSessions.length,
       doneSessions,
       continuedSessions,
       cancelledSessions,

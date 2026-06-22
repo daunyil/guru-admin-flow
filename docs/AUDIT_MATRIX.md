@@ -1,4 +1,4 @@
-# Audit Matrix — APP-USABLE-RC1A
+# Audit Matrix — APP-USABLE-RC1B
 
 Tujuan: cek setiap menu punya route + data + tombol utama yang bisa dipakai guru.
 
@@ -21,13 +21,28 @@ Setelah seed data (klik "Pakai Data Contoh" di Home), cek setiap menu.
 | 9 | Bank TP | `/atp` | ✅ 2 ATP/TP (Norma bab 1, bab 2) | Tambah TP, Edit, Hapus, Prompt AI | ✅ Siap |
 | 10 | LKPD | `/lkpd` | ✅ 1 LKPD draft ("Norma dalam Masyarakat") | Buat LKPD (dari TP), Edit, Finalkan, Preview/Cetak, Hapus | ✅ Siap |
 | 11 | RPP | `/rpp` | Template generator (tidak butuh data persist) | Pilih konteks, Salin placeholder, Generate template | ✅ Siap (template) |
-| 12 | Absen | `/attendance` | ✅ Sesi dari jadwal + 1 sesi sudah ada absensi contoh | 3 mode: Dari Jadwal / Susulan / Manual | ✅ Siap |
+| 12 | Absen | `/attendance` | ✅ Sesi dari jadwal + 1 sesi sudah ada absensi contoh | 3 mode: Dari Jadwal / Susulan / **Absen Manual** | ✅ Siap |
 | 13 | Jurnal | `/journal` | ✅ Sesi dari jadwal + 1 jurnal final contoh | 3 mode: Hari Ini / Susulan / Manual | ✅ Siap |
 | 14 | Nilai | `/grades` | ✅ 1 GradeBook contoh (10 siswa, nilai 75-94) | Pilih Data Mengajar, Isi Semua 80, Acak, Paste Excel, Simpan | ✅ Siap |
 | 15 | Kelengkapan | `/completeness` | ✅ Cek otomatis dari data | Per-modul checklist + link | ✅ Siap |
-| 16 | Laporan | `/semester-report` | ✅ Bisa generate dari data absensi+jurnal+sesi yang sudah ada | Generate, Finalize, Mode Dokumen, Cetak | ✅ Siap |
+| 16 | Laporan | `/semester-report` | ✅ Pilih Data Mengajar → generate. Filter by assignment 5-tuple. | Generate, Finalize, Mode Dokumen, Cetak | ✅ Siap |
 | 17 | Backup | `/backup` | — | Export, Import, Restore | ✅ Siap |
 | 18 | Tahun Baru | `/new-year` | — | Wizard tahun baru | ✅ Siap |
+
+## APP-USABLE-RC1B — Laporan Assignment Context
+
+Laporan sekarang **pilih Data Mengajar** (bukan Prota). Filter data by 5-tuple:
+- teacherId === assignment.teacherId
+- subject === assignment.subject
+- classId === assignment.classId
+- semester === assignment.semester
+- academicYearId (dari tahun pelajaran aktif)
+
+Report identity menampilkan kelas nyata `VII A` (bukan hanya grade `VII`).
+
+Test domain (#8, #9) memverifikasi:
+- Data guru lain / kelas lain tidak masuk ke laporan assignment ini
+- Report punya classId + classLabel dari assignment
 
 ## Alur Data Contoh Lengkap (Seed → Laporan)
 
@@ -49,7 +64,8 @@ Profil sekolah + guru (Siti Aminah, S.Pd.)
       - Jurnal (final/locked, materi "Norma dalam Masyarakat")
       - Nilai (GradeBook, 10 siswa, nilai 75-94)
   → Promes (auto-generate saat buka menu Program Semester)
-  → Laporan (bisa di-generate dari menu Laporan → Generate)
+  → Laporan (pilih Data Mengajar "VII A · PPKn · Siti Aminah" →
+              Generate → data hanya dari assignment itu, tidak bercampur)
 ```
 
 ## Full-Flow Test Scenario
@@ -62,11 +78,11 @@ Profil sekolah + guru (Siti Aminah, S.Pd.)
 6. **Jadwal** → pastikan 1 jadwal + sesi sudah ter-generate
 7. **Absen** → mode "Dari Jadwal" → pilih tanggal Senin → klik sesi → pastikan ada absensi contoh → ubah 1 siswa → Simpan
 8. **Absen** → mode "Absen Susulan" → pilih Data Mengajar → pastikan ContextCard + rekap + daftar belum absen
-9. **Absen** → mode "Manual" → pilih Data Mengajar → Mulai Absen → isi → Simpan
+9. **Absen** → mode "**Absen Manual**" → pilih Data Mengajar → Mulai Absen → isi → Simpan
 10. **Jurnal** → pilih Data Mengajar → mode "Hari Ini" → klik pertemuan → pastikan ada jurnal contoh (final) → klik "Buka Kembali" → edit → "Setujui & Finalkan"
 11. **Jurnal** → mode "Jurnal Susulan" → pastikan ContextCard + daftar belum jurnal
 12. **Nilai** → pilih Data Mengajar → pastikan ContextCard + GradeBook contoh muncul → edit nilai → Simpan
-13. **Laporan** → pilih Prota + semester → pastikan ContextCard → klik **Generate Laporan** → pastikan summary muncul
+13. **Laporan** → pilih Data Mengajar "VII A · PPKn · Siti Aminah" → pastikan ContextCard menampilkan kelas **VII A** (bukan VII) → klik **Generate Laporan** → pastikan summary muncul dengan data hanya dari assignment itu
 14. **RPP** → pilih konteks → pastikan ContextCard → klik "Salin Semua"
 15. **Backup** → Export → pastikan file JSON terunduh
 16. **Kelengkapan** → pastikan skor > 0
@@ -81,7 +97,7 @@ Profil sekolah + guru (Siti Aminah, S.Pd.)
 | Jurnal (setelah pilih assignment) | ✅ ContextCard | Guru, Mapel, Kelas, Semester, TP |
 | LKPD (form, setelah pilih TP) | ✅ InfoCard | Guru, Mapel, Kelas, Fase, Bab |
 | RPP (setelah pilih konteks) | ✅ InfoCard | Guru, Mapel, Kelas, Semester, TP |
-| Laporan (setelah pilih Prota) | ✅ InfoCard | Guru, Mapel, Kelas, Semester, TP |
+| **Laporan** (RC1B) | ✅ InfoCard | Guru, Mapel, **Kelas (VII A)**, Semester, TP |
 
 ## Istilah Teknis yang Sudah Dibersihkan
 
@@ -93,8 +109,10 @@ Profil sekolah + guru (Siti Aminah, S.Pd.)
 | "Punya rencana Prota" (UI text) | "Punya rencana materi" |
 | "Total ... pertemuan (sesuai LessonSession)" | "Total ... pertemuan terjadwal" |
 | "Sesi Mengajar (LessonSession)" (Kelengkapan) | "Sesi Mengajar (Pertemuan)" |
-| "Manual (Ad-hoc)" (button) | "Manual" |
+| "Manual (Ad-hoc)" (button) | "Absen Manual" |
 | "Absen Manual (Ad-hoc)" (header) | "Absen Manual" |
+| "Manual" (button, RC1A) | "Absen Manual" (RC1B) |
+| "Pilih Prota" (Laporan, RC1) | "Pilih Data Mengajar" (RC1B) |
 
 Istilah yang dibiarkan karena baku Kurikulum Merdeka: JP (Jam Pelajaran), KKTP (Kriteria Ketercapaian Tujuan Pembelajaran).
 
@@ -104,3 +122,4 @@ Istilah yang dibiarkan karena baku Kurikulum Merdeka: JP (Jam Pelajaran), KKTP (
 2. **Build warning** — chunk >500KB (bukan blocker).
 3. **CI belum verified** — GitHub workflow masih pending. Lokal PASS untuk typecheck/test/build.
 4. **RPP hanya template generator** — tidak menyimpan RPP persist, hanya bantu identitas + placeholder untuk Word.
+

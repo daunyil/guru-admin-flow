@@ -1,11 +1,15 @@
 /**
  * Repository untuk SemesterReport.
  * Sumber: docs/DATA_MODEL_DRAFT.md §10, docs/PROJECT_CONTRACT.md §4.1 (M08)
+ *
+ * APP-USABLE-RC1B: generateAndSaveSemesterReport + finalizeSemesterReport
+ * sekarang wajib accept assignment context (5-tuple) untuk filter data
+ * sesuai Data Mengajar yang dipilih.
  */
 
 import { db } from "./schema";
 import { createEntity, updateEntityFields, saveEntity, softDelete } from "./crud";
-import type { SemesterReport, AcademicYear, ProtaProfile, DocumentSnapshot } from "@guru-admin/domain";
+import type { SemesterReport, AcademicYear, ProtaProfile, DocumentSnapshot, TeachingAssignment } from "@guru-admin/domain";
 import {
   generateSemesterReport,
   canFinalizeSemesterReport,
@@ -33,84 +37,85 @@ export async function getSemesterReport(id: string): Promise<SemesterReport | un
   return r && !r.deletedAt ? (r as SemesterReport) : undefined;
 }
 
-/** Cari SemesterReport by (academicYearId, teacherId, subject, grade, semester). */
-export async function findSemesterReport(
-  academicYearId: string,
-  teacherId: string,
-  subject: string,
-  grade: string,
-  semester: 1 | 2
-): Promise<SemesterReport | undefined> {
-  const all = await listSemesterReports(academicYearId);
+/** Cari SemesterReport by assignment context (5-tuple).
+ *
+ * APP-USABLE-RC1B: cari by classId (bukan hanya grade) supaya laporan
+ * per Data Mengajar terpisah.
+ */
+export async function findSemesterReport(args: {
+  academicYearId: string;
+  teacherId: string;
+  subject: string;
+  classId: string;
+  semester: 1 | 2;
+}): Promise<SemesterReport | undefined> {
+  const all = await listSemesterReports(args.academicYearId);
   return all.find(
     (r) =>
-      r.teacherId === teacherId &&
-      r.subject === subject &&
-      r.grade === grade &&
-      r.semester === semester
+      r.teacherId === args.teacherId &&
+      r.subject === args.subject &&
+      r.classId === args.classId &&
+      r.semester === args.semester
   );
 }
 
 /**
  * Generate dan simpan SemesterReport dari data existing.
- * Mode: UPSERT — bila sudah ada report untuk (year+teacher+subject+grade+semester), update; bila belum, buat baru.
+ *
+ * APP-USABLE-RC1B: wajib accept assignment (TeachingAssignment) untuk
+ * filter data sesuai Data Mengajar yang dipilih. Tidak lagi ambil semua
+ * sessions/journals semester.
  */
 export async function generateAndSaveSemesterReport(args: {
   academicYear: AcademicYear;
   protaProfile: ProtaProfile | null;
-  semester: 1 | 2;
-  teacherId: string;
+  assignment: TeachingAssignment;
 }): Promise<{
   success: boolean;
   report?: SemesterReport;
   result?: GenerateSemesterReportResult;
   errors: string[];
 }> {
-  // Load semua data yang dibutuhkan
+  // Load semua data yang dibutuhkan (filter dilakukan di generator)
   const [sessions, journals, allAttendance] = await Promise.all([
-    listLessonSessions(args.academicYear.id, args.semester),
-    listJournals(args.academicYear.id, args.semester),
+    listLessonSessions(args.academicYear.id, args.assignment.semester),
+    listJournals(args.academicYear.id, args.assignment.semester),
     db.attendanceRecords.toArray(),
   ]);
-
-  // Filter attendance untuk semester ini (yang sessionId ada di sessions)
-  const sessionIds = new Set(sessions.map((s) => s.id));
-  const attendance = allAttendance.filter((a) => sessionIds.has(a.sessionId) && !a.deletedAt);
 
   const result = generateSemesterReport({
     academicYear: args.academicYear,
     protaProfile: args.protaProfile,
+    assignment: {
+      teacherId: args.assignment.teacherId,
+      subject: args.assignment.subject,
+      classId: args.assignment.classId,
+      classLabel: args.assignment.classLabel,
+      semester: args.assignment.semester,
+    },
     sessions,
     journals,
-    attendanceRecords: attendance,
-    semester: args.semester,
-    teacherId: args.teacherId,
+    attendanceRecords: allAttendance,
   });
 
   if (result.errors.length > 0) {
     return { success: false, errors: result.errors };
   }
 
-  // Cek existing report
-  const existing = args.protaProfile
-    ? await findSemesterReport(
-        args.academicYear.id,
-        args.teacherId,
-        args.protaProfile.subject,
-        args.protaProfile.grade,
-        args.semester
-      )
-    : undefined;
+  // Cek existing report by assignment context
+  const existing = await findSemesterReport({
+    academicYearId: args.academicYear.id,
+    teacherId: args.assignment.teacherId,
+    subject: args.assignment.subject,
+    classId: args.assignment.classId,
+    semester: args.assignment.semester,
+  });
 
   let report: SemesterReport;
   if (existing) {
-    // Update existing
     report = updateEntityFields(existing, result.report) as SemesterReport;
   } else {
-    // Buat baru
-    report = {
-      ...createEntity(result.report),
-    } as SemesterReport;
+    report = createEntity(result.report) as SemesterReport;
   }
 
   await saveEntity("semesterReports", report);
@@ -129,7 +134,6 @@ export async function finalizeSemesterReport(
     return { success: true, report: existing, errors: [] };
   }
 
-  // Re-generate untuk cek completeness
   const academicYear = await db.academicYears.get(existing.academicYearId);
   if (!academicYear) {
     return { success: false, errors: ["Tahun pelajaran tidak ditemukan"] };
@@ -143,17 +147,20 @@ export async function finalizeSemesterReport(
   const sessions = await listLessonSessions(existing.academicYearId, existing.semester);
   const journals = await listJournals(existing.academicYearId, existing.semester);
   const allAttendance = await db.attendanceRecords.toArray();
-  const sessionIds = new Set(sessions.map((s) => s.id));
-  const attendance = allAttendance.filter((a) => sessionIds.has(a.sessionId) && !a.deletedAt);
 
   const result = generateSemesterReport({
     academicYear: academicYear as AcademicYear,
     protaProfile: prota ?? null,
+    assignment: {
+      teacherId: existing.teacherId,
+      subject: existing.subject,
+      classId: existing.classId,
+      classLabel: existing.classLabel,
+      semester: existing.semester,
+    },
     sessions,
     journals,
-    attendanceRecords: attendance,
-    semester: existing.semester,
-    teacherId: existing.teacherId,
+    attendanceRecords: allAttendance,
   });
 
   const check = canFinalizeSemesterReport(result);
@@ -179,7 +186,6 @@ export async function finalizeSemesterReport(
   };
   await db.documentSnapshots.put(snapshot);
 
-  // Update report
   const updated = updateEntityFields(existing, {
     ...result.report,
     status: "final",

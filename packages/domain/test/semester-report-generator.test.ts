@@ -1,5 +1,8 @@
 /**
  * Test untuk semester-report-generator.ts
+ *
+ * APP-USABLE-RC1B: signature berubah. Sekarang wajib pakai assignment
+ * (teacherId + subject + classId + classLabel + semester) untuk filter.
  */
 import { describe, it, expect } from "vitest";
 import { generateSemesterReport, canFinalizeSemesterReport } from "../src/semester-report-generator";
@@ -148,6 +151,14 @@ function makeAttendance(sessionId: string, status: AttendanceRecord["status"] = 
   };
 }
 
+const defaultAssignment = {
+  teacherId: "teacher-1",
+  subject: "Pendidikan Pancasila",
+  classId: "VII A",
+  classLabel: "VII A",
+  semester: 1 as const,
+};
+
 describe("semester-report-generator — Test #1: Happy path", () => {
   it("10 sesi + 10 jurnal final + 10 attendance + 1 unit selesai", () => {
     const sessions = Array.from({ length: 10 }, (_, i) =>
@@ -163,11 +174,10 @@ describe("semester-report-generator — Test #1: Happy path", () => {
     const result = generateSemesterReport({
       academicYear: makeAcademicYear(),
       protaProfile: prota,
+      assignment: defaultAssignment,
       sessions,
       journals,
       attendanceRecords: attendance,
-      semester: 1,
-      teacherId: "teacher-1",
     });
 
     expect(result.errors).toEqual([]);
@@ -203,11 +213,10 @@ describe("semester-report-generator — Test #2: Jurnal pending", () => {
     const result = generateSemesterReport({
       academicYear: makeAcademicYear(),
       protaProfile: makeProtaProfile([makeProtaUnit()]),
+      assignment: defaultAssignment,
       sessions,
       journals,
       attendanceRecords: attendance,
-      semester: 1,
-      teacherId: "teacher-1",
     });
 
     expect(result.report.journalsFinalized).toBe(5);
@@ -218,56 +227,55 @@ describe("semester-report-generator — Test #2: Jurnal pending", () => {
 });
 
 describe("semester-report-generator — Test #3: Tanpa ProtaProfile", () => {
-  it("protaProfile=null → completeness issue + subject default", () => {
+  it("protaProfile=null → completeness issue + subject default dari assignment", () => {
     const result = generateSemesterReport({
       academicYear: makeAcademicYear(),
       protaProfile: null,
+      assignment: defaultAssignment,
       sessions: [],
       journals: [],
       attendanceRecords: [],
-      semester: 1,
-      teacherId: "teacher-1",
     });
 
-    expect(result.report.subject).toBe("(tidak ada Prota)");
-    expect(result.summary.completenessIssues).toContain("ProtaProfile belum dipilih");
+    expect(result.report.subject).toBe("Pendidikan Pancasila"); // dari assignment
+    expect(result.summary.completenessIssues).toContain("Prota belum dipilih");
   });
 });
 
-describe("semester-report-generator — Test #4: Rekap absensi per kelas", () => {
-  it("2 kelas, masing-masing 5 sesi → perClassAbsence 2 entry", () => {
-    const sessions1 = Array.from({ length: 5 }, (_, i) =>
+describe("semester-report-generator — Test #4: Filter by classId (RC1B)", () => {
+  it("VII A + VIII B di sessions → laporan VII A hanya ambil VII A", () => {
+    const sessions7A = Array.from({ length: 5 }, (_, i) =>
       makeSession({
-        id: `s1-${i}`,
+        id: `s7A-${i}`,
         classId: "VII A",
         classLabel: "VII A",
         date: `2025-07-${String(14 + i).padStart(2, "0")}`,
       })
     );
-    const sessions2 = Array.from({ length: 5 }, (_, i) =>
+    const sessions8B = Array.from({ length: 5 }, (_, i) =>
       makeSession({
-        id: `s2-${i}`,
+        id: `s8B-${i}`,
         classId: "VIII B",
         classLabel: "VIII B",
         date: `2025-07-${String(14 + i).padStart(2, "0")}`,
       })
     );
-    const sessions = [...sessions1, ...sessions2];
+    const sessions = [...sessions7A, ...sessions8B];
     const attendance = sessions.map((s) => makeAttendance(s.id));
 
     const result = generateSemesterReport({
       academicYear: makeAcademicYear(),
       protaProfile: makeProtaProfile([makeProtaUnit()]),
+      assignment: defaultAssignment, // VII A
       sessions,
       journals: [],
       attendanceRecords: attendance,
-      semester: 1,
-      teacherId: "teacher-1",
     });
 
-    expect(result.report.perClassAbsence.length).toBe(2);
+    // Hanya VII A yang masuk (5 sesi), bukan 10
+    expect(result.report.totalPlannedSessions).toBe(5);
+    expect(result.report.perClassAbsence.length).toBe(1);
     expect(result.report.perClassAbsence[0].classLabel).toBe("VII A");
-    expect(result.report.perClassAbsence[1].classLabel).toBe("VIII B");
     expect(result.report.perClassAbsence[0].totalSessions).toBe(5);
   });
 });
@@ -278,13 +286,10 @@ describe("semester-report-generator — Test #5: Materi selesai vs belum", () =>
     const unit2 = makeProtaUnit({ id: "unit-2", order: 2, title: "Keadilan" });
     const unit3 = makeProtaUnit({ id: "unit-3", order: 3, title: "Persatuan" });
 
-    // 2 sesi untuk unit-1 (all done)
     const s1 = makeSession({ id: "s1", plannedUnitId: "unit-1", date: "2025-07-14" });
     const s2 = makeSession({ id: "s2", plannedUnitId: "unit-1", date: "2025-07-21" });
-    // 2 sesi untuk unit-2 (1 done, 1 continued → partial)
     const s3 = makeSession({ id: "s3", plannedUnitId: "unit-2", date: "2025-07-28" });
     const s4 = makeSession({ id: "s4", plannedUnitId: "unit-2", date: "2025-08-04" });
-    // unit-3 tidak ada sesi → not started
 
     const journals = [
       makeJournal({ sessionId: "s1", plannedUnitId: "unit-1", realizationStatus: "done", status: "final", locked: true }),
@@ -296,11 +301,10 @@ describe("semester-report-generator — Test #5: Materi selesai vs belum", () =>
     const result = generateSemesterReport({
       academicYear: makeAcademicYear(),
       protaProfile: makeProtaProfile([unit1, unit2, unit3]),
+      assignment: defaultAssignment,
       sessions: [s1, s2, s3, s4],
       journals,
       attendanceRecords: [],
-      semester: 1,
-      teacherId: "teacher-1",
     });
 
     expect(result.report.totalPlannedUnits).toBe(3);
@@ -325,11 +329,10 @@ describe("semester-report-generator — Test #6: canFinalizeSemesterReport", () 
     const result = generateSemesterReport({
       academicYear: makeAcademicYear(),
       protaProfile: makeProtaProfile([makeProtaUnit()]),
+      assignment: defaultAssignment,
       sessions,
       journals,
       attendanceRecords: [],
-      semester: 1,
-      teacherId: "teacher-1",
     });
 
     const check = canFinalizeSemesterReport(result);
@@ -353,11 +356,10 @@ describe("semester-report-generator — Test #6: canFinalizeSemesterReport", () 
     const result = generateSemesterReport({
       academicYear: makeAcademicYear(),
       protaProfile: makeProtaProfile([makeProtaUnit()]),
+      assignment: defaultAssignment,
       sessions,
       journals,
       attendanceRecords: [],
-      semester: 1,
-      teacherId: "teacher-1",
     });
 
     const check = canFinalizeSemesterReport(result);
@@ -376,14 +378,59 @@ describe("semester-report-generator — Test #7: Semester filter", () => {
     const result = generateSemesterReport({
       academicYear: makeAcademicYear(),
       protaProfile: makeProtaProfile([makeProtaUnit({ semester: 1 })]),
+      assignment: defaultAssignment,
       sessions: [s1, s2],
       journals: [j1, j2],
       attendanceRecords: [],
-      semester: 1,
-      teacherId: "teacher-1",
     });
 
     expect(result.report.totalPlannedSessions).toBe(1); // hanya s1
     expect(result.report.totalDoneSessions).toBe(1); // hanya j1
+  });
+});
+
+describe("semester-report-generator — Test #8: Filter by teacherId (RC1B)", () => {
+  it("data guru lain tidak masuk ke laporan assignment guru ini", () => {
+    const sMine = makeSession({ id: "s-mine", teacherId: "teacher-1" });
+    const sOther = makeSession({ id: "s-other", teacherId: "teacher-2", classId: "VII A" });
+    const jMine = makeJournal({ sessionId: "s-mine", teacherId: "teacher-1" });
+    const jOther = makeJournal({ sessionId: "s-other", teacherId: "teacher-2", classId: "VII A" });
+
+    const result = generateSemesterReport({
+      academicYear: makeAcademicYear(),
+      protaProfile: makeProtaProfile([makeProtaUnit()]),
+      assignment: defaultAssignment, // teacher-1
+      sessions: [sMine, sOther],
+      journals: [jMine, jOther],
+      attendanceRecords: [],
+    });
+
+    expect(result.report.totalPlannedSessions).toBe(1); // hanya s-mine
+    expect(result.report.totalDoneSessions).toBe(1); // hanya j-mine
+  });
+});
+
+describe("semester-report-generator — Test #9: Report identity (RC1B)", () => {
+  it("report punya classId + classLabel dari assignment", () => {
+    const result = generateSemesterReport({
+      academicYear: makeAcademicYear(),
+      protaProfile: makeProtaProfile([makeProtaUnit()]),
+      assignment: {
+        teacherId: "teacher-1",
+        subject: "Pendidikan Pancasila",
+        classId: "VII A",
+        classLabel: "VII A",
+        semester: 1,
+      },
+      sessions: [makeSession()],
+      journals: [makeJournal()],
+      attendanceRecords: [],
+    });
+
+    expect(result.report.classId).toBe("VII A");
+    expect(result.report.classLabel).toBe("VII A");
+    expect(result.report.teacherId).toBe("teacher-1");
+    expect(result.report.subject).toBe("Pendidikan Pancasila");
+    expect(result.report.semester).toBe(1);
   });
 });

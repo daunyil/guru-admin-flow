@@ -26,6 +26,13 @@ export const semesterReportSchema = baseEntitySchema.extend({
   subject: z.string().min(1),
   grade: z.string().min(1),
   phase: z.string().min(1),
+  /**
+   * APP-USABLE-RC1B: classId + classLabel wajib, supaya laporan terikat
+   * ke Data Mengajar spesifik (bukan hanya grade). Bila backup lama tidak
+   * punya, default "" (akan di-backfill saat generate berikutnya).
+   */
+  classId: z.string().default(""),
+  classLabel: z.string().default(""),
   semester: z.union([z.literal(1), z.literal(2)]),
 
   // Rekap pertemuan

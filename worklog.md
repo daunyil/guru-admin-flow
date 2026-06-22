@@ -708,3 +708,55 @@ Stage Summary:
 - 8 file changed (0 baru, 8 modifikasi).
 - Status: READY FOR SENIOR AUDIT (full-flow polished).
 - Push PENDING: butuh token.
+
+---
+
+Task ID: APP-USABLE-RC1B
+Agent: main (APP-USABLE-RC1B batch execution)
+Task: Fix Laporan Assignment Context. Tutup 5 blocker audit dari RC1A.
+
+Work Log:
+- Branch: app-usable-rc1b dari main (213d515).
+- Domain layer:
+  - packages/domain/src/semester-report.ts: + classId + classLabel ke semesterReportSchema (default "" untuk backward compat dengan backup v4).
+  - packages/domain/src/semester-report-generator.ts: REWRITE signature.
+    - GenerateSemesterReportInput sekarang wajib accept assignment (teacherId + subject + classId + classLabel + semester).
+    - Filter sessions/journals/attendance by 5-tuple assignment (bukan hanya semester).
+    - perClassAbsence sekarang hanya 1 entry (kelas assignment itu sendiri).
+    - Report subject/grade/phase fallback ke assignment bila Prota null.
+  - packages/shared/src/constants.ts: DATA_SCHEMA_VERSION 4 -> 5.
+- Domain tests:
+  - test/semester-report-generator.test.ts: REWRITE semua 7 test pakai signature baru (assignment). + 2 test baru:
+    - Test #8: Filter by teacherId (data guru lain tidak masuk)
+    - Test #9: Report identity (classId + classLabel dari assignment)
+- App DB layer:
+  - schema.ts: Dexie v5 — semesterReports dapat index classId + composite [academicYearId+teacherId+subject+classId+semester].
+  - semester-report-repo.ts: REWRITE.
+    - generateAndSaveSemesterReport sekarang accept assignment (TeachingAssignment), pass ke generator.
+    - findSemesterReport cari by classId (bukan grade).
+    - finalizeSemesterReport re-generate dengan assignment context dari existing report.
+- App UI layer:
+  - SemesterReportPage.tsx: REWRITE.
+    - Pilih Data Mengajar (bukan Prota). Prota tetap di-load untuk materi (matching by subject).
+    - InfoCard menampilkan Guru/Mapel/Kelas(VII A)/Semester/TP setelah assignment dipilih.
+    - Mode Dokumen: "Kelas" sekarang tampilkan classLabel (VII A), bukan hanya grade.
+    - Rekap Absensi header menampilkan "Kelas VII A".
+  - QuickAttendancePage.tsx: tombol "Manual" -> "Absen Manual".
+- Audit matrix:
+  - docs/AUDIT_MATRIX.md: update ke RC1B. Tabel istilah teknis + ContextCard coverage + Laporan section baru.
+
+Verifikasi:
+- Typecheck: 3 workspace PASS, 0 error.
+- Test: 221/221 PASS (198 domain + 23 shared). +2 test baru (Test #8, #9).
+- Build: ROOT npm run build PASS — typecheck + vite build 3.07s, 124 modules.
+
+Stage Summary:
+- 5 blocker dari audit RC1A FIXED:
+  - Laporan pilih Data Mengajar (bukan Prota) ✅
+  - Laporan filter by teacherId + subject + classId + semester + academicYearId ✅
+  - Context laporan menampilkan kelas nyata VII A (bukan VII) ✅
+  - Seed -> Laporan dapat generate tanpa data bercampur ✅
+  - Tombol "Manual" -> "Absen Manual" ✅
+- 7 file changed (0 baru, 7 modifikasi).
+- Status: READY FOR SENIOR AUDIT.
+- Push PENDING: butuh token.
