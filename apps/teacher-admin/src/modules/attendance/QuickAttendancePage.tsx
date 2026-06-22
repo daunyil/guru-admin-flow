@@ -2,31 +2,36 @@
  * PATCH-02: Quick Attendance Core — absensi tercepat, tidak terkunci jadwal.
  * Sumber: docs/V0_6_2_PRODUCT_DECISIONS.md §3
  *
- * PATCH-FLOW-RC2C: mode manual/susulan memakai TeachingAssignment sebagai
- * konteks (bukan pilih kelas+mapel terpisah). Setiap absensi manual otomatis
- * terikat ke (academicYearId, semester, teacherId, subject, classId) yang
- * sudah ditetapkan di awal tahun.
- *
- * 3 mode:
- *   - Dari Jadwal: pilih LessonSession dari jadwal mengajar
- *   - Manual: pilih Data Mengajar + tanggal → auto create LessonSession ad-hoc
- *   - Susulan: sama dengan Manual, untuk tanggal lewat
+ * PATCH-FLOW-RC2D:
+ *   - Mode Susulan = window catch-up:
+ *     - Pilih Data Mengajar
+ *     - Tampilkan rekap: total/sudah absen/belum absen/batal
+ *     - Daftar pertemuan belum absen (sorted by date asc)
+ *     - Tombol "Isi Absen" per pertemuan → buka editor
+ *   - Mode Manual tetap untuk absen ad-hoc di luar pertemuan terjadwal.
+ *   - Mode Dari Jadwal tetap untuk absen hari ini dari jadwal.
  */
 
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Card, CardHeader, Input, Select, Button, EmptyState, Badge } from "../../shared/ui";
-import { getLessonSessionsByDate, getLessonSession, findOrCreateManualSession } from "../../shared/db/lesson-session-repo";
+import { getLessonSessionsByDate, getLessonSession, findOrCreateManualSession, listLessonSessions } from "../../shared/db/lesson-session-repo";
 import {
   initAttendanceForSession,
   updateAttendance,
   saveDefaultAttendance,
   getAttendanceBySession,
+  getAttendanceByTeacherDate,
 } from "../../shared/db/attendance-repo";
 import { findClassRoster } from "../../shared/db/class-roster-repo";
+import { db } from "../../shared/db/schema";
 import { getActiveAcademicYear, getTeacherProfile } from "../../shared/db/profile-repo";
 import { listAssignmentsByTeacher } from "../../shared/db/teaching-assignment-repo";
-import { generateDefaultAttendance, summarizeAttendance } from "@guru-admin/domain";
+import {
+  generateDefaultAttendance,
+  summarizeAttendance,
+  recapAttendanceForAssignment,
+} from "@guru-admin/domain";
 import type {
   AcademicYear,
   AttendanceRecord,
@@ -58,6 +63,8 @@ export function QuickAttendancePage() {
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const [assignments, setAssignments] = useState<TeachingAssignment[]>([]);
   const [selectedAssignmentId, setSelectedAssignmentId] = useState<string>("");
+  const [allAssignmentSessions, setAllAssignmentSessions] = useState<LessonSession[]>([]);
+  const [allAttendanceRecords, setAllAttendanceRecords] = useState<AttendanceRecord[]>([]);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [searchParams] = useSearchParams();
 
@@ -88,13 +95,51 @@ export function QuickAttendancePage() {
 
   async function reloadSessions() {
     if (!teacher) return;
-    const sess = await getLessonSessionsByDate(teacher.id, date);
-    setSessions(sess);
+    setSessions(await getLessonSessionsByDate(teacher.id, date));
   }
 
   useEffect(() => {
     void reloadSessions();
   }, [date]);
+
+  // PATCH-FLOW-RC2D: load all assignment sessions + attendance for catch-up recap
+  async function loadAssignmentCatchupData() {
+    if (!year || !teacher) return;
+    const assignment = assignments.find((a) => a.id === selectedAssignmentId);
+    if (!assignment) {
+      setAllAssignmentSessions([]);
+      setAllAttendanceRecords([]);
+      return;
+    }
+    const allSessions = await listLessonSessions(year.id, assignment.semester);
+    const assignmentSessions = allSessions.filter(
+      (s) =>
+        s.classId === assignment.classId &&
+        s.subject === assignment.subject &&
+        s.teacherId === assignment.teacherId &&
+        !s.deletedAt
+    );
+    setAllAssignmentSessions(assignmentSessions);
+
+    // Get all attendance records for assignment (filter by sessionId yang ada di assignmentSessions)
+    const sessionIds = new Set(assignmentSessions.map((s) => s.id));
+    const allRecords = await getAttendanceByTeacherDate(teacher.id, "");
+    // ^ teacherId ignored, returns all; filter below
+    void allRecords;
+    // Better: query attendanceRecords by classId
+    const allAtt = await db.attendanceRecords
+      .where("classId")
+      .equals(assignment.classId)
+      .toArray();
+    const filtered = allAtt.filter(
+      (r) => !r.deletedAt && sessionIds.has(r.sessionId)
+    ) as AttendanceRecord[];
+    setAllAttendanceRecords(filtered);
+  }
+
+  useEffect(() => {
+    void loadAssignmentCatchupData();
+  }, [selectedAssignmentId, year, teacher]);
 
   function selectedAssignment(): TeachingAssignment | undefined {
     return assignments.find((a) => a.id === selectedAssignmentId);
@@ -107,7 +152,6 @@ export function QuickAttendancePage() {
       setMessage({ type: "error", text: "Pilih Data Mengajar dulu." });
       return;
     }
-    // Cari roster untuk classId assignment
     const roster = await findClassRoster(year.id, assignment.classId);
     if (!roster) {
       setMessage({
@@ -118,7 +162,7 @@ export function QuickAttendancePage() {
     }
     try {
       const { session } = await findOrCreateManualSession({
-        mode: mode === "jadwal" ? "manual" : mode,
+        mode: "manual",
         academicYear: year,
         teacherId: teacher.id,
         roster,
@@ -126,21 +170,23 @@ export function QuickAttendancePage() {
         date,
       });
       setSelectedSessionId(session.id);
-      // Reload sessions agar muncul di list
       await reloadSessions();
-      setMessage({
-        type: "success",
-        text: `Sesi ${mode} dibuat untuk ${assignment.classLabel} · ${assignment.subject}.`,
-      });
+      setMessage({ type: "success", text: `Sesi manual dibuat. Isi absensi di bawah.` });
     } catch (e) {
-      setMessage({
-        type: "error",
-        text: e instanceof Error ? e.message : "Gagal membuat sesi.",
-      });
+      setMessage({ type: "error", text: e instanceof Error ? e.message : "Gagal membuat sesi." });
     }
   }
 
   if (loading) return <p className="text-sm text-slate-500">Memuat...</p>;
+
+  const assignment = selectedAssignment();
+  const recap = assignment
+    ? recapAttendanceForAssignment({
+        sessions: allAssignmentSessions,
+        attendanceRecords: allAttendanceRecords,
+        assignment,
+      })
+    : null;
 
   return (
     <div className="space-y-4">
@@ -165,82 +211,82 @@ export function QuickAttendancePage() {
             onClick={() => { setMode("jadwal"); setSelectedSessionId(null); }}
             className="text-sm"
           >
-            Dari Jadwal
-          </Button>
-          <Button
-            variant={mode === "manual" ? "primary" : "secondary"}
-            onClick={() => { setMode("manual"); setSelectedSessionId(null); }}
-            className="text-sm"
-          >
-            Manual
+            Dari Jadwal (Hari Ini)
           </Button>
           <Button
             variant={mode === "susulan" ? "primary" : "secondary"}
             onClick={() => { setMode("susulan"); setSelectedSessionId(null); }}
             className="text-sm"
           >
-            Susulan
+            Absen Susulan
+          </Button>
+          <Button
+            variant={mode === "manual" ? "primary" : "secondary"}
+            onClick={() => { setMode("manual"); setSelectedSessionId(null); }}
+            className="text-sm"
+          >
+            Manual (Ad-hoc)
           </Button>
         </div>
       </Card>
 
-      {/* Date picker */}
-      <Card>
-        <Input label="" id="att-date" type="date" value={date} onChange={setDate} />
-      </Card>
-
-      {/* Mode: Jadwal */}
+      {/* Mode: Dari Jadwal — pakai date picker + list sesi hari itu */}
       {mode === "jadwal" && (
-        <Card>
-          <CardHeader title="Sesi dari Jadwal" description={`${sessions.length} sesi`} />
-          {sessions.length === 0 ? (
-            <EmptyState
-              title="Tidak ada sesi jadwal hari ini"
-              description="Pakai mode Manual atau Susulan dengan Data Mengajar."
-            />
-          ) : (
-            <div className="space-y-2">
-              {sessions.map((s) => (
-                <button
-                  key={s.id}
-                  onClick={() => setSelectedSessionId(s.id)}
-                  className={`w-full text-left p-3 border rounded-md ${
-                    selectedSessionId === s.id ? "border-brand-400 bg-brand-50" : "border-slate-200"
-                  } ${s.status === "cancelled" ? "opacity-50" : ""}`}
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <span className="font-medium text-sm">{s.startTime}–{s.endTime}</span>
-                      <span className="text-sm text-slate-700 ml-2">{s.subject}</span>
-                      <Badge variant="neutral">{s.classLabel}</Badge>
+        <>
+          <Card>
+            <Input label="" id="att-date" type="date" value={date} onChange={setDate} />
+          </Card>
+          <Card>
+            <CardHeader title="Sesi dari Jadwal" description={`${sessions.length} sesi`} />
+            {sessions.length === 0 ? (
+              <EmptyState
+                title="Tidak ada sesi jadwal hari ini"
+                description="Pilih tanggal lain, atau pakai Absen Susulan / Manual."
+              />
+            ) : (
+              <div className="space-y-2">
+                {sessions.map((s) => (
+                  <button
+                    key={s.id}
+                    onClick={() => setSelectedSessionId(s.id)}
+                    className={`w-full text-left p-3 border rounded-md ${
+                      selectedSessionId === s.id ? "border-brand-400 bg-brand-50" : "border-slate-200"
+                    } ${s.status === "cancelled" ? "opacity-50" : ""}`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="font-medium text-sm">{s.startTime}–{s.endTime}</span>
+                        <span className="text-sm text-slate-700 ml-2">{s.subject}</span>
+                        <Badge variant="neutral">{s.classLabel}</Badge>
+                      </div>
+                      {s.status === "planned" ? <Badge variant="success">Tersedia</Badge> : <Badge variant="error">Batal</Badge>}
                     </div>
-                    {s.status === "planned" ? <Badge variant="success">Tersedia</Badge> : <Badge variant="error">Batal</Badge>}
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
-        </Card>
+                  </button>
+                ))}
+              </div>
+            )}
+          </Card>
+        </>
       )}
 
-      {/* Mode: Manual / Susulan — pilih assignment */}
-      {(mode === "manual" || mode === "susulan") && (
-        <Card>
-          <CardHeader
-            title={mode === "manual" ? "Absen Manual" : "Absen Susulan"}
-            description="Pilih Data Mengajar. Mapel+kelas+guru otomatis terikat."
-          />
-          {assignments.length === 0 ? (
-            <EmptyState
-              title="Belum ada Data Mengajar"
-              description="Buka menu 'Data Mengajar' untuk membuat assignment dulu."
-              action={<Button variant="secondary" onClick={() => (window.location.hash = "#/assignments")}>Buka Data Mengajar</Button>}
+      {/* Mode: Susulan — catch-up window */}
+      {mode === "susulan" && (
+        <>
+          <Card>
+            <CardHeader
+              title="Absen Susulan"
+              description="Pilih Data Mengajar. Tampilkan rekap pertemuan + daftar belum absen."
             />
-          ) : (
-            <div className="space-y-3">
+            {assignments.length === 0 ? (
+              <EmptyState
+                title="Belum ada Data Mengajar"
+                description="Buka menu 'Data Mengajar' untuk membuat assignment dulu."
+                action={<Button variant="secondary" onClick={() => (window.location.hash = "#/assignments")}>Buka Data Mengajar</Button>}
+              />
+            ) : (
               <Select
                 label="Data Mengajar"
-                id={`${mode}-asg`}
+                id="susulan-asg"
                 value={selectedAssignmentId}
                 onChange={setSelectedAssignmentId}
                 options={[
@@ -251,31 +297,150 @@ export function QuickAttendancePage() {
                   })),
                 ]}
               />
-              {selectedAssignmentId && (
-                <div className="p-3 bg-slate-50 rounded-md text-sm">
-                  <p><span className="text-slate-500">Guru:</span> <strong>{selectedAssignment()?.teacherName}</strong></p>
-                  <p><span className="text-slate-500">Mapel:</span> <strong>{selectedAssignment()?.subject}</strong></p>
-                  <p><span className="text-slate-500">Kelas:</span> <strong>{selectedAssignment()?.classLabel}</strong></p>
+            )}
+          </Card>
+
+          {assignment && recap && (
+            <>
+              {/* Rekap absensi */}
+              <Card>
+                <CardHeader
+                  title="Rekap Absensi"
+                  description={`Total ${recap.total} pertemuan (sesuai LessonSession)`}
+                />
+                <div className="grid grid-cols-4 gap-2 text-center">
+                  <div className="p-2 bg-slate-100 rounded">
+                    <p className="text-lg font-bold text-slate-700">{recap.total}</p>
+                    <p className="text-xs">Total</p>
+                  </div>
+                  <div className="p-2 bg-brand-50 rounded">
+                    <p className="text-lg font-bold text-brand-700">{recap.done}</p>
+                    <p className="text-xs">Sudah Absen</p>
+                  </div>
+                  <div className="p-2 bg-amber-50 rounded">
+                    <p className="text-lg font-bold text-amber-700">{recap.pending}</p>
+                    <p className="text-xs">Belum Absen</p>
+                  </div>
+                  <div className="p-2 bg-rose-50 rounded">
+                    <p className="text-lg font-bold text-rose-700">{recap.cancelled}</p>
+                    <p className="text-xs">Batal</p>
+                  </div>
                 </div>
-              )}
-              {selectedAssignmentId && (
-                <Button onClick={handleStartManual}>
-                  {mode === "manual" ? "Mulai Absen" : "Mulai Absen Susulan"}
-                </Button>
-              )}
-            </div>
+                {recap.total === 0 && (
+                  <p className="text-xs text-amber-700 mt-2">
+                    Belum ada sesi untuk assignment ini. Generate sesi di menu Jadwal dulu.
+                  </p>
+                )}
+              </Card>
+
+              {/* Daftar pertemuan belum absen */}
+              <Card>
+                <CardHeader
+                  title="Pertemuan Belum Absen"
+                  description={`${recap.pendingMeetings.length} pertemuan menunggu absensi`}
+                />
+                {recap.pendingMeetings.length === 0 ? (
+                  <EmptyState
+                    title="Semua pertemuan sudah diabsen 🎉"
+                    description="Tidak ada absensi susulan tertunda."
+                  />
+                ) : (
+                  <div className="space-y-2 max-h-96 overflow-y-auto">
+                    {recap.pendingMeetings.map((s) => {
+                      const isManual = s.teachingScheduleId === "manual" || s.teachingScheduleId === "susulan";
+                      const isPast = s.date < todayISODate();
+                      return (
+                        <button
+                          key={s.id}
+                          onClick={() => setSelectedSessionId(s.id)}
+                          className={`w-full text-left p-3 border rounded-md ${
+                            isPast ? "border-amber-300 bg-amber-50" : "border-slate-200"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="font-medium text-sm">{formatLongDateID(s.date)}</p>
+                              <p className="text-xs text-slate-500">
+                                {isManual ? "Manual" : `Jam ${s.startPeriod} · ${s.startTime}–${s.endTime}`}
+                                {s.plannedUnitId ? " · Punya rencana Prota" : ""}
+                              </p>
+                            </div>
+                            <Badge variant="warning">
+                              {isPast ? "Susulan" : "Belum absen"}
+                            </Badge>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </Card>
+            </>
           )}
-        </Card>
+        </>
+      )}
+
+      {/* Mode: Manual — pilih assignment + tanggal + create ad-hoc */}
+      {mode === "manual" && (
+        <>
+          <Card>
+            <Input label="" id="att-manual-date" type="date" value={date} onChange={setDate} />
+          </Card>
+          <Card>
+            <CardHeader
+              title="Absen Manual (Ad-hoc)"
+              description="Untuk tanggal di luar pertemuan terjadwal."
+            />
+            {assignments.length === 0 ? (
+              <EmptyState
+                title="Belum ada Data Mengajar"
+                description="Buka menu 'Data Mengajar' untuk membuat assignment dulu."
+                action={<Button variant="secondary" onClick={() => (window.location.hash = "#/assignments")}>Buka Data Mengajar</Button>}
+              />
+            ) : (
+              <div className="space-y-3">
+                <Select
+                  label="Data Mengajar"
+                  id="manual-asg"
+                  value={selectedAssignmentId}
+                  onChange={setSelectedAssignmentId}
+                  options={[
+                    { value: "", label: "-- Pilih --" },
+                    ...assignments.map((a) => ({
+                      value: a.id,
+                      label: `${a.classLabel} · ${a.subject} · ${a.teacherName}`,
+                    })),
+                  ]}
+                />
+                {selectedAssignmentId && (
+                  <div className="p-3 bg-slate-50 rounded-md text-sm">
+                    <p><span className="text-slate-500">Guru:</span> <strong>{assignment?.teacherName}</strong></p>
+                    <p><span className="text-slate-500">Mapel:</span> <strong>{assignment?.subject}</strong></p>
+                    <p><span className="text-slate-500">Kelas:</span> <strong>{assignment?.classLabel}</strong></p>
+                    <p><span className="text-slate-500">Tanggal:</span> <strong>{formatLongDateID(date)}</strong></p>
+                  </div>
+                )}
+                {selectedAssignmentId && (
+                  <Button onClick={handleStartManual}>Mulai Absen Manual</Button>
+                )}
+              </div>
+            )}
+          </Card>
+        </>
       )}
 
       {/* Attendance Editor */}
       {selectedSessionId && (
         <AttendanceEditor
           sessionId={selectedSessionId}
-          mode={mode}
+          mode={mode === "jadwal" ? "jadwal" : "manual"}
           date={date}
           year={year}
-          onSaved={(msg) => setMessage({ type: "success", text: msg })}
+          onSaved={(msg) => {
+            setMessage({ type: "success", text: msg });
+            // Reload catch-up data bila mode susulan
+            if (mode === "susulan") void loadAssignmentCatchupData();
+          }}
           onError={(msg) => setMessage({ type: "error", text: msg })}
         />
       )}
@@ -289,14 +454,13 @@ export function QuickAttendancePage() {
 
 function AttendanceEditor({
   sessionId,
-  mode,
   date,
   year,
   onSaved,
   onError,
 }: {
   sessionId: string;
-  mode: AttendanceMode;
+  mode: "jadwal" | "manual";
   date: string;
   year: AcademicYear | null;
   onSaved: (msg: string) => void;
@@ -307,7 +471,7 @@ function AttendanceEditor({
   const [roster, setRoster] = useState<ClassRoster | null>(null);
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [changes, setChanges] = useState<Map<string, Status>>(new Map());
-  const [isDraft, setIsDraft] = useState(mode === "susulan");
+  const [isDraft, setIsDraft] = useState(false);
   const [showDoc, setShowDoc] = useState(false);
   const [isNewDraft, setIsNewDraft] = useState(false);
 
@@ -433,10 +597,9 @@ function AttendanceEditor({
     <Card>
       <CardHeader
         title={`Absensi — ${roster.classLabel}`}
-        description={`${session?.subject ?? "Mapel"} · ${formatLongDateID(date)}${isDraft ? " · DRAFT" : ""}`}
+        description={`${session?.subject ?? "Mapel"} · ${formatLongDateID(session?.date ?? date)}${isDraft ? " · DRAFT" : ""}`}
       />
 
-      {/* Summary */}
       <div className="grid grid-cols-4 gap-2 mb-4 text-center">
         <div className="p-2 bg-brand-50 rounded">
           <p className="text-lg font-bold text-brand-700">{summary.present}</p>
@@ -528,7 +691,7 @@ function AttendanceEditor({
             <div className="document-subtitle">
               {session?.subject ?? "Mapel"} — Kelas {roster.classLabel}
             </div>
-            <div className="document-subtitle">{formatLongDateID(date)}</div>
+            <div className="document-subtitle">{formatLongDateID(session?.date ?? date)}</div>
             <table className="document-table">
               <thead>
                 <tr>

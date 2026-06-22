@@ -140,30 +140,31 @@ export async function deleteJournal(id: string): Promise<void> {
   await saveEntity("teachingJournals", softDelete(existing as TeachingJournal) as TeachingJournal);
 }
 
-/** Helper: init journal untuk sesi + auto-load roster + attendance + plannedUnit. */
+/** Helper: init journal untuk sesi + auto-load roster + plannedUnit.
+ *
+ * PATCH-FLOW-RC2D: jangan auto-create absensi. Bila absensi belum ada,
+ * return journal dengan totalStudents=0 + flag needsAttendance=true.
+ * Caller wajib tampilkan CTA "Buat Absensi Dulu" bila needsAttendance=true.
+ */
 export async function initJournalForSessionFull(args: {
   session: LessonSession;
   roster: ClassRoster | null;
   plannedUnit?: ProtaUnit | null;
-}): Promise<TeachingJournal | undefined> {
-  // Load attendance records untuk sesi ini
+}): Promise<{ journal: TeachingJournal; needsAttendance: boolean } | undefined> {
+  // Load attendance records untuk sesi ini (TANPA auto-create)
   const { getAttendanceBySession } = await import("./attendance-repo");
   const attendance = await getAttendanceBySession(args.session.id);
+  const needsAttendance = attendance.length === 0 && args.roster !== null;
 
-  // Bila belum ada attendance, init dulu
-  let attendanceRecords = attendance;
-  if (attendance.length === 0 && args.roster) {
-    const { initAttendanceForSession } = await import("./attendance-repo");
-    attendanceRecords = await initAttendanceForSession({
-      sessionId: args.session.id,
-      date: args.session.date,
-      roster: args.roster,
-    });
-  }
+  // Bila belum ada attendance, generate journal dengan records kosong
+  // (guru lihat CTA untuk buat absensi dulu)
+  const attendanceRecords = attendance;
 
-  return await initJournalForSession({
+  const journal = await initJournalForSession({
     session: args.session,
     plannedUnit: args.plannedUnit,
     attendanceRecords,
   });
+  if (!journal) return undefined;
+  return { journal, needsAttendance };
 }

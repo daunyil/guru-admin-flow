@@ -254,6 +254,15 @@ export {
   type CreateManualLessonSessionInput,
 } from "./manual-session";
 
+/* PATCH-FLOW-RC2D — Catch-up window helpers (rekap pertemuan per assignment) */
+export {
+  filterSessionsForAssignment,
+  recapAttendanceForAssignment,
+  recapJournalsForAssignment,
+  type MeetingRecap,
+  type MeetingStatus,
+} from "./catchup-helpers";
+
 /* Sprint 4 — Journal helpers (auto-fill dari sesi + Prota + absensi) */
 export {
   generateJournalFromSession,
