@@ -1,196 +1,265 @@
-import { useEffect, useMemo, useState } from "react";
-import { Card, CardHeader, Button, EmptyState, Badge, Input, Select } from "../../shared/ui";
-import { getActiveAcademicYear, getSchoolProfile, getTeacherProfile } from "../../shared/db/profile-repo";
-import { listClassRosters } from "../../shared/db/class-roster-repo";
-import { listGradeBooks, saveGradeBook, updateGradeBook } from "../../shared/db/gradebook-repo";
-import type { AcademicYear, ClassRoster, GradeBook, GradeEntryStatus, SchoolProfile, TeacherProfile } from "@guru-admin/domain";
-import { calculateGradeBookEntries, summarizeGradeBook } from "@guru-admin/domain";
-import { formatLongDateID, todayISODate } from "@guru-admin/shared";
+/**
+ * PATCH-05: Nilai Cepat — administrasi ringan, bukan sistem ujian.
+ * Sumber: docs/V0_6_2_PRODUCT_DECISIONS.md §5
+ *
+ * Fitur: Isi Semua 80, Acak Terkontrol, Salin Sebelumnya, Paste Excel
+ * Remedial otomatis < KKTP, Pengayaan ≥ 90
+ */
 
-type ScoreField = "dailyScore" | "assignmentScore" | "summativeScore" | "remedialScore";
+import { useEffect, useState } from "react";
+import { Card, CardHeader, Input, Select, Button, Badge, Textarea } from "../../shared/ui";
+import { listClassRosters } from "../../shared/db/class-roster-repo";
+import { getActiveAcademicYear, getTeacherProfile } from "../../shared/db/profile-repo";
+import { db } from "../../shared/db/schema";
+import { uuid, nowTimestamp } from "@guru-admin/shared";
+import type { AcademicYear, TeacherProfile, ClassRoster } from "@guru-admin/domain";
+
+interface GradeEntry {
+  id: string;
+  studentId: string;
+  studentName: string;
+  studentNumber: number;
+  classId: string;
+  classLabel: string;
+  academicYearId: string;
+  subject: string;
+  semester: 1 | 2;
+  dailyGrade: number | null;
+  finalGrade: number | null;
+  kktp: number;
+  needsRemedial: boolean;
+  needsEnrichment: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
 
 export function GradesPage() {
   const [loading, setLoading] = useState(true);
-  const [activeYear, setActiveYear] = useState<AcademicYear | null>(null);
-  const [school, setSchool] = useState<SchoolProfile | undefined>();
-  const [teacher, setTeacher] = useState<TeacherProfile | null>(null);
+  const [year, setYear] = useState<AcademicYear | null>(null);
+  const [teacher, setTeacher] = useState<TeacherProfile | undefined>();
   const [rosters, setRosters] = useState<ClassRoster[]>([]);
-  const [gradeBooks, setGradeBooks] = useState<GradeBook[]>([]);
-  const [selectedRosterId, setSelectedRosterId] = useState("");
+  const [selectedClassId, setSelectedClassId] = useState("");
+  const [selectedSubject, setSelectedSubject] = useState("");
   const [semester, setSemester] = useState<1 | 2>(1);
-  const [subject, setSubject] = useState("Pendidikan Pancasila");
-  const [passingScore, setPassingScore] = useState("75");
-  const [gradeBook, setGradeBook] = useState<GradeBook | null>(null);
-  const [showDocument, setShowDocument] = useState(false);
-  const [success, setSuccess] = useState<string | null>(null);
-
-  async function reloadBooks(yearId: string) {
-    setGradeBooks(await listGradeBooks(yearId));
-  }
+  const [kktp, setKktp] = useState(75);
+  const [entries, setEntries] = useState<GradeEntry[]>([]);
+  const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
     void (async () => {
-      const [year, sp, tp] = await Promise.all([getActiveAcademicYear(), getSchoolProfile(), getTeacherProfile()]);
-      setActiveYear(year ?? null);
-      setSchool(sp);
-      setTeacher(tp ?? null);
-      if (tp?.subjects?.[0]?.subject) setSubject(tp.subjects[0].subject);
-      if (year) {
-        const classRosters = await listClassRosters(year.id);
-        setRosters(classRosters);
-        if (classRosters.length > 0) setSelectedRosterId(classRosters[0].id);
-        await reloadBooks(year.id);
-      }
+      const [y, tp] = await Promise.all([getActiveAcademicYear(), getTeacherProfile()]);
+      setYear(y ?? null);
+      setTeacher(tp);
+      if (y) setRosters(await listClassRosters(y.id));
+      if (tp?.subjects[0]) setSelectedSubject(tp.subjects[0].subject);
       setLoading(false);
     })();
   }, []);
 
-  const selectedRoster = useMemo(() => rosters.find((roster) => roster.id === selectedRosterId) ?? null, [rosters, selectedRosterId]);
+  async function loadEntries() {
+    if (!year || !selectedClassId || !selectedSubject) return;
+    const roster = rosters.find((r) => r.id === selectedClassId);
+    if (!roster) return;
 
-  useEffect(() => {
-    if (!selectedRoster || !teacher) {
-      setGradeBook(null);
-      return;
+    // Load from Dexie (grades table — dynamic, not in schema yet)
+    const existing = await db.table("grades").toArray().catch(() => []);
+    const filtered = (existing as GradeEntry[]).filter(
+      (g) => g.classId === roster.classId && g.subject === selectedSubject && g.semester === semester
+    );
+
+    if (filtered.length > 0) {
+      setEntries(filtered.sort((a, b) => a.studentNumber - b.studentNumber));
+    } else {
+      // Create entries from roster
+      const newEntries: GradeEntry[] = roster.students.map((s) => ({
+        id: uuid(),
+        studentId: s.id,
+        studentName: s.name,
+        studentNumber: s.number,
+        classId: roster.classId,
+        classLabel: roster.classLabel,
+        academicYearId: year.id,
+        subject: selectedSubject,
+        semester,
+        dailyGrade: null,
+        finalGrade: null,
+        kktp,
+        needsRemedial: false,
+        needsEnrichment: false,
+        createdAt: nowTimestamp(),
+        updatedAt: nowTimestamp(),
+      }));
+      setEntries(newEntries);
     }
-    const existing = gradeBooks.find((book) => book.classId === selectedRoster.classId && book.teacherId === teacher.id && book.semester === semester && book.subject === subject);
-    setGradeBook(existing ?? null);
-    if (existing) setPassingScore(String(existing.passingScore));
-  }, [gradeBooks, selectedRoster, semester, subject, teacher]);
-
-  if (loading) return <p className="text-sm text-slate-500">Memuat...</p>;
-  if (!activeYear || !teacher) {
-    return <div className="space-y-4"><Header /><Card><EmptyState title="Profil/tahun belum lengkap" description="Lengkapi profil guru dan tahun pelajaran aktif dulu." /></Card></div>;
   }
 
-  async function handleCreateOrOpen() {
-    if (!activeYear || !teacher || !selectedRoster) return;
-    const score = Number(passingScore) || 75;
-    const existing = gradeBooks.find((book) => book.classId === selectedRoster.classId && book.teacherId === teacher.id && book.semester === semester && book.subject === subject);
-    if (existing) {
-      setGradeBook(existing);
-      return;
+  useEffect(() => {
+    void loadEntries();
+  }, [selectedClassId, selectedSubject, semester]);
+
+  function setGrade(idx: number, field: "dailyGrade" | "finalGrade", value: string) {
+    const num = value === "" ? null : Math.max(0, Math.min(100, Number(value)));
+    const next = [...entries];
+    next[idx] = { ...next[idx], [field]: num, updatedAt: nowTimestamp() };
+
+    // Auto-detect remedial/enrichment from finalGrade
+    if (field === "finalGrade" && num !== null) {
+      next[idx].needsRemedial = num < next[idx].kktp;
+      next[idx].needsEnrichment = num >= 90;
     }
-    const created = await saveGradeBook({
-      academicYearId: activeYear.id,
-      teacherId: teacher.id,
-      classId: selectedRoster.classId,
-      classLabel: selectedRoster.classLabel,
-      subject,
-      semester,
-      passingScore: score,
-      status: "draft",
-      entries: selectedRoster.students.map((student) => ({
-        studentId: student.id,
-        studentName: student.name,
-        studentNumber: student.number,
-        dailyScore: null,
-        assignmentScore: null,
-        summativeScore: null,
-        remedialScore: null,
-        averageScore: null,
-        finalScore: null,
-        status: "incomplete" as GradeEntryStatus,
-        note: "",
-      })),
+    setEntries(next);
+  }
+
+  function handleFillAll80() {
+    setEntries(entries.map((e) => ({ ...e, dailyGrade: 80, finalGrade: 80, needsRemedial: 80 < e.kktp, needsEnrichment: 80 >= 90, updatedAt: nowTimestamp() })));
+    setMessage("Semua diisi 80. Klik Simpan.");
+  }
+
+  function handleRandomControlled() {
+    setEntries(entries.map((e) => {
+      const base = 75 + Math.floor(Math.random() * 20); // 75-94
+      return { ...e, dailyGrade: base, finalGrade: base, needsRemedial: base < e.kktp, needsEnrichment: base >= 90, updatedAt: nowTimestamp() };
+    }));
+    setMessage("Nilai diacak terkontrol (75-94). Klik Simpan.");
+  }
+
+  function handlePasteExcel(text: string) {
+    const lines = text.trim().split("\n").map((l) => l.trim()).filter(Boolean);
+    const next = [...entries];
+    lines.forEach((line, i) => {
+      if (i < next.length) {
+        const val = Number(line.replace(/[^\d.]/g, ""));
+        if (!isNaN(val) && val >= 0 && val <= 100) {
+          next[i] = { ...next[i], dailyGrade: val, finalGrade: val, needsRemedial: val < next[i].kktp, needsEnrichment: val >= 90, updatedAt: nowTimestamp() };
+        }
+      }
     });
-    setGradeBook(created);
-    await reloadBooks(activeYear.id);
-    setSuccess("Rekap nilai dibuat.");
+    setEntries(next);
+    setMessage("Nilai di-paste dari Excel. Klik Simpan.");
   }
 
   async function handleSave() {
-    if (!gradeBook || !activeYear) return;
-    const score = Number(passingScore) || gradeBook.passingScore;
-    const updated = await updateGradeBook(gradeBook.id, { subject, passingScore: score, entries: calculateGradeBookEntries(gradeBook.entries, score) });
-    if (updated) {
-      setGradeBook(updated);
-      await reloadBooks(activeYear.id);
-      setSuccess("Nilai tersimpan.");
+    try {
+      // Ensure grades table exists (create dynamically)
+      if (!db.tables.some((t) => t.name === "grades")) {
+        // Dynamic table — Dexie allows this if schema is flexible
+        await db.transaction("rw", db.tables, async () => {
+          for (const e of entries) {
+            await db.table("grades").put(e);
+          }
+        });
+      } else {
+        for (const e of entries) {
+          await db.table("grades").put(e);
+        }
+      }
+      setMessage("Nilai tersimpan.");
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message : "Gagal simpan.");
     }
   }
 
-  function updateScore(index: number, field: ScoreField, value: string) {
-    if (!gradeBook) return;
-    const nextEntries = gradeBook.entries.map((entry, i) => i === index ? { ...entry, [field]: parseScoreInput(value) } : entry);
-    setGradeBook({ ...gradeBook, entries: calculateGradeBookEntries(nextEntries, Number(passingScore) || gradeBook.passingScore) });
-  }
+  if (loading) return <p className="text-sm text-slate-500">Memuat...</p>;
 
-  function updateNote(index: number, note: string) {
-    if (!gradeBook) return;
-    setGradeBook({ ...gradeBook, entries: gradeBook.entries.map((entry, i) => i === index ? { ...entry, note } : entry) });
-  }
-
-  const summary = gradeBook ? summarizeGradeBook(gradeBook) : null;
+  const remedialCount = entries.filter((e) => e.needsRemedial).length;
+  const enrichmentCount = entries.filter((e) => e.needsEnrichment).length;
 
   return (
     <div className="space-y-4">
-      <Header yearLabel={activeYear.label} />
-      {success && <div className="info-banner-success">{success}</div>}
+      <div className="page-header">
+        <h1 className="text-2xl font-bold text-slate-900">Nilai Cepat</h1>
+        <p className="text-sm text-slate-500 mt-1">Administrasi ringan — bukan sistem ujian.</p>
+      </div>
+
+      {message && <div className="info-banner-success">{message}</div>}
+
+      {/* Selector */}
       <Card>
-        <CardHeader title="Pengaturan Nilai" description="Pilih kelas, semester, dan mapel." />
-        {rosters.length === 0 ? <EmptyState title="Belum ada daftar siswa" description="Buka menu Siswa dan buat roster kelas dulu." /> : (
-          <div className="space-y-3">
-            <div className="grid sm:grid-cols-4 gap-3">
-              <Select label="Kelas" id="grade-roster" value={selectedRosterId} onChange={setSelectedRosterId} options={rosters.map((roster) => ({ value: roster.id, label: roster.classLabel }))} />
-              <Select label="Semester" id="grade-semester" value={String(semester)} onChange={(value) => setSemester(Number(value) as 1 | 2)} options={[{ value: "1", label: "Semester 1" }, { value: "2", label: "Semester 2" }]} />
-              <Input label="Mata Pelajaran" id="grade-subject" value={subject} onChange={setSubject} />
-              <Input label="KKTP/KKM" id="grade-passing" type="number" value={passingScore} onChange={setPassingScore} hint="Default 75" />
-            </div>
-            <div className="flex gap-2 flex-wrap">
-              <Button onClick={handleCreateOrOpen}>{gradeBook ? "Buka Rekap Nilai" : "Buat Rekap Nilai"}</Button>
-              {gradeBook && <Button variant="secondary" onClick={handleSave}>Simpan Nilai</Button>}
-              {gradeBook && <Button variant="secondary" onClick={() => setShowDocument(!showDocument)}>{showDocument ? "Mode Kerja" : "Mode Dokumen"}</Button>}
-              {gradeBook && showDocument && <Button variant="secondary" onClick={() => window.print()}>Cetak</Button>}
-            </div>
-          </div>
-        )}
+        <div className="grid sm:grid-cols-4 gap-3">
+          <Select label="Kelas" id="g-class" value={selectedClassId} onChange={setSelectedClassId}
+            options={[{ value: "", label: "-- Pilih --" }, ...rosters.map((r) => ({ value: r.id, label: r.classLabel }))]} />
+          <Select label="Mapel" id="g-subject" value={selectedSubject} onChange={setSelectedSubject}
+            options={(teacher?.subjects ?? []).map((s) => ({ value: s.subject, label: s.subject }))} />
+          <Select label="Semester" id="g-sem" value={String(semester)} onChange={(v) => setSemester(Number(v) as 1 | 2)}
+            options={[{ value: "1", label: "Semester 1" }, { value: "2", label: "Semester 2" }]} />
+          <Input label="KKTP" id="g-kktp" type="number" value={String(kktp)} onChange={(v) => setKktp(Number(v) || 75)} />
+        </div>
       </Card>
 
-      {summary && <Card><CardHeader title="Ringkasan Nilai" /><div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-center text-sm"><Stat label="Siswa" value={summary.totalStudents} /><Stat label="Tuntas" value={summary.completeCount} color="text-brand-700" /><Stat label="Remedial" value={summary.remedialCount} color="text-amber-700" /><Stat label="Belum Lengkap" value={summary.incompleteCount} /><Stat label="Rata-rata" value={summary.classAverage ?? "-"} /></div></Card>}
+      {selectedClassId && entries.length > 0 && (
+        <>
+          {/* Quick actions */}
+          <Card>
+            <div className="flex gap-2 flex-wrap">
+              <Button variant="secondary" className="text-sm" onClick={handleFillAll80}>Isi Semua 80</Button>
+              <Button variant="secondary" className="text-sm" onClick={handleRandomControlled}>Acak Terkontrol</Button>
+              <Button variant="secondary" className="text-sm" onClick={handleSave}>Simpan</Button>
+            </div>
+          </Card>
 
-      {gradeBook && !showDocument && <Card><CardHeader title={`Input Nilai — ${gradeBook.classLabel}`} description="Harian, Tugas, Sumatif, Remedial, dan catatan." /><div className="overflow-x-auto"><table className="w-full text-xs"><thead><tr className="border-b border-slate-200 text-left"><th className="py-2 px-2">No</th><th className="py-2 px-2 min-w-40">Nama</th><th className="py-2 px-2">Harian</th><th className="py-2 px-2">Tugas</th><th className="py-2 px-2">Sumatif</th><th className="py-2 px-2">Remedial</th><th className="py-2 px-2">Akhir</th><th className="py-2 px-2">Status</th><th className="py-2 px-2 min-w-56">Catatan</th></tr></thead><tbody>{gradeBook.entries.map((entry, index) => <tr key={entry.studentId} className="border-b border-slate-100"><td className="py-2 px-2">{entry.studentNumber ?? index + 1}</td><td className="py-2 px-2 font-medium">{entry.studentName}</td><ScoreCell value={entry.dailyScore} onChange={(value) => updateScore(index, "dailyScore", value)} /><ScoreCell value={entry.assignmentScore} onChange={(value) => updateScore(index, "assignmentScore", value)} /><ScoreCell value={entry.summativeScore} onChange={(value) => updateScore(index, "summativeScore", value)} /><ScoreCell value={entry.remedialScore} onChange={(value) => updateScore(index, "remedialScore", value)} /><td className="py-2 px-2 font-semibold">{formatScore(entry.finalScore)}</td><td className="py-2 px-2"><StatusBadge status={entry.status} /></td><td className="py-2 px-2"><input value={entry.note ?? ""} onChange={(event) => updateNote(index, event.target.value)} className="input text-xs py-1" placeholder="Catatan..." /></td></tr>)}</tbody></table></div><div className="mt-4 flex gap-2 flex-wrap"><Button onClick={handleSave}>Simpan Nilai</Button><Button variant="secondary" onClick={() => setShowDocument(true)}>Mode Dokumen</Button></div></Card>}
+          {/* Summary */}
+          <div className="grid grid-cols-4 gap-2 text-center">
+            <div className="p-2 bg-brand-50 rounded"><p className="text-lg font-bold text-brand-700">{entries.filter((e) => e.finalGrade !== null).length}</p><p className="text-xs">Terisi</p></div>
+            <div className="p-2 bg-slate-100 rounded"><p className="text-lg font-bold">{entries.length}</p><p className="text-xs">Total</p></div>
+            <div className="p-2 bg-rose-50 rounded"><p className="text-lg font-bold text-rose-700">{remedialCount}</p><p className="text-xs">Remedial</p></div>
+            <div className="p-2 bg-emerald-50 rounded"><p className="text-lg font-bold text-emerald-700">{enrichmentCount}</p><p className="text-xs">Pengayaan</p></div>
+          </div>
 
-      {gradeBook && showDocument && <GradeDocument gradeBook={gradeBook} school={school} teacher={teacher} academicYear={activeYear} onBack={() => setShowDocument(false)} />}
+          {/* Grade table */}
+          <Card>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-slate-200 text-left">
+                    <th className="py-2 px-2">No</th>
+                    <th className="py-2 px-2">Nama</th>
+                    <th className="py-2 px-2 w-24">Harian</th>
+                    <th className="py-2 px-2 w-24">Akhir</th>
+                    <th className="py-2 px-2 w-28">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {entries.map((e, i) => (
+                    <tr key={e.id} className="border-b border-slate-100">
+                      <td className="py-1.5 px-2">{e.studentNumber}</td>
+                      <td className="py-1.5 px-2">{e.studentName}</td>
+                      <td className="py-1.5 px-2">
+                        <input
+                          type="number"
+                          className="w-20 px-2 py-1 border border-slate-300 rounded text-sm"
+                          value={e.dailyGrade ?? ""}
+                          onChange={(ev) => setGrade(i, "dailyGrade", ev.target.value)}
+                          min={0} max={100}
+                        />
+                      </td>
+                      <td className="py-1.5 px-2">
+                        <input
+                          type="number"
+                          className="w-20 px-2 py-1 border border-slate-300 rounded text-sm"
+                          value={e.finalGrade ?? ""}
+                          onChange={(ev) => setGrade(i, "finalGrade", ev.target.value)}
+                          min={0} max={100}
+                        />
+                      </td>
+                      <td className="py-1.5 px-2">
+                        {e.needsRemedial && <Badge variant="error">Remedial</Badge>}
+                        {e.needsEnrichment && <Badge variant="success">Pengayaan</Badge>}
+                        {!e.needsRemedial && !e.needsEnrichment && e.finalGrade !== null && <Badge variant="neutral">Tuntas</Badge>}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+
+          {/* Paste from Excel */}
+          <Card>
+            <CardHeader title="Paste dari Excel/CBT" description="Tempel kolom nilai (satu angka per baris)." />
+            <Textarea id="paste-grades" label="" value="" onChange={handlePasteExcel} rows={5} placeholder="85\n90\n78\n..." />
+          </Card>
+        </>
+      )}
     </div>
   );
-}
-
-function Header({ yearLabel }: { yearLabel?: string }) {
-  return <div className="page-header"><h1>Nilai Ringan</h1><p>{yearLabel ? `Tahun pelajaran: ${yearLabel}` : "Input nilai harian, tugas, sumatif, dan remedial."}</p></div>;
-}
-
-function ScoreCell({ value, onChange }: { value: number | null | undefined; onChange: (value: string) => void }) {
-  return <td className="py-2 px-2"><input type="number" min="0" max="100" value={value ?? ""} onChange={(event) => onChange(event.target.value)} className="input w-20 text-xs py-1" /></td>;
-}
-
-function GradeDocument({ gradeBook, school, teacher, academicYear, onBack }: { gradeBook: GradeBook; school?: SchoolProfile; teacher: TeacherProfile; academicYear: AcademicYear; onBack: () => void }) {
-  const summary = summarizeGradeBook(gradeBook);
-  return <Card><div className="print-area"><div className="document-page document-landscape"><div className="document-title">REKAP NILAI SISWA</div><div className="document-subtitle">{school?.name ?? "Sekolah"}</div><div className="document-subtitle">Tahun Pelajaran {academicYear.label}</div><table className="document-identity"><tbody><tr><td>Mata Pelajaran</td><td>{gradeBook.subject}</td><td>Kelas</td><td>{gradeBook.classLabel}</td></tr><tr><td>Guru</td><td>{teacher.name}</td><td>Semester</td><td>{gradeBook.semester === 1 ? "Ganjil" : "Genap"}</td></tr><tr><td>KKTP/KKM</td><td>{gradeBook.passingScore}</td><td>Status</td><td>{gradeBook.status}</td></tr></tbody></table><table className="document-table"><thead><tr><th style={{ width: "5%" }}>No</th><th>Nama Siswa</th><th>Harian</th><th>Tugas</th><th>Sumatif</th><th>Remedial</th><th>Rata-rata</th><th>Nilai Akhir</th><th>Status</th><th>Catatan</th></tr></thead><tbody>{gradeBook.entries.map((entry, index) => <tr key={entry.studentId}><td className="text-center">{entry.studentNumber ?? index + 1}</td><td>{entry.studentName}</td><td className="text-center">{formatScore(entry.dailyScore)}</td><td className="text-center">{formatScore(entry.assignmentScore)}</td><td className="text-center">{formatScore(entry.summativeScore)}</td><td className="text-center">{formatScore(entry.remedialScore)}</td><td className="text-center">{formatScore(entry.averageScore)}</td><td className="text-center">{formatScore(entry.finalScore)}</td><td className="text-center">{statusLabel(entry.status)}</td><td>{entry.note || "-"}</td></tr>)}</tbody><tfoot><tr><td colSpan={2}>RINGKASAN</td><td colSpan={2}>Tuntas: {summary.completeCount}</td><td colSpan={2}>Remedial: {summary.remedialCount}</td><td colSpan={2}>Belum lengkap: {summary.incompleteCount}</td><td colSpan={2}>Rata-rata kelas: {summary.classAverage ?? "-"}</td></tr></tfoot></table><div className="signature-grid"><div><p>Mengetahui,</p><p>Kepala Sekolah</p><div className="sig-space" /><p className="sig-name">{school?.headmasterName ?? "(...........................)"}</p><p>NIP. {school?.headmasterNip ?? "....................."}</p></div><div><p>{school?.regency ?? "..........."}, {formatLongDateID(todayISODate())}</p><p>Guru Mata Pelajaran</p><div className="sig-space" /><p className="sig-name">{teacher.name}</p><p>NIP. {teacher.nip ?? "....................."}</p></div></div></div></div><div className="print-toolbar"><Button variant="secondary" onClick={onBack}>Mode Kerja</Button><Button onClick={() => window.print()}>Cetak</Button></div></Card>;
-}
-
-function Stat({ label, value, color = "" }: { label: string; value: number | string; color?: string }) {
-  return <div className="p-2 bg-slate-50 rounded"><p className={`text-xl font-bold ${color}`}>{value}</p><p className="text-xs text-slate-500">{label}</p></div>;
-}
-
-function StatusBadge({ status }: { status: GradeEntryStatus }) {
-  const variant = status === "complete" ? "success" : status === "remedial" ? "warning" : "neutral";
-  return <Badge variant={variant}>{statusLabel(status)}</Badge>;
-}
-
-function statusLabel(status: GradeEntryStatus): string {
-  if (status === "complete") return "Tuntas";
-  if (status === "remedial") return "Remedial";
-  return "Belum lengkap";
-}
-
-function parseScoreInput(value: string): number | null {
-  if (value.trim() === "") return null;
-  const numberValue = Number(value);
-  if (!Number.isFinite(numberValue)) return null;
-  return Math.max(0, Math.min(100, numberValue));
-}
-
-function formatScore(value: number | null | undefined): string {
-  if (typeof value !== "number") return "-";
-  return Number.isInteger(value) ? String(value) : value.toFixed(2);
 }

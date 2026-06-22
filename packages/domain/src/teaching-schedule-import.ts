@@ -56,10 +56,10 @@ export function validateScheduleImport(input: unknown): ScheduleImportValidation
   }
 
   // Validasi logic: startTime < endTime bila keduanya ada
-  const data = result.data;
+  const data = result.data as ScheduleImport;
   const logicErrors: string[] = [];
 
-  data.entries.forEach((entry, idx) => {
+  data.entries.forEach((entry: ScheduleImportEntry, idx: number) => {
     if (entry.startTime && entry.endTime && entry.startTime >= entry.endTime) {
       logicErrors.push(
         `entries[${idx}]: startTime (${entry.startTime}) wajib < endTime (${entry.endTime})`
@@ -88,7 +88,7 @@ export function scheduleImportToSchedules(
   import("./teaching-schedule").TeachingSchedule,
   "id" | "academicYearId" | "teacherId" | "createdAt" | "updatedAt" | "deletedAt" | "syncStatus"
 >> {
-  return imp.entries.map((e) => {
+  return imp.entries.map((e: ScheduleImportEntry) => {
     const times = e.startTime && e.endTime
       ? { startTime: e.startTime, endTime: e.endTime }
       : fallbackStartTime(e.startPeriod, e.durationJP);
