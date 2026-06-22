@@ -8,12 +8,13 @@ import {
   applyAttendanceChanges,
   isAllPresent,
   validateAttendanceConsistency,
+  backfillNisInRecords,
 } from "../src/attendance-helpers";
 import type { ClassRoster } from "../src/attendance";
 
 const baseTimestamp = "2025-07-14T00:00:00+07:00";
 
-function makeRoster(studentCount = 5): ClassRoster {
+function makeRoster(studentCount = 5, withNis = false): ClassRoster {
   return {
     id: "roster-1",
     classId: "VII A",
@@ -23,6 +24,7 @@ function makeRoster(studentCount = 5): ClassRoster {
       id: `student-${i + 1}`,
       name: `Siswa ${i + 1}`,
       number: i + 1,
+      nis: withNis ? `NIS-${1000 + i}` : undefined,
     })),
     createdAt: baseTimestamp,
     updatedAt: baseTimestamp,
@@ -186,5 +188,76 @@ describe("attendance-helpers — validateAttendanceConsistency", () => {
     expect(check.valid).toBe(true);
     expect(check.expected).toBe(5);
     expect(check.actual).toBe(5);
+  });
+});
+
+describe("attendance-helpers — backfillNisInRecords", () => {
+  it("records tanpa NIS + roster dengan NIS → isi NIS, changed=true", () => {
+    const rosterWithNis = makeRoster(3, true);
+    const rosterWithoutNis = makeRoster(3, false);
+
+    // Generate records dari roster tanpa NIS (simulasi data lama)
+    const oldRecords = generateDefaultAttendance({
+      roster: rosterWithoutNis,
+      sessionId: "session-1",
+      date: "2025-07-14",
+    });
+    expect(oldRecords.every((r) => !r.nis)).toBe(true);
+
+    // Backfill dari roster dengan NIS
+    const { records, changed } = backfillNisInRecords(oldRecords, rosterWithNis);
+    expect(changed).toBe(true);
+    expect(records[0].nis).toBe("NIS-1000");
+    expect(records[1].nis).toBe("NIS-1001");
+    expect(records[2].nis).toBe("NIS-1002");
+  });
+
+  it("records sudah ada NIS → tidak diubah, changed=false", () => {
+    const rosterWithNis = makeRoster(3, true);
+    const records = generateDefaultAttendance({
+      roster: rosterWithNis,
+      sessionId: "session-1",
+      date: "2025-07-14",
+    });
+    // records sudah ada NIS
+    expect(records[0].nis).toBe("NIS-1000");
+
+    const { records: result, changed } = backfillNisInRecords(records, rosterWithNis);
+    expect(changed).toBe(false);
+    expect(result[0].nis).toBe("NIS-1000");
+  });
+
+  it("roster tanpa NIS → tidak ada perubahan, changed=false", () => {
+    const rosterWithoutNis = makeRoster(3, false);
+    const records = generateDefaultAttendance({
+      roster: rosterWithoutNis,
+      sessionId: "session-1",
+      date: "2025-07-14",
+    });
+    const { records: result, changed } = backfillNisInRecords(records, rosterWithoutNis);
+    expect(changed).toBe(false);
+    expect(result.every((r) => !r.nis)).toBe(true);
+  });
+
+  it("records kosong → records kosong, changed=false", () => {
+    const roster = makeRoster(3, true);
+    const { records, changed } = backfillNisInRecords([], roster);
+    expect(changed).toBe(false);
+    expect(records.length).toBe(0);
+  });
+
+  it("student di roster tapi tidak di records → diabaikan", () => {
+    const rosterWithNis = makeRoster(5, true);
+    const rosterFor3 = makeRoster(3, false);
+    const records = generateDefaultAttendance({
+      roster: rosterFor3,
+      sessionId: "session-1",
+      date: "2025-07-14",
+    });
+    // Records hanya 3 siswa, roster 5 siswa
+    const { records: result, changed } = backfillNisInRecords(records, rosterWithNis);
+    expect(changed).toBe(true);
+    expect(result.length).toBe(3); // jumlah records tidak berubah
+    expect(result[0].nis).toBe("NIS-1000");
   });
 });

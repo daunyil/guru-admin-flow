@@ -434,3 +434,47 @@ Stage Summary:
 - Linker Promes-Lesson: assign plannedUnitId massal dari SchedulePage, sesuai §0 CRITICAL PROMES RULE (cadangan dari intra).
 - Halaman Kelengkapan: cek semua modul, score, link ke modul yang perlu diisi.
 - MVP v1 hampir lengkap. Tinggal Sprint 6 (Supabase sync) yang merupakan non-goal sampai user minta.
+
+---
+
+Task ID: PATCH-FLOW-RC1
+Agent: main (PATCH-FLOW-RC1 batch execution)
+Task: Fix 5 P0 blockers + 1 P1 dari senior audit commit f0478cb. RC untuk re-audit.
+
+Work Log:
+- Branch: patch-flow-rc1 dari main (f0478cb).
+- Domain layer:
+  - packages/domain/src/attendance-helpers.ts: tambah backfillNisInRecords(records, roster) — pure function untuk backfill NIS dari roster ke records lama yang belum punya NIS.
+  - packages/domain/src/manual-session.ts (NEW): createManualLessonSession, isMatchingManualSession, semesterForDate. Pure functions untuk bikin LessonSession ad-hoc (mode manual/susulan) sehingga rantai Siswa → Absensi → Jurnal → Laporan tidak putus.
+  - packages/domain/src/index.ts: export backfillNisInRecords + 3 manual-session helpers.
+- Domain tests:
+  - test/attendance-helpers.test.ts: +5 test untuk backfillNisInRecords.
+  - test/manual-session.test.ts (NEW): 11 test untuk createManualLessonSession, isMatchingManualSession, semesterForDate.
+- App repos:
+  - apps/teacher-admin/src/shared/db/attendance-repo.ts:
+    - initAttendanceForSession: bila existing records ada, cek NIS kosong → backfill dari roster + persist.
+    - + saveDefaultAttendance(records): simpan default records saat user klik Simpan (bukan saat form dibuka).
+    - + getAttendanceByTeacherDate(teacherId, dateISO): untuk Home cek "sudah absen" per tanggal.
+  - apps/teacher-admin/src/shared/db/lesson-session-repo.ts: + findOrCreateManualSession({mode, academicYear, teacherId, roster, subject, date}) — cari existing manual/susulan session untuk (classId, subject, date); bila tidak ada, buat baru. Hindari dobel tanggal+kelas+mapel.
+- App UI:
+  - apps/teacher-admin/src/modules/grades/GradesPage.tsx: REWRITE total. Buang db.table("grades") dynamic. Pakai gradeBooks schema via findGradeBook/saveGradeBook/updateGradeBook. UI fields mapped ke GradeEntry (dailyScore/finalScore). Status auto-derived via calculateGradeBookEntries. Save hanya bila dirty.
+  - apps/teacher-admin/src/modules/attendance/QuickAttendancePage.tsx: REWRITE manual/susulan flow. ManualSessionForm baru memakai findOrCreateManualSession → LessonSession NYATA. AttendanceEditor: untuk mode manual/susulan, default records di-generate in-memory (isNewDraft=true), TIDAK disimpan sampai Simpan. handleSave persist via saveDefaultAttendance bila isNewDraft, atau updateAttendance bila existing.
+  - apps/teacher-admin/src/modules/journal/QuickJournalPage.tsx: + Mode selector (Dari Jadwal / Jurnal Manual). Jurnal Manual memakai findOrCreateManualSession → sesi NYATA. Editor jurnal bisa membaca manual session via getLessonSession. List sesi menampilkan badge "Manual" untuk sesi ad-hoc.
+  - apps/teacher-admin/src/routes/TodayPage.tsx: cek attendanceRecords (via getAttendanceByTeacherDate) dan teachingJournals (via listJournals) secara terpisah. Badge "Belum absen" sekarang berdasarkan attendanceRecords, BUKAN jurnal. Setiap sesi tampilkan badge independen: ✓ Absen / Belum absen / ✓ Jurnal / Belum jurnal.
+
+Verifikasi:
+- Typecheck: 3 workspace PASS, 0 error.
+- Test: 199/199 PASS (176 domain + 23 shared). RC1 tambah 16 test (5 backfill + 11 manual-session).
+- Build: vite build 2.92s, 113 modules, 545KB JS / 152KB gzip.
+
+Stage Summary:
+- 5 P0 blockers + 1 P1 dari audit f0478cb FIXED:
+  - P0-1 Nilai Cepat: gradeBooks schema, persist + reload OK.
+  - P0-2 Home pending: cek attendanceRecords + teachingJournals terpisah.
+  - P0-3 Jurnal Manual: tombol tidak palsu, mode Manual creates real LessonSession.
+  - P0-4 Absensi Manual: LessonSession NYATA (bukan virtual ID), jurnal & laporan terhubung.
+  - P0-5 Absensi Manual: default records TIDAK auto-save, hanya persist saat Simpan.
+  - P1-6 NIS backfill: initAttendanceForSession auto-backfill NIS dari roster untuk records lama.
+- 9 file changed (2 baru, 7 modifikasi).
+- Status: READY FOR SENIOR AUDIT.
+- Push PENDING: butuh token.

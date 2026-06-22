@@ -4,6 +4,10 @@
  *
  * Tombol utama: Absen, Jurnal, Nilai, Dokumen, Backup
  * Pekerjaan tertunda: absen belum dibuat, jurnal belum dibuat, dll
+ *
+ * PATCH-FLOW-RC1:
+ *   - Cek attendanceRecords dan teachingJournals secara terpisah.
+ *   - Status "Belum absen" tidak lagi memakai jurnal sebagai indikator.
  */
 
 import { useEffect, useState } from "react";
@@ -16,8 +20,16 @@ import {
 } from "../shared/db/profile-repo";
 import { getLessonSessionsByDate } from "../shared/db/lesson-session-repo";
 import { listJournals } from "../shared/db/journal-repo";
+import { getAttendanceByTeacherDate } from "../shared/db/attendance-repo";
 import { seedSampleData } from "../shared/db/seed-sample-data";
-import type { AcademicYear, SchoolProfile, TeacherProfile, LessonSession, TeachingJournal } from "@guru-admin/domain";
+import type {
+  AcademicYear,
+  SchoolProfile,
+  TeacherProfile,
+  LessonSession,
+  TeachingJournal,
+  AttendanceRecord,
+} from "@guru-admin/domain";
 import { formatLongDateID, todayISODate } from "@guru-admin/shared";
 
 type PendingItem = {
@@ -34,6 +46,7 @@ export function TodayPage() {
   const [teacher, setTeacher] = useState<TeacherProfile | undefined>();
   const [todaySessions, setTodaySessions] = useState<LessonSession[]>([]);
   const [journals, setJournals] = useState<TeachingJournal[]>([]);
+  const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
   const [seeding, setSeeding] = useState(false);
   const [seedMsg, setSeedMsg] = useState<string | null>(null);
 
@@ -50,8 +63,12 @@ export function TodayPage() {
 
       if (tp) {
         const today = todayISODate();
-        const sessions = await getLessonSessionsByDate(tp.id, today);
+        const [sessions, todayAtt] = await Promise.all([
+          getLessonSessionsByDate(tp.id, today),
+          getAttendanceByTeacherDate(tp.id, today),
+        ]);
         setTodaySessions(sessions);
+        setAttendanceRecords(todayAtt);
 
         if (year) {
           const allJournals = await listJournals(year.id);
@@ -70,20 +87,32 @@ export function TodayPage() {
   // Calculate pending work
   const pendingItems: PendingItem[] = [];
 
-  // Cek sesi hari ini yang belum ada absensi
-  const plannedSessions = todaySessions.filter((s) => s.status === "planned");
-  const todayJournalDates = new Set(
+  // Set sessionId yang sudah ada absensi hari ini
+  const todayAttendanceSessionIds = new Set(
+    attendanceRecords
+      .filter((r) => r.date === today)
+      .map((r) => r.sessionId)
+  );
+
+  // Set sessionId yang sudah ada jurnal hari ini
+  const todayJournalSessionIds = new Set(
     journals.filter((j) => j.date === today).map((j) => j.sessionId)
   );
 
+  // Cek sesi hari ini yang belum ada absensi atau belum ada jurnal
+  const plannedSessions = todaySessions.filter((s) => s.status === "planned");
   for (const s of plannedSessions) {
-    if (!todayJournalDates.has(s.id)) {
+    const hasAttendance = todayAttendanceSessionIds.has(s.id);
+    const hasJournal = todayJournalSessionIds.has(s.id);
+    if (!hasAttendance) {
       pendingItems.push({
         id: `absen-${s.id}`,
         label: `Absen ${s.classLabel} — ${s.subject} (${s.startTime})`,
         link: `/attendance?sessionId=${s.id}`,
         urgency: "high",
       });
+    }
+    if (!hasJournal) {
       pendingItems.push({
         id: `jurnal-${s.id}`,
         label: `Jurnal ${s.classLabel} — ${s.subject} (${s.startTime})`,
@@ -195,7 +224,9 @@ export function TodayPage() {
             ) : (
               <div className="space-y-2">
                 {todaySessions.map((s) => {
-                  const hasJournal = todayJournalDates.has(s.id);
+                  const hasAttendance = todayAttendanceSessionIds.has(s.id);
+                  const hasJournal = todayJournalSessionIds.has(s.id);
+                  const isManual = s.teachingScheduleId === "manual" || s.teachingScheduleId === "susulan";
                   return (
                     <div
                       key={s.id}
@@ -205,16 +236,20 @@ export function TodayPage() {
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <span className="text-sm font-medium">
-                              {s.startTime}–{s.endTime} · Jam {s.startPeriod}
+                              {isManual ? "Manual" : `${s.startTime}–${s.endTime} · Jam ${s.startPeriod}`}
                             </span>
                             {s.status === "planned" ? (
-                              !hasJournal && <Badge variant="warning">Belum absen</Badge>
+                              <>
+                                {!hasAttendance && <Badge variant="warning">Belum absen</Badge>}
+                                {hasAttendance && <Badge variant="success">✓ Absen</Badge>}
+                                {!hasJournal && <Badge variant="warning">Belum jurnal</Badge>}
+                                {hasJournal && <Badge variant="success">✓ Jurnal</Badge>}
+                              </>
                             ) : (
                               <Badge variant="error">Batal</Badge>
                             )}
-                            {hasJournal && <Badge variant="success">✓ Absen</Badge>}
                           </div>
                           <p className="text-sm font-medium text-slate-900 mt-1">
                             {s.subject} — {s.classLabel}
