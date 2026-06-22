@@ -14,7 +14,7 @@
 
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Card, CardHeader, Input, Select, Button, EmptyState, Badge, ContextCard } from "../../shared/ui";
+import { Card, CardHeader, Input, Select, Button, EmptyState, Badge, ContextCard, InfoCard } from "../../shared/ui";
 import { getLessonSessionsByDate, getLessonSession, findOrCreateManualSession, listLessonSessions } from "../../shared/db/lesson-session-repo";
 import {
   initAttendanceForSession,
@@ -226,7 +226,7 @@ export function QuickAttendancePage() {
             onClick={() => { setMode("manual"); setSelectedSessionId(null); }}
             className="text-sm"
           >
-            Manual (Ad-hoc)
+            Manual
           </Button>
         </div>
       </Card>
@@ -312,7 +312,7 @@ export function QuickAttendancePage() {
               <Card>
                 <CardHeader
                   title="Rekap Absensi"
-                  description={`Total ${recap.total} pertemuan (sesuai LessonSession)`}
+                  description={`Total ${recap.total} pertemuan terjadwal`}
                 />
                 <div className="grid grid-cols-4 gap-2 text-center">
                   <div className="p-2 bg-slate-100 rounded">
@@ -394,7 +394,7 @@ export function QuickAttendancePage() {
           </Card>
           <Card>
             <CardHeader
-              title="Absen Manual (Ad-hoc)"
+              title="Absen Manual"
               description="Untuk tanggal di luar pertemuan terjadwal."
             />
             {assignments.length === 0 ? (
@@ -605,6 +605,21 @@ function AttendanceEditor({
         title={`Absensi — ${roster.classLabel}`}
         description={`${session?.subject ?? "Mapel"} · ${formatLongDateID(session?.date ?? date)}${isDraft ? " · DRAFT" : ""}`}
       />
+
+      {/* Context info untuk sesi ini */}
+      {session && (
+        <div className="mb-4">
+          <InfoCard
+            entries={[
+              { label: "Mapel", value: session.subject },
+              { label: "Kelas", value: session.classLabel },
+              { label: "Tanggal", value: formatLongDateID(session.date) },
+              { label: "Jam", value: isManualSession ? "Manual" : `${session.startPeriod} (${session.startTime}–${session.endTime})` },
+              { label: "Semester", value: String(session.semester) },
+            ]}
+          />
+        </div>
+      )}
 
       <div className="grid grid-cols-4 gap-2 mb-4 text-center">
         <div className="p-2 bg-brand-50 rounded">

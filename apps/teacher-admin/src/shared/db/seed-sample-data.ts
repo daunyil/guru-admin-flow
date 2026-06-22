@@ -2,29 +2,28 @@
  * Data contoh SMPN 8 Bantan — untuk smoke test cepat.
  * Tombol "Pakai Data Contoh" di dashboard akan memanggil ini.
  *
- * APP-USABLE-RC1 Issue 6: seed lengkap untuk semua menu utama:
- *   1. Profil sekolah + guru
- *   2. Tahun pelajaran
- *   3. Kalender
- *   4. Prota (Program Tahunan)
- *   5. Jadwal mengajar
- *   6. Roster siswa (2 kelas)
- *   7. Data Mengajar (2 assignment via auto-gen dari jadwal)
- *   8. ATP/TP (2 entry)
- *   9. LKPD (1 entry, draft)
- *  10. Generate LessonSession dari jadwal+kalender
+ * APP-USABLE-RC1A: seed menghasilkan alur lengkap sampai laporan:
+ *   profil → tahun → kalender → prota → jadwal → roster → data mengajar
+ *   → ATP/TP → LKPD → sesi → absensi → jurnal (final) → nilai
+ *
+ * Hanya VII A yang di-seed (alur lengkap). VIII B tidak di-seed supaya
+ * tidak ada Data Mengajar tanpa TP/LKPD yang cocok.
  */
 
 import { saveSchoolProfile, saveTeacherProfile, saveAcademicYear, getActiveAcademicYear, getTeacherProfile } from "./profile-repo";
-import { importCalendarFromJSON } from "./calendar-repo";
-import { saveProtaProfile } from "./prota-repo";
+import { importCalendarFromJSON, listCalendarEvents } from "./calendar-repo";
+import { saveProtaProfile, listProtaProfiles } from "./prota-repo";
 import { saveTeachingSchedule, listTeachingSchedules } from "./teaching-schedule-repo";
-import { saveClassRoster, importStudents } from "./class-roster-repo";
+import { saveClassRoster, importStudents, getClassRoster } from "./class-roster-repo";
 import { autoGenerateFromSchedules } from "./teaching-assignment-repo";
 import { saveATPEntry } from "./atp-entry-repo";
 import { saveLKPD } from "./lkpd-repo";
-import { generateAndSaveLessonSessions } from "./lesson-session-repo";
-import { listCalendarEvents } from "./calendar-repo";
+import { generateAndSaveLessonSessions, listLessonSessions } from "./lesson-session-repo";
+import { initAttendanceForSession, updateAttendance } from "./attendance-repo";
+import { initJournalForSessionFull, finalizeJournal } from "./journal-repo";
+import { saveGradeBook } from "./gradebook-repo";
+import { generatePromes } from "@guru-admin/domain";
+import { DEFAULT_CADANGAN_JP, DEFAULT_INTRA_JP_PER_WEEK_PPKN, DEFAULT_KO_JP_PER_WEEK_PPKN } from "@guru-admin/shared";
 
 /** Jalankan seed data contoh SMPN 8 Bantan. */
 export async function seedSampleData(): Promise<{ success: boolean; message: string }> {
@@ -53,7 +52,7 @@ export async function seedSampleData(): Promise<{ success: boolean; message: str
       phone: "0812-3456-7890",
       employeeStatus: "pns",
       subjects: [
-        { subject: "Pendidikan Pancasila", grades: ["VII", "VIII"], phases: ["D"] },
+        { subject: "Pendidikan Pancasila", grades: ["VII"], phases: ["D"] },
       ],
     });
 
@@ -90,7 +89,7 @@ export async function seedSampleData(): Promise<{ success: boolean; message: str
     };
     await importCalendarFromJSON(calendarJSON, year.id);
 
-    // 5. Prota (Program Tahunan)
+    // 5. Prota (Program Tahunan) — hanya grade VII
     await saveProtaProfile({
       academicYearId: year.id,
       teacherId: teacher.id,
@@ -115,7 +114,7 @@ export async function seedSampleData(): Promise<{ success: boolean; message: str
       ],
     });
 
-    // 6. Jadwal mengajar (2 jadwal: VII A Senin, VIII B Selasa)
+    // 6. Jadwal mengajar — hanya VII A (Senin jam 1-2)
     await saveTeachingSchedule({
       academicYearId: year.id,
       teacherId: teacher.id,
@@ -130,22 +129,8 @@ export async function seedSampleData(): Promise<{ success: boolean; message: str
       semester: 1,
       source: "manual",
     });
-    await saveTeachingSchedule({
-      academicYearId: year.id,
-      teacherId: teacher.id,
-      subject: "Pendidikan Pancasila",
-      classId: "VIII B",
-      classLabel: "VIII B",
-      dayOfWeek: 2, // Selasa
-      startPeriod: 4,
-      durationJP: 2,
-      startTime: "09:20",
-      endTime: "10:40",
-      semester: 1,
-      source: "manual",
-    });
 
-    // 7. Roster siswa (2 kelas)
+    // 7. Roster siswa VII A (10 siswa dengan NIS)
     const roster7A = await saveClassRoster({
       classId: "VII A",
       classLabel: "VII A",
@@ -165,21 +150,7 @@ export async function seedSampleData(): Promise<{ success: boolean; message: str
       { name: "Joko Susilo", number: 10, nis: "2025010" },
     ]);
 
-    const roster8B = await saveClassRoster({
-      classId: "VIII B",
-      classLabel: "VIII B",
-      academicYearId: year.id,
-      students: [],
-    });
-    await importStudents(roster8B.id, [
-      { name: "Kartika Sari", number: 1, nis: "2025011" },
-      { name: "Lukman Hakim", number: 2, nis: "2025012" },
-      { name: "Mira Anggraini", number: 3, nis: "2025013" },
-      { name: "Nanda Putra", number: 4, nis: "2025014" },
-      { name: "Oka Pradana", number: 5, nis: "2025015" },
-    ]);
-
-    // 8. Data Mengajar (auto-gen dari jadwal)
+    // 8. Data Mengajar (auto-gen dari jadwal → 1 assignment VII A)
     const schedules = await listTeachingSchedules(year.id);
     const asgResult = await autoGenerateFromSchedules({
       academicYear: year,
@@ -188,7 +159,7 @@ export async function seedSampleData(): Promise<{ success: boolean; message: str
       semester: 1,
     });
 
-    // 9. ATP/TP (2 entry)
+    // 9. ATP/TP (2 entry untuk grade VII)
     const atp1 = await saveATPEntry({
       academicYearId: year.id,
       teacherId: teacher.id,
@@ -223,7 +194,7 @@ export async function seedSampleData(): Promise<{ success: boolean; message: str
       status: "draft",
     });
 
-    // 10. LKPD (1 draft)
+    // 10. LKPD (1 draft, link ke TP pertama, kelas VII A)
     await saveLKPD({
       academicYearId: year.id,
       teacherId: teacher.id,
@@ -240,7 +211,7 @@ export async function seedSampleData(): Promise<{ success: boolean; message: str
       steps: "1. Guru membuka dengan pertanyaan: \"Apa yang terjadi bila tidak ada norma di masyarakat?\"\n2. Peserta didik berdiskusi kelompok (4-5 orang) mengidentifikasi 4 jenis norma.\n3. Setiap kelompok membuat contoh penerapan norma di sekolah dan di rumah.\n4. Perwakilan kelompok presentasi.\n5. Guru dan peserta didik menyimpulkan bersama.",
       guidingQuestions: "1. Apa yang dimaksud dengan norma?\n2. Sebutkan 4 jenis norma yang berlaku di masyarakat!\n3. Berikan contoh penerapan norma agama di sekolah!\n4. Mengapa norma hukum perlu ditegakkan?",
       assessment: "Observasi partisipasi diskusi (rubrik), hasil presentasi kelompok, kelengkapan contoh penerapan norma.",
-      notes: "LKPD ini disesuaikan untuk kelas VII A. Bisa diadaptasi untuk VIII B dengan menambahkan contoh kasus yang lebih kompleks.",
+      notes: "LKPD ini disesuaikan untuk kelas VII A.",
       status: "draft",
     });
 
@@ -253,12 +224,105 @@ export async function seedSampleData(): Promise<{ success: boolean; message: str
       semester: 1,
       teacherId: teacher.id,
     });
-
     const sessionCount = generateResult.summary?.totalSessions ?? 0;
+
+    // 12. Isi absensi + jurnal + nilai untuk sesi pertama yang planned
+    const allSessions = await listLessonSessions(year.id, 1);
+    const firstPlannedSession = allSessions.find((s) => s.status === "planned" && !s.deletedAt);
+    let filledSession = false;
+    if (firstPlannedSession) {
+      const roster = await getClassRoster(roster7A.id);
+      if (roster) {
+        // Init attendance (default semua hadir)
+        const att = await initAttendanceForSession({
+          sessionId: firstPlannedSession.id,
+          date: firstPlannedSession.date,
+          roster,
+        });
+        // Ubah 1 siswa jadi sakit
+        if (att.length > 0) {
+          await updateAttendance(firstPlannedSession.id, [
+            { studentId: att[0].studentId, status: "sick", note: "Demam" },
+          ]);
+        }
+
+        // Init journal + finalkan
+        const jrResult = await initJournalForSessionFull({
+          session: firstPlannedSession,
+          roster,
+          plannedUnit: null,
+        });
+        if (jrResult?.journal) {
+          // Update dengan materi aktual + finalkan
+          const { updateJournal } = await import("./journal-repo");
+          const updated = await updateJournal(jrResult.journal.id, {
+            actualMaterialTitle: "Norma dalam Kehidupan Masyarakat",
+            realizationStatus: "done",
+            note: "Pertemuan berjalan lancar. Siswa antusias berdiskusi.",
+            followUp: "Pertemuan berikutnya: dampak pelanggaran norma.",
+          });
+          if (updated) {
+            await finalizeJournal(updated.id);
+          }
+        }
+      }
+
+      // 13. GradeBook dengan beberapa nilai
+      const rosterForGrades = await getClassRoster(roster7A.id);
+      if (rosterForGrades) {
+        await saveGradeBook({
+          academicYearId: year.id,
+          teacherId: teacher.id,
+          classId: "VII A",
+          classLabel: "VII A",
+          subject: "Pendidikan Pancasila",
+          semester: 1,
+          passingScore: 75,
+          entries: rosterForGrades.students.map((s, i) => ({
+            studentId: s.id,
+            studentName: s.name,
+            studentNumber: s.number,
+            dailyScore: 75 + ((i * 7) % 20), // 75-94
+            assignmentScore: 80,
+            summativeScore: 78,
+            remedialScore: null,
+            averageScore: null,
+            finalScore: null,
+            status: "incomplete" as const,
+          })),
+          status: "draft",
+        });
+      }
+      filledSession = true;
+    }
+
+    // 14. Auto-generate Promes on-demand (di UI PromesPage saat buka, karena Prota+Kalender sudah ada).
+    // Validasi: pastikan generatePromes bisa jalan dengan data seed.
+    const protas = await listProtaProfiles(year.id);
+    if (protas.length > 0) {
+      try {
+        generatePromes({
+          prota: protas[0],
+          academicYear: year,
+          calendar,
+          semester: 1,
+          options: {
+            intraJpPerWeek: DEFAULT_INTRA_JP_PER_WEEK_PPKN,
+            koJpPerWeek: DEFAULT_KO_JP_PER_WEEK_PPKN,
+            cadanganJP: DEFAULT_CADANGAN_JP,
+            reserveFromEnd: true,
+            koMode: "daily_block",
+          },
+        });
+        // result tidak dipersist; PromesPage akan re-generate saat dibuka.
+      } catch {
+        // ignore: PromesPage akan tampilkan error saat user buka
+      }
+    }
 
     return {
       success: true,
-      message: `Data contoh berhasil dimuat. ${asgResult.created.length} Data Mengajar dibuat. ${sessionCount} sesi mengajar ter-generate. Coba mulai dari menu Hari Ini atau Absen.`,
+      message: `Data contoh berhasil dimuat. ${asgResult.created.length} Data Mengajar, ${sessionCount} sesi, 2 TP, 1 LKPD${filledSession ? ", 1 absensi+jurnal+nilai contoh" : ""}. Buka menu Hari Ini atau Promes untuk mulai.`,
     };
   } catch (e) {
     return { success: false, message: e instanceof Error ? e.message : "Gagal memuat data contoh." };
