@@ -14,6 +14,7 @@ export const attendanceRecordSchema = baseEntitySchema.extend({
   studentId: z.string().min(1),
   studentName: z.string().min(1),
   studentNumber: z.number().int().positive().optional(),
+  nis: z.string().optional(),
   classId: z.string().min(1),
   classLabel: z.string().min(1),
   date: z.string(),

@@ -394,13 +394,13 @@ function ModeDokumen({
             <thead>
               <tr>
                 <th>Kelas</th>
-                <th>H</th><th>S</th><th>I</th><th>T</th><th>A</th>
+                <th>H</th><th>S</th><th>I</th><th>A</th>
                 <th>Total Sesi</th>
               </tr>
             </thead>
             <tbody>
               {report.perClassAbsence.length === 0 ? (
-                <tr><td colSpan={7} className="text-center">Tidak ada data</td></tr>
+                <tr><td colSpan={6} className="text-center">Tidak ada data</td></tr>
               ) : (
                 report.perClassAbsence.map((c) => (
                   <tr key={c.classId}>
@@ -408,7 +408,6 @@ function ModeDokumen({
                     <td className="text-center">{c.presentCount}</td>
                     <td className="text-center">{c.sickCount}</td>
                     <td className="text-center">{c.excusedCount}</td>
-                    <td className="text-center">{c.lateCount ?? 0}</td>
                     <td className="text-center">{c.absentCount}</td>
                     <td className="text-center">{c.totalSessions}</td>
                   </tr>
@@ -421,7 +420,6 @@ function ModeDokumen({
                 <td className="text-center">{report.totalPresent}</td>
                 <td className="text-center">{report.totalSick}</td>
                 <td className="text-center">{report.totalExcused}</td>
-                <td className="text-center">{report.totalLate ?? 0}</td>
                 <td className="text-center">{report.totalAbsent}</td>
                 <td className="text-center">{report.totalPlannedSessions}</td>
               </tr>

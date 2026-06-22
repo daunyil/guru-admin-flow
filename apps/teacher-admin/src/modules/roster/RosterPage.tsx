@@ -15,8 +15,8 @@ import {
   removeStudent,
 } from "../../shared/db/class-roster-repo";
 import { getActiveAcademicYear } from "../../shared/db/profile-repo";
-import type { ClassRoster, AcademicYear, StudentEntry } from "@guru-admin/domain";
-import { uuid } from "@guru-admin/shared";
+import type { ClassRoster, AcademicYear } from "@guru-admin/domain";
+
 
 interface ParsedStudent {
   number: number;
@@ -44,7 +44,7 @@ export function RosterPage() {
   useEffect(() => {
     void (async () => {
       const y = await getActiveAcademicYear();
-      setYear(y);
+      setYear(y ?? null);
       if (y) setRosters(await listClassRosters(y.id));
       setLoading(false);
     })();
@@ -119,7 +119,7 @@ export function RosterPage() {
                     <span className="font-medium text-slate-900">{r.classLabel}</span>
                     <Badge variant="neutral">{r.students.length} siswa</Badge>
                   </div>
-                  <Button variant="secondary" className="text-xs px-2 py-1" onClick={(e) => { e.stopPropagation(); setShowImport(true); setSelectedId(r.id); }}>
+                  <Button variant="secondary" className="text-xs px-2 py-1" onClick={() => { setShowImport(true); setSelectedId(r.id); }}>
                     Import
                   </Button>
                 </div>
