@@ -2,8 +2,11 @@
  * Modul M08 Laporan Akhir Semester — halaman /semester-report
  * Sumber: docs/PROJECT_CONTRACT.md §4.1 (M08)
  *
+ * APP-USABLE-RC1B: pilih Data Mengajar (bukan Prota). Filter data by
+ * assignment 5-tuple (teacherId + subject + classId + semester).
+ *
  * Dua mode:
- *   - Mode Kerja: pilih mapel/semester, generate, lihat summary, finalize
+ *   - Mode Kerja: pilih Data Mengajar, generate, lihat summary, finalize
  *   - Mode Dokumen: format Word/Excel-like, print CSS, tanda tangan
  */
 
@@ -14,6 +17,7 @@ import {
   finalizeSemesterReport,
 } from "../../shared/db/semester-report-repo";
 import { listProtaProfiles } from "../../shared/db/prota-repo";
+import { listAssignmentsByTeacher } from "../../shared/db/teaching-assignment-repo";
 import { getActiveAcademicYear, getTeacherProfile, getSchoolProfile } from "../../shared/db/profile-repo";
 import type {
   ProtaProfile,
@@ -21,6 +25,7 @@ import type {
   SchoolProfile,
   TeacherProfile,
   SemesterReport,
+  TeachingAssignment,
 } from "@guru-admin/domain";
 import { canFinalizeSemesterReport, type GenerateSemesterReportResult } from "@guru-admin/domain";
 import { formatLongDateID } from "@guru-admin/shared";
@@ -30,9 +35,9 @@ export function SemesterReportPage() {
   const [activeYear, setActiveYear] = useState<AcademicYear | null>(null);
   const [school, setSchool] = useState<SchoolProfile | undefined>();
   const [teacher, setTeacher] = useState<TeacherProfile | undefined>();
-  const [profiles, setProfiles] = useState<ProtaProfile[]>([]);
-  const [selectedProfileId, setSelectedProfileId] = useState<string>("");
-  const [semester, setSemester] = useState<1 | 2>(1);
+  const [assignments, setAssignments] = useState<TeachingAssignment[]>([]);
+  const [protas, setProtas] = useState<ProtaProfile[]>([]);
+  const [selectedAssignmentId, setSelectedAssignmentId] = useState<string>("");
   const [report, setReport] = useState<SemesterReport | null>(null);
   const [genResult, setGenResult] = useState<GenerateSemesterReportResult | null>(null);
   const [generating, setGenerating] = useState(false);
@@ -51,10 +56,17 @@ export function SemesterReportPage() {
       setActiveYear(year ?? null);
       setSchool(sp);
       setTeacher(tp);
-      if (year) {
-        const ps = await listProtaProfiles(year.id);
-        setProfiles(ps);
-        if (ps.length > 0) setSelectedProfileId(ps[0].id);
+      if (year && tp) {
+        const today = new Date();
+        const todayISO = today.toISOString().slice(0, 10);
+        const sem: 1 | 2 =
+          year.semester2Start <= todayISO && todayISO <= year.semester2End ? 2 : 1;
+        const [asgs, ps] = await Promise.all([
+          listAssignmentsByTeacher(tp.id, year.id, sem),
+          listProtaProfiles(year.id),
+        ]);
+        setAssignments(asgs);
+        setProtas(ps);
       }
       setLoading(false);
     })();
@@ -76,16 +88,22 @@ export function SemesterReportPage() {
     );
   }
 
+  const selectedAssignment = assignments.find((a) => a.id === selectedAssignmentId);
+
   async function handleGenerate() {
+    if (!selectedAssignment) return;
     setGenerating(true);
     setError(null);
     try {
-      const profile = profiles.find((p) => p.id === selectedProfileId) ?? null;
+      // Cari Prota yang cocok dengan subject+grade assignment (untuk materi)
+      const matchingProta = protas.find(
+        (p) => p.subject === selectedAssignment!.subject
+      ) ?? null;
+
       const result = await generateAndSaveSemesterReport({
         academicYear: activeYear!,
-        protaProfile: profile,
-        semester,
-        teacherId: teacher!.id,
+        protaProfile: matchingProta,
+        assignment: selectedAssignment!,
       });
       if (result.success && result.report && result.result) {
         setReport(result.report);
@@ -120,7 +138,6 @@ export function SemesterReportPage() {
     }
   }
 
-  const selectedProfile = profiles.find((p) => p.id === selectedProfileId);
   const canFinalize = genResult ? canFinalizeSemesterReport(genResult).canFinalize : false;
   const finalizeReasons = genResult ? canFinalizeSemesterReport(genResult).reasons : [];
 
@@ -132,38 +149,47 @@ export function SemesterReportPage() {
       {success && <div className="p-3 rounded-md bg-brand-50 border border-brand-200 text-sm text-brand-700">{success}</div>}
 
       <Card>
-        <CardHeader title="Generate Laporan" description="Pilih Prota + semester, lalu generate dari data jurnal + absensi + sesi." />
+        <CardHeader
+          title="Generate Laporan"
+          description="Pilih Data Mengajar. Laporan akan filter data sesuai assignment (guru + mapel + kelas + semester)."
+        />
         <div className="space-y-3">
-          <div className="grid sm:grid-cols-2 gap-3">
-            <Select
-              label="Prota (Mapel - Kelas)"
-              id="sr-prota"
-              value={selectedProfileId}
-              onChange={setSelectedProfileId}
-              options={profiles.map((p) => ({ value: p.id, label: `${p.subject} — ${p.grade}` }))}
+          {assignments.length === 0 ? (
+            <EmptyState
+              title="Belum ada Data Mengajar"
+              description="Buka menu 'Data Mengajar' untuk membuat assignment dulu."
+              action={<Button variant="secondary" onClick={() => (window.location.hash = "#/assignments")}>Buka Data Mengajar</Button>}
             />
+          ) : (
             <Select
-              label="Semester"
-              id="sr-sem"
-              value={String(semester)}
-              onChange={(v) => setSemester(Number(v) as 1 | 2)}
-              options={[{value:"1",label:"Semester 1"},{value:"2",label:"Semester 2"}]}
+              label="Data Mengajar"
+              id="sr-assignment"
+              value={selectedAssignmentId}
+              onChange={setSelectedAssignmentId}
+              options={[
+                { value: "", label: "-- Pilih --" },
+                ...assignments.map((a) => ({
+                  value: a.id,
+                  label: `${a.classLabel} · ${a.subject} · ${a.teacherName}`,
+                })),
+              ]}
             />
-          </div>
+          )}
 
-          {selectedProfile && teacher && activeYear && (
+          {selectedAssignment && (
             <InfoCard
               entries={[
-                { label: "Guru", value: teacher.name },
-                { label: "Mapel", value: selectedProfile.subject },
-                { label: "Kelas", value: selectedProfile.grade },
-                { label: "Semester", value: String(semester) },
+                { label: "Guru", value: selectedAssignment.teacherName },
+                { label: "Mapel", value: selectedAssignment.subject },
+                { label: "Kelas", value: selectedAssignment.classLabel },
+                { label: "Semester", value: String(selectedAssignment.semester) },
                 { label: "Tahun Pelajaran", value: activeYear.label },
               ]}
             />
           )}
+
           <div className="flex gap-2 flex-wrap">
-            <Button onClick={handleGenerate} disabled={generating || profiles.length === 0}>
+            <Button onClick={handleGenerate} disabled={generating || !selectedAssignment}>
               {generating ? "Generating..." : "Generate Laporan"}
             </Button>
             {report && (
@@ -192,11 +218,9 @@ export function SemesterReportPage() {
       {report && genResult && showDocument && (
         <ModeDokumen
           report={report}
-          result={genResult}
           school={school}
           teacher={teacher}
           academicYear={activeYear}
-          profile={selectedProfile}
         />
       )}
     </div>
@@ -208,7 +232,7 @@ function Header({ yearLabel }: { yearLabel?: string }) {
     <div>
       <h1 className="text-2xl font-bold text-slate-900">Laporan Akhir Semester</h1>
       <p className="text-sm text-slate-500 mt-1">
-        {yearLabel ? `Tahun pelajaran: ${yearLabel}` : "Rekap dari jurnal + absensi + sesi."}
+        {yearLabel ? `Tahun pelajaran: ${yearLabel}` : "Rekap dari jurnal + absensi + sesi per Data Mengajar."}
       </p>
     </div>
   );
@@ -232,7 +256,6 @@ function ModeKerja({
   const s = result.summary;
   return (
     <div className="space-y-4">
-      {/* Completeness */}
       <Card>
         <CardHeader title="Kelengkapan" description={`Score: ${s.completenessScore}%`} />
         {s.completenessIssues.length === 0 ? (
@@ -249,7 +272,6 @@ function ModeKerja({
         )}
       </Card>
 
-      {/* Rekap Sesi */}
       <Card>
         <CardHeader title="Rekap Sesi Mengajar" />
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center text-sm">
@@ -260,7 +282,6 @@ function ModeKerja({
         </div>
       </Card>
 
-      {/* Rekap Materi */}
       <Card>
         <CardHeader title="Rekap Materi" description={`${report.totalPlannedUnits} unit total`} />
         <div className="grid grid-cols-3 gap-3 text-center text-sm">
@@ -270,56 +291,24 @@ function ModeKerja({
         </div>
       </Card>
 
-      {/* Rekap Absensi */}
       <Card>
-        <CardHeader title="Rekap Absensi" />
+        <CardHeader title="Rekap Absensi" description={`Kelas ${report.classLabel || "-"}`} />
         <div className="grid grid-cols-4 gap-3 text-center text-sm">
           <Stat label="Hadir" value={report.totalPresent} color="text-brand-700" />
           <Stat label="Sakit" value={report.totalSick} color="text-amber-700" />
           <Stat label="Izin" value={report.totalExcused} />
           <Stat label="Alpa" value={report.totalAbsent} color="text-rose-700" />
         </div>
-        {report.perClassAbsence.length > 0 && (
-          <div className="mt-3">
-            <p className="text-xs text-slate-500 mb-1">Per Kelas:</p>
-            <table className="w-full text-xs border-collapse">
-              <thead>
-                <tr className="border-b border-slate-200">
-                  <th className="text-left py-1 px-2">Kelas</th>
-                  <th className="text-center py-1 px-2">H</th>
-                  <th className="text-center py-1 px-2">S</th>
-                  <th className="text-center py-1 px-2">I</th>
-                  <th className="text-center py-1 px-2">A</th>
-                  <th className="text-center py-1 px-2">Sesi</th>
-                </tr>
-              </thead>
-              <tbody>
-                {report.perClassAbsence.map((c) => (
-                  <tr key={c.classId} className="border-b border-slate-100">
-                    <td className="py-1 px-2">{c.classLabel}</td>
-                    <td className="text-center py-1 px-2">{c.presentCount}</td>
-                    <td className="text-center py-1 px-2">{c.sickCount}</td>
-                    <td className="text-center py-1 px-2">{c.excusedCount}</td>
-                    <td className="text-center py-1 px-2">{c.absentCount}</td>
-                    <td className="text-center py-1 px-2">{c.totalSessions}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
       </Card>
 
-      {/* Rekap Jurnal */}
       <Card>
         <CardHeader title="Rekap Jurnal" />
         <div className="grid grid-cols-2 gap-3 text-center text-sm">
-          <Stat label="Finalized" value={report.journalsFinalized} color="text-brand-700" />
+          <Stat label="Final" value={report.journalsFinalized} color="text-brand-700" />
           <Stat label="Pending" value={report.journalsPending} color="text-amber-700" />
         </div>
       </Card>
 
-      {/* Finalize */}
       <Card>
         <CardHeader title="Finalisasi" />
         {report.status === "final" || report.status === "locked" ? (
@@ -348,11 +337,9 @@ function ModeDokumen({
   academicYear,
 }: {
   report: SemesterReport;
-  result: GenerateSemesterReportResult;
   school?: SchoolProfile;
   teacher: TeacherProfile;
   academicYear: AcademicYear;
-  profile?: ProtaProfile;
 }) {
   return (
     <Card>
@@ -366,7 +353,7 @@ function ModeDokumen({
             <tbody>
               <tr>
                 <td>Mata Pelajaran</td><td>{report.subject}</td>
-                <td>Kelas / Fase</td><td>{report.grade} / {report.phase}</td>
+                <td>Kelas</td><td>{report.classLabel || report.grade} / Fase {report.phase}</td>
               </tr>
               <tr>
                 <td>Guru</td><td>{teacher.name}</td>
@@ -401,7 +388,7 @@ function ModeDokumen({
             </tbody>
           </table>
 
-          <div className="document-section-title">C. REKAP KEHADIRAN SISWA PER KELAS</div>
+          <div className="document-section-title">C. REKAP KEHADIRAN SISWA — KELAS {report.classLabel || report.grade}</div>
           <table className="document-table">
             <thead>
               <tr>

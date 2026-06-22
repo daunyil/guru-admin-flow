@@ -79,6 +79,11 @@ export class GuruAdminDB extends Dexie {
       atpEntries: "id, academicYearId, teacherId, subject, grade, classId, atpEntryId",
       lkpds: "id, academicYearId, teacherId, subject, classId, atpEntryId, status",
     });
+
+    // APP-USABLE-RC1B: add classId index to semesterReports for filter by assignment.
+    this.version(5).stores({
+      semesterReports: "id, academicYearId, teacherId, subject, classId, grade, semester, status, [academicYearId+teacherId+subject+classId+semester]",
+    });
   }
 }
 

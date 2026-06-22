@@ -226,7 +226,7 @@ export function QuickAttendancePage() {
             onClick={() => { setMode("manual"); setSelectedSessionId(null); }}
             className="text-sm"
           >
-            Manual
+            Absen Manual
           </Button>
         </div>
       </Card>
