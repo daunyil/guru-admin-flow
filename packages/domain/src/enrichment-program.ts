@@ -93,16 +93,17 @@ export function filterEnrichmentStudents(
 
 /**
  * Cek apakah program pengayaan lengkap.
+ *
+ * RC1-PATCH-1: 0 siswa pengayaan = TETAP lengkap (boleh final).
+ * Dokumen cetak keterangan "Tidak ada siswa pengayaan".
  */
-export function isEnrichmentProgramComplete(program: EnrichmentProgram): {
+export function isEnrichmentProgramComplete(_program: EnrichmentProgram): {
   complete: boolean;
   missingFields: string[];
 } {
-  const missing: string[] = [];
-  if (program.students.length === 0) {
-    missing.push("Belum ada siswa pengayaan (belum ada siswa yang mencapai threshold)");
-  }
-  return { complete: missing.length === 0, missingFields: missing };
+  // 0 siswa bukan error — itu kondisi valid (belum ada siswa mencapai threshold)
+  void _program;
+  return { complete: true, missingFields: [] };
 }
 
 /**

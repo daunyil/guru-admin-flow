@@ -2,12 +2,13 @@
  * Repository untuk RppDocument (arsip RPP hasil bulk identity replacement).
  *
  * GENERATOR-COMPLETION-RC1 Phase 1.
+ * GENERATOR-COMPLETION-RC1-PATCH-1: + literalReplacements support.
  */
 
 import { db } from "./schema";
 import { createEntity, updateEntityFields, saveEntity, softDelete } from "./crud";
-import type { RppDocument, RppIdentityContext } from "@guru-admin/domain";
-import { replaceRppIdentityPlaceholders } from "@guru-admin/domain";
+import type { RppDocument, RppIdentityContext, LiteralReplacement } from "@guru-admin/domain";
+import { applyAllReplacements } from "@guru-admin/domain";
 
 /** List RppDocument untuk academicYearId + teacherId. */
 export async function listRppDocuments(args: {
@@ -31,8 +32,10 @@ export async function getRppDocument(id: string): Promise<RppDocument | undefine
 
 /**
  * Process & save RPP document:
- *   1. Apply replaceRppIdentityPlaceholders ke originalContent.
- *   2. Save originalContent + processedContent + contextSnapshot.
+ *   1. Apply applyAllReplacements (placeholder + literal) ke originalContent.
+ *   2. Save originalContent + processedContent + contextSnapshot + literalReplacements.
+ *
+ * RC1-PATCH-1: literalReplacements optional, default [].
  */
 export async function saveRppDocument(args: {
   academicYearId: string;
@@ -44,10 +47,16 @@ export async function saveRppDocument(args: {
   semester?: 1 | 2;
   originalContent: string;
   context: RppIdentityContext;
+  literalReplacements?: LiteralReplacement[];
   source: "upload" | "paste";
   filename?: string;
 }): Promise<RppDocument> {
-  const processedContent = replaceRppIdentityPlaceholders(args.originalContent, args.context);
+  const literalReplacements = args.literalReplacements ?? [];
+  const processedContent = applyAllReplacements(
+    args.originalContent,
+    args.context,
+    literalReplacements
+  );
   const entity = createEntity({
     academicYearId: args.academicYearId,
     teacherId: args.teacherId,
@@ -61,6 +70,7 @@ export async function saveRppDocument(args: {
     source: args.source,
     filename: args.filename ?? null,
     contextSnapshot: args.context,
+    literalReplacements,
     status: "draft",
   }) as RppDocument;
   await saveEntity("rppDocuments", entity);
@@ -87,19 +97,25 @@ export async function deleteRppDocument(id: string): Promise<void> {
 }
 
 /**
- * Re-process: ulang replace placeholder dengan context baru.
- * Dipakai bila guru update context identitas dan ingin re-apply ke dokumen lama.
+ * Re-process: ulang replace placeholder + literal dengan context + literalReplacements baru.
  */
 export async function reprocessRppDocument(
   id: string,
-  newContext: RppIdentityContext
+  newContext: RppIdentityContext,
+  newLiteralReplacements?: LiteralReplacement[]
 ): Promise<RppDocument | undefined> {
   const existing = await getRppDocument(id);
   if (!existing) return undefined;
-  const processedContent = replaceRppIdentityPlaceholders(existing.originalContent, newContext);
+  const literalReplacements = newLiteralReplacements ?? existing.literalReplacements ?? [];
+  const processedContent = applyAllReplacements(
+    existing.originalContent,
+    newContext,
+    literalReplacements
+  );
   const updated = updateEntityFields(existing, {
     processedContent,
     contextSnapshot: newContext,
+    literalReplacements,
   }) as RppDocument;
   await saveEntity("rppDocuments", updated);
   return updated;

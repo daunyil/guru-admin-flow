@@ -836,3 +836,66 @@ Stage Summary:
 - Phase 5 (Auto Document Engine), Phase 7 (Apps Script Bridge), Phase 8 (Print/Export Polish PDF/Word) = future work sesuai roadmap.
 - Status: READY FOR SENIOR AUDIT.
 - Push PENDING: butuh token.
+
+---
+
+Task ID: GENERATOR-COMPLETION-RC1-PATCH-1
+Agent: main (RC1-PATCH-1 batch execution)
+Task: Tutup 6 blocker audit dari RC1 (commit c6d9b91). Patch terarah, tidak tambah fitur.
+
+Work Log:
+- Branch: generator-completion-rc1-patch-1 dari main (c6d9b91).
+- P0-1 RPP literal text replacement:
+  - packages/domain/src/rpp-document.ts:
+    + LiteralReplacement type (oldText + newText)
+    + literalReplacementSchema
+    + replaceLiteralText(content, replacements) — ganti teks lama → baru (case-sensitive, global)
+    + applyAllReplacements(content, ctx, literalReplacements) — placeholder + literal sekaligus
+    + countLiteralOccurrences(content, oldText) — untuk preview
+    + rppDocumentSchema: + literalReplacements field (default [] backward compat)
+  - packages/domain/src/index.ts: export LiteralReplacement + replaceLiteralText + applyAllReplacements + countLiteralOccurrences.
+  - apps/.../shared/db/rpp-document-repo.ts: saveRppDocument + reprocessRppDocument support literalReplacements.
+- P0-2 RPP multi-dokumen + honest UI .docx:
+  - apps/.../modules/rpp-bulk/RppBulkReplacePage.tsx: REWRITE.
+    + Info card jujur: "Saat ini .txt/.html/.md + paste. .docx belum didukung."
+    + File upload reject .doc/.docx/.pdf dengan pesan jelas.
+    + Multi-dokumen: delimiter === DOKUMEN === atau === RPP === → split jadi multiple arsip.
+    + Step 1b: form literal replacements (tambah/hapus pasangan oldText → newText).
+    + Live preview literal match count.
+    + Badge "N literal" di arsip.
+- P1-3 Remedial 0 siswa boleh final:
+  - packages/domain/src/remedial-program.ts: isRemedialProgramComplete selalu return complete=true (0 siswa bukan error).
+  - apps/.../modules/remedial/RemedialPage.tsx:
+    + Tombol Finalkan muncul walaupun 0 siswa.
+    + Mode Dokumen: 0 siswa → cetak keterangan "Tidak terdapat siswa yang mengikuti remedial karena seluruh siswa telah mencapai KKTP."
+- P1-4 Pengayaan 0 siswa boleh final:
+  - packages/domain/src/enrichment-program.ts: isEnrichmentProgramComplete selalu return complete=true.
+  - apps/.../modules/pengayaan/EnrichmentPage.tsx:
+    + Tombol Finalkan muncul walaupun 0 siswa.
+    + Mode Dokumen: 0 siswa → cetak keterangan "Tidak terdapat siswa yang masuk program pengayaan pada periode ini."
+- P1-5 Paket Administrasi harden filter Prota:
+  - apps/.../modules/admin-package/AdminPackagePage.tsx:
+    + deriveGrade(classLabel): VII A → VII, VIII B → VIII, IX C → IX.
+    + matchingProta: filter by teacherId + subject + grade (bukan hanya subject).
+- Audit matrix:
+  - docs/AUDIT_MATRIX.md: update ke RC1-PATCH-1.
+    + Tabel "Patch-1 Changes" dengan 7 issue audit + status fix.
+    + RPP status: PARTIAL (placeholder + literal OK, .docx = roadmap).
+    + Known issues update: RPP .docx = issue #1, CI belum verified = issue #5.
+
+Verifikasi:
+- Typecheck: 3 workspace PASS, 0 error.
+- Test: 221/221 PASS (198 domain + 23 shared).
+- Build: ROOT npm run build PASS — typecheck + vite build 3.36s, 137 modules.
+
+Stage Summary:
+- 6 blocker dari audit RC1 FIXED:
+  - P0-1 RPP literal replacement ✅
+  - P0-2 RPP multi-dokumen + honest UI .docx ✅
+  - P1-3 Remedial 0 siswa boleh final ✅
+  - P1-4 Pengayaan 0 siswa boleh final ✅
+  - P1-5 Paket Administrasi harden filter Prota ✅
+  - P2 CI belum verified ⚠️ (tidak bisa di-fix dev-side, butuh workflow GitHub)
+- 8 file changed (0 baru, 8 modifikasi).
+- Status: READY FOR SENIOR AUDIT.
+- Push PENDING: butuh token.
