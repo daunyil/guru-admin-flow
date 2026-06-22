@@ -525,3 +525,60 @@ Stage Summary:
 - 16 file changed (5 baru, 11 modifikasi).
 - Status: READY FOR SENIOR AUDIT.
 - Push PENDING: butuh token.
+
+---
+
+Task ID: PATCH-FLOW-RC2D
+Agent: main (PATCH-FLOW-RC2D batch execution)
+Task: Catch-up window + Journal Final. Fix 5 P0 dari audit RC2C.
+
+Work Log:
+- Branch: patch-flow-rc2d dari main (7339c42).
+- Root build fix:
+  - package.json: build script dari "npm run build --workspace @guru-admin/domain && ..." (gagal karena domain/shared tidak punya script build) jadi "npm run typecheck --workspaces --if-present && npm run build --workspace @guru-admin/teacher-admin". Sekarang `npm run build` dari root PASS.
+- Domain layer:
+  - packages/domain/src/catchup-helpers.ts (NEW): filterSessionsForAssignment, recapAttendanceForAssignment, recapJournalsForAssignment. Pure functions untuk hitung total/sudah/belum/batal per assignment.
+  - packages/domain/src/index.ts: export catchup-helpers.
+- Domain tests:
+  - test/catchup-helpers.test.ts (NEW): 7 test (filter, recap attendance, recap journals, sort, edge cases).
+- App DB layer:
+  - journal-repo.ts: initJournalForSessionFull sekarang return { journal, needsAttendance } — TIDAK auto-create absensi. Bila absensi belum ada, needsAttendance=true dan caller wajib tampilkan CTA "Buat Absensi Dulu".
+- App UI layer:
+  - QuickJournalPage.tsx: REWRITE total:
+    - Rekap jurnal card: Total / Sudah Jurnal / Belum Jurnal / Batal (via recapJournalsForAssignment)
+    - 3 mode: Hari Ini / Jurnal Susulan / Jurnal Manual
+    - Mode "Jurnal Susulan" = window catch-up: daftar pertemuan belum jurnal dengan badge "Susulan" (bila tanggal lewat) atau "Belum jurnal"
+    - QuickJournalEditor:
+      - Tombol "Setujui & Finalkan" panggil finalizeJournal (locked=true). Bukan lagi updateJournal saja.
+      - Tombol "Simpan Draft" terpisah (updateJournal tanpa lock)
+      - Tombol "Buka Kembali" (unlockJournal) bila sudah final
+      - Warning + CTA "Buat Absensi Dulu" bila needsAttendance=true (tidak auto-create)
+  - QuickAttendancePage.tsx: REWRITE total:
+    - Rekap absensi card: Total / Sudah Absen / Belum Absen / Batal (via recapAttendanceForAssignment)
+    - 3 mode: Dari Jadwal (Hari Ini) / Absen Susulan / Manual (Ad-hoc)
+    - Mode "Absen Susulan" = window catch-up: daftar pertemuan belum absen dengan badge "Susulan"/"Belum absen"
+    - Klik pertemuan → buka AttendanceEditor untuk sesi itu
+    - AttendanceEditor: tetap pakai in-memory draft + Simpan (TIDAK auto-save saat buka)
+  - JournalPage.tsx (legacy, tidak di-route): update untuk kompat dengan signature baru initJournalForSessionFull.
+
+Verifikasi:
+- Typecheck: 3 workspace PASS, 0 error.
+- Test: 219/219 PASS (196 domain + 23 shared). RC2D tambah 7 test (catchup-helpers).
+- Build: ROOT `npm run build` PASS — typecheck + vite build 2.96s, 117 modules, 566KB JS / 157KB gzip.
+
+Multi-guru audit:
+- listAssignmentsByTeacher(teacherId, yearId, semester) sudah filter teacherId ✅
+- Catch-up recap di QuickAttendancePage & QuickJournalPage filter lanjut: s.teacherId === assignment.teacherId ✅
+- AssignmentsPage masih pakai listAssignments (tanpa teacher filter) — admin-style untuk single-teacher MVP. Untuk multi-guru penuh, perlu Master Guru (P1 future work).
+
+Stage Summary:
+- 5 P0 dari audit RC2C FIXED:
+  - P0-1 Absensi Susulan window: rekap total/sudah/belum + daftar pertemuan belum absen ✅
+  - P0-2 Jurnal Susulan window: rekap + daftar belum jurnal + tombol Buat Jurnal per pertemuan ✅
+  - P0-3 Jurnal Final: "Setujui & Finalkan" panggil finalizeJournal (locked=true) ✅
+  - P0-4 No auto-create absensi: initJournalForSessionFull return needsAttendance flag, editor tampilkan CTA ✅
+  - P0-5 Root build: PASS ✅
+- P1 Multi-guru: filter teacherId sudah dipakai di semua flow utama. Master Guru = future work.
+- 9 file changed (2 baru, 7 modifikasi).
+- Status: READY FOR SENIOR AUDIT.
+- Push PENDING: butuh token.

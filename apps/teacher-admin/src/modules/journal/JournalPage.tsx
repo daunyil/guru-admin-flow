@@ -209,12 +209,14 @@ function JournalEditor({
       }
 
       // Init journal (auto-fill)
-      const j = await initJournalForSessionFull({
+      // PATCH-FLOW-RC2D: initJournalForSessionFull returns { journal, needsAttendance }
+      const result = await initJournalForSessionFull({
         session: sess,
         roster: roster ?? null,
         plannedUnit: unit,
       });
-      if (j) {
+      if (result) {
+        const j = result.journal;
         setJournal(j);
         setRealizationStatus(j.realizationStatus);
         setActualMaterialTitle(j.actualMaterialTitle ?? "");

@@ -9,7 +9,7 @@
   ],
   "scripts": {
     "dev": "npm run dev --workspace @guru-admin/teacher-admin",
-    "build": "npm run build --workspace @guru-admin/domain && npm run build --workspace @guru-admin/shared && npm run build --workspace @guru-admin/teacher-admin",
+    "build": "npm run typecheck --workspaces --if-present && npm run build --workspace @guru-admin/teacher-admin",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "echo 'lint TBD Sprint 2'",
     "test": "npm run test:run --workspaces --if-present",
