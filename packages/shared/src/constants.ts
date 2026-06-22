@@ -181,6 +181,23 @@ export const CALENDAR_EVENT_TYPE_LABELS_ID: Record<(typeof CALENDAR_EVENT_TYPES)
   cocurricular: "Kokurikuler",
 };
 
+/** Schema identifier untuk impor JSON jadwal dari Smart Roster. */
+export const SCHEDULE_IMPORT_SCHEMA = "guru-admin-flow/schedule/v1";
+
 /* ------------------------------------------------------------------ */
 /*  Sprint 3 — Konstanta Jadwal Guru + Sesi Mengajar                  */
 /* ------------------------------------------------------------------ */
+
+/** Slot jam ke default (SMPN 8 Bantan). */
+export const DEFAULT_PERIOD_TIMES: Array<{ period: number; start: string; end: string }> = [
+  { period: 1, start: "07:00", end: "07:40" },
+  { period: 2, start: "07:40", end: "08:20" },
+  { period: 3, start: "08:20", end: "09:00" },
+  { period: 4, start: "09:20", end: "10:00" },
+  { period: 5, start: "10:00", end: "10:40" },
+  { period: 6, start: "10:40", end: "11:20" },
+  { period: 7, start: "11:20", end: "12:00" },
+  { period: 8, start: "12:30", end: "13:10" },
+  { period: 9, start: "13:10", end: "13:50" },
+  { period: 10, start: "13:50", end: "14:30" },
+];

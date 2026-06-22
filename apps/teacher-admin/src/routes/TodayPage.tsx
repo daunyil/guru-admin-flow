@@ -1,8 +1,9 @@
 /**
- * Dashboard Hari Ini — Meja Kerja Guru.
- * Sumber: docs/PROJECT_CONTRACT.md §8.1
+ * PATCH-04: Home Pending Work — meja kerja harian guru.
+ * Sumber: docs/V0_6_2_PRODUCT_DECISIONS.md §2.4
  *
- * Sprint 6B: rewrite sebagai halaman kerja harian, bukan status teknis.
+ * Tombol utama: Absen, Jurnal, Nilai, Dokumen, Backup
+ * Pekerjaan tertunda: absen belum dibuat, jurnal belum dibuat, dll
  */
 
 import { useEffect, useState } from "react";
@@ -14,9 +15,17 @@ import {
   getTeacherProfile,
 } from "../shared/db/profile-repo";
 import { getLessonSessionsByDate } from "../shared/db/lesson-session-repo";
+import { listJournals } from "../shared/db/journal-repo";
 import { seedSampleData } from "../shared/db/seed-sample-data";
-import type { AcademicYear, SchoolProfile, TeacherProfile, LessonSession } from "@guru-admin/domain";
+import type { AcademicYear, SchoolProfile, TeacherProfile, LessonSession, TeachingJournal } from "@guru-admin/domain";
 import { formatLongDateID, todayISODate } from "@guru-admin/shared";
+
+type PendingItem = {
+  id: string;
+  label: string;
+  link: string;
+  urgency: "high" | "medium" | "low";
+};
 
 export function TodayPage() {
   const [loading, setLoading] = useState(true);
@@ -24,6 +33,7 @@ export function TodayPage() {
   const [school, setSchool] = useState<SchoolProfile | undefined>();
   const [teacher, setTeacher] = useState<TeacherProfile | undefined>();
   const [todaySessions, setTodaySessions] = useState<LessonSession[]>([]);
+  const [journals, setJournals] = useState<TeachingJournal[]>([]);
   const [seeding, setSeeding] = useState(false);
   const [seedMsg, setSeedMsg] = useState<string | null>(null);
 
@@ -42,6 +52,11 @@ export function TodayPage() {
         const today = todayISODate();
         const sessions = await getLessonSessionsByDate(tp.id, today);
         setTodaySessions(sessions);
+
+        if (year) {
+          const allJournals = await listJournals(year.id);
+          setJournals(allJournals);
+        }
       }
       setLoading(false);
     })();
@@ -52,9 +67,46 @@ export function TodayPage() {
   const today = todayISODate();
   const todayLabel = formatLongDateID(today);
 
+  // Calculate pending work
+  const pendingItems: PendingItem[] = [];
+
+  // Cek sesi hari ini yang belum ada absensi
+  const plannedSessions = todaySessions.filter((s) => s.status === "planned");
+  const todayJournalDates = new Set(
+    journals.filter((j) => j.date === today).map((j) => j.sessionId)
+  );
+
+  for (const s of plannedSessions) {
+    if (!todayJournalDates.has(s.id)) {
+      pendingItems.push({
+        id: `absen-${s.id}`,
+        label: `Absen ${s.classLabel} — ${s.subject} (${s.startTime})`,
+        link: `/attendance?sessionId=${s.id}`,
+        urgency: "high",
+      });
+      pendingItems.push({
+        id: `jurnal-${s.id}`,
+        label: `Jurnal ${s.classLabel} — ${s.subject} (${s.startTime})`,
+        link: `/journal?sessionId=${s.id}`,
+        urgency: "high",
+      });
+    }
+  }
+
+  // Cek jurnal draft (belum final)
+  const draftJournals = journals.filter((j) => j.status === "draft" && !j.locked);
+  for (const j of draftJournals.slice(0, 5)) {
+    pendingItems.push({
+      id: `draft-${j.id}`,
+      label: `Jurnal draft: ${j.classLabel} — ${j.date}`,
+      link: `/journal`,
+      urgency: "medium",
+    });
+  }
+
   return (
     <div className="space-y-4">
-      {/* Header kecil */}
+      {/* Header */}
       <div className="page-header">
         <p className="text-xs text-slate-500 uppercase tracking-wider font-semibold">{todayLabel}</p>
         <h1 className="text-2xl font-bold text-slate-900 mt-1">Hari Ini</h1>
@@ -72,12 +124,8 @@ export function TodayPage() {
             <span className="text-amber-600 text-xl">⚠</span>
             <div>
               <p className="font-semibold text-amber-900">Profil belum lengkap</p>
-              <p className="text-sm text-amber-800 mt-1">
-                Lengkapi profil sekolah dan profil guru di menu Profil.
-              </p>
-              <Link to="/profile" className="inline-block mt-2">
-                <Button variant="secondary" className="text-sm">Lengkapi Profil</Button>
-              </Link>
+              <p className="text-sm text-amber-800 mt-1">Lengkapi profil sekolah dan guru di menu Profil.</p>
+              <Link to="/profile"><Button variant="secondary" className="text-sm mt-2">Lengkapi Profil</Button></Link>
             </div>
           </div>
         </Card>
@@ -88,7 +136,7 @@ export function TodayPage() {
         <Card>
           <EmptyState
             title="Belum ada tahun pelajaran aktif"
-            description="Buat tahun pelajaran, gunakan wizard Tahun Baru, atau pakai data contoh SMPN 8 Bantan untuk uji coba cepat."
+            description="Buat tahun pelajaran, gunakan wizard Tahun Baru, atau pakai data contoh."
             action={
               <div className="flex gap-2 justify-center flex-wrap">
                 <Button
@@ -99,16 +147,12 @@ export function TodayPage() {
                     const result = await seedSampleData();
                     setSeedMsg(result.message);
                     setSeeding(false);
-                    if (result.success) {
-                      setTimeout(() => window.location.reload(), 2000);
-                    }
+                    if (result.success) setTimeout(() => window.location.reload(), 2000);
                   }}
                 >
                   {seeding ? "Memuat..." : "Pakai Data Contoh"}
                 </Button>
-                <Link to="/new-year">
-                  <Button>Wizard Tahun Baru</Button>
-                </Link>
+                <Link to="/new-year"><Button>Wizard Tahun Baru</Button></Link>
               </div>
             }
           />
@@ -120,22 +164,14 @@ export function TodayPage() {
         </Card>
       ) : (
         <>
-          {/* Mulai Cepat */}
+          {/* Tombol utama */}
           <Card>
             <CardHeader title="Mulai Cepat" />
             <div className="flex gap-2 flex-wrap">
-              <Link to="/attendance">
-                <Button variant="secondary">Absen Hari Ini</Button>
-              </Link>
-              <Link to="/journal">
-                <Button variant="secondary">Jurnal Hari Ini</Button>
-              </Link>
-              <Link to="/semester-report">
-                <Button variant="secondary">Laporan Semester</Button>
-              </Link>
-              <Link to="/completeness">
-                <Button variant="secondary">Cek Kelengkapan</Button>
-              </Link>
+              <Link to="/attendance"><Button variant="secondary">Absen Sekarang</Button></Link>
+              <Link to="/journal"><Button variant="secondary">Buat Jurnal</Button></Link>
+              <Link to="/semester-report"><Button variant="secondary">Dokumen</Button></Link>
+              <Link to="/backup"><Button variant="secondary">Backup</Button></Link>
             </div>
           </Card>
 
@@ -148,64 +184,89 @@ export function TodayPage() {
             {todaySessions.length === 0 ? (
               <EmptyState
                 title="Tidak ada jadwal mengajar hari ini"
-                description="Bisa jadi hari libur atau jadwal belum dibuat. Buka menu Jadwal untuk membuat jadwal."
+                description="Tidak masalah. Anda bisa absen manual atau buat jurnal manual."
                 action={
-                  <Link to="/schedule">
-                    <Button variant="secondary">Buka Jadwal</Button>
-                  </Link>
+                  <div className="flex gap-2">
+                    <Link to="/attendance"><Button variant="secondary">Absen Manual</Button></Link>
+                    <Link to="/journal"><Button variant="secondary">Jurnal Manual</Button></Link>
+                  </div>
                 }
               />
             ) : (
               <div className="space-y-2">
-                {todaySessions.map((s) => (
-                  <div
-                    key={s.id}
-                    className={`p-3 border rounded-md ${
-                      s.status === "cancelled"
-                        ? "border-rose-200 bg-rose-50"
-                        : "border-slate-200"
-                    }`}
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium">
-                            {s.startTime}–{s.endTime} · Jam ke {s.startPeriod}
-                          </span>
-                          {s.status === "planned" ? (
-                            <Badge variant="success">Tersedia</Badge>
-                          ) : (
-                            <Badge variant="error">Dibatalkan</Badge>
-                          )}
+                {todaySessions.map((s) => {
+                  const hasJournal = todayJournalDates.has(s.id);
+                  return (
+                    <div
+                      key={s.id}
+                      className={`p-3 border rounded-md ${
+                        s.status === "cancelled" ? "border-rose-200 bg-rose-50" : "border-slate-200"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium">
+                              {s.startTime}–{s.endTime} · Jam {s.startPeriod}
+                            </span>
+                            {s.status === "planned" ? (
+                              !hasJournal && <Badge variant="warning">Belum absen</Badge>
+                            ) : (
+                              <Badge variant="error">Batal</Badge>
+                            )}
+                            {hasJournal && <Badge variant="success">✓ Absen</Badge>}
+                          </div>
+                          <p className="text-sm font-medium text-slate-900 mt-1">
+                            {s.subject} — {s.classLabel}
+                          </p>
                         </div>
-                        <p className="text-sm font-medium text-slate-900 mt-1">
-                          {s.subject} — {s.classLabel}
-                        </p>
+                        {s.status === "planned" && (
+                          <div className="flex flex-col gap-1 shrink-0">
+                            <Link to={`/attendance?sessionId=${s.id}`}>
+                              <Button variant="secondary" className="text-xs px-3 py-1.5">Absen</Button>
+                            </Link>
+                            <Link to={`/journal?sessionId=${s.id}`}>
+                              <Button className="text-xs px-3 py-1.5">Jurnal</Button>
+                            </Link>
+                          </div>
+                        )}
                       </div>
-                      {s.status === "planned" && (
-                        <div className="flex flex-col gap-1 shrink-0">
-                          <Link to={`/attendance?sessionId=${s.id}`}>
-                            <Button variant="secondary" className="text-xs px-3 py-1.5">Absen</Button>
-                          </Link>
-                          <Link to={`/journal?sessionId=${s.id}`}>
-                            <Button className="text-xs px-3 py-1.5">Jurnal</Button>
-                          </Link>
-                        </div>
-                      )}
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </Card>
 
-          {/* Belum Selesai */}
+          {/* Pekerjaan Tertunda */}
+          {pendingItems.length > 0 && (
+            <Card>
+              <CardHeader title="Belum Selesai" description={`${pendingItems.length} pekerjaan tertunda`} />
+              <div className="space-y-2">
+                {pendingItems.map((item) => (
+                  <Link
+                    key={item.id}
+                    to={item.link}
+                    className="flex items-center justify-between p-2 border border-slate-200 rounded-md hover:bg-slate-50"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className={`w-2 h-2 rounded-full ${item.urgency === "high" ? "bg-rose-500" : "bg-amber-500"}`} />
+                      <span className="text-sm">{item.label}</span>
+                    </div>
+                    <span className="text-xs text-slate-400">→</span>
+                  </Link>
+                ))}
+              </div>
+            </Card>
+          )}
+
+          {/* Absen Manual + Jurnal Manual (selalu tampil) */}
           <Card>
-            <CardHeader title="Belum Selesai" />
-            <EmptyState
-              title="Tidak ada pekerjaan tertunda"
-              description="Daftar pekerjaan belum selesai akan muncul di sini."
-            />
+            <CardHeader title="Tanpa Jadwal" description="Absen atau jurnal manual kapan saja." />
+            <div className="flex gap-2">
+              <Link to="/attendance"><Button variant="secondary">Absen Manual</Button></Link>
+              <Link to="/journal"><Button variant="secondary">Jurnal Manual</Button></Link>
+            </div>
           </Card>
         </>
       )}

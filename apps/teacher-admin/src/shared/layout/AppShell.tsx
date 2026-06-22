@@ -10,27 +10,28 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { to: "/", label: "Hari Ini", icon: Calendar },
+  { to: "/attendance", label: "Absen", icon: CheckCircle },
+  { to: "/journal", label: "Jurnal", icon: BookOpen },
+  { to: "/grades", label: "Nilai", icon: FileSpreadsheet },
   { to: "/calendar", label: "Kalender", icon: Calendar },
   { to: "/prota", label: "Prota", icon: ClipboardList },
   { to: "/promes", label: "Promes", icon: FileText },
   { to: "/schedule", label: "Jadwal", icon: Clock },
   { to: "/roster", label: "Siswa", icon: Users },
-  { to: "/attendance", label: "Absensi", icon: CheckCircle },
-  { to: "/journal", label: "Jurnal", icon: BookOpen },
-  { to: "/semester-report", label: "Laporan", icon: FileSpreadsheet },
-  { to: "/grades", label: "Nilai", icon: FileSpreadsheet },
+  { to: "/atp", label: "ATP/TP", icon: ListChecks },
+  { to: "/rpp", label: "RPP", icon: FileText },
   { to: "/completeness", label: "Kelengkapan", icon: ListChecks },
+  { to: "/semester-report", label: "Laporan", icon: FileSpreadsheet },
   { to: "/profile", label: "Profil", icon: User },
   { to: "/new-year", label: "Tahun Baru", icon: Plus },
   { to: "/backup", label: "Backup", icon: Database },
 ];
 
 const MOBILE_PRIMARY: NavItem[] = [
-  { to: "/", label: "Home", icon: Calendar },
-  { to: "/roster", label: "Siswa", icon: Users },
+  { to: "/", label: "Hari Ini", icon: Calendar },
   { to: "/attendance", label: "Absen", icon: CheckCircle },
-  { to: "/grades", label: "Nilai", icon: FileSpreadsheet },
   { to: "/journal", label: "Jurnal", icon: BookOpen },
+  { to: "/grades", label: "Nilai", icon: FileSpreadsheet },
 ];
 
 function formatClock(date: Date): string {
