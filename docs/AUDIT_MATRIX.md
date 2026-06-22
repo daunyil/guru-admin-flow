@@ -1,16 +1,28 @@
-# Audit Matrix — GENERATOR-COMPLETION-RC1
+# Audit Matrix — GENERATOR-COMPLETION-RC1-PATCH-1
 
 Tujuan: cek setiap modul core App Generator punya route + data + tombol utama.
 
 ## Status Produk
 
 ```text
-GENERATOR-COMPLETION-RC1
+GENERATOR-COMPLETION-RC1-PATCH-1
 Fokus: App Generator sebagai pusat dokumen administrasi guru
 Apps Script = input harian (tidak dirombak)
 Absen/Jurnal internal app = freeze (tidak dikembangkan besar)
 Supabase = FUTURE (ditunda)
 ```
+
+## Patch-1 Changes (dari audit RC1)
+
+| Issue Audit RC1 | Status Patch-1 |
+|---|---|
+| P0 RPP bulk hanya placeholder, belum literal replacement | ✅ FIXED: + literal text replacement (identitas lama → baru) |
+| P0 RPP bulk belum support .docx, UI tidak jujur | ✅ FIXED: UI jujur "saat ini .txt/.html/.md + paste", .docx = roadmap |
+| P0 RPP bulk belum multi-dokumen | ✅ FIXED: delimiter `=== DOKUMEN ===` atau `=== RPP ===` untuk multi-dokumen |
+| P1 Remedial tidak bisa final kalau 0 siswa | ✅ FIXED: 0 siswa = boleh final + cetak keterangan |
+| P1 Pengayaan tidak bisa final kalau 0 siswa | ✅ FIXED: 0 siswa = boleh final + cetak keterangan |
+| P1 Paket Administrasi filter Prota terlalu longgar | ✅ FIXED: filter by teacherId + subject + grade (derive dari classLabel) |
+| P2 CI belum verified | ⚠️ STILL PENDING: lokal PASS, CI belum di-trigger |
 
 ## Matrix 18 Modul Core (Roadmap §4)
 
@@ -29,7 +41,7 @@ Supabase = FUTURE (ditunda)
 | 11 | **Program Remedial** | `/remedial` | ✅ Generate dari GradeBook | Pilih Assignment, Generate, Edit Siswa, Finalkan, Cetak | ✅ **BARU** |
 | 12 | **Program Pengayaan** | `/pengayaan` | ✅ Generate dari GradeBook | Pilih Assignment, Generate, Edit Siswa, Finalkan, Cetak | ✅ **BARU** |
 | 13 | LKPD | `/lkpd` | ✅ 1 LKPD draft | Buat dari TP, Edit, Finalkan, Preview/Cetak | ✅ |
-| 14 | **RPP Bulk Identity Replacement** | `/rpp-bulk` | — (guru upload/paste) | Upload/Paste, Auto-fill Identitas, Preview, Download, Cetak | ✅ **BARU** |
+| 14 | **RPP Bulk Identity Replacement** | `/rpp-bulk` | — (guru upload/paste) | Upload/Paste, Auto-fill Identitas, **Literal Replace**, Preview, Download, Cetak | ✅ **PARTIAL** (placeholder + literal OK, .docx = roadmap) |
 | 14b | RPP Template (legacy) | `/rpp` | — (template generator) | Pilih konteks, Salin placeholder | ✅ (legacy) |
 | 15 | Laporan Akhir Semester | `/semester-report` | ✅ Generate dari assignment | Pilih Assignment, Generate, Finalize, Cetak | ✅ |
 | 16 | **Paket Administrasi Guru** | `/admin-package` | ✅ Checklist 14 dokumen | Pilih Assignment, Lihat Skor, Buka per Dokumen | ✅ **BARU** |
@@ -119,13 +131,13 @@ DATA_SCHEMA_VERSION = 6.
 
 ## Known Issues Tersisa
 
-1. **Phase 5 — Auto Document Engine** belum ada. Tombol "Generate Paket Dokumen" yang menghasilkan RPP+LKPD+Remedial+Pengayaan+Laporan sekaligus = future work.
-2. **Phase 7 — Apps Script Bridge** belum ada. Import JSON dari Apps Script = future work.
-3. **Phase 8 — Print/Export Polish** partial. Print CSS sudah ada, tapi export PDF/Word belum.
-4. **Multi-guru belum penuh** — AssignmentsPage masih admin-style (single-teacher MVP). Master Guru = future work.
-5. **Build warning** — chunk >500KB (bukan blocker).
-6. **CI belum verified** — GitHub workflow masih pending. Lokal PASS.
-7. **RPP bulk replace hanya placeholder-based** — literal text replacement (ganti teks "SMA Negeri 1" → "SMPN 8 Bantan") = future work. Saat ini hanya placeholder `{{...}}` yang di-replace.
+1. **RPP bulk .docx belum didukung** — saat ini hanya .txt/.html/.md + paste teks. UI sudah jujur tentang ini. .docx = roadmap berikutnya (butuh library mammoth/docx-parser).
+2. **Phase 5 — Auto Document Engine** belum ada. Tombol "Generate Paket Dokumen" yang menghasilkan RPP+LKPD+Remedial+Pengayaan+Laporan sekaligus = future work.
+3. **Phase 7 — Apps Script Bridge** belum ada. Import JSON dari Apps Script = future work.
+4. **Phase 8 — Print/Export Polish** partial. Print CSS sudah ada, tapi export PDF/Word belum.
+5. **CI belum verified** — GitHub workflow masih pending. Lokal PASS untuk typecheck/test/build. Tidak klaim CI proof sampai workflow ada.
+6. **Multi-guru belum penuh** — AssignmentsPage masih admin-style (single-teacher MVP). Master Guru = future work.
+7. **Build warning** — chunk >500KB (bukan blocker).
 
 ## Larangan yang Dipatuhi (Roadmap §11)
 

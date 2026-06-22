@@ -2,19 +2,17 @@
  * RPP Bulk Identity Replacement — ganti identitas RPP lama secara massal.
  *
  * GENERATOR-COMPLETION-RC1 Phase 1.
+ * GENERATOR-COMPLETION-RC1-PATCH-1:
+ *   + literal text replacement (identitas lama → identitas baru)
+ *   + multi-dokumen via delimiter (=== DOKUMEN === atau === RPP ===)
+ *   + honest UI: .docx belum didukung, info jelas
  *
  * Filosofi: RPP-nya sudah jadi, tapi masih pakai identitas sekolah/guru lain.
- * Guru upload/paste banyak RPP lama, app ganti placeholder identitas
- * ({{NAMA_SEKOLAH}}, {{NAMA_GURU}}, dll) dengan profil baru. Isi materi
- * dan langkah pembelajaran TIDAK diubah.
+ * Guru upload/paste banyak RPP lama, app ganti:
+ *   1. Placeholder: {{NAMA_SEKOLAH}} → value
+ *   2. Literal: "SMA Negeri 1" → "SMPN 8 Bantan" (input guru)
  *
- * Flow:
- *   1. Auto-fill identitas dari Profil Sekolah + Profil Guru.
- *   2. (Opsional) Pilih Data Mengajar untuk auto-fill mapel/kelas/semester.
- *   3. Edit identitas bila perlu.
- *   4. Upload file .txt/.html/.md atau paste teks RPP lama.
- *   5. Preview: lihat placeholder count + hasil replace.
- *   6. Simpan arsip + cetak/export.
+ * Isi materi dan langkah pembelajaran TIDAK diubah.
  */
 
 import { useEffect, useState, useRef } from "react";
@@ -33,15 +31,35 @@ import type {
   TeachingAssignment,
   RppDocument,
   RppIdentityContext,
+  LiteralReplacement,
 } from "@guru-admin/domain";
 import {
   RPP_IDENTITY_PLACEHOLDERS,
   buildPlaceholderMap,
-  replaceRppIdentityPlaceholders,
+  applyAllReplacements,
   countPlaceholders,
   hasAnyPlaceholder,
+  countLiteralOccurrences,
 } from "@guru-admin/domain";
 import { formatLongDateID, todayISODate } from "@guru-admin/shared";
+
+/** Delimiter untuk multi-dokumen paste. */
+const DOC_DELIMITERS = ["=== DOKUMEN ===", "=== RPP ===", "---DOKUMEN---", "---RPP---"];
+
+/** Pisahkan teks yang berisi multiple dokumen jadi array. */
+function splitMultipleDocuments(text: string): string[] {
+  let result = [text];
+  for (const delim of DOC_DELIMITERS) {
+    const next: string[] = [];
+    for (const doc of result) {
+      next.push(...doc.split(delim));
+    }
+    result = next;
+  }
+  return result
+    .map((d) => d.trim())
+    .filter((d) => d.length > 0);
+}
 
 export function RppBulkReplacePage() {
   const [loading, setLoading] = useState(true);
@@ -68,6 +86,11 @@ export function RppBulkReplacePage() {
     place: "",
     date: todayISODate(),
   });
+
+  // Literal replacements (RC1-PATCH-1)
+  const [literalReplacements, setLiteralReplacements] = useState<LiteralReplacement[]>([
+    { oldText: "", newText: "" },
+  ]);
 
   // Input content
   const [inputText, setInputText] = useState("");
@@ -138,6 +161,16 @@ export function RppBulkReplacePage() {
   function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
+    const name = file.name.toLowerCase();
+    // RC1-PATCH-1: honest UI — .docx belum didukung
+    if (name.endsWith(".doc") || name.endsWith(".docx") || name.endsWith(".pdf")) {
+      setMessage({
+        type: "error",
+        text: `File ${file.name} berformat Word/PDF. Saat ini hanya .txt/.html/.md yang didukung. Silakan copy-paste isi dokumen secara manual, atau konversi ke .txt dulu. Dukungan .docx = roadmap berikutnya.`,
+      });
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
     setFilename(file.name);
     const reader = new FileReader();
     reader.onload = () => {
@@ -145,6 +178,24 @@ export function RppBulkReplacePage() {
     };
     reader.onerror = () => setMessage({ type: "error", text: "Gagal baca file." });
     reader.readAsText(file);
+  }
+
+  function updateLiteralReplacement(idx: number, field: "oldText" | "newText", value: string) {
+    const next = [...literalReplacements];
+    next[idx] = { ...next[idx], [field]: value };
+    setLiteralReplacements(next);
+  }
+
+  function addLiteralReplacement() {
+    setLiteralReplacements([...literalReplacements, { oldText: "", newText: "" }]);
+  }
+
+  function removeLiteralReplacement(idx: number) {
+    setLiteralReplacements(literalReplacements.filter((_, i) => i !== idx));
+  }
+
+  function getValidLiteralReplacements(): LiteralReplacement[] {
+    return literalReplacements.filter((r) => r.oldText.trim().length > 0);
   }
 
   async function handleProcessAndSave() {
@@ -155,25 +206,55 @@ export function RppBulkReplacePage() {
     }
     try {
       const assignment = selectedAssignment();
-      const doc = await saveRppDocument({
-        academicYearId: year.id,
-        teacherId: teacher.id,
-        teacherName: teacher.name,
-        assignmentId: assignment?.id ?? null,
-        subject: ctx.subject || undefined,
-        classLabel: ctx.classLabel || undefined,
-        semester: ctx.semester === "Ganjil" ? 1 : 2,
-        originalContent: inputText,
-        context: ctx,
-        source: filename ? "upload" : "paste",
-        filename: filename || undefined,
-      });
+      const validLiterals = getValidLiteralReplacements();
+
+      // Cek multi-dokumen
+      const docs = splitMultipleDocuments(inputText);
+      const isMulti = docs.length > 1;
+
+      const saved: RppDocument[] = [];
+      for (let i = 0; i < docs.length; i++) {
+        const content = docs[i];
+        const docFilename = isMulti
+          ? `${filename || "rpp"}_${i + 1}.txt`
+          : filename || undefined;
+
+        const doc = await saveRppDocument({
+          academicYearId: year.id,
+          teacherId: teacher.id,
+          teacherName: teacher.name,
+          assignmentId: assignment?.id ?? null,
+          subject: ctx.subject || undefined,
+          classLabel: ctx.classLabel || undefined,
+          semester: ctx.semester === "Ganjil" ? 1 : 2,
+          originalContent: content,
+          context: ctx,
+          literalReplacements: validLiterals,
+          source: filename ? "upload" : "paste",
+          filename: docFilename,
+        });
+        saved.push(doc);
+      }
+
       setArchives(await listRppDocuments({ academicYearId: year.id, teacherId: teacher.id }));
-      setMessage({ type: "success", text: `RPP diproses & disimpan. ${countTotalPlaceholders(doc.originalContent)} placeholder terganti.` });
+
+      const placeholderCount = saved.reduce(
+        (sum, d) => sum + Object.values(countPlaceholders(d.originalContent)).reduce((s, n) => s + n, 0),
+        0
+      );
+      const literalCount = validLiterals.reduce(
+        (sum, r) => sum + saved.reduce((s, d) => s + countLiteralOccurrences(d.processedContent, r.newText), 0),
+        0
+      );
+
+      setMessage({
+        type: "success",
+        text: `${saved.length} dokumen diproses & disimpan. ${placeholderCount} placeholder + ${literalCount} literal replacement diterapkan.`,
+      });
       setInputText("");
       setFilename("");
       if (fileInputRef.current) fileInputRef.current.value = "";
-      setPreviewDoc(doc);
+      if (saved.length > 0) setPreviewDoc(saved[0]);
     } catch (e) {
       setMessage({ type: "error", text: e instanceof Error ? e.message : "Gagal simpan." });
     }
@@ -213,9 +294,15 @@ export function RppBulkReplacePage() {
   if (loading) return <p className="text-sm text-slate-500">Memuat...</p>;
 
   // Live preview saat user ketik
-  const liveProcessed = inputText ? replaceRppIdentityPlaceholders(inputText, ctx) : "";
+  const validLiterals = getValidLiteralReplacements();
+  const liveProcessed = inputText ? applyAllReplacements(inputText, ctx, validLiterals) : "";
   const livePlaceholderCount = inputText ? countTotalPlaceholders(inputText) : 0;
   const liveHasPlaceholders = inputText ? hasAnyPlaceholder(inputText) : false;
+  const liveLiteralMatches = validLiterals.map((r) => ({
+    oldText: r.oldText,
+    count: inputText ? countLiteralOccurrences(inputText, r.oldText) : 0,
+  }));
+  const multiDocCount = inputText ? splitMultipleDocuments(inputText).length : 0;
 
   return (
     <div className="space-y-4">
@@ -231,6 +318,26 @@ export function RppBulkReplacePage() {
           {message.text}
         </div>
       )}
+
+      {/* Info: format yang didukung */}
+      <Card className="bg-amber-50 border-amber-200">
+        <div className="flex items-start gap-2 text-sm">
+          <span className="text-amber-600 text-lg">⚠</span>
+          <div>
+            <p className="font-semibold text-amber-900">Format yang Didukung Saat Ini</p>
+            <p className="text-amber-800 mt-1">
+              Upload file <code>.txt</code>, <code>.html</code>, <code>.md</code> atau <strong>paste teks</strong>.
+              File <code>.doc</code>/<code>.docx</code>/<code>.pdf</code> <strong>belum didukung</strong> —
+              silakan copy-paste isi Word ke kotak teks di bawah.
+              Dukungan .docx = roadmap berikutnya.
+            </p>
+            <p className="text-amber-800 mt-1">
+              <strong>Multi-dokumen:</strong> pisah beberapa RPP dengan delimiter{" "}
+              <code>=== DOKUMEN ===</code> atau <code>=== RPP ===</code>. Setiap blok akan jadi arsip terpisah.
+            </p>
+          </div>
+        </div>
+      </Card>
 
       {/* Step 1: Identitas */}
       <Card>
@@ -289,19 +396,69 @@ export function RppBulkReplacePage() {
         </div>
       </Card>
 
+      {/* Step 1b: Literal Replacements (RC1-PATCH-1) */}
+      <Card>
+        <CardHeader
+          title="1b. Ganti Teks Identitas Lama (Opsional)"
+          description="Untuk RPP yang identitasnya ditulis langsung sebagai teks (bukan placeholder). Contoh: 'SMA Negeri 1' → 'SMPN 8 Bantan'."
+        />
+        <div className="space-y-2">
+          {literalReplacements.map((r, i) => (
+            <div key={i} className="flex gap-2 items-end">
+              <Input
+                label={i === 0 ? "Teks Lama" : ""}
+                id={`rpp-old-${i}`}
+                value={r.oldText}
+                onChange={(v) => updateLiteralReplacement(i, "oldText", v)}
+                placeholder="SMA Negeri 1"
+              />
+              <span className="pb-2 text-slate-400">→</span>
+              <Input
+                label={i === 0 ? "Teks Baru" : ""}
+                id={`rpp-new-${i}`}
+                value={r.newText}
+                onChange={(v) => updateLiteralReplacement(i, "newText", v)}
+                placeholder="SMPN 8 Bantan"
+              />
+              <Button
+                variant="danger"
+                className="text-xs px-2 py-2 mb-0"
+                onClick={() => removeLiteralReplacement(i)}
+                disabled={literalReplacements.length === 1}
+              >
+                ×
+              </Button>
+            </div>
+          ))}
+          <Button variant="secondary" className="text-sm" onClick={addLiteralReplacement}>
+            + Tambah Pasangan
+          </Button>
+          {validLiterals.length > 0 && inputText && (
+            <div className="p-3 bg-slate-50 rounded-md text-xs space-y-1">
+              <p className="font-semibold text-slate-700">Preview Literal Match:</p>
+              {liveLiteralMatches.map((m, i) => (
+                <p key={i}>
+                  <code>{m.oldText}</code> → ditemukan <strong>{m.count}</strong> kali
+                </p>
+              ))}
+            </div>
+          )}
+        </div>
+      </Card>
+
       {/* Step 2: Input dokumen lama */}
       <Card>
         <CardHeader
           title="2. Dokumen RPP Lama"
-          description="Upload file (.txt/.html/.md) atau paste teks RPP lama yang punya placeholder."
+          description="Upload file (.txt/.html/.md) atau paste teks RPP lama."
         />
         <div className="space-y-3">
           <div>
-            <label className="label">Upload File (opsional)</label>
+            <label className="label">Upload File (opsional, .txt/.html/.md saja)</label>
             <input
               ref={fileInputRef}
               type="file"
-              accept=".txt,.html,.htm,.md,.docx"
+              accept=".txt,.html,.htm,.md"
               onChange={handleFileUpload}
               className="input"
             />
@@ -314,23 +471,29 @@ export function RppBulkReplacePage() {
             value={inputText}
             onChange={setInputText}
             rows={8}
-            placeholder="Tempel teks RPP lama di sini. Placeholder yang didukung: {{NAMA_SEKOLAH}}, {{NAMA_GURU}}, {{NIP_GURU}}, {{MAPEL}}, {{KELAS}}, {{SEMESTER}}, {{TAHUN_PELAJARAN}}, {{FASE}}, {{KEPALA_SEKOLAH}}, {{NIP_KEPALA_SEKOLAH}}, {{ALAMAT_SEKOLAH}}, {{TEMPAT}}, {{TANGGAL}}."
+            placeholder="Tempel teks RPP lama di sini. Placeholder yang didukung: {{NAMA_SEKOLAH}}, {{NAMA_GURU}}, dll. Untuk multi-dokumen, pisah dengan === DOKUMEN ==="
           />
 
           {inputText && (
             <div className="p-3 bg-slate-50 rounded-md text-sm space-y-2">
               <p className="font-medium text-slate-700">
                 Placeholder terdeteksi: <strong>{livePlaceholderCount}</strong> buah
+                {multiDocCount > 1 && (
+                  <span className="ml-3">
+                    Multi-dokumen: <strong>{multiDocCount}</strong> blok
+                  </span>
+                )}
               </p>
-              {!liveHasPlaceholders && (
+              {!liveHasPlaceholders && validLiterals.length === 0 && (
                 <p className="text-xs text-amber-700">
-                  ⚠ Tidak ada placeholder ditemukan. Dokumen mungkin tidak punya placeholder,
-                  atau identitas ditulis langsung (bukan placeholder). Replace tidak akan mengubah apa-apa.
+                  ⚠ Tidak ada placeholder ditemukan. Tambah pasangan literal di Step 1b
+                  untuk ganti teks identitas lama secara langsung.
                 </p>
               )}
-              {liveHasPlaceholders && (
+              {(liveHasPlaceholders || validLiterals.length > 0) && (
                 <p className="text-xs text-emerald-700">
-                  ✓ Klik &quot;Proses &amp; Simpan&quot; untuk ganti placeholder dengan identitas di atas.
+                  ✓ Klik &quot;Proses &amp; Simpan&quot; untuk ganti placeholder + literal
+                  dengan identitas di atas.
                 </p>
               )}
             </div>
@@ -340,7 +503,7 @@ export function RppBulkReplacePage() {
             <Button onClick={handleProcessAndSave} disabled={!inputText.trim()}>
               Proses &amp; Simpan Arsip
             </Button>
-            {inputText && liveHasPlaceholders && (
+            {inputText && (liveHasPlaceholders || validLiterals.length > 0) && (
               <Button
                 variant="secondary"
                 onClick={() => {
@@ -353,6 +516,7 @@ export function RppBulkReplacePage() {
                     source: filename ? "upload" : "paste",
                     filename: filename || null,
                     contextSnapshot: ctx,
+                    literalReplacements: validLiterals,
                     status: "draft",
                     createdAt: new Date().toISOString(),
                     updatedAt: new Date().toISOString(),
@@ -395,10 +559,14 @@ export function RppBulkReplacePage() {
                       </Badge>
                       {doc.subject && <Badge variant="neutral">{doc.subject}</Badge>}
                       {doc.classLabel && <Badge variant="neutral">{doc.classLabel}</Badge>}
+                      {(doc.literalReplacements?.length ?? 0) > 0 && (
+                        <Badge variant="warning">{doc.literalReplacements?.length} literal</Badge>
+                      )}
                     </div>
                     <p className="text-xs text-slate-500 mt-1">
                       Diproses {formatLongDateID(doc.createdAt.slice(0, 10))} ·{" "}
-                      {countTotalPlaceholders(doc.originalContent)} placeholder terganti
+                      {countTotalPlaceholders(doc.originalContent)} placeholder
+                      {(doc.literalReplacements?.length ?? 0) > 0 && ` + ${doc.literalReplacements?.length} literal`}
                     </p>
                   </div>
                   <div className="flex flex-col gap-1 shrink-0">
@@ -431,6 +599,11 @@ export function RppBulkReplacePage() {
               <Badge variant="neutral">
                 {countTotalPlaceholders(previewDoc.originalContent)} placeholder
               </Badge>
+              {(previewDoc.literalReplacements?.length ?? 0) > 0 && (
+                <Badge variant="warning">
+                  {previewDoc.literalReplacements?.length} literal replacement
+                </Badge>
+              )}
               {previewDoc.id !== "preview" && (
                 <Button variant="secondary" className="text-xs" onClick={() => handleDownloadProcessed(previewDoc)}>
                   Download .html

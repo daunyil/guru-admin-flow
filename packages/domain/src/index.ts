@@ -295,15 +295,20 @@ export {
 export {
   rppDocumentSchema,
   rppIdentityContextSchema,
+  literalReplacementSchema,
   RPP_IDENTITY_PLACEHOLDERS,
   parseRppDocument,
   safeParseRppDocument,
   buildPlaceholderMap,
   replaceRppIdentityPlaceholders,
+  replaceLiteralText,
+  applyAllReplacements,
   countPlaceholders,
   hasAnyPlaceholder,
+  countLiteralOccurrences,
   type RppDocument,
   type RppIdentityContext,
+  type LiteralReplacement,
 } from "./rpp-document";
 
 /* GENERATOR-COMPLETION-RC1 — RemedialProgram */

@@ -138,7 +138,21 @@ export function AdminPackagePage() {
     const assignmentAttendance = allAttendance.filter(
       (a) => assignmentSessionIds.has(a.sessionId) && !a.deletedAt
     );
-    const matchingProta = protas.find((p) => p.subject === assignment.subject);
+
+    // RC1-PATCH-1: harden filter Prota — match by teacherId + subject + grade.
+    // Grade di-derive dari classLabel assignment (VII A → VII, VIII B → VIII, IX C → IX).
+    const deriveGrade = (classLabel: string): string => {
+      const match = classLabel.match(/^(VII|VIII|IX|X|XI|XII)/i);
+      return match ? match[1].toUpperCase() : "";
+    };
+    const assignmentGrade = deriveGrade(assignment.classLabel);
+    const matchingProta = protas.find(
+      (p) =>
+        p.subject === assignment.subject &&
+        p.teacherId === assignment.teacherId &&
+        (p.grade === assignmentGrade || p.grade === assignment.classLabel)
+    );
+
     const matchingRoster = await findClassRoster(year.id, assignment.classId);
     const matchingSchedule = schedules.filter(
       (s) => s.classId === assignment.classId && s.subject === assignment.subject && s.teacherId === assignment.teacherId

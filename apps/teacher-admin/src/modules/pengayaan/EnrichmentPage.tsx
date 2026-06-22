@@ -340,7 +340,7 @@ export function EnrichmentPage() {
               />
               <div className="flex gap-2 flex-wrap">
                 <Button onClick={handleSavePlan}>Simpan Rencana</Button>
-                {program.status !== "final" && program.students.length > 0 && (
+                {program.status !== "final" && (
                   <Button onClick={handleFinalize}>Finalkan Program</Button>
                 )}
                 {program.status === "final" && (
@@ -383,28 +383,37 @@ export function EnrichmentPage() {
                   </table>
 
                   <div className="document-section-title">A. DAFTAR SISWA PENGAYAAN</div>
-                  <table className="document-table">
-                    <thead>
-                      <tr>
-                        <th style={{ width: "5%" }}>No</th>
-                        <th>Nama Siswa</th>
-                        <th style={{ width: "10%" }}>Nilai</th>
-                        <th style={{ width: "25%" }}>Aktivitas</th>
-                        <th style={{ width: "25%" }}>Materi Lanjutan</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {program.students.map((s, i) => (
-                        <tr key={s.studentId}>
-                          <td className="text-center">{i + 1}</td>
-                          <td>{s.studentName}</td>
-                          <td className="text-center">{s.finalScore}</td>
-                          <td>{s.activity ?? "-"}</td>
-                          <td>{s.material ?? "-"}</td>
+                  {program.students.length === 0 ? (
+                    <div style={{ border: "1px solid #000", padding: "12pt", marginBottom: "12pt", textAlign: "center" }}>
+                      <p style={{ fontStyle: "italic" }}>
+                        Tidak terdapat siswa yang masuk program pengayaan pada periode ini
+                        (belum ada siswa yang mencapai threshold ≥ {program.threshold}).
+                      </p>
+                    </div>
+                  ) : (
+                    <table className="document-table">
+                      <thead>
+                        <tr>
+                          <th style={{ width: "5%" }}>No</th>
+                          <th>Nama Siswa</th>
+                          <th style={{ width: "10%" }}>Nilai</th>
+                          <th style={{ width: "25%" }}>Aktivitas</th>
+                          <th style={{ width: "25%" }}>Materi Lanjutan</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {program.students.map((s, i) => (
+                          <tr key={s.studentId}>
+                            <td className="text-center">{i + 1}</td>
+                            <td>{s.studentName}</td>
+                            <td className="text-center">{s.finalScore}</td>
+                            <td>{s.activity ?? "-"}</td>
+                            <td>{s.material ?? "-"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
 
                   {plan && (
                     <>

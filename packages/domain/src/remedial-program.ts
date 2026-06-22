@@ -100,16 +100,17 @@ export function filterRemedialStudents(
 
 /**
  * Cek apakah program remedial lengkap (bisa difinalkan).
+ *
+ * RC1-PATCH-1: 0 siswa remedial = TETAP lengkap (boleh final).
+ * Dokumen cetak keterangan "Tidak ada siswa remedial karena semua tuntas".
  */
-export function isRemedialProgramComplete(program: RemedialProgram): {
+export function isRemedialProgramComplete(_program: RemedialProgram): {
   complete: boolean;
   missingFields: string[];
 } {
-  const missing: string[] = [];
-  if (program.students.length === 0) {
-    missing.push("Belum ada siswa remedial (semua siswa tuntas atau belum ada nilai)");
-  }
-  return { complete: missing.length === 0, missingFields: missing };
+  // 0 siswa bukan error — itu kondisi valid (semua tuntas)
+  void _program;
+  return { complete: true, missingFields: [] };
 }
 
 /**
