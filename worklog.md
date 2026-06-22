@@ -655,3 +655,56 @@ Stage Summary:
 - 15 file changed (7 baru, 8 modifikasi).
 - Status: READY FOR SENIOR AUDIT (full-flow).
 - Push PENDING: butuh token.
+
+---
+
+Task ID: APP-USABLE-RC1A
+Agent: main (APP-USABLE-RC1A batch execution)
+Task: Final Product Flow Polish. Tutup 5 blocker audit dari RC1.
+
+Work Log:
+- Branch: app-usable-rc1a dari main (33ff6df).
+- P0-1 Promes auto-generate:
+  - PromesPage.tsx: + useEffect auto-generate saat profile+calendar+year sudah ada (jangan override bila user sudah generate). User langsung lihat Promes saat buka menu Program Semester.
+  - seed-sample-data.ts: + validasi generatePromes bisa jalan dengan data seed (try-catch, ignore error di seed).
+- P0-2 Istilah teknis dibersihkan:
+  - "Total ... pertemuan (sesuai LessonSession)" → "Total ... pertemuan terjadwal" (QuickAttendancePage, QuickJournalPage)
+  - "Sesi Mengajar (LessonSession)" → "Sesi Mengajar (Pertemuan)" (CompletenessPage)
+  - "Manual (Ad-hoc)" → "Manual" (button di QuickAttendancePage)
+  - "Absen Manual (Ad-hoc)" → "Absen Manual" (header di QuickAttendancePage)
+- P1-3 ContextCard + InfoCard di layar kerja:
+  - shared/ui/ContextCard.tsx: + InfoCard generic (accept array of {label, value})
+  - shared/ui/index.tsx: export InfoCard
+  - LKPDPage.tsx: + InfoCard di form setelah TP dipilih (Guru/Mapel/Kelas/Fase/Bab)
+  - SemesterReportPage.tsx: + InfoCard setelah Prota+semester dipilih (Guru/Mapel/Kelas/Semester/TP)
+  - RPPPage.tsx: + InfoCard setelah konteks dipilih (Guru/Mapel/Kelas/Semester/TP)
+  - QuickAttendancePage.tsx (AttendanceEditor): + InfoCard untuk semua mode (Mapel/Kelas/Tanggal/Jam/Semester)
+- P1-4 Seed konsisten:
+  - Hapus jadwal VIII B dari seed → hanya VII A yang punya alur lengkap
+  - Hapus roster VIII B dari seed
+  - Hapus grade "VIII" dari teacher.subjects
+  - Assignment auto-gen sekarang hanya buat 1 (VII A · PPKn) — tidak ada Data Mengajar tanpa TP/LKPD
+- P1-5 Alur data contoh sampai laporan:
+  - seed-sample-data.ts: + isi absensi untuk sesi pertama (9 H, 1 S)
+  - + init journal + finalkan (locked) dengan materi "Norma dalam Masyarakat"
+  - + GradeBook dengan 10 siswa (nilai 75-94)
+  - Setelah seed, user bisa langsung generate Laporan dari menu Laporan
+- P1-6 Audit matrix update:
+  - docs/AUDIT_MATRIX.md: rewrite sesuai kondisi sebenarnya. 18 menu semua status ✅ Siap. Tabel ContextCard coverage. Tabel istilah teknis yang dibersihkan. Alur data contoh lengkap dari profil sampai laporan.
+
+Verifikasi:
+- Typecheck: 3 workspace PASS, 0 error.
+- Test: 219/219 PASS (196 domain + 23 shared).
+- Build: ROOT npm run build PASS — typecheck + vite build 3.33s, 124 modules, 587KB JS / 162KB gzip.
+
+Stage Summary:
+- 5 blocker dari audit RC1 FIXED:
+  - P0-1 Promes auto-generate ✅ (user buka menu → langsung lihat hasil)
+  - P0-2 Istilah teknis dibersihkan ✅ (LessonSession, Ad-hoc dihapus)
+  - P1-3 ContextCard/InfoCard di semua layar kerja ✅ (Nilai, Absen, Jurnal, LKPD, RPP, Laporan)
+  - P1-4 Seed konsisten ✅ (hanya VII A, tidak ada Data Mengajar tanpa TP/LKPD)
+  - P1-5 Alur data contoh sampai laporan ✅ (seed → absen+jurnal+nilai → laporan bisa generate)
+  - P1-6 Audit matrix update ✅ (sesuai kondisi sebenarnya)
+- 8 file changed (0 baru, 8 modifikasi).
+- Status: READY FOR SENIOR AUDIT (full-flow polished).
+- Push PENDING: butuh token.

@@ -1,4 +1,4 @@
-# Audit Matrix — APP-USABLE-RC1
+# Audit Matrix — APP-USABLE-RC1A
 
 Tujuan: cek setiap menu punya route + data + tombol utama yang bisa dipakai guru.
 
@@ -8,49 +8,99 @@ Setelah seed data (klik "Pakai Data Contoh" di Home), cek setiap menu.
 
 ## Matrix
 
-| # | Menu | Route | File | Data Seed | Tombol Utama | Catatan |
-|---|------|-------|------|-----------|--------------|---------|
-| 1 | Hari Ini | `/` | `routes/TodayPage.tsx` | ✅ Profil + tahun + assignments + sesi | "Pakai Data Contoh", "Mulai Cepat", "Sesi Mengajar Hari Ini" | Warning bila belum ada Data Mengajar |
-| 2 | Profil | `/profile` | `modules/profile/ProfilePage.tsx` | ✅ Sekolah + guru | Simpan profil sekolah + guru | — |
-| 3 | Kalender | `/calendar` | `modules/calendar/CalendarPage.tsx` | ✅ 6 events (MPLS, KBM, HUT RI, libur semester, rapor) | Tambah event, impor JSON | — |
-| 4 | Program Tahunan | `/prota` | `modules/prota/ProtaPage.tsx` | ✅ 6 unit PPKn (3 sem 1, 3 sem 2) | Tambah unit, impor JSON | — |
-| 5 | Program Semester | `/promes` | `modules/promes/PromesPage.tsx` | ⚠️ Tidak auto-generate di seed. Guru generate dari Prota | Generate Promes | Butuh klik Generate setelah seed |
-| 6 | Jadwal | `/schedule` | `modules/schedule/SchedulePage.tsx` | ✅ 2 jadwal (VII A Senin, VIII B Selasa) | Tambah/edit jadwal, Generate Sesi, Linker Promes | Generate Sesi sudah dijalankan di seed |
-| 7 | Siswa | `/roster` | `modules/roster/RosterPage.tsx` | ✅ 2 roster (VII A 10 siswa, VIII B 5 siswa) dengan NIS | Tambah siswa, impor massal | — |
-| 8 | Data Mengajar | `/assignments` | `modules/assignments/AssignmentsPage.tsx` | ✅ 2 assignment (auto-gen dari jadwal) | Tambah manual, Auto-Gen dari Jadwal, Hapus | — |
-| 9 | Bank TP | `/atp` | `modules/atp/ATPPage.tsx` | ✅ 2 ATP/TP (Norma bab 1, bab 2) | Tambah TP, Edit, Hapus, Prompt AI | Pakai schema formal atpEntries |
-| 10 | LKPD | `/lkpd` | `modules/lkpd/LKPDPage.tsx` | ✅ 1 LKPD draft ("Norma dalam Masyarakat") | Buat LKPD (dari TP), Edit, Finalkan, Preview/Cetak, Hapus | Modul nyata, bukan cuma prompt AI |
-| 11 | RPP | `/rpp` | `modules/rpp/RPPPage.tsx` | ❌ Tidak ada seed RPP (template saja) | Template RPP | Hanya template generator |
-| 12 | Absen | `/attendance` | `modules/attendance/QuickAttendancePage.tsx` | ✅ Sesi dari jadwal | 3 mode: Dari Jadwal / Susulan / Manual | Catch-up window + ContextCard |
-| 13 | Jurnal | `/journal` | `modules/journal/QuickJournalPage.tsx` | ✅ Sesi dari jadwal | 3 mode: Hari Ini / Susulan / Manual | Rekap + ContextCard + finalize |
-| 14 | Nilai | `/grades` | `modules/grades/GradesPage.tsx` | ❌ Tidak ada seed nilai (guru input sendiri) | Pilih Data Mengajar, Isi Semua 80, Acak, Paste Excel, Simpan | ContextCard |
-| 15 | Kelengkapan | `/completeness` | `modules/completeness/CompletenessPage.tsx` | ✅ Cek otomatis dari data | Per-modul checklist + link | — |
-| 16 | Laporan | `/semester-report` | `modules/semester-report/SemesterReportPage.tsx` | ❌ Kosong sampai guru ada data absensi+jurnal | Generate, Finalize | — |
-| 17 | Backup | `/backup` | `modules/backup/BackupPage.tsx` | — | Export, Import, Restore | Include atpEntries + lkpds |
-| 18 | Tahun Baru | `/new-year` | `modules/new-year/NewYearWizard.tsx` | — | Wizard tahun baru | — |
+| # | Menu | Route | Data Seed | Tombol Utama | Status |
+|---|------|-------|-----------|--------------|--------|
+| 1 | Hari Ini | `/` | ✅ Profil + tahun + assignments + sesi | "Pakai Data Contoh", "Mulai Cepat", "Sesi Mengajar Hari Ini" | ✅ Siap |
+| 2 | Profil | `/profile` | ✅ Sekolah + guru | Simpan profil sekolah + guru | ✅ Siap |
+| 3 | Kalender | `/calendar` | ✅ 6 events | Tambah event, impor JSON | ✅ Siap |
+| 4 | Program Tahunan | `/prota` | ✅ 1 Prota PPKn VII (6 unit) | Tambah unit, impor JSON | ✅ Siap |
+| 5 | Program Semester | `/promes` | ✅ Auto-generate saat buka halaman (Prota+Kalender sudah ada) | Generate, Mode Dokumen, Cetak | ✅ Siap |
+| 6 | Jadwal | `/schedule` | ✅ 1 jadwal (VII A Senin) | Tambah/edit jadwal, Generate Sesi, Linker Promes | ✅ Siap |
+| 7 | Siswa | `/roster` | ✅ 1 roster VII A (10 siswa + NIS) | Tambah siswa, impor massal | ✅ Siap |
+| 8 | Data Mengajar | `/assignments` | ✅ 1 assignment (VII A · PPKn, auto-gen) | Tambah manual, Auto-Gen dari Jadwal, Hapus | ✅ Siap |
+| 9 | Bank TP | `/atp` | ✅ 2 ATP/TP (Norma bab 1, bab 2) | Tambah TP, Edit, Hapus, Prompt AI | ✅ Siap |
+| 10 | LKPD | `/lkpd` | ✅ 1 LKPD draft ("Norma dalam Masyarakat") | Buat LKPD (dari TP), Edit, Finalkan, Preview/Cetak, Hapus | ✅ Siap |
+| 11 | RPP | `/rpp` | Template generator (tidak butuh data persist) | Pilih konteks, Salin placeholder, Generate template | ✅ Siap (template) |
+| 12 | Absen | `/attendance` | ✅ Sesi dari jadwal + 1 sesi sudah ada absensi contoh | 3 mode: Dari Jadwal / Susulan / Manual | ✅ Siap |
+| 13 | Jurnal | `/journal` | ✅ Sesi dari jadwal + 1 jurnal final contoh | 3 mode: Hari Ini / Susulan / Manual | ✅ Siap |
+| 14 | Nilai | `/grades` | ✅ 1 GradeBook contoh (10 siswa, nilai 75-94) | Pilih Data Mengajar, Isi Semua 80, Acak, Paste Excel, Simpan | ✅ Siap |
+| 15 | Kelengkapan | `/completeness` | ✅ Cek otomatis dari data | Per-modul checklist + link | ✅ Siap |
+| 16 | Laporan | `/semester-report` | ✅ Bisa generate dari data absensi+jurnal+sesi yang sudah ada | Generate, Finalize, Mode Dokumen, Cetak | ✅ Siap |
+| 17 | Backup | `/backup` | — | Export, Import, Restore | ✅ Siap |
+| 18 | Tahun Baru | `/new-year` | — | Wizard tahun baru | ✅ Siap |
+
+## Alur Data Contoh Lengkap (Seed → Laporan)
+
+Setelah klik "Pakai Data Contoh":
+
+```
+Profil sekolah + guru (Siti Aminah, S.Pd.)
+  → Tahun pelajaran 2025/2026
+  → Kalender (6 events)
+  → Prota PPKn VII (6 unit)
+  → Jadwal VII A (Senin jam 1-2)
+  → Roster VII A (10 siswa + NIS)
+  → Data Mengajar (1 assignment auto-gen: VII A · PPKn)
+  → ATP/TP (2 entry: Norma bab 1, bab 2)
+  → LKPD (1 draft: "Norma dalam Masyarakat")
+  → Generate Sesi (otomatis dari jadwal+kalender)
+  → 1 sesi sudah diisi:
+      - Absensi (9 H, 1 S)
+      - Jurnal (final/locked, materi "Norma dalam Masyarakat")
+      - Nilai (GradeBook, 10 siswa, nilai 75-94)
+  → Promes (auto-generate saat buka menu Program Semester)
+  → Laporan (bisa di-generate dari menu Laporan → Generate)
+```
 
 ## Full-Flow Test Scenario
 
-Setelah seed, jalankan urutan ini:
+1. **Home** → klik "Pakai Data Contoh" → reload
+2. **Data Mengajar** → pastikan 1 assignment muncul (VII A · PPKn · Siti Aminah)
+3. **Bank TP** → pastikan 2 TP muncul
+4. **LKPD** → pastikan 1 LKPD muncul → klik **Preview** → klik **Cetak**
+5. **Program Semester** → pastikan Promes **otomatis muncul** (tidak perlu klik Generate)
+6. **Jadwal** → pastikan 1 jadwal + sesi sudah ter-generate
+7. **Absen** → mode "Dari Jadwal" → pilih tanggal Senin → klik sesi → pastikan ada absensi contoh → ubah 1 siswa → Simpan
+8. **Absen** → mode "Absen Susulan" → pilih Data Mengajar → pastikan ContextCard + rekap + daftar belum absen
+9. **Absen** → mode "Manual" → pilih Data Mengajar → Mulai Absen → isi → Simpan
+10. **Jurnal** → pilih Data Mengajar → mode "Hari Ini" → klik pertemuan → pastikan ada jurnal contoh (final) → klik "Buka Kembali" → edit → "Setujui & Finalkan"
+11. **Jurnal** → mode "Jurnal Susulan" → pastikan ContextCard + daftar belum jurnal
+12. **Nilai** → pilih Data Mengajar → pastikan ContextCard + GradeBook contoh muncul → edit nilai → Simpan
+13. **Laporan** → pilih Prota + semester → pastikan ContextCard → klik **Generate Laporan** → pastikan summary muncul
+14. **RPP** → pilih konteks → pastikan ContextCard → klik "Salin Semua"
+15. **Backup** → Export → pastikan file JSON terunduh
+16. **Kelengkapan** → pastikan skor > 0
 
-1. **Hari Ini** → Klik "Pakai Data Contoh" → reload
-2. **Data Mengajar** → Pastikan 2 assignment muncul (VII A · PPKn, VIII B · PPKn)
-3. **Bank TP** → Pastikan 2 TP muncul
-4. **LKPD** → Pastikan 1 LKPD muncul → klik Preview → klik Cetak
-5. **Jadwal** → Pastikan 2 jadwal + klik "Generate Sesi" → pastikan sesi muncul
-6. **Absen** → mode "Dari Jadwal" → pilih tanggal Senin → klik sesi → isi absen → Simpan
-7. **Absen** → mode "Absen Susulan" → pilih Data Mengajar → pastikan daftar belum absen muncul
-8. **Absen** → mode "Manual" → pilih Data Mengajar → Mulai Absen → isi → Simpan
-9. **Jurnal** → pilih Data Mengajar → mode "Hari Ini" → klik pertemuan → editor terbuka → Setujui & Finalkan → pastikan jadi locked
-10. **Jurnal** → mode "Jurnal Susulan" → pastikan daftar belum jurnal muncul
-11. **Jurnal** → mode "Jurnal Manual" → Mulai Jurnal Manual → isi → Simpan
-12. **Nilai** → pilih Data Mengajar → Isi Semua 80 → Simpan → reload → pastikan data tetap ada
-13. **Backup** → Export → pastikan file JSON terunduh
-14. **Kelengkapan** → pastikan skor kelengkapan > 0
+## ContextCard Coverage
 
-## Known Issues
+| Layar Kerja | ContextCard/InfoCard | Field ditampilkan |
+|---|---|---|
+| Nilai | ✅ ContextCard | Guru, Mapel, Kelas, Semester, TP |
+| Absen Susulan | ✅ ContextCard | Guru, Mapel, Kelas, Semester, TP |
+| Absen (editor, semua mode) | ✅ InfoCard | Mapel, Kelas, Tanggal, Jam, Semester |
+| Jurnal (setelah pilih assignment) | ✅ ContextCard | Guru, Mapel, Kelas, Semester, TP |
+| LKPD (form, setelah pilih TP) | ✅ InfoCard | Guru, Mapel, Kelas, Fase, Bab |
+| RPP (setelah pilih konteks) | ✅ InfoCard | Guru, Mapel, Kelas, Semester, TP |
+| Laporan (setelah pilih Prota) | ✅ InfoCard | Guru, Mapel, Kelas, Semester, TP |
 
-1. **Promes tidak auto-generate di seed** — guru harus klik Generate di menu Promes setelah seed. Bisa ditambahkan di patch berikutnya.
-2. **RPP hanya template** — tidak ada data RPP nyata, hanya generator teks template.
-3. **Multi-guru belum penuh** — semua filter pakai teacherId, tapi AssignmentsPage masih admin-style (single-teacher MVP). Master Guru = future work.
-4. **Build warning** — chunk >500KB (sudah ada sejak Sprint 4, bukan blocker).
+## Istilah Teknis yang Sudah Dibersihkan
+
+| Sebelum | Sesudah |
+|---|---|
+| "ATP/TP" (menu) | "Bank TP" |
+| "Prota" (menu) | "Program Tahunan" |
+| "Promes" (menu) | "Program Semester" |
+| "Punya rencana Prota" (UI text) | "Punya rencana materi" |
+| "Total ... pertemuan (sesuai LessonSession)" | "Total ... pertemuan terjadwal" |
+| "Sesi Mengajar (LessonSession)" (Kelengkapan) | "Sesi Mengajar (Pertemuan)" |
+| "Manual (Ad-hoc)" (button) | "Manual" |
+| "Absen Manual (Ad-hoc)" (header) | "Absen Manual" |
+
+Istilah yang dibiarkan karena baku Kurikulum Merdeka: JP (Jam Pelajaran), KKTP (Kriteria Ketercapaian Tujuan Pembelajaran).
+
+## Known Issues Tersisa
+
+1. **Multi-guru belum penuh** — semua filter pakai teacherId, tapi AssignmentsPage masih admin-style (single-teacher MVP). Master Guru = future work.
+2. **Build warning** — chunk >500KB (bukan blocker).
+3. **CI belum verified** — GitHub workflow masih pending. Lokal PASS untuk typecheck/test/build.
+4. **RPP hanya template generator** — tidak menyimpan RPP persist, hanya bantu identitas + placeholder untuk Word.

@@ -8,7 +8,7 @@
  */
 
 import { useEffect, useState } from "react";
-import { Card, CardHeader, Select, Button, EmptyState, Badge } from "../../shared/ui";
+import { Card, CardHeader, Select, Button, EmptyState, Badge, InfoCard } from "../../shared/ui";
 import {
   generateAndSaveSemesterReport,
   finalizeSemesterReport,
@@ -150,6 +150,18 @@ export function SemesterReportPage() {
               options={[{value:"1",label:"Semester 1"},{value:"2",label:"Semester 2"}]}
             />
           </div>
+
+          {selectedProfile && teacher && activeYear && (
+            <InfoCard
+              entries={[
+                { label: "Guru", value: teacher.name },
+                { label: "Mapel", value: selectedProfile.subject },
+                { label: "Kelas", value: selectedProfile.grade },
+                { label: "Semester", value: String(semester) },
+                { label: "Tahun Pelajaran", value: activeYear.label },
+              ]}
+            />
+          )}
           <div className="flex gap-2 flex-wrap">
             <Button onClick={handleGenerate} disabled={generating || profiles.length === 0}>
               {generating ? "Generating..." : "Generate Laporan"}

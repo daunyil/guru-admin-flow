@@ -237,7 +237,7 @@ export function QuickJournalPage() {
           <Card>
             <CardHeader
               title="Rekap Jurnal"
-              description={`Total ${recap.total} pertemuan (sesuai LessonSession)`}
+              description={`Total ${recap.total} pertemuan terjadwal`}
             />
             <div className="grid grid-cols-4 gap-2 text-center">
               <div className="p-2 bg-slate-100 rounded">

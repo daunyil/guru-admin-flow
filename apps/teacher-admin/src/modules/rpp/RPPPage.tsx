@@ -7,7 +7,7 @@
  */
 
 import { useEffect, useState } from "react";
-import { Card, CardHeader, Input, Select, Button } from "../../shared/ui";
+import { Card, CardHeader, Input, Select, Button, InfoCard } from "../../shared/ui";
 import { getActiveAcademicYear, getSchoolProfile, getTeacherProfile } from "../../shared/db/profile-repo";
 import type { AcademicYear, SchoolProfile, TeacherProfile } from "@guru-admin/domain";
 
@@ -106,6 +106,18 @@ ${placeholders[7].key}, ........................`;
           <Input label="Tempat TTD" id="rpp-tempat" value={tempatTTD} onChange={setTempatTTD} />
         </div>
       </Card>
+
+      {teacher && year && (
+        <InfoCard
+          entries={[
+            { label: "Guru", value: teacher.name },
+            { label: "Mapel", value: subject || "-" },
+            { label: "Kelas", value: grade || "-" },
+            { label: "Semester", value: semester === 1 ? "Ganjil" : "Genap" },
+            { label: "Tahun Pelajaran", value: year.label },
+          ]}
+        />
+      )}
 
       {/* Daftar placeholder */}
       <Card>

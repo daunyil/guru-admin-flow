@@ -5,7 +5,7 @@
 
 import { type ReactNode } from "react";
 
-export { ContextCard } from "./ContextCard";
+export { ContextCard, InfoCard } from "./ContextCard";
 
 export function Card({ children, className = "" }: { children: ReactNode; className?: string }) {
   return <div className={`card p-5 ${className}`}>{children}</div>;

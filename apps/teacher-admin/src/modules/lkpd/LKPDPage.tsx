@@ -13,7 +13,7 @@
  */
 
 import { useEffect, useState } from "react";
-import { Card, CardHeader, Input, Textarea, Button, EmptyState, Badge, Select } from "../../shared/ui";
+import { Card, CardHeader, Input, Textarea, Button, EmptyState, Badge, Select, InfoCard } from "../../shared/ui";
 import { getActiveAcademicYear, getTeacherProfile, getSchoolProfile } from "../../shared/db/profile-repo";
 import { listATPEntries } from "../../shared/db/atp-entry-repo";
 import {
@@ -326,6 +326,18 @@ function LKPDForm({
           ]}
           required
         />
+
+        {selectedAtpId && (
+          <InfoCard
+            entries={[
+              { label: "Guru", value: defaultTeacherName },
+              { label: "Mapel", value: form.subject || "-" },
+              { label: "Kelas", value: form.classLabel || form.grade || "-" },
+              { label: "Fase", value: atpEntries.find((a) => a.id === selectedAtpId)?.phase ?? "-" },
+              { label: "Bab", value: atpEntries.find((a) => a.id === selectedAtpId)?.bab ?? "-" },
+            ]}
+          />
+        )}
 
         <div className="grid sm:grid-cols-2 gap-3">
           <Input label="Mapel" id="lkpd-subject" value={form.subject} onChange={(v) => set("subject", v)} />

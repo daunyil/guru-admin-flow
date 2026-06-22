@@ -85,7 +85,7 @@ export function CompletenessPage() {
         // Sesi
         const sessions = await listLessonSessions(year.id);
         items.push({
-          label: "Sesi Mengajar (LessonSession)",
+          label: "Sesi Mengajar (Pertemuan)",
           status: sessions.length === 0 ? "missing" : "ok",
           detail: `${sessions.length} sesi di-generate`,
           link: "/schedule",
