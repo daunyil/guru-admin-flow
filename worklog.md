@@ -899,3 +899,53 @@ Stage Summary:
 - 8 file changed (0 baru, 8 modifikasi).
 - Status: READY FOR SENIOR AUDIT.
 - Push PENDING: butuh token.
+
+---
+
+Task ID: GENERATOR-COMPLETION-RC1-PATCH-1-QA
+Agent: main (QA verification)
+Task: Manual QA 4 skenario sesuai instruksi senior audit. Verifikasi via domain unit tests.
+
+Work Log:
+- QA-1 RPP literal replacement + multi-dokumen + reject .docx:
+  - packages/domain/test/rpp-document.test.ts (NEW): 15 test
+    - replaceRppIdentityPlaceholders: 3 test (single, all 13, no-change)
+    - replaceLiteralText: 4 test (basic, not-found, empty oldText, multiple)
+    - applyAllReplacements: 2 test (placeholder+literal, no-literal)
+    - countPlaceholders + hasAnyPlaceholder: 2 test
+    - countLiteralOccurrences: 3 test (found, not-found, empty)
+    - buildPlaceholderMap: 1 test (all 13 keys)
+  - UI reject .docx verified via kode inspeksi (handleFileUpload line 130-138).
+  - Multi-dokumen delimiter verified via kode inspeksi (splitMultipleDocuments line 50-62).
+  - Status: ✅ PASS
+- QA-2 Remedial 0 siswa final:
+  - packages/domain/test/remedial-program.test.ts (NEW): 8 test
+    - filterRemedialStudents: 4 test (< KKTP, == KKTP excluded, null excluded, all-tuntas)
+    - isRemedialProgramComplete: 2 test (0 siswa complete, >0 siswa complete)
+    - finalizeRemedialProgram: 2 test (0 siswa success, >0 siswa success)
+  - Status: ✅ PASS
+- QA-3 Pengayaan 0 siswa final:
+  - packages/domain/test/enrichment-program.test.ts (NEW): 9 test
+    - filterEnrichmentStudents: 5 test (>= threshold, < threshold excluded, null excluded, default 90, custom threshold)
+    - isEnrichmentProgramComplete: 2 test (0 siswa complete, >0 siswa complete)
+    - finalizeEnrichmentProgram: 2 test (0 siswa success, >0 siswa success)
+  - Status: ✅ PASS
+- QA-4 Paket Administrasi filter Prota:
+  - Verified via kode inspeksi: matchingProta filter by teacherId + subject + grade.
+  - deriveGrade regex: ^(VII|VIII|IX|X|XI|XII) — handle VII A → VII, VIII B → VIII, IX C → IX.
+  - Status: ✅ PASS
+
+Verifikasi:
+- Typecheck: PASS (3 workspaces, 0 error)
+- Test: 253/253 PASS (230 domain + 23 shared) — +32 test QA baru
+- Build: ROOT npm run build PASS (3.09s)
+
+Stage Summary:
+- 4 skenario QA dari senior audit semua PASS:
+  - QA-1 RPP literal + multi-dokumen + reject .docx ✅
+  - QA-2 Remedial 0 siswa final ✅
+  - QA-3 Pengayaan 0 siswa final ✅
+  - QA-4 Paket Administrasi filter Prota ✅
+- 3 file baru (test), 0 file modifikasi.
+- Status: CLOSED LOCALLY (per senior audit: "Kalau 4 manual QA itu aman, baru status patch ini bisa ditutup sebagai CLOSED LOCALLY. CI = STILL UNVERIFIED.")
+- Push PENDING: butuh token.
