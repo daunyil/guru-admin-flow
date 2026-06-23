@@ -142,7 +142,7 @@ export function AdminPackagePage() {
     // RC1-PATCH-1: harden filter Prota — match by teacherId + subject + grade.
     // Grade di-derive dari classLabel assignment (VII A → VII, VIII B → VIII, IX C → IX).
     const deriveGrade = (classLabel: string): string => {
-      const match = classLabel.match(/^(VII|VIII|IX|X|XI|XII)/i);
+      const match = classLabel.match(/^(VIII|VII|IX|X|XI|XII)/i);
       return match ? match[1].toUpperCase() : "";
     };
     const assignmentGrade = deriveGrade(assignment.classLabel);

@@ -1120,3 +1120,65 @@ Stage Summary:
 - Tidak Supabase. Tidak Cloud SQL. Tidak sync real-time. Tidak rebuild absen/jurnal.
 - Status: READY FOR SENIOR AUDIT.
 - Push PENDING: butuh token.
+
+---
+
+Task ID: AUTO-DOCUMENT-ENGINE-RC1-PATCH-1
+Agent: main (RC1-PATCH-1 batch execution)
+Task: Strict filter per Data Mengajar di Auto Document Engine.
+
+Work Log:
+- Branch: auto-document-engine-rc1-patch-1 dari main (db57549).
+- Domain layer:
+  - packages/domain/src/assignment-filters.ts (NEW): 9 filter helpers:
+    - deriveGradeFromClassLabel: "VII A" → "VII", "VIII B" → "VIII", "IX C" → "IX"
+      Regex fix: VIII sebelum VII supaya tidak match "VII" duluan.
+    - matchesAssignmentSubject: subject cocok dengan assignment.subject
+    - matchesAssignmentGrade: grade cocok dengan deriveGrade(assignment.classLabel)
+    - matchesAssignmentClassOptional: classId kosong = umum, terisi = harus sama
+    - filterProtaForAssignment: teacherId + subject + grade
+    - filterATPForAssignment: teacherId + subject + grade + classId opsional
+    - filterLKPDForAssignment: teacherId + subject + grade + classId opsional
+    - filterRppDocumentsForAssignment: assignmentId atau fallback teacherId+subject+classLabel+semester
+    - matchesAssignmentContext: guard eksplisit untuk remedial/enrichment/semesterReport
+  - packages/domain/src/index.ts: export 9 helpers.
+- Domain tests:
+  - test/assignment-filters.test.ts (NEW): 38 test
+    - deriveGrade: 4 test (VII, VIII, IX, format tidak cocok)
+    - matchesSubject: 3 test
+    - matchesGrade: 3 test
+    - matchesClassOptional: 4 test
+    - filterProta: 4 test (cocok, grade beda, teacher beda, kosong)
+    - filterATP: 5 test (cocok, grade beda, classId kosong, classId beda, classId sama)
+    - filterLKPD: 3 test (kelas sama, kelas lain, classId kosong)
+    - filterRPP: 6 test (assignmentId cocok, beda, tanpa assignmentId cocok, subject beda, teacher beda, tanpa context)
+    - matchesContext: 6 test (semua cocok, teacher beda, subject beda, classId beda, semester beda, field kosong)
+- UI fix:
+  - modules/auto-document/AutoDocumentPage.tsx: ganti filter longgar dengan filter helpers.
+    - matchingProta: protas.find(subject) → filterProtaForAssignment(protas, assignment)
+    - atpEntries: listATPEntries → filterATPForAssignment(atpEntries, assignment)
+    - lkpds: listLKPDs → filterLKPDForAssignment(lkpds, assignment)
+    - rppDocs: listRppDocuments → filterRppDocumentsForAssignment(rppDocs, assignment)
+    - remedial/enrichment/semesterReport: + matchesAssignmentContext guard eksplisit
+  - modules/admin-package/AdminPackagePage.tsx: fix regex deriveGrade (VIII sebelum VII).
+
+Verifikasi:
+- Typecheck: 3 workspace PASS, 0 error.
+- Test: 326/326 PASS (303 domain + 23 shared). +38 test baru.
+- Build: ROOT npm run build PASS — typecheck + vite build 3.47s.
+
+Stage Summary:
+- 10 AC terpenuhi:
+  1. Prota tidak dari kelas/guru lain ✅ (filterProtaForAssignment: teacherId+subject+grade)
+  2. ATP tidak dari grade/kelas lain ✅ (filterATPForAssignment: teacherId+subject+grade+classId)
+  3. LKPD tidak dari kelas lain ✅ (filterLKPDForAssignment: teacherId+subject+grade+classId)
+  4. RPP tidak dari assignment lain ✅ (filterRppDocumentsForAssignment: assignmentId atau fallback)
+  5. Sessions/attendance/journal/grade/remedial/enrichment tetap terfilter ✅
+  6. Preview tetap 12 dokumen ✅
+  7. Tombol cetak tetap ada ✅
+  8. Typecheck PASS ✅
+  9. Test PASS ✅
+  10. Build PASS ✅
+- 5 file changed (2 baru, 3 modifikasi).
+- Status: READY FOR SENIOR AUDIT.
+- Push PENDING: butuh token.

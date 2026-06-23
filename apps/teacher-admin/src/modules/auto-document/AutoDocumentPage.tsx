@@ -36,7 +36,14 @@ import type {
   TeachingAssignment,
   AdminDocumentPackage,
 } from "@guru-admin/domain";
-import { generateAdminDocumentPackage } from "@guru-admin/domain";
+import {
+  generateAdminDocumentPackage,
+  filterProtaForAssignment,
+  filterATPForAssignment,
+  filterLKPDForAssignment,
+  filterRppDocumentsForAssignment,
+  matchesAssignmentContext,
+} from "@guru-admin/domain";
 import { formatLongDateID, todayISODate } from "@guru-admin/shared";
 
 export function AutoDocumentPage() {
@@ -127,7 +134,8 @@ export function AutoDocumentPage() {
       const assignmentAttendance = allAttendance.filter(
         (a) => assignmentSessionIds.has(a.sessionId) && !a.deletedAt
       );
-      const matchingProta = protas.find((p) => p.subject === assignment.subject) ?? null;
+      // PATCH-1: strict filter per assignment — tidak bercampur guru/kelas/mapel/grade.
+      const matchingProta = filterProtaForAssignment(protas, assignment);
       const matchingRoster = await findClassRoster(year.id, assignment.classId);
       const gradebook = await findGradeBook({
         academicYearId: year.id,
@@ -136,14 +144,29 @@ export function AutoDocumentPage() {
         semester: assignment.semester,
         subject: assignment.subject,
       });
+      const filteredATP = filterATPForAssignment(atpEntries, assignment);
+      const filteredLKPD = filterLKPDForAssignment(lkpds, assignment);
+      const filteredRPP = filterRppDocumentsForAssignment(rppDocs, assignment);
       const matchingRemedial = remedial.find(
-        (r) => r.classId === assignment.classId && r.subject === assignment.subject && r.semester === assignment.semester
+        (r) =>
+          r.classId === assignment.classId &&
+          r.subject === assignment.subject &&
+          r.semester === assignment.semester &&
+          matchesAssignmentContext(r, assignment)
       ) ?? null;
       const matchingEnrichment = enrichment.find(
-        (r) => r.classId === assignment.classId && r.subject === assignment.subject && r.semester === assignment.semester
+        (r) =>
+          r.classId === assignment.classId &&
+          r.subject === assignment.subject &&
+          r.semester === assignment.semester &&
+          matchesAssignmentContext(r, assignment)
       ) ?? null;
       const matchingSemesterReport = semesterReports.find(
-        (r) => r.classId === assignment.classId && r.subject === assignment.subject && r.semester === assignment.semester
+        (r) =>
+          r.classId === assignment.classId &&
+          r.subject === assignment.subject &&
+          r.semester === assignment.semester &&
+          matchesAssignmentContext(r, assignment)
       ) ?? null;
 
       const result = generateAdminDocumentPackage({
@@ -154,9 +177,9 @@ export function AutoDocumentPage() {
         attendanceRecords: assignmentAttendance,
         journals: assignmentJournals,
         gradeBook: gradebook ?? null,
-        atpEntries,
-        lkpds,
-        rppDocuments: rppDocs,
+        atpEntries: filteredATP,
+        lkpds: filteredLKPD,
+        rppDocuments: filteredRPP,
         remedialProgram: matchingRemedial,
         enrichmentProgram: matchingEnrichment,
         semesterReport: matchingSemesterReport,
