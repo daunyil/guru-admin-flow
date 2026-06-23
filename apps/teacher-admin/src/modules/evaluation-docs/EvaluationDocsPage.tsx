@@ -259,7 +259,7 @@ export function EvaluationDocsPage() {
               <CardHeader title="Rincian Minggu Efektif" description="Generate dari kalender + jadwal semester." />
               <div className="flex gap-3 items-end">
                 <Input label="JP per Minggu" id="ev-jp" type="number" value={String(jpPerWeek)} onChange={(v) => setJpPerWeek(Number(v) || 3)} hint="Default 3 JP/minggu." />
-                <Button onClick={handleGenerateWeeks}>Generate Minggu Efektif</Button>
+                <Button onClick={handleGenerateWeeks}>Hitung Minggu Efektif</Button>
               </div>
               {effectiveWeeks.length > 0 && (
                 <div className="mt-4 space-y-3">
