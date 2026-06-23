@@ -14,7 +14,7 @@
 
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Card, CardHeader, Input, Select, Button, EmptyState, Badge, ContextCard, InfoCard } from "../../shared/ui";
+import { Card, CardHeader, Input, Select, Button, EmptyState, Badge, ContextCard, InfoCard, PrintExportButtons } from "../../shared/ui";
 import { getLessonSessionsByDate, getLessonSession, findOrCreateManualSession, listLessonSessions } from "../../shared/db/lesson-session-repo";
 import {
   initAttendanceForSession,
@@ -753,7 +753,7 @@ function AttendanceEditor({
             </table>
           </div>
           <div className="print-toolbar">
-            <Button onClick={() => window.print()}>Cetak</Button>
+            <PrintExportButtons filename={`absensi-${roster.classLabel}-${formatLongDateID(session?.date ?? date)}`} title="Daftar Hadir Siswa" />
           </div>
         </div>
       )}

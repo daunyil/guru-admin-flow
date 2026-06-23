@@ -11,7 +11,7 @@
  */
 
 import { useEffect, useState } from "react";
-import { Card, CardHeader, Select, Button, EmptyState, Badge, InfoCard } from "../../shared/ui";
+import { Card, CardHeader, Select, Button, EmptyState, Badge, InfoCard, PrintExportButtons } from "../../shared/ui";
 import {
   generateAndSaveSemesterReport,
   finalizeSemesterReport,
@@ -198,7 +198,7 @@ export function SemesterReportPage() {
               </Button>
             )}
             {report && showDocument && (
-              <Button variant="secondary" onClick={() => window.print()}>Cetak</Button>
+              <PrintExportButtons filename={`laporan-${report.classLabel || report.grade}-${report.subject}-${report.semester === 1 ? "ganjil" : "genap"}`.replace(/\s+/g, "-")} title="Laporan Akhir Semester" schoolName={school?.name} />
             )}
           </div>
         </div>

@@ -13,7 +13,7 @@
  */
 
 import { useEffect, useState } from "react";
-import { Card, CardHeader, Input, Textarea, Button, EmptyState, Badge, Select, InfoCard } from "../../shared/ui";
+import { Card, CardHeader, Input, Textarea, Button, EmptyState, Badge, Select, InfoCard, PrintExportButtons } from "../../shared/ui";
 import { getActiveAcademicYear, getTeacherProfile, getSchoolProfile } from "../../shared/db/profile-repo";
 import { listATPEntries } from "../../shared/db/atp-entry-repo";
 import {
@@ -502,7 +502,7 @@ function LKPDPreview({
         </div>
       </div>
       <div className="flex gap-2 mt-4">
-        <Button onClick={() => window.print()}>Cetak</Button>
+        <PrintExportButtons filename="lkpd" title="LKPD" schoolName={schoolName} />
         <Button variant="secondary" onClick={onClose}>Tutup</Button>
       </div>
     </Card>

@@ -6,6 +6,8 @@
 import { type ReactNode } from "react";
 
 export { ContextCard, InfoCard } from "./ContextCard";
+export { downloadHTML, generateStandaloneHTML } from "./html-export";
+export { PrintExportButtons } from "./PrintExportButtons";
 
 export function Card({ children, className = "" }: { children: ReactNode; className?: string }) {
   return <div className={`card p-5 ${className}`}>{children}</div>;
