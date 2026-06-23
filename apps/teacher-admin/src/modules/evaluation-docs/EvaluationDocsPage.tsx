@@ -50,6 +50,7 @@ export function EvaluationDocsPage() {
   const [selectedTpIds, setSelectedTpIds] = useState<Set<string>>(new Set());
   const [pgCount, setPgCount] = useState(5);
   const [essayCount, setEssayCount] = useState(2);
+  const [jpPerWeek, setJpPerWeek] = useState(3);
 
   // Blueprint prompt + parse
   const [blueprintPrompt, setBlueprintPrompt] = useState("");
@@ -116,7 +117,7 @@ export function EvaluationDocsPage() {
     void (async () => {
       const cal = await listCalendarEvents(year.id);
       const blocking = cal.filter((e) => e.blocksLearning).map((e) => ({ startDate: e.startDate, endDate: e.endDate, label: e.label }));
-      const weeks = generateEffectiveWeeks({ semesterStart: semStart, semesterEnd: semEnd, blockingEvents: blocking, jpPerWeek: 2 });
+      const weeks = generateEffectiveWeeks({ semesterStart: semStart, semesterEnd: semEnd, blockingEvents: blocking, jpPerWeek });
       setEffectiveWeeks(weeks);
       setMessage({ type: "success", text: `${weeks.length} minggu dihitung. ${weeks.filter(w => w.isEffective).length} efektif.` });
     })();
@@ -148,8 +149,7 @@ export function EvaluationDocsPage() {
   function handleParseBlueprint() {
     const a = selectedAssignment();
     if (!a) return;
-    const total = pgCount + essayCount;
-    const result = parseBlueprintAIJson(blueprintJsonInput, Array.from(selectedTpIds), total);
+    const result = parseBlueprintAIJson(blueprintJsonInput, Array.from(selectedTpIds), pgCount, essayCount);
     setBlueprintResult(result);
     if (result.success) {
       setMessage({ type: "success", text: `Kisi-kisi valid. ${result.blueprints!.length} kelompok soal.` });
@@ -257,7 +257,10 @@ export function EvaluationDocsPage() {
           {tab === "minggu-efektif" && (
             <Card>
               <CardHeader title="Rincian Minggu Efektif" description="Generate dari kalender + jadwal semester." />
-              <Button onClick={handleGenerateWeeks}>Generate Minggu Efektif</Button>
+              <div className="flex gap-3 items-end">
+                <Input label="JP per Minggu" id="ev-jp" type="number" value={String(jpPerWeek)} onChange={(v) => setJpPerWeek(Number(v) || 3)} hint="Default 3 JP/minggu." />
+                <Button onClick={handleGenerateWeeks}>Generate Minggu Efektif</Button>
+              </div>
               {effectiveWeeks.length > 0 && (
                 <div className="mt-4 space-y-3">
                   <div className="grid grid-cols-3 gap-3 text-center">

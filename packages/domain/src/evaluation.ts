@@ -202,12 +202,25 @@ export type ParseBlueprintResult = {
 /**
  * Parse JSON kisi-kisi dari Claude.
  * Validasi: nomor soal terpakai semua, tidak dobel, tpId valid, cognitiveLevel valid.
+ *
+ * PATCH-2: validasi PG/esai range.
+ *   - Nomor 1..multipleChoiceCount wajib questionType "pg".
+ *   - Nomor (multipleChoiceCount+1)..total wajib questionType "esai".
  */
 export function parseBlueprintAIJson(
   input: string,
   validTpIds: string[],
-  expectedTotal: number
+  multipleChoiceCount: number,
+  essayCount: number
 ): ParseBlueprintResult {
+  const expectedTotal = multipleChoiceCount + essayCount;
+  // Range PG: 1..multipleChoiceCount
+  // Range Esai: (multipleChoiceCount+1)..expectedTotal
+  const pgRange = new Set<number>();
+  for (let n = 1; n <= multipleChoiceCount; n++) pgRange.add(n);
+  const essayRange = new Set<number>();
+  for (let n = multipleChoiceCount + 1; n <= expectedTotal; n++) essayRange.add(n);
+
   const errors: string[] = [];
 
   let parsed: unknown;
@@ -259,6 +272,14 @@ export function parseBlueprintAIJson(
           bpErrors.push(`Blueprint ${i + 1}: nomor soal ${n} dobel`);
         }
         allNumbers.push(n as number);
+
+        // PATCH-2: validasi PG/esai range
+        if (qType === "pg" && essayRange.has(n as number)) {
+          bpErrors.push(`Blueprint ${i + 1}: nomor ${n} adalah range esai (${multipleChoiceCount + 1}-${expectedTotal}), bukan PG`);
+        }
+        if (qType === "esai" && pgRange.has(n as number)) {
+          bpErrors.push(`Blueprint ${i + 1}: nomor ${n} adalah range PG (1-${multipleChoiceCount}), bukan esai`);
+        }
       }
     }
 
@@ -282,6 +303,16 @@ export function parseBlueprintAIJson(
     if (!allNumbers.includes(n)) {
       errors.push(`Nomor soal ${n} belum terpakai di kisi-kisi`);
     }
+  }
+
+  // PATCH-2: cek jumlah PG dan esai sesuai
+  const pgCount = allNumbers.filter((n) => pgRange.has(n)).length;
+  const essayCountActual = allNumbers.filter((n) => essayRange.has(n)).length;
+  if (pgCount !== multipleChoiceCount) {
+    errors.push(`Jumlah soal PG: ${pgCount}, seharusnya ${multipleChoiceCount}`);
+  }
+  if (essayCountActual !== essayCount) {
+    errors.push(`Jumlah soal esai: ${essayCountActual}, seharusnya ${essayCount}`);
   }
 
   if (errors.length > 0) {
@@ -389,15 +420,19 @@ export type ParseQuestionCardResult = {
 /**
  * Parse JSON kartu soal dari Claude.
  * Validasi: nomor sesuai blueprint, PG wajib opsi A-D + answerKey, esai wajib pedoman.
+ *
+ * PATCH-2: validasi PG/esai type match.
+ *   - Jika questionNumber ada di pgNumbers, questionType wajib "pg".
+ *   - Jika questionNumber ada di essayNumbers, questionType wajib "esai".
  */
 export function parseQuestionCardAIJson(
   input: string,
   expectedNumbers: number[],
-  _pgNumbers: number[],
-  _essayNumbers: number[]
+  pgNumbers: number[],
+  essayNumbers: number[]
 ): ParseQuestionCardResult {
-  void _pgNumbers;
-  void _essayNumbers;
+  const pgSet = new Set(pgNumbers);
+  const essaySet = new Set(essayNumbers);
   const errors: string[] = [];
 
   let parsed: unknown;
@@ -445,6 +480,14 @@ export function parseQuestionCardAIJson(
     const score = Number(q.score);
     if (!score || score <= 0) {
       qErrors.push(`Soal ${i + 1}: score harus angka positif`);
+    }
+
+    // PATCH-2: validasi PG/esai type match
+    if (pgSet.has(qNum) && qType !== "pg") {
+      qErrors.push(`Soal ${i + 1}: nomor ${qNum} adalah PG, tetapi questionType "${qType}" (harus "pg")`);
+    }
+    if (essaySet.has(qNum) && qType !== "esai") {
+      qErrors.push(`Soal ${i + 1}: nomor ${qNum} adalah esai, tetapi questionType "${qType}" (harus "esai")`);
     }
 
     // PG validation

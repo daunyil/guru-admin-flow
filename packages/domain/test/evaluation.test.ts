@@ -55,7 +55,7 @@ describe("evaluation — parseBlueprintAIJson", () => {
         { tpId: "tp2", tpText: "TP2", cognitiveLevel: "C5", questionType: "esai", questionNumbers: [6, 7] },
       ],
     });
-    const result = parseBlueprintAIJson(json, ["tp1", "tp2"], 7);
+    const result = parseBlueprintAIJson(json, ["tp1", "tp2"], 5, 2);
     expect(result.success).toBe(true);
     expect(result.blueprints!.length).toBe(3);
   });
@@ -67,7 +67,7 @@ describe("evaluation — parseBlueprintAIJson", () => {
         { tpId: "tp2", tpText: "TP2", cognitiveLevel: "C2", questionType: "pg", questionNumbers: [2, 3] },
       ],
     });
-    const result = parseBlueprintAIJson(json, ["tp1", "tp2"], 3);
+    const result = parseBlueprintAIJson(json, ["tp1", "tp2"], 3, 0);
     expect(result.success).toBe(false);
     expect(result.errors.some((e) => e.includes("dobel"))).toBe(true);
   });
@@ -78,7 +78,7 @@ describe("evaluation — parseBlueprintAIJson", () => {
         { tpId: "tp1", tpText: "TP1", cognitiveLevel: "C1", questionType: "pg", questionNumbers: [1, 2] },
       ],
     });
-    const result = parseBlueprintAIJson(json, ["tp1"], 5);
+    const result = parseBlueprintAIJson(json, ["tp1"], 5, 0);
     expect(result.success).toBe(false);
     expect(result.errors.some((e) => e.includes("belum terpakai"))).toBe(true);
   });
@@ -89,7 +89,7 @@ describe("evaluation — parseBlueprintAIJson", () => {
         { tpId: "tp1", tpText: "TP1", cognitiveLevel: "C7", questionType: "pg", questionNumbers: [1] },
       ],
     });
-    const result = parseBlueprintAIJson(json, ["tp1"], 1);
+    const result = parseBlueprintAIJson(json, ["tp1"], 1, 0);
     expect(result.success).toBe(false);
     expect(result.errors.some((e) => e.includes("C7"))).toBe(true);
   });
@@ -100,13 +100,13 @@ describe("evaluation — parseBlueprintAIJson", () => {
         { tpId: "tp-lain", tpText: "TP", cognitiveLevel: "C1", questionType: "pg", questionNumbers: [1] },
       ],
     });
-    const result = parseBlueprintAIJson(json, ["tp1", "tp2"], 1);
+    const result = parseBlueprintAIJson(json, ["tp1", "tp2"], 1, 0);
     expect(result.success).toBe(false);
     expect(result.errors.some((e) => e.includes("tp-lain"))).toBe(true);
   });
 
   it("tolak JSON tidak valid", () => {
-    const result = parseBlueprintAIJson("bukan json", ["tp1"], 1);
+    const result = parseBlueprintAIJson("bukan json", ["tp1"], 1, 0);
     expect(result.success).toBe(false);
     expect(result.errors[0]).toContain("JSON tidak valid");
   });
@@ -248,5 +248,88 @@ describe("evaluation — generateEffectiveWeeks", () => {
     const effectiveWeeks = weeks.filter((w) => w.isEffective);
     expect(effectiveWeeks.length).toBeGreaterThan(0);
     expect(effectiveWeeks[0].effectiveJP).toBe(3);
+  });
+});
+
+describe("evaluation — PATCH-2: PG/esai mismatch validation", () => {
+  it("tolak blueprint: nomor PG diberi tipe esai", () => {
+    // PG = 1-5, esai = 6-7. Nomor 1 diberi tipe "esai" → harus error.
+    const json = JSON.stringify({
+      blueprints: [
+        { tpId: "tp1", tpText: "TP1", cognitiveLevel: "C1", questionType: "esai", questionNumbers: [1] }, // SALAH: 1 = PG range
+        { tpId: "tp1", tpText: "TP1", cognitiveLevel: "C2", questionType: "pg", questionNumbers: [2, 3, 4, 5] },
+        { tpId: "tp2", tpText: "TP2", cognitiveLevel: "C4", questionType: "esai", questionNumbers: [6, 7] },
+      ],
+    });
+    const result = parseBlueprintAIJson(json, ["tp1", "tp2"], 5, 2);
+    expect(result.success).toBe(false);
+    expect(result.errors.some((e) => e.includes("range PG") && e.includes("bukan esai"))).toBe(true);
+  });
+
+  it("tolak blueprint: nomor esai diberi tipe pg", () => {
+    // PG = 1-5, esai = 6-7. Nomor 6 diberi tipe "pg" → harus error.
+    const json = JSON.stringify({
+      blueprints: [
+        { tpId: "tp1", tpText: "TP1", cognitiveLevel: "C1", questionType: "pg", questionNumbers: [1, 2, 3, 4, 5] },
+        { tpId: "tp2", tpText: "TP2", cognitiveLevel: "C2", questionType: "pg", questionNumbers: [6] }, // SALAH: 6 = esai range
+        { tpId: "tp2", tpText: "TP2", cognitiveLevel: "C4", questionType: "esai", questionNumbers: [7] },
+      ],
+    });
+    const result = parseBlueprintAIJson(json, ["tp1", "tp2"], 5, 2);
+    expect(result.success).toBe(false);
+    expect(result.errors.some((e) => e.includes("range esai") && e.includes("bukan PG"))).toBe(true);
+  });
+
+  it("tolak blueprint: jumlah PG tidak sesuai", () => {
+    // Expected: 3 PG + 2 esai = 5 total. Tapi JSON beri 2 PG + 3 esai (nomor 3 diberi tipe esai).
+    const json = JSON.stringify({
+      blueprints: [
+        { tpId: "tp1", tpText: "TP1", cognitiveLevel: "C1", questionType: "pg", questionNumbers: [1, 2] },
+        { tpId: "tp2", tpText: "TP2", cognitiveLevel: "C4", questionType: "esai", questionNumbers: [3] }, // SALAH: 3 = PG range
+        { tpId: "tp2", tpText: "TP2", cognitiveLevel: "C5", questionType: "esai", questionNumbers: [4, 5] },
+      ],
+    });
+    const result = parseBlueprintAIJson(json, ["tp1", "tp2"], 3, 2);
+    expect(result.success).toBe(false);
+    expect(result.errors.some((e) => e.includes("range PG") || e.includes("Jumlah soal PG"))).toBe(true);
+  });
+
+  it("tolak kartu soal: nomor PG diberi tipe esai", () => {
+    const json = JSON.stringify({
+      questions: [
+        { questionNumber: 1, questionType: "esai", cognitiveLevel: "C1", stem: "Jelaskan!", essayAnswerGuide: "Guide", score: 10 },
+        { questionNumber: 2, questionType: "pg", cognitiveLevel: "C2", stem: "Apa?", options: { A: "a", B: "b", C: "c", D: "d" }, answerKey: "A", score: 2 },
+      ],
+    });
+    // Nomor 1 = PG, tapi diberi tipe esai → harus error
+    const result = parseQuestionCardAIJson(json, [1, 2], [1, 2], []);
+    expect(result.success).toBe(false);
+    expect(result.errors.some((e) => e.includes("nomor 1 adalah PG") && e.includes("esai"))).toBe(true);
+  });
+
+  it("tolak kartu soal: nomor esai diberi tipe pg", () => {
+    const json = JSON.stringify({
+      questions: [
+        { questionNumber: 1, questionType: "pg", cognitiveLevel: "C1", stem: "Apa?", options: { A: "a", B: "b", C: "c", D: "d" }, answerKey: "A", score: 2 },
+        { questionNumber: 2, questionType: "pg", cognitiveLevel: "C2", stem: "Apa?", options: { A: "a", B: "b", C: "c", D: "d" }, answerKey: "B", score: 2 },
+        { questionNumber: 3, questionType: "pg", cognitiveLevel: "C4", stem: "Apa?", options: { A: "a", B: "b", C: "c", D: "d" }, answerKey: "C", score: 2 },
+      ],
+    });
+    // Nomor 3 = esai, tapi diberi tipe pg → harus error
+    const result = parseQuestionCardAIJson(json, [1, 2, 3], [1, 2], [3]);
+    expect(result.success).toBe(false);
+    expect(result.errors.some((e) => e.includes("nomor 3 adalah esai") && e.includes("pg"))).toBe(true);
+  });
+
+  it("terima blueprint: semua PG dan esai benar", () => {
+    const json = JSON.stringify({
+      blueprints: [
+        { tpId: "tp1", tpText: "TP1", cognitiveLevel: "C1", questionType: "pg", questionNumbers: [1, 2, 3] },
+        { tpId: "tp2", tpText: "TP2", cognitiveLevel: "C4", questionType: "esai", questionNumbers: [4, 5] },
+      ],
+    });
+    const result = parseBlueprintAIJson(json, ["tp1", "tp2"], 3, 2);
+    expect(result.success).toBe(true);
+    expect(result.blueprints!.length).toBe(2);
   });
 });
