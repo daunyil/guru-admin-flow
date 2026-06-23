@@ -1227,3 +1227,69 @@ Stage Summary:
 - 12 file changed (3 baru, 9 modifikasi).
 - Status: READY FOR SENIOR AUDIT.
 - Push PENDING: butuh token.
+
+---
+
+Task ID: AI-PROMPT-BRIDGE-RC1
+Agent: main (AI-PROMPT-BRIDGE-RC1 batch execution)
+Task: AI Prompt Bridge untuk perangkat evaluasi: Minggu Efektif, Kisi-kisi, Kartu Soal.
+
+Work Log:
+- Branch: ai-prompt-bridge-rc1 dari main (ba1a86c).
+- Domain layer:
+  - packages/domain/src/evaluation.ts (NEW): 4 entitas + 5 pure functions
+    - EffectiveWeekDocument: schema + EffectiveWeekItem
+    - AssessmentPlan: schema + AssessmentType (sumatif/pts/pas/uas)
+    - QuestionBlueprint: schema + CognitiveLevel (C1-C6) + QuestionType (pg/esai)
+    - QuestionCard: schema + options A-D + answerKey + essayAnswerGuide
+    - generateBlueprintPrompt: prompt untuk Claude minta kisi-kisi JSON
+    - parseBlueprintAIJson: parse + validasi (nomor terpakai, tidak dobel, tpId valid, cognitiveLevel valid)
+    - generateQuestionCardPrompt: prompt untuk Claude minta kartu soal JSON
+    - parseQuestionCardAIJson: parse + validasi (PG wajib opsi A-D + answerKey, esai wajib pedoman)
+    - generateEffectiveWeeks: generator minggu efektif dari semester + kalender (tidak crash kalau kosong)
+  - packages/domain/src/index.ts: export semua types + functions.
+- Domain tests:
+  - test/evaluation.test.ts (NEW): 18 test
+    - generateBlueprintPrompt (2): berisi data wajib, berisi TP
+    - parseBlueprintAIJson (6): valid, dobel, kurang, cognitiveLevel invalid, tpId invalid, JSON invalid
+    - generateQuestionCardPrompt (1): berisi nomor + tipe
+    - parseQuestionCardAIJson (5): PG valid, tanpa opsi, tanpa answerKey, esai valid, tanpa pedoman
+    - generateEffectiveWeeks (4): tidak crash kosong, blocking event, tanggal invalid, effectiveJP
+- App UI layer:
+  - modules/evaluation-docs/EvaluationDocsPage.tsx (NEW): halaman /evaluation-docs
+    - 3 tab: Minggu Efektif, Kisi-kisi Soal, Kartu Soal
+    - Tab Minggu Efektif: generate dari kalender + semester, tabel + summary + Mode Dokumen + cetak
+    - Tab Kisi-kisi: pilih TP + assessment plan form + generate prompt + copy + paste JSON + parse + preview
+    - Tab Kartu Soal: generate prompt dari blueprint + copy + paste JSON + parse + preview + Mode Dokumen + cetak
+    - PrintExportButtons untuk Minggu Efektif + Kartu Soal
+    - InfoCard konteks assignment
+    - filterATPForAssignment untuk filter TP by assignment
+  - App.tsx: + route /evaluation-docs (26 routes total)
+  - AppShell.tsx: + menu "Perangkat Evaluasi"
+
+Verifikasi:
+- Typecheck: 3 workspace PASS, 0 error.
+- Test: 344/344 PASS (321 domain + 23 shared). +18 test baru.
+- Build: ROOT npm run build PASS — vite build 2.94s.
+
+Stage Summary:
+- 15 AC terpenuhi:
+  1. Menu Perangkat Evaluasi tersedia ✅
+  2. Bisa pilih Data Mengajar ✅
+  3. Bisa pilih TP ✅
+  4. Bisa generate prompt kisi-kisi ✅
+  5. Bisa copy prompt ✅
+  6. Bisa paste JSON Claude dan import kisi-kisi ✅
+  7. Bisa preview kisi-kisi ✅
+  8. Bisa generate prompt kartu soal ✅
+  9. Bisa paste JSON Claude dan import kartu soal ✅
+  10. Bisa preview kartu soal ✅
+  11. Bisa generate rincian minggu efektif draft ✅
+  12. Bisa print/download HTML ✅
+  13. Typecheck PASS ✅
+  14. Test PASS ✅
+  15. Build PASS ✅
+- 6 file changed (3 baru, 3 modifikasi).
+- Tidak Supabase. Tidak Cloud SQL. Tidak API Claude langsung. Tidak PDF/Word.
+- Status: READY FOR SENIOR AUDIT.
+- Push PENDING: butuh token.
