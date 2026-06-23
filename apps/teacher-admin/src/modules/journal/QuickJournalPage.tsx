@@ -15,7 +15,7 @@
 
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Card, CardHeader, Input, Textarea, Button, EmptyState, Badge, Select, ContextCard } from "../../shared/ui";
+import { Card, CardHeader, Input, Textarea, Button, EmptyState, Badge, Select, ContextCard, PrintExportButtons } from "../../shared/ui";
 import {
   getLessonSessionsByDate,
   getLessonSession,
@@ -769,7 +769,7 @@ function QuickJournalEditor({
             </div>
           </div>
           <div className="print-toolbar">
-            <Button onClick={() => window.print()}>Cetak</Button>
+            <PrintExportButtons filename={`jurnal-${journal.classLabel}-${journal.date}`} title="Jurnal Mengajar" />
           </div>
         </div>
       )}

@@ -9,7 +9,7 @@
  */
 
 import { useEffect, useState } from "react";
-import { Card, CardHeader, Input, Select, Button, EmptyState, Badge } from "../../shared/ui";
+import { Card, CardHeader, Input, Select, Button, EmptyState, Badge, PrintExportButtons } from "../../shared/ui";
 import { listProtaProfiles } from "../../shared/db/prota-repo";
 import { listCalendarEvents } from "../../shared/db/calendar-repo";
 import { getActiveAcademicYear, getSchoolProfile, getTeacherProfile } from "../../shared/db/profile-repo";
@@ -283,7 +283,7 @@ function ResultView({
       <div>
         <div className="print-toolbar">
           <Button variant="secondary" onClick={onToggleMode}>Mode Kerja</Button>
-          <Button onClick={() => window.print()}>Cetak</Button>
+          <PrintExportButtons filename="promes" title="Program Semester" schoolName={schoolName} />
         </div>
         <div className="print-area">
           <div className="document-page document-landscape">

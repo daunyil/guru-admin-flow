@@ -270,41 +270,63 @@
 }
 
 @media print {
-  .no-print {
-    display: none !important;
-  }
+  /* PRINT-EXPORT-POLISH-RC1: print CSS rapi seperti administrasi guru nyata */
 
+  /* Hide all non-print elements */
+  .no-print,
   header,
   nav,
   footer,
   .btn,
   .badge,
   .AppShell-header,
-  .AppShell-nav {
+  .AppShell-nav,
+  .siakad-header,
+  .print-toolbar {
     display: none !important;
   }
 
+  /* Show only print area */
   .print-area {
     display: block !important;
   }
 
+  /* Reset body for print */
   body {
     background: white !important;
     color: black !important;
     font-size: 11pt;
+    margin: 0;
+    padding: 0;
   }
 
+  /* Reset main container */
   main {
     padding: 0 !important;
     max-width: 100% !important;
+    margin: 0 !important;
+  }
+
+  /* A4 page settings */
+  @page {
+    size: A4 portrait;
+    margin: 1.5cm 2cm;
   }
 
   .document-page {
     padding: 0 !important;
     max-width: 100% !important;
     margin: 0 !important;
+    box-shadow: none !important;
   }
 
+  .document-landscape {
+    @page {
+      size: A4 landscape;
+    }
+  }
+
+  /* Tables */
   table {
     width: 100% !important;
     border-collapse: collapse !important;
@@ -313,19 +335,47 @@
   th,
   td {
     border: 1px solid black !important;
-    padding: 4pt !important;
+    padding: 4pt 6pt !important;
     font-size: 10pt;
   }
 
+  /* Headings: avoid page break after */
   h1,
   h2,
   h3,
-  h4 {
+  h4,
+  .document-title,
+  .document-section-title {
     page-break-after: avoid;
     color: black !important;
   }
 
+  /* Table rows: avoid breaking inside */
   tr {
     page-break-inside: avoid;
+  }
+
+  /* Signature block: keep together */
+  .signature-grid {
+    page-break-inside: avoid;
+  }
+
+  /* Card backgrounds: remove for print */
+  .card {
+    border: none !important;
+    box-shadow: none !important;
+    background: white !important;
+  }
+
+  /* Info banners: hide in print */
+  .info-banner-success,
+  .info-banner-error,
+  .info-banner-warning {
+    display: none !important;
+  }
+
+  /* Document identity: keep on same page as following content */
+  .document-identity {
+    page-break-after: avoid;
   }
 }

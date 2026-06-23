@@ -8,7 +8,7 @@
  */
 
 import { useEffect, useState } from "react";
-import { Card, CardHeader, Input, Textarea, Button, EmptyState, Badge, Select, InfoCard } from "../../shared/ui";
+import { Card, CardHeader, Input, Textarea, Button, EmptyState, Badge, Select, InfoCard, PrintExportButtons } from "../../shared/ui";
 import { getActiveAcademicYear, getTeacherProfile, getSchoolProfile } from "../../shared/db/profile-repo";
 import { listAssignmentsByTeacher } from "../../shared/db/teaching-assignment-repo";
 import { findGradeBook } from "../../shared/db/gradebook-repo";
@@ -350,7 +350,7 @@ export function EnrichmentPage() {
                   {showDocument ? "Mode Kerja" : "Mode Dokumen"}
                 </Button>
                 {showDocument && (
-                  <Button variant="secondary" onClick={() => window.print()}>Cetak</Button>
+                  <PrintExportButtons filename={`pengayaan-${program.classLabel}-${program.subject}`.replace(/\s+/g, "-")} title="Program Pengayaan" schoolName={school?.name} />
                 )}
                 <Button variant="danger" onClick={handleDelete}>Hapus</Button>
               </div>

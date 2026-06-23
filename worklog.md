@@ -1182,3 +1182,48 @@ Stage Summary:
 - 5 file changed (2 baru, 3 modifikasi).
 - Status: READY FOR SENIOR AUDIT.
 - Push PENDING: butuh token.
+
+---
+
+Task ID: PRINT-EXPORT-POLISH-RC1
+Agent: main (PRINT-EXPORT-POLISH-RC1 batch execution)
+Task: Polish print CSS + tambah HTML export untuk dokumen administrasi.
+
+Work Log:
+- Branch: print-export-polish-rc1 dari main (bb48341).
+- Print CSS polish (index.css):
+  - @page A4 portrait with 1.5cm 2cm margin
+  - @page A4 landscape untuk document-landscape
+  - Hide: .siakad-header, .print-toolbar, .info-banner-* in print
+  - page-break-after: avoid untuk headings + document-title + document-section-title
+  - page-break-inside: avoid untuk tr + .signature-grid + .document-identity
+  - Reset .card (border none, box-shadow none, bg white)
+  - Reset body margin/padding to 0
+  - Reset main padding/max-width/margin to 0
+- HTML export helper:
+  - shared/ui/html-export.ts (NEW): generateStandaloneHTML + downloadHTML.
+    Standalone HTML dengan inline CSS (bisa dibuka tanpa internet/Word).
+  - shared/ui/PrintExportButtons.tsx (NEW): reusable component dengan tombol Cetak + Download HTML.
+    Auto-grab .print-area .document-page content untuk download.
+  - shared/ui/index.tsx: export downloadHTML, generateStandaloneHTML, PrintExportButtons.
+- Pasang PrintExportButtons di 7 halaman dokumen utama:
+  1. AutoDocumentPage (Mode Dokumen) — paket administrasi
+  2. LKPDPage (Preview) — LKPD
+  3. RemedialPage (Mode Dokumen) — program remedial
+  4. EnrichmentPage (Mode Dokumen) — program pengayaan
+  5. SemesterReportPage (Mode Dokumen) — laporan akhir semester
+  6. QuickJournalPage (Mode Dokumen) — jurnal mengajar
+  7. QuickAttendancePage (Mode Dokumen) — daftar hadir siswa
+  8. PromesPage (Mode Dokumen) — program semester
+- Tidak PDF (butuh library = roadmap berikutnya).
+- Tidak Word .docx (butuh library = roadmap berikutnya).
+
+Verifikasi:
+- Typecheck: 3 workspace PASS, 0 error.
+- Test: 326/326 PASS (303 domain + 23 shared). Tidak ada test baru (focus UI/CSS).
+- Build: ROOT npm run build PASS — vite build 3.44s.
+
+Stage Summary:
+- 12 file changed (3 baru, 9 modifikasi).
+- Status: READY FOR SENIOR AUDIT.
+- Push PENDING: butuh token.

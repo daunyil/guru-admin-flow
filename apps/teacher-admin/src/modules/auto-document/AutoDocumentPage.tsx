@@ -14,7 +14,7 @@
 
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Card, CardHeader, Button, EmptyState, Badge, Select, InfoCard } from "../../shared/ui";
+import { Card, CardHeader, Button, EmptyState, Badge, Select, InfoCard, downloadHTML } from "../../shared/ui";
 import { getActiveAcademicYear, getTeacherProfile, getSchoolProfile } from "../../shared/db/profile-repo";
 import { listAssignmentsByTeacher } from "../../shared/db/teaching-assignment-repo";
 import { listProtaProfiles } from "../../shared/db/prota-repo";
@@ -334,7 +334,20 @@ export function AutoDocumentPage() {
                 {showDocument ? "Mode Ringkasan" : "Mode Dokumen (Cetak)"}
               </Button>
               {showDocument && (
-                <Button variant="secondary" onClick={() => window.print()}>Cetak</Button>
+                <>
+                  <Button variant="secondary" onClick={() => window.print()}>Cetak</Button>
+                  <Button variant="secondary" onClick={() => {
+                    const docEl = document.querySelector(".print-area .document-page");
+                    if (docEl) {
+                      downloadHTML({
+                        filename: `paket-administrasi-${pkg?.assignment.classLabel}-${pkg?.assignment.subject}`.replace(/\s+/g, "-"),
+                        title: "Paket Administrasi Guru",
+                        content: docEl.innerHTML,
+                        schoolName: school?.name,
+                      });
+                    }
+                  }}>Download HTML</Button>
+                </>
               )}
             </div>
           </Card>
