@@ -388,6 +388,11 @@ async function importNilaiFromAppsScript(
         studentId: e.studentId,
         studentName: e.studentName,
         studentNumber: e.studentNumber,
+        // V2 KD fields (Apps Script V2 mungkin kirim kd1-kd6/pts/pas di future)
+        kd1: null, kd2: null, kd3: null, kd4: null, kd5: null, kd6: null,
+        pts: null, pas: null,
+        averageKd: null,
+        // Legacy fields (Apps Script saat ini kirim dailyScore/summativeScore/finalScore)
         dailyScore: e.dailyScore ?? null,
         assignmentScore: null,
         summativeScore: e.summativeScore ?? null,

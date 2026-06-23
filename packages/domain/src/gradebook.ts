@@ -76,15 +76,13 @@ function normalizeScore(value: number | null | undefined): number | null {
 }
 
 /**
- * Hitung Nilai Akhir dari KD1-KD6 + PTS + PAS.
+ * Hitung Nilai Akhir.
  *
- * Bobot default:
- *   - Rata-rata KD: 40%
- *   - PTS: 25%
- *   - PAS: 35%
- *
- * Bila salah satu kosong, bobotnya didistribusikan ke yang ada.
- * Bila semua kosong → null.
+ * Strategi:
+ *   1. Jika ada KD/PTS/PAS → pakai rumus V2 (avg KD 40% + PTS 25% + PAS 35%).
+ *   2. Jika tidak ada KD/PTS/PAS tapi ada finalScore lama → gunakan finalScore lama.
+ *   3. Jika tidak ada finalScore lama tapi ada daily/summative/assignment → pakai rata-rata legacy.
+ *   4. Jika semua kosong → incomplete.
  */
 export function calculateGradeEntry(
   entry: GradeEntry,
@@ -100,6 +98,13 @@ export function calculateGradeEntry(
   const pts = normalizeScore(entry.pts);
   const pas = normalizeScore(entry.pas);
 
+  // Normalize legacy scores
+  const dailyScore = normalizeScore(entry.dailyScore);
+  const assignmentScore = normalizeScore(entry.assignmentScore);
+  const summativeScore = normalizeScore(entry.summativeScore);
+  const remedialScore = normalizeScore(entry.remedialScore);
+  const legacyFinalScore = normalizeScore(entry.finalScore);
+
   // Hitung rata-rata KD
   const kdScores = [kd1, kd2, kd3, kd4, kd5, kd6].filter(
     (s): s is number => s !== null
@@ -108,43 +113,76 @@ export function calculateGradeEntry(
     ? Math.round((kdScores.reduce((sum, s) => sum + s, 0) / kdScores.length) * 100) / 100
     : null;
 
-  // Hitung Nilai Akhir dengan bobot
-  // Bobot: KD avg 40%, PTS 25%, PAS 35%
-  const components: Array<{ score: number | null; weight: number }> = [
-    { score: averageKd, weight: 40 },
-    { score: pts, weight: 25 },
-    { score: pas, weight: 35 },
-  ];
+  // Coba V2: KD + PTS + PAS
+  const hasV2Data = averageKd !== null || pts !== null || pas !== null;
 
-  const availableComponents = components.filter((c) => c.score !== null);
-  if (availableComponents.length === 0) {
+  if (hasV2Data) {
+    // Bobot: KD avg 40%, PTS 25%, PAS 35%
+    const components: Array<{ score: number | null; weight: number }> = [
+      { score: averageKd, weight: 40 },
+      { score: pts, weight: 25 },
+      { score: pas, weight: 35 },
+    ];
+    const availableComponents = components.filter((c) => c.score !== null);
+    const totalWeight = availableComponents.reduce((sum, c) => sum + c.weight, 0);
+    const finalScore = Math.round(
+      (availableComponents.reduce((sum, c) => sum + (c.score as number) * c.weight, 0) / totalWeight) * 100
+    ) / 100;
+    const status: GradeEntryStatus = finalScore >= passingScore ? "complete" : "remedial";
+
+    return {
+      ...entry,
+      kd1, kd2, kd3, kd4, kd5, kd6,
+      pts, pas,
+      averageKd,
+      finalScore,
+      averageScore: averageKd,
+      status,
+    };
+  }
+
+  // Fallback 1: finalScore lama (dari Apps Script import)
+  if (legacyFinalScore !== null) {
+    const status: GradeEntryStatus = legacyFinalScore >= passingScore ? "complete" : "remedial";
     return {
       ...entry,
       kd1, kd2, kd3, kd4, kd5, kd6,
       pts, pas,
       averageKd: null,
-      finalScore: null,
+      finalScore: legacyFinalScore,
       averageScore: null,
-      status: "incomplete",
+      status,
     };
   }
 
-  // Distribusi bobot ke komponen yang ada
-  const totalWeight = availableComponents.reduce((sum, c) => sum + c.weight, 0);
-  const finalScore = Math.round(
-    (availableComponents.reduce((sum, c) => sum + (c.score as number) * c.weight, 0) / totalWeight) * 100
-  ) / 100;
+  // Fallback 2: rata-rata legacy (daily + assignment + summative)
+  const legacyScores = [dailyScore, assignmentScore, summativeScore].filter(
+    (s): s is number => s !== null
+  );
+  if (legacyScores.length > 0) {
+    const legacyAvg = Math.round((legacyScores.reduce((sum, s) => sum + s, 0) / legacyScores.length) * 100) / 100;
+    const finalScore = remedialScore !== null ? Math.max(legacyAvg, remedialScore) : legacyAvg;
+    const status: GradeEntryStatus = finalScore >= passingScore ? "complete" : "remedial";
+    return {
+      ...entry,
+      kd1, kd2, kd3, kd4, kd5, kd6,
+      pts, pas,
+      averageKd: null,
+      finalScore,
+      averageScore: legacyAvg,
+      status,
+    };
+  }
 
-  const status: GradeEntryStatus = finalScore >= passingScore ? "complete" : "remedial";
-
+  // Semua kosong → incomplete
   return {
     ...entry,
     kd1, kd2, kd3, kd4, kd5, kd6,
     pts, pas,
-    averageKd,
-    finalScore,
-    averageScore: averageKd, // legacy: averageScore = averageKd
-    status,
+    averageKd: null,
+    finalScore: null,
+    averageScore: null,
+    status: "incomplete",
   };
 }
 
