@@ -283,7 +283,7 @@ function ResultView({
       <div>
         <div className="print-toolbar">
           <Button variant="secondary" onClick={onToggleMode}>Mode Kerja</Button>
-          <PrintExportButtons filename="promes" title="Program Semester" schoolName={schoolName} />
+          <PrintExportButtons filename="promes" title="Program Semester" schoolName={schoolName} orientation="landscape" />
         </div>
         <div className="print-area">
           <div className="document-page document-landscape">

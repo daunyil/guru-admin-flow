@@ -11,13 +11,21 @@
 /**
  * Generate standalone HTML document dari content + title.
  * HTML ini include inline CSS supaya bisa dibuka tanpa internet.
+ *
+ * orientation: "portrait" (default) atau "landscape".
+ * Landscape dipakai untuk dokumen lebar seperti Promes.
  */
 export function generateStandaloneHTML(args: {
   title: string;
   content: string; // HTML inner content
   schoolName?: string;
+  orientation?: "portrait" | "landscape";
 }): string {
-  const { title, content } = args;
+  const { title, content, orientation = "portrait" } = args;
+  const maxWidth = orientation === "landscape" ? "29.7cm" : "21cm";
+  const padding = orientation === "landscape" ? "1.2cm 1.5cm" : "2cm 2.5cm";
+  const pageSize = orientation === "landscape" ? "A4 landscape" : "A4 portrait";
+  const pageMargin = orientation === "landscape" ? "1.2cm 1.5cm" : "1.5cm 2cm";
   return `<!DOCTYPE html>
 <html lang="id">
 <head>
@@ -32,8 +40,8 @@ export function generateStandaloneHTML(args: {
       line-height: 1.5;
       color: #000;
       background: #fff;
-      padding: 2cm 2.5cm;
-      max-width: 21cm;
+      padding: ${padding};
+      max-width: ${maxWidth};
       margin: 0 auto;
     }
     .document-title {
@@ -118,7 +126,7 @@ export function generateStandaloneHTML(args: {
     }
     @media print {
       body { padding: 0; max-width: 100%; }
-      @page { size: A4 portrait; margin: 1.5cm 2cm; }
+      @page { size: ${pageSize}; margin: ${pageMargin}; }
     }
   </style>
 </head>
@@ -137,6 +145,7 @@ export function downloadHTML(args: {
   title: string;
   content: string;
   schoolName?: string;
+  orientation?: "portrait" | "landscape";
 }): void {
   const html = generateStandaloneHTML(args);
   const blob = new Blob([html], { type: "text/html;charset=utf-8" });

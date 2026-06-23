@@ -307,10 +307,16 @@
     margin: 0 !important;
   }
 
-  /* A4 page settings */
+  /* A4 page settings — portrait default */
   @page {
     size: A4 portrait;
     margin: 1.5cm 2cm;
+  }
+
+  /* Named page untuk landscape (PRINT-EXPORT-POLISH-RC1-PATCH-1) */
+  @page landscape {
+    size: A4 landscape;
+    margin: 1.2cm 1.5cm;
   }
 
   .document-page {
@@ -320,10 +326,9 @@
     box-shadow: none !important;
   }
 
+  /* Landscape: pakai named page, bukan @page di dalam selector */
   .document-landscape {
-    @page {
-      size: A4 landscape;
-    }
+    page: landscape;
   }
 
   /* Tables */
