@@ -382,6 +382,36 @@ export {
   matchesAssignmentContext,
 } from "./assignment-filters";
 
+/* AI-PROMPT-BRIDGE-RC1 — Evaluation domain (EffectiveWeeks, AssessmentPlan, Blueprint, QuestionCard) */
+export {
+  effectiveWeekItemSchema,
+  effectiveWeekDocumentSchema,
+  assessmentTypeSchema,
+  assessmentPlanSchema,
+  cognitiveLevelSchema,
+  questionTypeSchema,
+  questionBlueprintSchema,
+  questionCardSchema,
+  generateBlueprintPrompt,
+  parseBlueprintAIJson,
+  generateQuestionCardPrompt,
+  parseQuestionCardAIJson,
+  generateEffectiveWeeks,
+  type EffectiveWeekItem,
+  type EffectiveWeekDocument,
+  type AssessmentType,
+  type AssessmentPlan,
+  type CognitiveLevel,
+  type QuestionType,
+  type QuestionBlueprint,
+  type QuestionCard,
+  type BlueprintPromptInput,
+  type QuestionCardPromptInput,
+  type ParseBlueprintResult,
+  type ParseQuestionCardResult,
+  type GenerateEffectiveWeeksInput,
+} from "./evaluation";
+
 /* Sprint 4 — Journal helpers (auto-fill dari sesi + Prota + absensi) */
 export {
   generateJournalFromSession,

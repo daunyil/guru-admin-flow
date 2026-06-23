@@ -1,6 +1,6 @@
 /**
  * Root App: router + AppShell.
- * AUTO-DOCUMENT-ENGINE-RC1: 25 routes — +/auto-document.
+ * AI-PROMPT-BRIDGE-RC1: 26 routes — +/evaluation-docs.
  */
 
 import { HashRouter, Routes, Route } from "react-router-dom";
@@ -29,6 +29,7 @@ import { SemesterReportPage } from "./modules/semester-report/SemesterReportPage
 import { CompletenessPage } from "./modules/completeness/CompletenessPage";
 import { AppsScriptImportPage } from "./modules/apps-script-import/AppsScriptImportPage";
 import { AutoDocumentPage } from "./modules/auto-document/AutoDocumentPage";
+import { EvaluationDocsPage } from "./modules/evaluation-docs/EvaluationDocsPage";
 
 export function App() {
   return (
@@ -59,6 +60,7 @@ export function App() {
           <Route path="/semester-report" element={<SemesterReportPage />} />
           <Route path="/completeness" element={<CompletenessPage />} />
           <Route path="/auto-document" element={<AutoDocumentPage />} />
+          <Route path="/evaluation-docs" element={<EvaluationDocsPage />} />
           <Route path="*" element={<TodayPage />} />
         </Routes>
       </AppShell>
