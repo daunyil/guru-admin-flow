@@ -11,6 +11,7 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { to: "/", label: "Hari Ini", icon: Calendar },
   { to: "/admin-package", label: "Paket Administrasi", icon: BookMarked },
+  { to: "/auto-document", label: "Auto Document Engine", icon: BookMarked },
   { to: "/attendance", label: "Absen", icon: CheckCircle },
   { to: "/journal", label: "Jurnal", icon: BookOpen },
   { to: "/grades", label: "Nilai", icon: FileSpreadsheet },

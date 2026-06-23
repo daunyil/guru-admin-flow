@@ -1,6 +1,6 @@
 /**
  * Root App: router + AppShell.
- * APPS-SCRIPT-BRIDGE-RC1: 24 routes — +/apps-script-import.
+ * AUTO-DOCUMENT-ENGINE-RC1: 25 routes — +/auto-document.
  */
 
 import { HashRouter, Routes, Route } from "react-router-dom";
@@ -28,6 +28,7 @@ import { AdminPackagePage } from "./modules/admin-package/AdminPackagePage";
 import { SemesterReportPage } from "./modules/semester-report/SemesterReportPage";
 import { CompletenessPage } from "./modules/completeness/CompletenessPage";
 import { AppsScriptImportPage } from "./modules/apps-script-import/AppsScriptImportPage";
+import { AutoDocumentPage } from "./modules/auto-document/AutoDocumentPage";
 
 export function App() {
   return (
@@ -57,6 +58,7 @@ export function App() {
           <Route path="/admin-package" element={<AdminPackagePage />} />
           <Route path="/semester-report" element={<SemesterReportPage />} />
           <Route path="/completeness" element={<CompletenessPage />} />
+          <Route path="/auto-document" element={<AutoDocumentPage />} />
           <Route path="*" element={<TodayPage />} />
         </Routes>
       </AppShell>
