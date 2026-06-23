@@ -222,15 +222,18 @@ export function TodayPage() {
             </Card>
           )}
 
-          {/* Tombol utama */}
+          {/* Tombol utama — quick access grid */}
           <Card>
-            <CardHeader title="Mulai Cepat" />
-            <div className="flex gap-2 flex-wrap">
-              <Link to="/attendance"><Button variant="secondary">Absen Sekarang</Button></Link>
-              <Link to="/journal"><Button variant="secondary">Buat Jurnal</Button></Link>
-              <Link to="/grades"><Button variant="secondary">Input Nilai</Button></Link>
-              <Link to="/semester-report"><Button variant="secondary">Dokumen</Button></Link>
-              <Link to="/backup"><Button variant="secondary">Backup</Button></Link>
+            <CardHeader title="Mulai Cepat" description="Akses cepat ke modul utama." />
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <QuickLink to="/attendance" label="Absen" emoji="✅" />
+              <QuickLink to="/journal" label="Jurnal" emoji="📖" />
+              <QuickLink to="/grades" label="Nilai" emoji="📊" />
+              <QuickLink to="/admin-package" label="Paket Dokumen" emoji="📁" />
+              <QuickLink to="/auto-document" label="Auto Document" emoji="⚡" />
+              <QuickLink to="/evaluation-docs" label="Perangkat Evaluasi" emoji="📝" />
+              <QuickLink to="/rpp-bulk" label="RPP Ganti Identitas" emoji="🔄" />
+              <QuickLink to="/backup" label="Backup" emoji="💾" />
             </div>
           </Card>
 
@@ -336,5 +339,18 @@ export function TodayPage() {
         </>
       )}
     </div>
+  );
+}
+
+/** Quick access card untuk dashboard. */
+function QuickLink({ to, label, emoji }: { to: string; label: string; emoji: string }) {
+  return (
+    <Link
+      to={to}
+      className="flex flex-col items-center gap-1 p-4 rounded-xl border border-slate-200 hover:border-brand-300 hover:bg-brand-50/50 transition-colors"
+    >
+      <span className="text-2xl">{emoji}</span>
+      <span className="text-sm font-medium text-slate-700 text-center leading-tight">{label}</span>
+    </Link>
   );
 }

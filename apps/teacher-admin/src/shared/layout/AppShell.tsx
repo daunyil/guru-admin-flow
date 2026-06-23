@@ -1,3 +1,11 @@
+/**
+ * AppShell — layout dengan navigasi yang dikelompokkan.
+ *
+ * NAV-DASHBOARD-POLISH-RC1: menu tidak lagi berderet penuh di header.
+ * Desktop: sidebar collapsible dengan grouped menu.
+ * Mobile: bottom nav 4 primary + "Lainnya" sheet dengan grouped grid.
+ */
+
 import { type ReactNode, useEffect, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { GraduationCap, Calendar, User, Database, Plus, ClipboardList, FileText, Clock, Users, CheckCircle, BookOpen, FileSpreadsheet, ListChecks, MoreHorizontal, BookMarked } from "./icons";
@@ -8,33 +16,71 @@ interface NavItem {
   icon: typeof GraduationCap;
 }
 
-const NAV_ITEMS: NavItem[] = [
-  { to: "/", label: "Hari Ini", icon: Calendar },
-  { to: "/admin-package", label: "Paket Administrasi", icon: BookMarked },
-  { to: "/auto-document", label: "Auto Document Engine", icon: BookMarked },
-  { to: "/evaluation-docs", label: "Perangkat Evaluasi", icon: ClipboardList },
-  { to: "/attendance", label: "Absen", icon: CheckCircle },
-  { to: "/journal", label: "Jurnal", icon: BookOpen },
-  { to: "/grades", label: "Nilai", icon: FileSpreadsheet },
-  { to: "/remedial", label: "Remedial", icon: FileSpreadsheet },
-  { to: "/pengayaan", label: "Pengayaan", icon: FileSpreadsheet },
-  { to: "/rpp-bulk", label: "RPP Ganti Identitas", icon: FileText },
-  { to: "/assignments", label: "Data Mengajar", icon: BookMarked },
-  { to: "/calendar", label: "Kalender", icon: Calendar },
-  { to: "/prota", label: "Program Tahunan", icon: ClipboardList },
-  { to: "/promes", label: "Program Semester", icon: FileText },
-  { to: "/schedule", label: "Jadwal", icon: Clock },
-  { to: "/roster", label: "Siswa", icon: Users },
-  { to: "/atp", label: "Bank TP", icon: ListChecks },
-  { to: "/lkpd", label: "LKPD", icon: BookOpen },
-  { to: "/rpp", label: "RPP Template", icon: FileText },
-  { to: "/completeness", label: "Kelengkapan", icon: ListChecks },
-  { to: "/semester-report", label: "Laporan", icon: FileSpreadsheet },
-  { to: "/profile", label: "Profil", icon: User },
-  { to: "/new-year", label: "Tahun Baru", icon: Plus },
-  { to: "/backup", label: "Backup", icon: Database },
-  { to: "/apps-script-import", label: "Import Apps Script", icon: Database },
+interface NavGroup {
+  title: string;
+  items: NavItem[];
+}
+
+// Menu dikelompokkan per fungsi
+const NAV_GROUPS: NavGroup[] = [
+  {
+    title: "Pusat",
+    items: [
+      { to: "/", label: "Hari Ini", icon: Calendar },
+      { to: "/admin-package", label: "Paket Administrasi", icon: BookMarked },
+      { to: "/auto-document", label: "Auto Document Engine", icon: BookMarked },
+      { to: "/completeness", label: "Kelengkapan", icon: ListChecks },
+    ],
+  },
+  {
+    title: "Harian",
+    items: [
+      { to: "/attendance", label: "Absen", icon: CheckCircle },
+      { to: "/journal", label: "Jurnal", icon: BookOpen },
+      { to: "/grades", label: "Nilai", icon: FileSpreadsheet },
+    ],
+  },
+  {
+    title: "Evaluasi",
+    items: [
+      { to: "/evaluation-docs", label: "Perangkat Evaluasi", icon: ClipboardList },
+      { to: "/remedial", label: "Remedial", icon: FileSpreadsheet },
+      { to: "/pengayaan", label: "Pengayaan", icon: FileSpreadsheet },
+    ],
+  },
+  {
+    title: "Perencanaan",
+    items: [
+      { to: "/assignments", label: "Data Mengajar", icon: BookMarked },
+      { to: "/calendar", label: "Kalender", icon: Calendar },
+      { to: "/prota", label: "Program Tahunan", icon: ClipboardList },
+      { to: "/promes", label: "Program Semester", icon: FileText },
+      { to: "/schedule", label: "Jadwal", icon: Clock },
+    ],
+  },
+  {
+    title: "Dokumen",
+    items: [
+      { to: "/roster", label: "Siswa", icon: Users },
+      { to: "/atp", label: "Bank TP", icon: ListChecks },
+      { to: "/lkpd", label: "LKPD", icon: BookOpen },
+      { to: "/rpp", label: "RPP Template", icon: FileText },
+      { to: "/rpp-bulk", label: "RPP Ganti Identitas", icon: FileText },
+      { to: "/semester-report", label: "Laporan", icon: FileSpreadsheet },
+    ],
+  },
+  {
+    title: "Sistem",
+    items: [
+      { to: "/apps-script-import", label: "Import Apps Script", icon: Database },
+      { to: "/profile", label: "Profil", icon: User },
+      { to: "/new-year", label: "Tahun Baru", icon: Plus },
+      { to: "/backup", label: "Backup", icon: Database },
+    ],
+  },
 ];
+
+// Flat list tidak lagi dipakai — NAV_GROUPS dipakai langsung untuk "Lainnya" modal
 
 const MOBILE_PRIMARY: NavItem[] = [
   { to: "/", label: "Hari Ini", icon: Calendar },
@@ -61,46 +107,61 @@ export function AppShell({ children }: { children: ReactNode }) {
     return () => window.clearInterval(timer);
   }, []);
 
-  const mobileOthers = NAV_ITEMS.filter(
-    (item) => !MOBILE_PRIMARY.some((p) => p.to === item.to)
-  );
+  // mobileOthers tidak dipakai lagi — "Lainnya" modal pakai NAV_GROUPS langsung
 
   return (
     <div className="min-h-screen flex flex-col bg-[#eef2f9] md:bg-slate-50">
-      <header className="hidden md:block bg-white border-b border-slate-200 sticky top-0 z-10">
-        <div className="max-w-5xl mx-auto px-6 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-2">
+      {/* Desktop: top bar with logo + compact nav (quick links) */}
+      <header className="hidden md:block bg-white border-b border-slate-200 sticky top-0 z-10 no-print">
+        <div className="max-w-5xl mx-auto px-6 py-3 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2 shrink-0">
             <div className="w-9 h-9 rounded-lg bg-brand-600 flex items-center justify-center text-white">
               <GraduationCap className="w-5 h-5" />
             </div>
             <span className="font-semibold text-slate-900">Guru Admin Flow</span>
-            <span className="text-xs text-slate-400 ml-2">v0.6.1</span>
+            <span className="text-xs text-slate-400 ml-1">v0.7</span>
           </div>
+          {/* Quick nav: 5 most used + Lainnya button */}
           <nav className="flex items-center gap-1 flex-wrap">
-            {NAV_ITEMS.map((item) => (
+            {MOBILE_PRIMARY.map((item) => (
               <NavLink
                 key={item.to}
                 to={item.to}
                 end={item.to === "/"}
                 className={({ isActive }) =>
                   `px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                    isActive
-                      ? "bg-brand-50 text-brand-700"
-                      : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                    isActive ? "bg-brand-50 text-brand-700" : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
                   }`
                 }
               >
                 {item.label}
               </NavLink>
             ))}
+            <NavLink
+              to="/admin-package"
+              className={({ isActive }) =>
+                `px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                  isActive ? "bg-brand-50 text-brand-700" : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                }`
+              }
+            >
+              Paket
+            </NavLink>
+            <button
+              onClick={() => setShowMore(true)}
+              className="px-3 py-1.5 rounded-md text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors"
+            >
+              Lainnya ▾
+            </button>
           </nav>
         </div>
       </header>
 
+      {/* Mobile header */}
       <header className="siakad-header no-print">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <div className="text-[18px] font-black leading-none tracking-tight">SIAKAD GURU</div>
+            <div className="text-[18px] font-black leading-none tracking-tight">GURU ADMIN FLOW</div>
             <div className="text-[9px] font-bold uppercase tracking-[0.12em] text-white/65 mt-1">
               {formatDate(now)}
             </div>
@@ -125,6 +186,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         {children}
       </main>
 
+      {/* Mobile bottom nav */}
       <nav className="md:hidden fixed bottom-0 inset-x-0 bg-white border-t border-slate-100 flex z-20 shadow-[0_-4px_20px_rgba(0,0,0,0.06)] no-print">
         {MOBILE_PRIMARY.map((item) => (
           <NavLink
@@ -150,28 +212,37 @@ export function AppShell({ children }: { children: ReactNode }) {
         </button>
       </nav>
 
+      {/* "Lainnya" modal — grouped menu (mobile + desktop) */}
       {showMore && (
-        <div className="md:hidden fixed inset-0 z-30" onClick={() => setShowMore(false)}>
+        <div className="fixed inset-0 z-30" onClick={() => setShowMore(false)}>
           <div className="absolute inset-0 bg-black/40" />
           <div
-            className="absolute bottom-0 inset-x-0 bg-white rounded-t-[28px] p-4 pb-8 max-h-[70vh] overflow-y-auto"
+            className="absolute bottom-0 inset-x-0 bg-white rounded-t-[28px] p-4 pb-8 max-h-[80vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="w-10 h-1 rounded-full bg-slate-200 mx-auto mb-4" />
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-black text-slate-900">Menu Lainnya</h3>
+              <h3 className="font-black text-slate-900">Semua Menu</h3>
               <button onClick={() => setShowMore(false)} className="text-slate-400 text-xl">×</button>
             </div>
-            <div className="grid grid-cols-3 gap-3">
-              {mobileOthers.map((item) => (
-                <button
-                  key={item.to}
-                  onClick={() => { navigate(item.to); setShowMore(false); }}
-                  className="flex flex-col items-center gap-1 p-3 rounded-2xl hover:bg-slate-50"
-                >
-                  <item.icon className="w-6 h-6 text-brand-600" />
-                  <span className="text-xs text-slate-700 font-semibold">{item.label}</span>
-                </button>
+            {/* Grouped grid */}
+            <div className="space-y-4">
+              {NAV_GROUPS.map((group) => (
+                <div key={group.title}>
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">{group.title}</p>
+                  <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+                    {group.items.map((item) => (
+                      <button
+                        key={item.to}
+                        onClick={() => { navigate(item.to); setShowMore(false); }}
+                        className="flex flex-col items-center gap-1 p-3 rounded-2xl hover:bg-slate-50 transition-colors"
+                      >
+                        <item.icon className="w-6 h-6 text-brand-600" />
+                        <span className="text-xs text-slate-700 font-semibold text-center leading-tight">{item.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
               ))}
             </div>
           </div>
