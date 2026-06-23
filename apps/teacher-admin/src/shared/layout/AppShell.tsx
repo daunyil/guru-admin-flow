@@ -1,9 +1,11 @@
 /**
- * AppShell — layout dengan navigasi yang dikelompokkan.
+ * AppShell — sidebar layout untuk desktop, bottom nav untuk mobile.
  *
- * NAV-DASHBOARD-POLISH-RC1: menu tidak lagi berderet penuh di header.
- * Desktop: sidebar collapsible dengan grouped menu.
- * Mobile: bottom nav 4 primary + "Lainnya" sheet dengan grouped grid.
+ * SIDEBAR-NAV-POLISH-RC1:
+ *   Desktop: sidebar kiri 260px dengan grouped menu + header tipis.
+ *   Mobile: bottom nav 4 primary + "Lainnya" sheet (tidak diubah).
+ *   Branding: SIAKAD GURU.
+ *   Konten: max-w-6xl (lebih lebar dari 5xl).
  */
 
 import { type ReactNode, useEffect, useState } from "react";
@@ -21,15 +23,14 @@ interface NavGroup {
   items: NavItem[];
 }
 
-// Menu dikelompokkan per fungsi
 const NAV_GROUPS: NavGroup[] = [
   {
     title: "Pusat",
     items: [
       { to: "/", label: "Hari Ini", icon: Calendar },
       { to: "/admin-package", label: "Paket Administrasi", icon: BookMarked },
-      { to: "/auto-document", label: "Auto Document Engine", icon: BookMarked },
-      { to: "/completeness", label: "Kelengkapan", icon: ListChecks },
+      { to: "/auto-document", label: "Dokumen Otomatis", icon: BookMarked },
+      { to: "/completeness", label: "Cek Kelengkapan", icon: ListChecks },
     ],
   },
   {
@@ -43,7 +44,7 @@ const NAV_GROUPS: NavGroup[] = [
   {
     title: "Evaluasi",
     items: [
-      { to: "/evaluation-docs", label: "Perangkat Evaluasi", icon: ClipboardList },
+      { to: "/evaluation-docs", label: "Perangkat Penilaian", icon: ClipboardList },
       { to: "/remedial", label: "Remedial", icon: FileSpreadsheet },
       { to: "/pengayaan", label: "Pengayaan", icon: FileSpreadsheet },
     ],
@@ -52,9 +53,9 @@ const NAV_GROUPS: NavGroup[] = [
     title: "Perencanaan",
     items: [
       { to: "/assignments", label: "Data Mengajar", icon: BookMarked },
-      { to: "/calendar", label: "Kalender", icon: Calendar },
-      { to: "/prota", label: "Program Tahunan", icon: ClipboardList },
-      { to: "/promes", label: "Program Semester", icon: FileText },
+      { to: "/calendar", label: "Kalender Pendidikan", icon: Calendar },
+      { to: "/prota", label: "Prota Resmi", icon: ClipboardList },
+      { to: "/promes", label: "Promes", icon: FileText },
       { to: "/schedule", label: "Jadwal", icon: Clock },
     ],
   },
@@ -64,9 +65,9 @@ const NAV_GROUPS: NavGroup[] = [
       { to: "/roster", label: "Siswa", icon: Users },
       { to: "/atp", label: "Bank TP", icon: ListChecks },
       { to: "/lkpd", label: "LKPD", icon: BookOpen },
-      { to: "/rpp", label: "RPP Template", icon: FileText },
-      { to: "/rpp-bulk", label: "RPP Ganti Identitas", icon: FileText },
-      { to: "/semester-report", label: "Laporan", icon: FileSpreadsheet },
+      { to: "/rpp", label: "RPP / Modul Ajar", icon: FileText },
+      { to: "/rpp-bulk", label: "Ganti Identitas RPP", icon: FileText },
+      { to: "/semester-report", label: "Laporan Semester", icon: FileSpreadsheet },
     ],
   },
   {
@@ -80,14 +81,14 @@ const NAV_GROUPS: NavGroup[] = [
   },
 ];
 
-// Flat list tidak lagi dipakai — NAV_GROUPS dipakai langsung untuk "Lainnya" modal
-
 const MOBILE_PRIMARY: NavItem[] = [
   { to: "/", label: "Hari Ini", icon: Calendar },
   { to: "/attendance", label: "Absen", icon: CheckCircle },
   { to: "/journal", label: "Jurnal", icon: BookOpen },
   { to: "/grades", label: "Nilai", icon: FileSpreadsheet },
 ];
+
+// NAV_GROUPS dipakai langsung untuk desktop sidebar + mobile "Lainnya" modal
 
 function formatClock(date: Date): string {
   return date.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit", hour12: false });
@@ -107,86 +108,113 @@ export function AppShell({ children }: { children: ReactNode }) {
     return () => window.clearInterval(timer);
   }, []);
 
-  // mobileOthers tidak dipakai lagi — "Lainnya" modal pakai NAV_GROUPS langsung
-
   return (
-    <div className="min-h-screen flex flex-col bg-[#eef2f9] md:bg-slate-50">
-      {/* Desktop: top bar with logo + compact nav (quick links) */}
-      <header className="hidden md:block bg-white border-b border-slate-200 sticky top-0 z-10 no-print">
-        <div className="max-w-5xl mx-auto px-6 py-3 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-2 shrink-0">
-            <div className="w-9 h-9 rounded-lg bg-brand-600 flex items-center justify-center text-white">
+    <div className="min-h-screen flex flex-col md:flex-row bg-[#eef2f9] md:bg-slate-50">
+      {/* === DESKTOP: Sidebar kiri === */}
+      <aside className="hidden md:flex flex-col w-[260px] shrink-0 bg-white border-r border-slate-200 h-screen sticky top-0 overflow-y-auto no-print">
+        {/* Branding */}
+        <div className="px-5 py-4 border-b border-slate-100">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center text-white shrink-0">
               <GraduationCap className="w-5 h-5" />
             </div>
-            <span className="font-semibold text-slate-900">Guru Admin Flow</span>
-            <span className="text-xs text-slate-400 ml-1">v0.7</span>
-          </div>
-          {/* Quick nav: 5 most used + Lainnya button */}
-          <nav className="flex items-center gap-1 flex-wrap">
-            {MOBILE_PRIMARY.map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                end={item.to === "/"}
-                className={({ isActive }) =>
-                  `px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                    isActive ? "bg-brand-50 text-brand-700" : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-                  }`
-                }
-              >
-                {item.label}
-              </NavLink>
-            ))}
-            <NavLink
-              to="/admin-package"
-              className={({ isActive }) =>
-                `px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                  isActive ? "bg-brand-50 text-brand-700" : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-                }`
-              }
-            >
-              Paket
-            </NavLink>
-            <button
-              onClick={() => setShowMore(true)}
-              className="px-3 py-1.5 rounded-md text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors"
-            >
-              Lainnya ▾
-            </button>
-          </nav>
-        </div>
-      </header>
-
-      {/* Mobile header */}
-      <header className="siakad-header no-print">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <div className="text-[18px] font-black leading-none tracking-tight">GURU ADMIN FLOW</div>
-            <div className="text-[9px] font-bold uppercase tracking-[0.12em] text-white/65 mt-1">
-              {formatDate(now)}
+            <div>
+              <p className="font-bold text-sm text-slate-900 leading-none">SIAKAD GURU</p>
+              <p className="text-[10px] text-slate-400 mt-0.5">v0.7</p>
             </div>
+          </div>
+        </div>
+
+        {/* Nav groups */}
+        <nav className="flex-1 px-3 py-3 space-y-4">
+          {NAV_GROUPS.map((group) => (
+            <div key={group.title}>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 px-2 mb-1">
+                {group.title}
+              </p>
+              <div className="space-y-0.5">
+                {group.items.map((item) => (
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    end={item.to === "/"}
+                    className={({ isActive }) =>
+                      `flex items-center gap-2.5 px-2 py-1.5 rounded-md text-sm transition-colors ${
+                        isActive
+                          ? "bg-brand-50 text-brand-700 font-medium"
+                          : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                      }`
+                    }
+                  >
+                    <item.icon className="w-4 h-4 shrink-0" />
+                    <span className="truncate">{item.label}</span>
+                  </NavLink>
+                ))}
+              </div>
+            </div>
+          ))}
+        </nav>
+      </aside>
+
+      {/* === MAIN AREA === */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Desktop header tipis */}
+        <header className="hidden md:flex items-center justify-between px-6 py-2.5 bg-white border-b border-slate-200 no-print">
+          <div className="flex items-center gap-3 text-sm text-slate-500">
+            <span className="font-medium text-slate-700">{formatDate(now)}</span>
+            <span className="text-slate-300">·</span>
+            <span className="font-mono text-slate-600">{formatClock(now)} WIB</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="text-right">
-              <div className="text-xl font-black leading-none">{formatClock(now)}</div>
-              <div className="text-[8px] font-bold uppercase text-white/55">WIB</div>
-            </div>
             <button
               onClick={() => navigate("/backup")}
-              className="w-10 h-10 rounded-xl bg-white/15 border border-white/20 text-white text-base active:scale-95"
+              className="px-3 py-1.5 rounded-md text-sm text-slate-600 hover:bg-slate-100 transition-colors"
               title="Backup"
             >
-              💾
+              💾 Backup
+            </button>
+            <button
+              onClick={() => navigate("/profile")}
+              className="px-3 py-1.5 rounded-md text-sm text-slate-600 hover:bg-slate-100 transition-colors"
+              title="Profil"
+            >
+              👤 Profil
             </button>
           </div>
-        </div>
-      </header>
+        </header>
 
-      <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-6 pb-28 md:pb-6">
-        {children}
-      </main>
+        {/* Mobile header (SIAKAD style) */}
+        <header className="siakad-header no-print md:hidden">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <div className="text-[18px] font-black leading-none tracking-tight">SIAKAD GURU</div>
+              <div className="text-[9px] font-bold uppercase tracking-[0.12em] text-white/65 mt-1">
+                {formatDate(now)}
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="text-right">
+                <div className="text-xl font-black leading-none">{formatClock(now)}</div>
+                <div className="text-[8px] font-bold uppercase text-white/55">WIB</div>
+              </div>
+              <button
+                onClick={() => navigate("/backup")}
+                className="w-10 h-10 rounded-xl bg-white/15 border border-white/20 text-white text-base active:scale-95"
+                title="Backup"
+              >
+                💾
+              </button>
+            </div>
+          </div>
+        </header>
 
-      {/* Mobile bottom nav */}
+        {/* Konten halaman */}
+        <main className="flex-1 max-w-6xl w-full mx-auto px-4 py-6 pb-28 md:pb-6">
+          {children}
+        </main>
+      </div>
+
+      {/* === MOBILE: Bottom nav === */}
       <nav className="md:hidden fixed bottom-0 inset-x-0 bg-white border-t border-slate-100 flex z-20 shadow-[0_-4px_20px_rgba(0,0,0,0.06)] no-print">
         {MOBILE_PRIMARY.map((item) => (
           <NavLink
@@ -212,9 +240,9 @@ export function AppShell({ children }: { children: ReactNode }) {
         </button>
       </nav>
 
-      {/* "Lainnya" modal — grouped menu (mobile + desktop) */}
+      {/* Mobile "Lainnya" modal */}
       {showMore && (
-        <div className="fixed inset-0 z-30" onClick={() => setShowMore(false)}>
+        <div className="md:hidden fixed inset-0 z-30" onClick={() => setShowMore(false)}>
           <div className="absolute inset-0 bg-black/40" />
           <div
             className="absolute bottom-0 inset-x-0 bg-white rounded-t-[28px] p-4 pb-8 max-h-[80vh] overflow-y-auto"
@@ -225,12 +253,11 @@ export function AppShell({ children }: { children: ReactNode }) {
               <h3 className="font-black text-slate-900">Semua Menu</h3>
               <button onClick={() => setShowMore(false)} className="text-slate-400 text-xl">×</button>
             </div>
-            {/* Grouped grid */}
             <div className="space-y-4">
               {NAV_GROUPS.map((group) => (
                 <div key={group.title}>
                   <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">{group.title}</p>
-                  <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+                  <div className="grid grid-cols-3 gap-3">
                     {group.items.map((item) => (
                       <button
                         key={item.to}
