@@ -369,6 +369,19 @@ export {
   type GeneratePackageInput,
 } from "./admin-document-package";
 
+/* AUTO-DOCUMENT-ENGINE-RC1-PATCH-1 — Assignment filter helpers */
+export {
+  deriveGradeFromClassLabel,
+  matchesAssignmentSubject,
+  matchesAssignmentGrade,
+  matchesAssignmentClassOptional,
+  filterProtaForAssignment,
+  filterATPForAssignment,
+  filterLKPDForAssignment,
+  filterRppDocumentsForAssignment,
+  matchesAssignmentContext,
+} from "./assignment-filters";
+
 /* Sprint 4 — Journal helpers (auto-fill dari sesi + Prota + absensi) */
 export {
   generateJournalFromSession,
