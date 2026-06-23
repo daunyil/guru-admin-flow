@@ -232,3 +232,167 @@ describe("apps-script-import — idempotency key", () => {
     expect(parsed.gurus[0].id).toBe("as-g1");
   });
 });
+
+describe("apps-script-import — V2 export (RC1-PATCH-1-V2)", () => {
+  /** Sample JSON yang cocok dengan exportForAppGenerator() dari Code_DB_V2.gs. */
+  function makeV2Export() {
+    return {
+      $schema: "guru-admin-flow/apps-script/v1",
+      source: "apps_script",
+      exportedAt: "2025-07-21T14:30:00+07:00",
+      schoolName: "SMPN 8 Bantan",
+      academicYearLabel: "2025/2026",
+      semester: 1,
+      students: [
+        { id: "v2-s1", name: "Andi Saputra", number: 1, nis: "2025001", classId: "VII A", classLabel: "VII A" },
+        { id: "v2-s2", name: "Budi Pratama", number: 2, nis: "2025002", classId: "VII A", classLabel: "VII A" },
+      ],
+      gurus: [
+        {
+          id: "v2-g1",
+          teacherName: "Siti Aminah, S.Pd.",
+          teacherNip: "198503152010012005",
+          subject: "Pendidikan Pancasila",
+          classId: "VII A",
+          classLabel: "VII A",
+          semester: 1,
+          academicYearLabel: "2025/2026",
+        },
+      ],
+      absensi: [
+        {
+          id: "v2-a1",
+          date: "2025-07-21",
+          classId: "VII A",
+          classLabel: "VII A",
+          subject: "Pendidikan Pancasila",
+          teacherName: "Siti Aminah, S.Pd.",
+          semester: 1,
+          academicYearLabel: "2025/2026",
+          startPeriod: 1,
+          startTime: "07:00",
+          endTime: "08:20",
+          records: [
+            { studentId: "v2-s1", studentName: "Andi Saputra", studentNumber: 1, status: "present" },
+            { studentId: "v2-s2", studentName: "Budi Pratama", studentNumber: 2, status: "late", note: "Terlambat 10 menit" },
+          ],
+        },
+      ],
+      jurnal: [
+        {
+          id: "v2-j1",
+          date: "2025-07-21",
+          classId: "VII A",
+          classLabel: "VII A",
+          subject: "Pendidikan Pancasila",
+          teacherName: "Siti Aminah, S.Pd.",
+          semester: 1,
+          academicYearLabel: "2025/2026",
+          startPeriod: 1,
+          startTime: "07:00",
+          endTime: "08:20",
+          materialTitle: "Norma dalam Kehidupan Masyarakat",
+          realizationStatus: "done",
+          presentCount: 1,
+          sickCount: 0,
+          excusedCount: 0,
+          absentCount: 0,
+          totalStudents: 2,
+        },
+      ],
+      nilai: [
+        {
+          id: "v2-n1",
+          classId: "VII A",
+          classLabel: "VII A",
+          subject: "Pendidikan Pancasila",
+          teacherName: "Siti Aminah, S.Pd.",
+          semester: 1,
+          academicYearLabel: "2025/2026",
+          kktp: 75,
+          entries: [
+            { studentId: "v2-s1", studentName: "Andi Saputra", studentNumber: 1, dailyScore: 85, summativeScore: 88, finalScore: 86 },
+            { studentId: "v2-s2", studentName: "Budi Pratama", studentNumber: 2, dailyScore: 70, summativeScore: 72, finalScore: 71 },
+          ],
+        },
+      ],
+    };
+  }
+
+  it("V2 export valid → success=true", () => {
+    const result = validateAppsScriptImport(makeV2Export());
+    expect(result.success).toBe(true);
+    expect(result.errors).toEqual([]);
+  });
+
+  it("V2 preview counts benar", () => {
+    const data = validateAppsScriptImport(makeV2Export()).data!;
+    const preview = previewAppsScriptImport(data);
+    expect(preview.counts.students).toBe(2);
+    expect(preview.counts.gurus).toBe(1);
+    expect(preview.counts.absensi).toBe(1);
+    expect(preview.counts.jurnal).toBe(1);
+    expect(preview.counts.nilai).toBe(1);
+  });
+
+  it("V2 nilai: summativeScore tidak hilang", () => {
+    const data = validateAppsScriptImport(makeV2Export()).data!;
+    expect(data.nilai[0].entries[0].summativeScore).toBe(88);
+    expect(data.nilai[0].entries[1].summativeScore).toBe(72);
+  });
+
+  it("V2 nilai: dailyScore + finalScore tetap ada", () => {
+    const data = validateAppsScriptImport(makeV2Export()).data!;
+    expect(data.nilai[0].entries[0].dailyScore).toBe(85);
+    expect(data.nilai[0].entries[0].finalScore).toBe(86);
+  });
+
+  it("V2 absensi: status 'late' diterima", () => {
+    const data = validateAppsScriptImport(makeV2Export()).data!;
+    expect(data.absensi[0].records[1].status).toBe("late");
+  });
+
+  it("V2 absensi: semua 5 status diterima (present/sick/excused/absent/late)", () => {
+    const exportData = makeV2Export();
+    exportData.absensi[0].records = [
+      { studentId: "s1", studentName: "A", status: "present" },
+      { studentId: "s2", studentName: "B", status: "sick" },
+      { studentId: "s3", studentName: "C", status: "excused" },
+      { studentId: "s4", studentName: "D", status: "absent" },
+      { studentId: "s5", studentName: "E", status: "late" },
+    ];
+    const result = validateAppsScriptImport(exportData);
+    expect(result.success).toBe(true);
+  });
+
+  it("V2: $schema field opsional, tidak wajib", () => {
+    const exportData = makeV2Export();
+    delete (exportData as { $schema?: string }).$schema;
+    const result = validateAppsScriptImport(exportData);
+    expect(result.success).toBe(true);
+  });
+
+  it("V2: schoolName opsional", () => {
+    const exportData = makeV2Export();
+    delete (exportData as { schoolName?: string }).schoolName;
+    const result = validateAppsScriptImport(exportData);
+    expect(result.success).toBe(true);
+  });
+
+  it("V2: studentId dari Apps Script dipertahankan (idempotency)", () => {
+    const data = validateAppsScriptImport(makeV2Export()).data!;
+    expect(data.students[0].id).toBe("v2-s1");
+    expect(data.students[1].id).toBe("v2-s2");
+  });
+
+  it("V2: import ulang data yang sama → idempotent (student IDs sama)", () => {
+    const data1 = validateAppsScriptImport(makeV2Export()).data!;
+    const data2 = validateAppsScriptImport(makeV2Export()).data!;
+    // IDs harus identik (Apps Script IDs dipertahankan)
+    expect(data1.students.map((s) => s.id)).toEqual(data2.students.map((s) => s.id));
+    expect(data1.gurus.map((g) => g.id)).toEqual(data2.gurus.map((g) => g.id));
+    expect(data1.absensi.map((a) => a.id)).toEqual(data2.absensi.map((a) => a.id));
+    expect(data1.jurnal.map((j) => j.id)).toEqual(data2.jurnal.map((j) => j.id));
+    expect(data1.nilai.map((n) => n.id)).toEqual(data2.nilai.map((n) => n.id));
+  });
+});

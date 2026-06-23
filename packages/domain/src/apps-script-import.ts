@@ -127,6 +127,7 @@ export const appsScriptNilaiSchema = z.object({
       studentNumber: z.number().int().positive().optional(),
       nis: z.string().optional(),
       dailyScore: z.number().min(0).max(100).nullable().optional(),
+      summativeScore: z.number().min(0).max(100).nullable().optional(),
       finalScore: z.number().min(0).max(100).nullable().optional(),
     })
   ),

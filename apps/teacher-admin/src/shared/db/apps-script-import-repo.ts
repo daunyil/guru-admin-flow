@@ -21,7 +21,7 @@ import { db } from "./schema";
 import {
   saveClassRoster,
   findClassRoster,
-  importStudents,
+  updateClassRoster,
 } from "./class-roster-repo";
 import {
   saveAssignment,
@@ -98,13 +98,14 @@ async function importStudentsFromAppsScript(
       const classLabel = students[0]?.classLabel ?? classId;
       let roster = await findClassRoster(year.id, classId);
       if (roster) {
-        // Update existing: merge students (idempotent by studentId)
+        // Update existing: merge students (idempotent by studentId from Apps Script)
+        // RC1-PATCH-1-V2: pertahankan ID siswa dari Apps Script, jangan generate baru.
         const existingIds = new Set(roster.students.map((s) => s.id));
         let newCount = 0;
         for (const s of students) {
           if (!existingIds.has(s.id)) {
             roster.students.push({
-              id: s.id,
+              id: s.id, // pertahankan ID dari Apps Script
               name: s.name,
               number: s.number ?? roster.students.length + 1,
               nis: s.nis,
@@ -113,11 +114,9 @@ async function importStudentsFromAppsScript(
           }
         }
         if (newCount > 0) {
-          await importStudents(roster.id, roster.students.map((s) => ({
-            name: s.name,
-            number: s.number,
-            nis: s.nis,
-          })));
+          // RC1-PATCH-1-V2: pakai updateClassRoster langsung (bukan importStudents)
+          // supaya ID siswa dari Apps Script tetap dipertahankan.
+          await updateClassRoster(roster.id, { students: roster.students });
           summary.students.updated += newCount;
         } else {
           summary.students.skipped += students.length;
@@ -391,7 +390,7 @@ async function importNilaiFromAppsScript(
         studentNumber: e.studentNumber,
         dailyScore: e.dailyScore ?? null,
         assignmentScore: null,
-        summativeScore: null,
+        summativeScore: e.summativeScore ?? null,
         remedialScore: null,
         averageScore: null,
         finalScore: e.finalScore ?? null,

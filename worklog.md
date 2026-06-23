@@ -1010,3 +1010,50 @@ Stage Summary:
 - Tidak ada Supabase. Tidak ada Cloud SQL. Tidak ada sync real-time. Tidak rebuild absen/jurnal.
 - Status: READY FOR SENIOR AUDIT.
 - Push PENDING: butuh token.
+
+---
+
+Task ID: APPS-SCRIPT-BRIDGE-RC1-PATCH-1-V2
+Agent: main (RC1-PATCH-1-V2 batch execution)
+Task: Validasi export dari Apps Script Database V2 (Code_DB_V2.gs).
+
+Work Log:
+- Branch: apps-script-bridge-rc1-patch-1-v2 dari main (3f0685f).
+- Domain schema fix:
+  - packages/domain/src/apps-script-import.ts: + summativeScore ke appsScriptNilai entries schema.
+    Sebelumnya hanya dailyScore + finalScore. Sekarang: dailyScore + summativeScore + finalScore.
+- Import repo fix:
+  - apps-script-import-repo.ts: map summativeScore dari AppsScriptNilai ke GradeEntry.summativeScore (sebelumnya hardcode null).
+  - Fix idempotency siswa: ganti importStudents() → updateClassRoster() untuk preserve studentId dari Apps Script.
+    Sebelumnya importStudents() tidak menerima parameter id, jadi ID siswa baru di-generate internal.
+    Sekarang updateClassRoster() menerima students array dengan id dari Apps Script dipertahankan.
+- UI copy update:
+  - AppsScriptImportPage.tsx: info card sekarang bilang "Gunakan export dari Apps Script V2: exportForAppGenerator() atau backupDataV3()".
+- Domain tests V2:
+  - test/apps-script-import.test.ts: + 10 test V2 (append ke file existing):
+    - V2 export valid → success=true
+    - V2 preview counts benar
+    - V2 nilai: summativeScore tidak hilang
+    - V2 nilai: dailyScore + finalScore tetap ada
+    - V2 absensi: status 'late' diterima
+    - V2 absensi: semua 5 status diterima (present/sick/excused/absent/late)
+    - V2: $schema field opsional
+    - V2: schoolName opsional
+    - V2: studentId dari Apps Script dipertahankan (idempotency)
+    - V2: import ulang data yang sama → idempotent (IDs identik)
+
+Verifikasi:
+- Typecheck: 3 workspace PASS, 0 error.
+- Test: 277/277 PASS (254 domain + 23 shared). +10 test V2 baru.
+- Build: ROOT npm run build PASS — typecheck + vite build 3.43s.
+
+Stage Summary:
+- 5 fix dari patch:
+  1. summativeScore ditambahkan ke schema + mapping ✅
+  2. Sample fixture JSON V2 di test ✅
+  3. Idempotency siswa: studentId dari Apps Script dipertahankan ✅
+  4. UI copy: "Gunakan export dari Apps Script V2" ✅
+  5. Status late sudah diterima (tidak perlu fix, sudah ada dari RC1) ✅
+- 4 file changed (0 baru, 4 modifikasi).
+- Status: READY FOR SENIOR AUDIT.
+- Push PENDING: butuh token.

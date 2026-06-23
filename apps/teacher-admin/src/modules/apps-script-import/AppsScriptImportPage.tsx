@@ -226,10 +226,14 @@ export function AppsScriptImportPage() {
           <div>
             <p className="font-semibold text-brand-900">Cara Pakai</p>
             <p className="text-brand-800 mt-1">
-              Export data dari Apps Script sebagai JSON, lalu upload atau paste di sini.
-              App akan memetakan: siswa → Daftar Siswa, guru → Data Mengajar,
-              absensi → Sesi + Absensi, jurnal → Sesi + Jurnal, nilai → Daftar Nilai.
+              Gunakan export dari Apps Script V2: <code>exportForAppGenerator()</code> atau{" "}
+              <code>backupDataV3()</code>. App akan memetakan: siswa → Daftar Siswa,
+              guru → Data Mengajar, absensi → Sesi + Absensi, jurnal → Sesi + Jurnal,
+              nilai → Daftar Nilai.
               Import ulang file yang sama tidak membuat data dobel (idempotent).
+            </p>
+            <p className="text-brand-800 mt-1">
+              Upload file <code>.json</code> atau paste teks JSON hasil export.
             </p>
           </div>
         </div>
