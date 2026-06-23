@@ -20,7 +20,7 @@ export const APP_VERSION = "0.6.0";
  *   rppDocuments + remedialPrograms + enrichmentPrograms ke Dexie + Backup JSON.
  *   Backup lama (v5) tetap bisa di-restore karena field baru default=[].
  */
-export const DATA_SCHEMA_VERSION = 6;
+export const DATA_SCHEMA_VERSION = 7;
 
 /** Timezone default untuk MVP v1 (Asia/Jakarta). */
 export const DEFAULT_TIMEZONE = "Asia/Jakarta";

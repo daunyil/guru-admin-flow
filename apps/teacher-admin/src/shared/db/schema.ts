@@ -88,11 +88,9 @@ export class GuruAdminDB extends Dexie {
       semesterReports: "id, academicYearId, teacherId, subject, classId, grade, semester, status, [academicYearId+teacherId+subject+classId+semester]",
     });
 
-    // GENERATOR-COMPLETION-RC1: add rppDocuments + remedialPrograms + enrichmentPrograms.
-    this.version(6).stores({
-      rppDocuments: "id, academicYearId, teacherId, subject, classLabel, semester, status, source",
-      remedialPrograms: "id, academicYearId, teacherId, subject, classId, semester, status, [academicYearId+teacherId+subject+classId+semester]",
-      enrichmentPrograms: "id, academicYearId, teacherId, subject, classId, semester, status, [academicYearId+teacherId+subject+classId+semester]",
+    // GRADEBOOK-V2: bump version for KD1-KD6 + PTS + PAS fields in GradeEntry.
+    this.version(7).stores({
+      gradeBooks: "id, academicYearId, teacherId, classId, subject, semester, status, [academicYearId+teacherId+classId+semester]",
     });
   }
 }

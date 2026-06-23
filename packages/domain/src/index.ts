@@ -141,6 +141,7 @@ export {
   summarizeGradeBook,
   parseGradeBook,
   safeParseGradeBook,
+  parseExcelPaste,
   type GradeBook,
   type GradeEntry,
   type GradeEntryStatus,
