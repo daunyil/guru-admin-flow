@@ -1057,3 +1057,66 @@ Stage Summary:
 - 4 file changed (0 baru, 4 modifikasi).
 - Status: READY FOR SENIOR AUDIT.
 - Push PENDING: butuh token.
+
+---
+
+Task ID: AUTO-DOCUMENT-ENGINE-RC1
+Agent: main (AUTO-DOCUMENT-ENGINE-RC1 batch execution)
+Task: Auto Document Engine — generate paket administrasi guru per Data Mengajar.
+
+Work Log:
+- Branch: auto-document-engine-rc1 dari main (e5961ab).
+- Domain layer:
+  - packages/domain/src/admin-document-package.ts (NEW):
+    - AdminDocumentPackage type: assignment context + 12 PackageDocEntry + summary
+    - generateAdminDocumentPackage(input): pure function yang mengolah data sudah di-load
+    - 12 dokumen dicek: Prota, Promes, ATP, Roster, Absensi, Jurnal, Nilai, Remedial, Pengayaan, LKPD, RPP, Laporan
+    - DocAvailability: "available" | "draft" | "not_available"
+    - completenessScore = (available + draft*0.5) / total * 100
+  - packages/domain/src/index.ts: export generateAdminDocumentPackage + types.
+- Domain tests:
+  - test/admin-document-package.test.ts (NEW): 11 test
+    - empty input → semua not_available, score 0
+    - dengan Prota + Roster → 2 available
+    - dengan sessions + attendance → absensi + promes available
+    - dengan journals final → available
+    - dengan journals draft → status draft
+    - dengan gradeBook → available/draft
+    - dengan remedialProgram → draft
+    - dengan enrichmentProgram final → available
+    - completenessScore formula benar
+    - setiap dokumen punya route valid
+    - data tidak bercampur (assignment context di paket)
+- App UI layer:
+  - modules/auto-document/AutoDocumentPage.tsx (NEW): halaman /auto-document
+    - Pilih Data Mengajar
+    - Klik "Generate Paket Dokumen"
+    - Load semua data: Prota, Roster, Sessions, Journals, Attendance, GradeBook, ATP, LKPD, RPP, Remedial, Enrichment, SemesterReport
+    - Filter by assignment 5-tuple (tidak bercampur)
+    - Preview: 12 dokumen dengan badge Lengkap/Draft/Belum Tersedia
+    - Ringkasan data: total sesi, absensi, jurnal, nilai, remedial, pengayaan, siswa
+    - Mode Dokumen: format cetak A4 dengan tabel dokumen + ringkasan + tanda tangan
+    - Tombol Cetak (window.print)
+  - App.tsx: + route /auto-document (25 routes total)
+  - AppShell.tsx: + menu "Auto Document Engine"
+
+Verifikasi:
+- Typecheck: 3 workspace PASS, 0 error.
+- Test: 288/288 PASS (265 domain + 23 shared). +11 test baru.
+- Build: ROOT npm run build PASS — typecheck + vite build 3.88s.
+
+Stage Summary:
+- 9 AC terpenuhi:
+  1. Bisa pilih Data Mengajar ✅
+  2. Bisa generate preview paket ✅
+  3. Preview menampilkan status RPP, LKPD, Remedial, Pengayaan, Absensi, Jurnal, Nilai ✅ (12 dokumen)
+  4. Data tidak bercampur ✅ (filter by assignment 5-tuple)
+  5. Data belum ada → "Belum Tersedia" bukan error ✅
+  6. Tombol cetak tersedia ✅
+  7. Typecheck PASS ✅
+  8. Test PASS ✅
+  9. Build PASS ✅
+- 6 file changed (3 baru, 3 modifikasi).
+- Tidak Supabase. Tidak Cloud SQL. Tidak sync real-time. Tidak rebuild absen/jurnal.
+- Status: READY FOR SENIOR AUDIT.
+- Push PENDING: butuh token.

@@ -360,6 +360,15 @@ export {
   type AppsScriptImportPreview,
 } from "./apps-script-import";
 
+/* AUTO-DOCUMENT-ENGINE-RC1 — AdminDocumentPackage */
+export {
+  generateAdminDocumentPackage,
+  type AdminDocumentPackage,
+  type PackageDocEntry,
+  type DocAvailability,
+  type GeneratePackageInput,
+} from "./admin-document-package";
+
 /* Sprint 4 — Journal helpers (auto-fill dari sesi + Prota + absensi) */
 export {
   generateJournalFromSession,
