@@ -338,6 +338,28 @@ export {
   type EnrichmentStudent,
 } from "./enrichment-program";
 
+/* APPS-SCRIPT-BRIDGE-RC1 — Apps Script import schema + parser */
+export {
+  APPS_SCRIPT_IMPORT_SCHEMA,
+  APPS_SCRIPT_EXTERNAL_SOURCE,
+  appsScriptStudentSchema,
+  appsScriptGuruSchema,
+  appsScriptAbsensiSchema,
+  appsScriptJurnalSchema,
+  appsScriptNilaiSchema,
+  appsScriptImportSchema,
+  validateAppsScriptImport,
+  previewAppsScriptImport,
+  type AppsScriptStudent,
+  type AppsScriptGuru,
+  type AppsScriptAbsensi,
+  type AppsScriptJurnal,
+  type AppsScriptNilai,
+  type AppsScriptImport,
+  type AppsScriptImportValidation,
+  type AppsScriptImportPreview,
+} from "./apps-script-import";
+
 /* Sprint 4 — Journal helpers (auto-fill dari sesi + Prota + absensi) */
 export {
   generateJournalFromSession,

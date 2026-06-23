@@ -949,3 +949,64 @@ Stage Summary:
 - 3 file baru (test), 0 file modifikasi.
 - Status: CLOSED LOCALLY (per senior audit: "Kalau 4 manual QA itu aman, baru status patch ini bisa ditutup sebagai CLOSED LOCALLY. CI = STILL UNVERIFIED.")
 - Push PENDING: butuh token.
+
+---
+
+Task ID: APPS-SCRIPT-BRIDGE-RC1
+Agent: main (APPS-SCRIPT-BRIDGE-RC1 batch execution)
+Task: Jembatan satu arah Apps Script → App Generator. Import JSON dari Apps Script ke data lokal.
+
+Work Log:
+- Branch: apps-script-bridge-rc1 dari main (352d787).
+- Domain layer:
+  - packages/domain/src/apps-script-import.ts (NEW): schema untuk 5 jenis data Apps Script:
+    - AppsScriptStudent → ClassRoster
+    - AppsScriptGuru → TeachingAssignment
+    - AppsScriptAbsensi → LessonSession + AttendanceRecord
+    - AppsScriptJurnal → LessonSession + TeachingJournal
+    - AppsScriptNilai → GradeBook
+  - Root schema: appsScriptImportSchema dengan source="apps_script", academicYearLabel, semester, 5 array.
+  - validateAppsScriptImport(input): Zod validation + warnings (empty data, format academicYearLabel).
+  - previewAppsScriptImport(data): ringkasan counts untuk UI preview.
+  - APPS_SCRIPT_EXTERNAL_SOURCE = "apps_script" untuk idempotency tracking.
+  - packages/domain/src/index.ts: export semua types + functions.
+- Domain tests:
+  - test/apps-script-import.test.ts (NEW): 14 test
+    - validateAppsScriptImport: 8 test (valid, invalid source, empty label, bad semester, student no-id, empty data warning, format warning, default arrays, invalid status)
+    - previewAppsScriptImport: 2 test (counts, empty)
+    - constants: 1 test
+    - idempotency key: 2 test (externalId preserved, parse via schema)
+- App DB layer:
+  - apps-script-import-repo.ts (NEW): importFromAppsScript(data) → ImportSummary
+    - importStudentsFromAppsScript: group by classId → ClassRoster (idempotent by studentId)
+    - importGurusFromAppsScript: → TeachingAssignment (idempotent by 5-tuple)
+    - importAbsensiFromAppsScript: findOrCreateSession + clear+recreate AttendanceRecord (idempotent by classId+date+subject)
+    - importJurnalFromAppsScript: findOrCreateSession + init/update TeachingJournal (idempotent by sessionId)
+    - importNilaiFromAppsScript: → GradeBook (idempotent by 5-tuple)
+    - ImportSummary: per-category {new, updated, skipped, errors} + global errors[]
+- App UI layer:
+  - modules/apps-script-import/AppsScriptImportPage.tsx (NEW): halaman /apps-script-import
+    - Upload .json atau paste JSON
+    - Tombol "Muat Contoh JSON" untuk sample data
+    - Validasi + Preview (counts per kategori + warnings + InfoCard konteks)
+    - Konfirmasi Import → ringkasan hasil (new/updated/skipped/errors per kategori)
+- Routes + nav:
+  - App.tsx: + route /apps-script-import (24 routes total)
+  - AppShell.tsx: + menu "Import Apps Script"
+
+Verifikasi:
+- Typecheck: 3 workspace PASS, 0 error.
+- Test: 267/267 PASS (244 domain + 23 shared). +14 test baru (apps-script-import).
+- Build: ROOT npm run build PASS — typecheck + vite build 3.54s.
+
+Stage Summary:
+- 5 deliverable utama selesai:
+  1. Domain schema untuk data export Apps Script ✅
+  2. Parser/normalizer (validateAppsScriptImport + previewAppsScriptImport) ✅
+  3. Halaman import (upload/paste/preview/confirm/summary) ✅
+  4. Mapping data (students→ClassRoster, gurus→Assignment, absensi→Session+Attendance, jurnal→Session+Journal, nilai→GradeBook) ✅
+  5. Idempotent import (cari existing by natural key, update bila ada, create bila tidak) ✅
+- 5 file changed (4 baru, 1 modifikasi domain index).
+- Tidak ada Supabase. Tidak ada Cloud SQL. Tidak ada sync real-time. Tidak rebuild absen/jurnal.
+- Status: READY FOR SENIOR AUDIT.
+- Push PENDING: butuh token.

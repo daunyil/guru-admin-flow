@@ -1,6 +1,6 @@
 /**
  * Root App: router + AppShell.
- * GENERATOR-COMPLETION-RC1: 23 routes — +/rpp-bulk, /remedial, /pengayaan, /admin-package.
+ * APPS-SCRIPT-BRIDGE-RC1: 24 routes — +/apps-script-import.
  */
 
 import { HashRouter, Routes, Route } from "react-router-dom";
@@ -27,6 +27,7 @@ import { EnrichmentPage } from "./modules/pengayaan/EnrichmentPage";
 import { AdminPackagePage } from "./modules/admin-package/AdminPackagePage";
 import { SemesterReportPage } from "./modules/semester-report/SemesterReportPage";
 import { CompletenessPage } from "./modules/completeness/CompletenessPage";
+import { AppsScriptImportPage } from "./modules/apps-script-import/AppsScriptImportPage";
 
 export function App() {
   return (
@@ -37,6 +38,7 @@ export function App() {
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/new-year" element={<NewYearWizard />} />
           <Route path="/backup" element={<BackupPage />} />
+          <Route path="/apps-script-import" element={<AppsScriptImportPage />} />
           <Route path="/calendar" element={<CalendarPage />} />
           <Route path="/prota" element={<ProtaPage />} />
           <Route path="/promes" element={<PromesPage />} />

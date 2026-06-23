@@ -31,6 +31,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: "/profile", label: "Profil", icon: User },
   { to: "/new-year", label: "Tahun Baru", icon: Plus },
   { to: "/backup", label: "Backup", icon: Database },
+  { to: "/apps-script-import", label: "Import Apps Script", icon: Database },
 ];
 
 const MOBILE_PRIMARY: NavItem[] = [
