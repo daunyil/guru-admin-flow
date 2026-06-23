@@ -10,6 +10,7 @@
  */
 
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { Card, CardHeader, Input, Textarea, Button, EmptyState, Badge } from "../../shared/ui";
 import { getActiveAcademicYear, getTeacherProfile } from "../../shared/db/profile-repo";
 import {
@@ -18,7 +19,8 @@ import {
   updateATPEntry,
   deleteATPEntry,
 } from "../../shared/db/atp-entry-repo";
-import type { AcademicYear, TeacherProfile, ATPEntry } from "@guru-admin/domain";
+import { listLKPDs } from "../../shared/db/lkpd-repo";
+import type { AcademicYear, TeacherProfile, ATPEntry, LKPD } from "@guru-admin/domain";
 import { atpEntryLabel } from "@guru-admin/domain";
 
 export function ATPPage() {
@@ -26,6 +28,7 @@ export function ATPPage() {
   const [year, setYear] = useState<AcademicYear | null>(null);
   const [teacher, setTeacher] = useState<TeacherProfile | undefined>();
   const [entries, setEntries] = useState<ATPEntry[]>([]);
+  const [lkpds, setLkpds] = useState<LKPD[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<ATPEntry | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -37,7 +40,12 @@ export function ATPPage() {
       setYear(y ?? null);
       setTeacher(tp);
       if (y && tp) {
-        setEntries(await listATPEntries({ academicYearId: y.id, teacherId: tp.id }));
+        const [atps, lks] = await Promise.all([
+          listATPEntries({ academicYearId: y.id, teacherId: tp.id }),
+          listLKPDs({ academicYearId: y.id, teacherId: tp.id }),
+        ]);
+        setEntries(atps);
+        setLkpds(lks);
       }
       setLoading(false);
     })();
@@ -45,7 +53,12 @@ export function ATPPage() {
 
   async function reload() {
     if (!year || !teacher) return;
-    setEntries(await listATPEntries({ academicYearId: year.id, teacherId: teacher.id }));
+    const [atps, lks] = await Promise.all([
+      listATPEntries({ academicYearId: year.id, teacherId: teacher.id }),
+      listLKPDs({ academicYearId: year.id, teacherId: teacher.id }),
+    ]);
+    setEntries(atps);
+    setLkpds(lks);
   }
 
   async function handleSave(data: Omit<ATPEntry, "id" | "createdAt" | "updatedAt" | "deletedAt" | "syncStatus" | "academicYearId" | "teacherId" | "status">) {
@@ -122,9 +135,14 @@ Format: sesuaikan dengan standar Kurikulum Merdeka untuk ${entry.grade}.`;
 
       <Card>
         <div className="flex justify-between items-center">
-          <p className="text-sm text-slate-600">
-            Pusat bank Tujuan Pembelajaran. Dipakai untuk membuat LKPD, RPP, dan jurnal.
-          </p>
+          <div>
+            <p className="text-sm text-slate-600">
+              Pusat bank Tujuan Pembelajaran. TP dipakai untuk: LKPD, Perangkat Penilaian, Promes.
+            </p>
+            <p className="text-xs text-slate-400 mt-1">
+              CP (Capaian Pembelajaran) adalah dokumen resmi pemerintah — diarsipkan sebagai referensi, bukan digenerate app.
+            </p>
+          </div>
           <Button onClick={() => { setEditing(null); setShowForm(true); }}>+ Tambah TP</Button>
         </div>
       </Card>
@@ -158,6 +176,18 @@ Format: sesuaikan dengan standar Kurikulum Merdeka untuk ${entry.grade}.`;
                   <p className="text-xs text-slate-500 mt-1">Elemen: {e.elemen} · CP: {e.cp}</p>
                   {e.profilPelajar && <p className="text-xs text-slate-500">Profil: {e.profilPelajar}</p>}
                   {e.kataKunci && <p className="text-xs text-slate-400">Kata kunci: {e.kataKunci}</p>}
+
+                  {/* Dipakai di */}
+                  <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                    <span className="text-[10px] text-slate-400 uppercase tracking-wide">Dipakai di:</span>
+                    {lkpds.some((l) => l.atpEntryId === e.id) ? (
+                      <Link to="/lkpd"><Badge variant="success">LKPD</Badge></Link>
+                    ) : (
+                      <span className="text-[10px] text-slate-300">belum</span>
+                    )}
+                    <Link to="/evaluation-docs"><Badge variant="neutral">Perangkat Penilaian</Badge></Link>
+                    <Link to="/promes"><Badge variant="neutral">Promes</Badge></Link>
+                  </div>
                 </div>
                 <div className="flex flex-col gap-1 shrink-0">
                   <Button variant="secondary" className="text-xs px-2 py-1" onClick={() => { setEditing(e); setShowForm(true); }}>Edit</Button>
