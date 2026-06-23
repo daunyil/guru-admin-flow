@@ -1,35 +1,39 @@
 /**
- * PATCH-05: Nilai Cepat — administrasi ringan, bukan sistem ujian.
- * Sumber: docs/V0_6_2_PRODUCT_DECISIONS.md §5
+ * Nilai V2 — KD1-KD6, PTS, PAS, Nilai Akhir.
  *
- * PATCH-FLOW-RC2C: pakai TeachingAssignment sebagai konteks utama.
- *   - Pilih assignment → otomatis dapat (classId, subject, teacherId, semester, academicYearId).
- *   - Tidak lagi pilih kelas+mapel secara terpisah.
- *   - gradeBooks difilter via findGradeBook memakai context dari assignment.
- *   - Hindari campur data antar guru/mapel/kelas.
+ * GRADEBOOK-V2-KD-IMPORT-RC1:
+ *   - Kolom: KD1, KD2, KD3, KD4, KD5, KD6, PTS, PAS, Nilai Akhir.
+ *   - KD1 = Bab 1, dst. Tidak perlu tulis Bab di header.
+ *   - Nilai Akhir dihitung otomatis: rata-rata KD (40%) + PTS (25%) + PAS (35%).
+ *   - Paste Excel multi-kolom (No, Nama, KD1-KD6, PTS, PAS).
+ *   - Isi Otomatis Semua (preset nilai).
+ *   - Pilih Data Mengajar sebagai konteks.
  */
 
 import { useEffect, useState } from "react";
 import { Card, CardHeader, Input, Select, Button, Badge, Textarea, EmptyState, ContextCard } from "../../shared/ui";
 import { listClassRosters } from "../../shared/db/class-roster-repo";
 import { getActiveAcademicYear, getTeacherProfile } from "../../shared/db/profile-repo";
-import {
-  listAssignmentsByTeacher,
-} from "../../shared/db/teaching-assignment-repo";
-import {
-  findGradeBook,
-  saveGradeBook,
-  updateGradeBook,
-} from "../../shared/db/gradebook-repo";
+import { listAssignmentsByTeacher } from "../../shared/db/teaching-assignment-repo";
+import { findGradeBook, saveGradeBook, updateGradeBook } from "../../shared/db/gradebook-repo";
 import type {
-  AcademicYear,
-  TeacherProfile,
-  ClassRoster,
-  GradeBook,
-  GradeEntry,
-  TeachingAssignment,
+  AcademicYear, TeacherProfile, ClassRoster, GradeBook, GradeEntry, TeachingAssignment,
 } from "@guru-admin/domain";
-import { calculateGradeBookEntries, assignmentShortLabel, buildContextInfo } from "@guru-admin/domain";
+import {
+  calculateGradeBookEntries, assignmentShortLabel, buildContextInfo, parseExcelPaste,
+} from "@guru-admin/domain";
+
+/** Kolom nilai yang bisa diisi. */
+const SCORE_COLUMNS: Array<{ key: keyof GradeEntry; label: string; width: string }> = [
+  { key: "kd1", label: "KD1", width: "w-16" },
+  { key: "kd2", label: "KD2", width: "w-16" },
+  { key: "kd3", label: "KD3", width: "w-16" },
+  { key: "kd4", label: "KD4", width: "w-16" },
+  { key: "kd5", label: "KD5", width: "w-16" },
+  { key: "kd6", label: "KD6", width: "w-16" },
+  { key: "pts", label: "PTS", width: "w-16" },
+  { key: "pas", label: "PAS", width: "w-16" },
+];
 
 export function GradesPage() {
   const [loading, setLoading] = useState(true);
@@ -43,6 +47,7 @@ export function GradesPage() {
   const [gradeBook, setGradeBook] = useState<GradeBook | null>(null);
   const [dirty, setDirty] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [pasteText, setPasteText] = useState("");
 
   useEffect(() => {
     void (async () => {
@@ -51,10 +56,9 @@ export function GradesPage() {
       setTeacher(tp);
       if (y) setRosters(await listClassRosters(y.id));
       if (y && tp) {
-        // Default semester dari tanggal hari ini
         const today = new Date();
         const todayISO = today.toISOString().slice(0, 10);
-        const defaultSemester =
+        const defaultSemester: 1 | 2 =
           y.semester2Start <= todayISO && todayISO <= y.semester2End ? 2 : 1;
         setAssignments(await listAssignmentsByTeacher(tp.id, y.id, defaultSemester));
       }
@@ -69,19 +73,10 @@ export function GradesPage() {
   async function loadEntries() {
     if (!year || !teacher) return;
     const assignment = selectedAssignment();
-    if (!assignment) {
-      setEntries([]);
-      setGradeBook(null);
-      return;
-    }
+    if (!assignment) { setEntries([]); setGradeBook(null); return; }
     const roster = rosters.find((r) => r.classId === assignment.classId);
-    if (!roster) {
-      setEntries([]);
-      setGradeBook(null);
-      return;
-    }
+    if (!roster) { setEntries([]); setGradeBook(null); return; }
 
-    // Cari GradeBook existing via context assignment
     const existing = await findGradeBook({
       academicYearId: assignment.academicYearId,
       teacherId: assignment.teacherId,
@@ -93,36 +88,28 @@ export function GradesPage() {
     if (existing) {
       setGradeBook(existing);
       setKktp(existing.passingScore);
-      setEntries(
-        existing.entries
-          .slice()
-          .sort((a, b) => (a.studentNumber ?? 0) - (b.studentNumber ?? 0))
-      );
+      setEntries(existing.entries.slice().sort((a, b) => (a.studentNumber ?? 0) - (b.studentNumber ?? 0)));
     } else {
-      // Buat entries baru dari roster (in-memory only)
       setGradeBook(null);
       const newEntries: GradeEntry[] = roster.students.map((s) => ({
         studentId: s.id,
         studentName: s.name,
         studentNumber: s.number,
-        dailyScore: null,
-        assignmentScore: null,
-        summativeScore: null,
-        remedialScore: null,
-        averageScore: null,
-        finalScore: null,
-        status: "incomplete",
+        kd1: null, kd2: null, kd3: null, kd4: null, kd5: null, kd6: null,
+        pts: null, pas: null,
+        finalScore: null, averageKd: null,
+        dailyScore: null, assignmentScore: null, summativeScore: null,
+        remedialScore: null, averageScore: null,
+        status: "incomplete" as const,
       }));
       setEntries(newEntries);
     }
     setDirty(false);
   }
 
-  useEffect(() => {
-    void loadEntries();
-  }, [selectedAssignmentId]);
+  useEffect(() => { void loadEntries(); }, [selectedAssignmentId]);
 
-  function setScore(idx: number, field: "dailyScore" | "finalScore", value: string) {
+  function setScore(idx: number, field: keyof GradeEntry, value: string) {
     const num = value === "" ? null : Math.max(0, Math.min(100, Number(value)));
     const next = [...entries];
     next[idx] = { ...next[idx], [field]: num };
@@ -131,56 +118,62 @@ export function GradesPage() {
   }
 
   function handleFillAll80() {
-    setEntries(entries.map((e) => ({ ...e, dailyScore: 80, finalScore: 80 })));
+    setEntries(entries.map((e) => ({
+      ...e,
+      kd1: 80, kd2: 80, kd3: 80, kd4: 80, kd5: 80, kd6: 80,
+      pts: 80, pas: 80,
+    })));
     setDirty(true);
     setMessage("Semua diisi 80. Klik Simpan.");
   }
 
   function handleRandomControlled() {
-    setEntries(
-      entries.map((e) => {
-        const base = 75 + Math.floor(Math.random() * 20);
-        return { ...e, dailyScore: base, finalScore: base };
-      })
-    );
+    setEntries(entries.map((e) => {
+      const base = 75 + Math.floor(Math.random() * 20);
+      return { ...e, kd1: base, kd2: base, kd3: base, kd4: base, kd5: base, kd6: base, pts: base, pas: base };
+    }));
     setDirty(true);
     setMessage("Nilai diacak terkontrol (75-94). Klik Simpan.");
   }
 
   function handlePasteExcel(text: string) {
-    const lines = text.trim().split("\n").map((l) => l.trim()).filter(Boolean);
+    const assignment = selectedAssignment();
+    if (!assignment) return;
+    const roster = rosters.find((r) => r.classId === assignment.classId);
+    if (!roster) return;
+
+    const { matched, unmatched } = parseExcelPaste(text, roster.students);
+    if (matched.length === 0) {
+      setMessage("Tidak ada siswa yang cocok. Pastikan format: No, Nama, KD1-KD6, PTS, PAS.");
+      return;
+    }
+
     const next = [...entries];
-    lines.forEach((line, i) => {
-      if (i < next.length) {
-        const val = Number(line.replace(/[^\d.]/g, ""));
-        if (!isNaN(val) && val >= 0 && val <= 100) {
-          next[i] = { ...next[i], dailyScore: val, finalScore: val };
-        }
+    for (const { rosterStudent, scores } of matched) {
+      const idx = next.findIndex((e) => e.studentId === rosterStudent.id);
+      if (idx >= 0) {
+        next[idx] = { ...next[idx], ...scores };
       }
-    });
+    }
     setEntries(next);
     setDirty(true);
-    setMessage("Nilai di-paste dari Excel. Klik Simpan.");
+    const msg = `${matched.length} siswa cocok. ${unmatched.length} baris tidak cocok.`;
+    setMessage(msg);
   }
 
   async function handleSave() {
     if (!year || !teacher) return;
     const assignment = selectedAssignment();
     if (!assignment) return;
+    const roster = rosters.find((r) => r.classId === assignment.classId);
+    if (!roster) return;
 
     try {
       if (gradeBook) {
-        const updated = await updateGradeBook(gradeBook.id, {
-          passingScore: kktp,
-          entries,
-        });
+        const updated = await updateGradeBook(gradeBook.id, { passingScore: kktp, entries });
         if (updated) {
           setGradeBook(updated);
-          setEntries(
-            updated.entries
-              .slice()
-              .sort((a, b) => (a.studentNumber ?? 0) - (b.studentNumber ?? 0))
-          );
+          setEntries(updated.entries.slice().sort((a, b) => (a.studentNumber ?? 0) - (b.studentNumber ?? 0)));
           setDirty(false);
           setMessage("Nilai tersimpan.");
         }
@@ -197,11 +190,7 @@ export function GradesPage() {
           status: "draft",
         });
         setGradeBook(created);
-        setEntries(
-          created.entries
-            .slice()
-            .sort((a, b) => (a.studentNumber ?? 0) - (b.studentNumber ?? 0))
-        );
+        setEntries(created.entries.slice().sort((a, b) => (a.studentNumber ?? 0) - (b.studentNumber ?? 0)));
         setDirty(false);
         setMessage("Nilai tersimpan.");
       }
@@ -220,146 +209,86 @@ export function GradesPage() {
   return (
     <div className="space-y-4">
       <div className="page-header">
-        <h1 className="text-2xl font-bold text-slate-900">Nilai Cepat</h1>
+        <h1 className="text-2xl font-bold text-slate-900">Daftar Nilai</h1>
         <p className="text-sm text-slate-500 mt-1">
-          {assignment
-            ? assignmentShortLabel(assignment)
-            : "Pilih Data Mengajar dulu."}
+          {assignment ? assignmentShortLabel(assignment) : "Pilih Data Mengajar dulu."}
         </p>
       </div>
 
       {message && <div className="info-banner-success">{message}</div>}
 
-      {/* Assignment selector */}
+      {/* Pilih Data Mengajar */}
       <Card>
-        <CardHeader
-          title="Pilih Data Mengajar"
-          description="Pilih paket mengajar. Mapel+kelas+guru otomatis terikat."
-        />
+        <CardHeader title="Pilih Data Mengajar" description="KD1=Bab1, KD2=Bab2, dst. Nilai Akhir = rata-rata KD (40%) + PTS (25%) + PAS (35%)." />
         {assignments.length === 0 ? (
-          <EmptyState
-            title="Belum ada Data Mengajar"
-            description="Buka menu 'Data Mengajar' untuk membuat assignment dulu."
-            action={<Button variant="secondary" onClick={() => (window.location.hash = "#/assignments")}>Buka Data Mengajar</Button>}
-          />
+          <EmptyState title="Belum ada Data Mengajar" description="Buka menu Data Mengajar dulu."
+            action={<Button variant="secondary" onClick={() => (window.location.hash = "#/assignments")}>Buka Data Mengajar</Button>} />
         ) : (
-          <Select
-            label="Data Mengajar"
-            id="g-assignment"
-            value={selectedAssignmentId}
-            onChange={setSelectedAssignmentId}
-            options={[
-              { value: "", label: "-- Pilih --" },
-              ...assignments.map((a) => ({
-                value: a.id,
-                label: `${a.classLabel} · ${a.subject} · ${a.teacherName}`,
-              })),
-            ]}
-          />
+          <Select label="Data Mengajar" id="g-assignment" value={selectedAssignmentId} onChange={setSelectedAssignmentId}
+            options={[{ value: "", label: "-- Pilih --" }, ...assignments.map((a) => ({ value: a.id, label: `${a.classLabel} · ${a.subject} · ${a.teacherName}` }))]} />
         )}
       </Card>
 
       {assignment && entries.length > 0 && (
         <>
-          {/* Context card */}
-          {year && (
-            <ContextCard info={buildContextInfo({ assignment, academicYear: year })} />
-          )}
+          {year && <ContextCard info={buildContextInfo({ assignment, academicYear: year })} />}
 
           {/* KKTP + quick actions */}
           <Card>
-            <div className="grid sm:grid-cols-2 gap-3 items-end">
-              <Input
-                label="KKTP"
-                id="g-kktp"
-                type="number"
-                value={String(kktp)}
-                onChange={(v) => { setKktp(Number(v) || 75); setDirty(true); }}
-              />
-              <div className="flex gap-2 flex-wrap">
-                <Button variant="secondary" className="text-sm" onClick={handleFillAll80}>Isi Semua 80</Button>
-                <Button variant="secondary" className="text-sm" onClick={handleRandomControlled}>Acak Terkontrol</Button>
-                <Button onClick={handleSave} disabled={!dirty} className="text-sm">
-                  {dirty ? "Simpan" : "Tersimpan"}
-                </Button>
-              </div>
+            <div className="flex gap-3 items-end flex-wrap">
+              <Input label="KKTP" id="g-kktp" type="number" value={String(kktp)} onChange={(v) => { setKktp(Number(v) || 75); setDirty(true); }} />
+              <Button variant="secondary" className="text-sm" onClick={handleFillAll80}>Isi Semua 80</Button>
+              <Button variant="secondary" className="text-sm" onClick={handleRandomControlled}>Acak Terkontrol</Button>
+              <Button onClick={handleSave} disabled={!dirty} className="text-sm">{dirty ? "Simpan" : "Tersimpan"}</Button>
+              {gradeBook && <Badge variant="neutral">GradeBook: {gradeBook.status}</Badge>}
             </div>
-            {gradeBook && (
-              <div className="mt-3">
-                <Badge variant="neutral">GradeBook: {gradeBook.status}</Badge>
-              </div>
-            )}
           </Card>
 
           {/* Summary */}
           <div className="grid grid-cols-4 gap-2 text-center">
-            <div className="p-2 bg-brand-50 rounded">
-              <p className="text-lg font-bold text-brand-700">
-                {calculated.filter((e) => e.finalScore !== null).length}
-              </p>
-              <p className="text-xs">Terisi</p>
-            </div>
-            <div className="p-2 bg-slate-100 rounded">
-              <p className="text-lg font-bold">{entries.length}</p>
-              <p className="text-xs">Total</p>
-            </div>
-            <div className="p-2 bg-rose-50 rounded">
-              <p className="text-lg font-bold text-rose-700">{remedialCount}</p>
-              <p className="text-xs">Remedial</p>
-            </div>
-            <div className="p-2 bg-emerald-50 rounded">
-              <p className="text-lg font-bold text-emerald-700">{enrichmentCount}</p>
-              <p className="text-xs">Pengayaan</p>
-            </div>
+            <div className="p-2 bg-brand-50 rounded"><p className="text-lg font-bold text-brand-700">{calculated.filter((e) => e.finalScore !== null).length}</p><p className="text-xs">Terisi</p></div>
+            <div className="p-2 bg-slate-100 rounded"><p className="text-lg font-bold">{entries.length}</p><p className="text-xs">Total</p></div>
+            <div className="p-2 bg-rose-50 rounded"><p className="text-lg font-bold text-rose-700">{remedialCount}</p><p className="text-xs">Remedial</p></div>
+            <div className="p-2 bg-emerald-50 rounded"><p className="text-lg font-bold text-emerald-700">{enrichmentCount}</p><p className="text-xs">Pengayaan</p></div>
           </div>
 
-          {/* Grade table */}
+          {/* Grade table V2 */}
           <Card>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-slate-200 text-left">
-                    <th className="py-2 px-2">No</th>
-                    <th className="py-2 px-2">Nama</th>
-                    <th className="py-2 px-2 w-24">Harian</th>
-                    <th className="py-2 px-2 w-24">Akhir</th>
-                    <th className="py-2 px-2 w-28">Status</th>
+                    <th className="py-2 px-2 sticky left-0 bg-white">No</th>
+                    <th className="py-2 px-2 sticky left-0 bg-white" style={{ minWidth: "120px" }}>Nama</th>
+                    {SCORE_COLUMNS.map((col) => (
+                      <th key={col.key} className={`py-2 px-2 ${col.width} text-center`}>{col.label}</th>
+                    ))}
+                    <th className="py-2 px-2 w-20 text-center bg-slate-50">Akhir</th>
+                    <th className="py-2 px-2 w-24 text-center">Status</th>
                   </tr>
                 </thead>
                 <tbody>
                   {calculated.map((e, i) => (
                     <tr key={e.studentId} className="border-b border-slate-100">
                       <td className="py-1.5 px-2">{e.studentNumber}</td>
-                      <td className="py-1.5 px-2">{e.studentName}</td>
-                      <td className="py-1.5 px-2">
-                        <input
-                          type="number"
-                          className="w-20 px-2 py-1 border border-slate-300 rounded text-sm"
-                          value={e.dailyScore ?? ""}
-                          onChange={(ev) => setScore(i, "dailyScore", ev.target.value)}
-                          min={0} max={100}
-                        />
-                      </td>
-                      <td className="py-1.5 px-2">
-                        <input
-                          type="number"
-                          className="w-20 px-2 py-1 border border-slate-300 rounded text-sm"
-                          value={e.finalScore ?? ""}
-                          onChange={(ev) => setScore(i, "finalScore", ev.target.value)}
-                          min={0} max={100}
-                        />
-                      </td>
-                      <td className="py-1.5 px-2">
+                      <td className="py-1.5 px-2 font-medium">{e.studentName}</td>
+                      {SCORE_COLUMNS.map((col) => (
+                        <td key={col.key} className="py-1.5 px-2">
+                          <input
+                            type="number"
+                            className="w-14 px-1 py-1 border border-slate-300 rounded text-sm text-center"
+                            value={(e[col.key] as number | null) ?? ""}
+                            onChange={(ev) => setScore(i, col.key, ev.target.value)}
+                            min={0} max={100}
+                          />
+                        </td>
+                      ))}
+                      <td className="py-1.5 px-2 text-center font-bold bg-slate-50">{e.finalScore ?? "-"}</td>
+                      <td className="py-1.5 px-2 text-center">
                         {e.status === "remedial" && <Badge variant="error">Remedial</Badge>}
-                        {(e.finalScore ?? 0) >= 90 && e.status !== "remedial" && (
-                          <Badge variant="success">Pengayaan</Badge>
-                        )}
-                        {e.status === "complete" && (e.finalScore ?? 0) < 90 && (
-                          <Badge variant="neutral">Tuntas</Badge>
-                        )}
-                        {e.status === "incomplete" && (
-                          <Badge variant="warning">Belum</Badge>
-                        )}
+                        {(e.finalScore ?? 0) >= 90 && e.status !== "remedial" && <Badge variant="success">Pengayaan</Badge>}
+                        {e.status === "complete" && (e.finalScore ?? 0) < 90 && <Badge variant="neutral">Tuntas</Badge>}
+                        {e.status === "incomplete" && <Badge variant="warning">Belum</Badge>}
                       </td>
                     </tr>
                   ))}
@@ -368,10 +297,11 @@ export function GradesPage() {
             </div>
           </Card>
 
-          {/* Paste from Excel */}
+          {/* Paste Excel multi-kolom */}
           <Card>
-            <CardHeader title="Paste dari Excel/CBT" description="Tempel kolom nilai (satu angka per baris)." />
-            <Textarea id="paste-grades" label="" value="" onChange={handlePasteExcel} rows={5} placeholder="85\n90\n78\n..." />
+            <CardHeader title="Paste dari Excel" description="Format: No, Nama, KD1, KD2, KD3, KD4, KD5, KD6, PTS, PAS (dipisah tab/koma)." />
+            <Textarea id="paste-grades" label="" value={pasteText} onChange={(v) => { setPasteText(v); if (v.trim()) handlePasteExcel(v); }} rows={5}
+              placeholder="1	Andi	80	85	75	90	70	85	78	82&#10;2	Budi	70	75	65	80	60	75	68	72" />
           </Card>
         </>
       )}

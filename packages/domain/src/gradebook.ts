@@ -1,8 +1,12 @@
 /**
- * GradeBook — Nilai ringan per kelas.
+ * GradeBook — Nilai per kelas dengan KD1-KD6, PTS, PAS.
  *
- * v0.6: bukan raport penuh. Modul ini hanya menyimpan nilai kerja guru
- * untuk Harian, Tugas, Sumatif, Remedial, rata-rata, status, dan catatan.
+ * V2 (GRADEBOOK-V2-KD-IMPORT-RC1):
+ *   - Field nilai: KD1, KD2, KD3, KD4, KD5, KD6, PTS, PAS, Nilai Akhir.
+ *   - KD = nilai per bab (KD1 = Bab 1, dst).
+ *   - Nilai Akhir dihitung dari rata-rata KD + PTS + PAS (bobot configurable).
+ *   - Field lama (dailyScore, assignmentScore, summativeScore) tetap ada
+ *     untuk backward compat, tapi UI V2 pakai KD1-KD6.
  */
 
 import { z } from "zod";
@@ -17,12 +21,27 @@ export const gradeEntrySchema = z.object({
   studentId: z.string().min(1),
   studentName: z.string().min(1),
   studentNumber: z.number().int().positive().optional(),
+  /** V2: Nilai per KD (bab). KD1 = Bab 1, dst. */
+  kd1: scoreSchema,
+  kd2: scoreSchema,
+  kd3: scoreSchema,
+  kd4: scoreSchema,
+  kd5: scoreSchema,
+  kd6: scoreSchema,
+  /** V2: Penilaian Tengah Semester. */
+  pts: scoreSchema,
+  /** V2: Penilaian Akhir Semester. */
+  pas: scoreSchema,
+  /** V2: Nilai Akhir (dihitung dari KD + PTS + PAS). */
+  finalScore: scoreSchema,
+  /** V2: Rata-rata KD. */
+  averageKd: scoreSchema,
+  /** Legacy fields (backward compat, tidak dipakai di UI V2). */
   dailyScore: scoreSchema,
   assignmentScore: scoreSchema,
   summativeScore: scoreSchema,
   remedialScore: scoreSchema,
   averageScore: scoreSchema,
-  finalScore: scoreSchema,
   status: gradeEntryStatusSchema,
   note: z.string().optional(),
 });
@@ -56,43 +75,75 @@ function normalizeScore(value: number | null | undefined): number | null {
   return Math.max(0, Math.min(100, Math.round(value * 100) / 100));
 }
 
+/**
+ * Hitung Nilai Akhir dari KD1-KD6 + PTS + PAS.
+ *
+ * Bobot default:
+ *   - Rata-rata KD: 40%
+ *   - PTS: 25%
+ *   - PAS: 35%
+ *
+ * Bila salah satu kosong, bobotnya didistribusikan ke yang ada.
+ * Bila semua kosong → null.
+ */
 export function calculateGradeEntry(
   entry: GradeEntry,
   passingScore: number
 ): GradeEntry {
-  const dailyScore = normalizeScore(entry.dailyScore);
-  const assignmentScore = normalizeScore(entry.assignmentScore);
-  const summativeScore = normalizeScore(entry.summativeScore);
-  const remedialScore = normalizeScore(entry.remedialScore);
-  const baseScores = [dailyScore, assignmentScore, summativeScore].filter(
-    (score): score is number => score !== null
-  );
+  // Normalize V2 scores
+  const kd1 = normalizeScore(entry.kd1);
+  const kd2 = normalizeScore(entry.kd2);
+  const kd3 = normalizeScore(entry.kd3);
+  const kd4 = normalizeScore(entry.kd4);
+  const kd5 = normalizeScore(entry.kd5);
+  const kd6 = normalizeScore(entry.kd6);
+  const pts = normalizeScore(entry.pts);
+  const pas = normalizeScore(entry.pas);
 
-  if (baseScores.length === 0) {
+  // Hitung rata-rata KD
+  const kdScores = [kd1, kd2, kd3, kd4, kd5, kd6].filter(
+    (s): s is number => s !== null
+  );
+  const averageKd = kdScores.length > 0
+    ? Math.round((kdScores.reduce((sum, s) => sum + s, 0) / kdScores.length) * 100) / 100
+    : null;
+
+  // Hitung Nilai Akhir dengan bobot
+  // Bobot: KD avg 40%, PTS 25%, PAS 35%
+  const components: Array<{ score: number | null; weight: number }> = [
+    { score: averageKd, weight: 40 },
+    { score: pts, weight: 25 },
+    { score: pas, weight: 35 },
+  ];
+
+  const availableComponents = components.filter((c) => c.score !== null);
+  if (availableComponents.length === 0) {
     return {
       ...entry,
-      dailyScore,
-      assignmentScore,
-      summativeScore,
-      remedialScore,
+      kd1, kd2, kd3, kd4, kd5, kd6,
+      pts, pas,
+      averageKd: null,
+      finalScore: null,
       averageScore: null,
-      finalScore: remedialScore,
       status: "incomplete",
     };
   }
 
-  const averageScore = Math.round((baseScores.reduce((sum, score) => sum + score, 0) / baseScores.length) * 100) / 100;
-  const finalScore = remedialScore !== null ? Math.max(averageScore, remedialScore) : averageScore;
+  // Distribusi bobot ke komponen yang ada
+  const totalWeight = availableComponents.reduce((sum, c) => sum + c.weight, 0);
+  const finalScore = Math.round(
+    (availableComponents.reduce((sum, c) => sum + (c.score as number) * c.weight, 0) / totalWeight) * 100
+  ) / 100;
+
   const status: GradeEntryStatus = finalScore >= passingScore ? "complete" : "remedial";
 
   return {
     ...entry,
-    dailyScore,
-    assignmentScore,
-    summativeScore,
-    remedialScore,
-    averageScore,
+    kd1, kd2, kd3, kd4, kd5, kd6,
+    pts, pas,
+    averageKd,
     finalScore,
+    averageScore: averageKd, // legacy: averageScore = averageKd
     status,
   };
 }
@@ -131,4 +182,77 @@ export function safeParseGradeBook(input: unknown) {
     return { success: false as const, error: result.error };
   }
   return { success: true as const, data: result.data };
+}
+
+/**
+ * Parse paste Excel multi-kolom (KD1-KD6, PTS, PAS).
+ * Format: satu siswa per baris, kolom dipisah tab/koma.
+ * Kolom: No, Nama (opsional), KD1, KD2, KD3, KD4, KD5, KD6, PTS, PAS
+ *
+ * Return array of partial GradeEntry (studentId kosong, perlu match by roster).
+ */
+export function parseExcelPaste(
+  text: string,
+  roster: Array<{ id: string; name: string; number: number }>
+): { matched: Array<{ rosterStudent: typeof roster[0]; scores: Partial<GradeEntry> }>; unmatched: string[] } {
+  const lines = text.trim().split("\n").map((l) => l.trim()).filter(Boolean);
+  const matched: Array<{ rosterStudent: typeof roster[0]; scores: Partial<GradeEntry> }> = [];
+  const unmatched: string[] = [];
+
+  // Cek apakah baris pertama adalah header
+  const firstLine = lines[0]?.toLowerCase() ?? "";
+  const hasHeader = firstLine.includes("kd1") || firstLine.includes("no") || firstLine.includes("nama");
+  const dataLines = hasHeader ? lines.slice(1) : lines;
+
+  for (const line of dataLines) {
+    const parts = line.split(/\t|,|;|\s{2,}/).map((p) => p.trim()).filter(Boolean);
+    if (parts.length < 2) continue;
+
+    // Coba parse: No, Nama, KD1-KD6, PTS, PAS
+    // Atau: Nama, KD1-KD6, PTS, PAS (tanpa No)
+    let studentNumber: number | undefined;
+    let studentName: string;
+    let scoreStartIdx: number;
+
+    const firstPart = parts[0];
+    const firstNum = Number(firstPart);
+    if (!isNaN(firstNum) && firstNum > 0 && firstNum < 100) {
+      // Format: No, Nama, KD1...
+      studentNumber = firstNum;
+      studentName = parts[1];
+      scoreStartIdx = 2;
+    } else {
+      // Format: Nama, KD1...
+      studentName = firstPart;
+      scoreStartIdx = 1;
+    }
+
+    // Match siswa by name atau number
+    let rosterStudent = roster.find((s) =>
+      s.name.toLowerCase().includes(studentName.toLowerCase()) ||
+      studentName.toLowerCase().includes(s.name.toLowerCase())
+    );
+    if (!rosterStudent && studentNumber) {
+      rosterStudent = roster.find((s) => s.number === studentNumber);
+    }
+
+    if (!rosterStudent) {
+      unmatched.push(line);
+      continue;
+    }
+
+    // Parse scores: KD1, KD2, KD3, KD4, KD5, KD6, PTS, PAS
+    const scoreKeys: Array<keyof GradeEntry> = ["kd1", "kd2", "kd3", "kd4", "kd5", "kd6", "pts", "pas"];
+    const scores: Partial<GradeEntry> = {};
+    for (let i = 0; i < scoreKeys.length && (scoreStartIdx + i) < parts.length; i++) {
+      const val = Number(parts[scoreStartIdx + i]);
+      if (!isNaN(val) && val >= 0 && val <= 100) {
+        (scores as Record<string, unknown>)[scoreKeys[i]] = val;
+      }
+    }
+
+    matched.push({ rosterStudent, scores });
+  }
+
+  return { matched, unmatched };
 }
