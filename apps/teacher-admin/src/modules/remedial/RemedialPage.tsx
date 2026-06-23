@@ -30,6 +30,23 @@ import type {
 import { calculateGradeBookEntries } from "@guru-admin/domain";
 import { formatLongDateID, todayISODate } from "@guru-admin/shared";
 
+/** Preset bentuk remedial untuk dropdown. */
+const REMEDIAL_PRESETS = [
+  "Pembelajaran ulang dan tugas perbaikan",
+  "Tugas perbaikan",
+  "Bimbingan individual",
+  "Tutor sebaya",
+  "Ulangan ulang",
+];
+
+/** Preset jadwal remedial untuk dropdown. */
+const SCHEDULE_PRESETS = [
+  "Setelah jam pelajaran",
+  "Jam istirahat",
+  "Hari Sabtu",
+  "Jadwal khusus",
+];
+
 export function RemedialPage() {
   const [loading, setLoading] = useState(true);
   const [year, setYear] = useState<AcademicYear | null>(null);
@@ -44,6 +61,11 @@ export function RemedialPage() {
   const [endDate, setEndDate] = useState("");
   const [showDocument, setShowDocument] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  // Preset untuk Isi Otomatis Semua
+  const [presetMethod, setPresetMethod] = useState("");
+  const [presetSchedule, setPresetSchedule] = useState("");
+  const [presetNote, setPresetNote] = useState("");
 
   useEffect(() => {
     void (async () => {
@@ -291,7 +313,61 @@ export function RemedialPage() {
                 description={`Semua siswa sudah tuntas (nilai >= ${program.kktp}).`}
               />
             ) : (
-              <div className="overflow-x-auto">
+              <>
+                {/* Isi Otomatis Semua — preset */}
+                <div className="p-3 bg-slate-50 rounded-md mb-3 space-y-2">
+                  <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Isi Otomatis Semua Siswa</p>
+                  <div className="flex gap-2 flex-wrap items-end">
+                    <Select
+                      label=""
+                      id="rem-preset-method"
+                      value={presetMethod}
+                      onChange={setPresetMethod}
+                      options={[
+                        { value: "", label: "-- Pilih bentuk --" },
+                        ...REMEDIAL_PRESETS.map((p) => ({ value: p, label: p })),
+                      ]}
+                    />
+                    <Select
+                      label=""
+                      id="rem-preset-schedule"
+                      value={presetSchedule}
+                      onChange={setPresetSchedule}
+                      options={[
+                        { value: "", label: "-- Pilih jadwal --" },
+                        ...SCHEDULE_PRESETS.map((s) => ({ value: s, label: s })),
+                      ]}
+                    />
+                    <Input
+                      label=""
+                      id="rem-preset-note"
+                      value={presetNote}
+                      onChange={setPresetNote}
+                      placeholder="Catatan cepat (opsional)"
+                    />
+                    <Button
+                      variant="secondary"
+                      className="text-sm"
+                      onClick={async () => {
+                        if (!program) return;
+                        const updatedStudents = program.students.map((s) => ({
+                          ...s,
+                          method: presetMethod || s.method,
+                          schedule: presetSchedule || s.schedule,
+                          note: presetNote || s.note,
+                        }));
+                        const updated = await updateRemedialProgram(program.id, { students: updatedStudents });
+                        if (updated) setProgram(updated);
+                        setMessage({ type: "success", text: "Preset diterapkan ke semua siswa. Masih bisa edit per siswa." });
+                      }}
+                      disabled={!presetMethod && !presetSchedule && !presetNote}
+                    >
+                      Terapkan ke Semua
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-slate-200 text-left">
@@ -327,22 +403,28 @@ export function RemedialPage() {
                           />
                         </td>
                         <td className="py-1.5 px-2">
-                          <input
-                            type="text"
-                            className="w-32 px-2 py-1 border border-slate-300 rounded text-sm"
+                          <select
+                            className="w-36 px-2 py-1 border border-slate-300 rounded text-sm"
                             value={s.method ?? ""}
                             onChange={(e) => handleUpdateStudent(i, { method: e.target.value })}
-                            placeholder="Tutor sebaya"
-                          />
+                          >
+                            <option value="">-- Pilih --</option>
+                            {REMEDIAL_PRESETS.map((p) => (
+                              <option key={p} value={p}>{p}</option>
+                            ))}
+                          </select>
                         </td>
                         <td className="py-1.5 px-2">
-                          <input
-                            type="text"
+                          <select
                             className="w-32 px-2 py-1 border border-slate-300 rounded text-sm"
                             value={s.schedule ?? ""}
                             onChange={(e) => handleUpdateStudent(i, { schedule: e.target.value })}
-                            placeholder="Senin, 14:00"
-                          />
+                          >
+                            <option value="">-- Pilih --</option>
+                            {SCHEDULE_PRESETS.map((sc) => (
+                              <option key={sc} value={sc}>{sc}</option>
+                            ))}
+                          </select>
                         </td>
                         <td className="py-1.5 px-2">
                           <input
@@ -356,7 +438,8 @@ export function RemedialPage() {
                     ))}
                   </tbody>
                 </table>
-              </div>
+                </div>
+              </>
             )}
           </Card>
 

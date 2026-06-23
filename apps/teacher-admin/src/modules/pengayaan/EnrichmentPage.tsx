@@ -33,6 +33,23 @@ import {
 } from "@guru-admin/domain";
 import { formatLongDateID, todayISODate } from "@guru-admin/shared";
 
+/** Preset aktivitas pengayaan untuk dropdown. */
+const ENRICHMENT_PRESETS = [
+  "Proyek mandiri",
+  "Soal tantangan",
+  "Presentasi singkat",
+  "Tutor sebaya",
+  "Rangkuman materi lanjutan",
+];
+
+/** Preset materi pengayaan untuk dropdown. */
+const MATERIAL_PRESETS = [
+  "Materi lanjutan dari bab berikutnya",
+  "Pendalaman materi saat ini",
+  "Proyek aplikasi materi",
+  "Eksplorasi topik terkait",
+];
+
 export function EnrichmentPage() {
   const [loading, setLoading] = useState(true);
   const [year, setYear] = useState<AcademicYear | null>(null);
@@ -45,6 +62,11 @@ export function EnrichmentPage() {
   const [plan, setPlan] = useState("");
   const [showDocument, setShowDocument] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  // Preset untuk Isi Otomatis Semua
+  const [presetActivity, setPresetActivity] = useState("");
+  const [presetMaterial, setPresetMaterial] = useState("");
+  const [presetNote, setPresetNote] = useState("");
 
   useEffect(() => {
     void (async () => {
@@ -273,7 +295,61 @@ export function EnrichmentPage() {
                 description={`Belum ada siswa yang mencapai threshold ${program.threshold}.`}
               />
             ) : (
-              <div className="overflow-x-auto">
+              <>
+                {/* Isi Otomatis Semua — preset */}
+                <div className="p-3 bg-slate-50 rounded-md mb-3 space-y-2">
+                  <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Isi Otomatis Semua Siswa</p>
+                  <div className="flex gap-2 flex-wrap items-end">
+                    <Select
+                      label=""
+                      id="enr-preset-activity"
+                      value={presetActivity}
+                      onChange={setPresetActivity}
+                      options={[
+                        { value: "", label: "-- Pilih aktivitas --" },
+                        ...ENRICHMENT_PRESETS.map((p) => ({ value: p, label: p })),
+                      ]}
+                    />
+                    <Select
+                      label=""
+                      id="enr-preset-material"
+                      value={presetMaterial}
+                      onChange={setPresetMaterial}
+                      options={[
+                        { value: "", label: "-- Pilih materi --" },
+                        ...MATERIAL_PRESETS.map((p) => ({ value: p, label: p })),
+                      ]}
+                    />
+                    <Input
+                      label=""
+                      id="enr-preset-note"
+                      value={presetNote}
+                      onChange={setPresetNote}
+                      placeholder="Catatan cepat (opsional)"
+                    />
+                    <Button
+                      variant="secondary"
+                      className="text-sm"
+                      onClick={async () => {
+                        if (!program) return;
+                        const updatedStudents = program.students.map((s) => ({
+                          ...s,
+                          activity: presetActivity || s.activity,
+                          material: presetMaterial || s.material,
+                          note: presetNote || s.note,
+                        }));
+                        const updated = await updateEnrichmentProgram(program.id, { students: updatedStudents });
+                        if (updated) setProgram(updated);
+                        setMessage({ type: "success", text: "Preset diterapkan ke semua siswa. Masih bisa edit per siswa." });
+                      }}
+                      disabled={!presetActivity && !presetMaterial && !presetNote}
+                    >
+                      Terapkan ke Semua
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-slate-200 text-left">
@@ -294,22 +370,28 @@ export function EnrichmentPage() {
                           <Badge variant="success">{s.finalScore}</Badge>
                         </td>
                         <td className="py-1.5 px-2">
-                          <input
-                            type="text"
+                          <select
                             className="w-36 px-2 py-1 border border-slate-300 rounded text-sm"
                             value={s.activity ?? ""}
                             onChange={(e) => handleUpdateStudent(i, { activity: e.target.value })}
-                            placeholder="Proyek mandiri"
-                          />
+                          >
+                            <option value="">-- Pilih --</option>
+                            {ENRICHMENT_PRESETS.map((p) => (
+                              <option key={p} value={p}>{p}</option>
+                            ))}
+                          </select>
                         </td>
                         <td className="py-1.5 px-2">
-                          <input
-                            type="text"
+                          <select
                             className="w-36 px-2 py-1 border border-slate-300 rounded text-sm"
                             value={s.material ?? ""}
                             onChange={(e) => handleUpdateStudent(i, { material: e.target.value })}
-                            placeholder="Materi lanjutan..."
-                          />
+                          >
+                            <option value="">-- Pilih --</option>
+                            {MATERIAL_PRESETS.map((p) => (
+                              <option key={p} value={p}>{p}</option>
+                            ))}
+                          </select>
                         </td>
                         <td className="py-1.5 px-2">
                           <input
@@ -323,7 +405,8 @@ export function EnrichmentPage() {
                     ))}
                   </tbody>
                 </table>
-              </div>
+                </div>
+              </>
             )}
           </Card>
 
