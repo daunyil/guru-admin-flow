@@ -150,6 +150,9 @@ export function GradesPage() {
     setMessage("Nilai diacak terkontrol (75-94). Klik Simpan.");
   }
 
+  // P1-3: warning ringan jika source tidak ditandai sebagai "cbt" (tidak block import)
+  const [cbtSourceWarning, setCbtSourceWarning] = useState<string | null>(null);
+
   function handleCbtPreview() {
     const assignment = selectedAssignment();
     if (!assignment) return;
@@ -160,18 +163,38 @@ export function GradesPage() {
       const validation = validateCbtImport(json);
       if (!validation.success) {
         setMessage(validation.errors.join("; "));
+        setCbtPreview(null);
+        setCbtSourceWarning(null);
         return;
       }
       const preview = previewCbtMatch(validation.data!, roster.students);
       setCbtPreview(preview);
-      setMessage(`Preview: ${preview.summary.matched} cocok, ${preview.summary.unmatchedCbt} CBT tidak cocok, ${preview.summary.missingRoster} siswa roster belum ada nilai.`);
+      // P1-3: source check — warning saja, tidak block
+      if (validation.data!.source !== "cbt") {
+        setCbtSourceWarning(
+          "Sumber JSON tidak ditandai sebagai \"cbt\". Pastikan format berasal dari sistem CBT."
+        );
+      } else {
+        setCbtSourceWarning(null);
+      }
+      setMessage(`Preview: ${preview.summary.matched} cocok, ${preview.summary.unmatchedCbt} CBT tidak cocok, ${preview.summary.missingRoster} siswa roster belum ada nilai CBT.`);
     } catch (e) {
       setMessage("JSON tidak valid: " + (e instanceof Error ? e.message : String(e)));
+      setCbtPreview(null);
+      setCbtSourceWarning(null);
     }
   }
 
   function handleCbtApply() {
     if (!cbtPreview) return;
+    // P1-1: konfirmasi jika ada siswa roster yang belum ada nilai CBT
+    if (cbtPreview.summary.missingRoster > 0) {
+      const ok = window.confirm(
+        `${cbtPreview.summary.missingRoster} siswa roster belum ada di data CBT. ` +
+        `Nilai lama mereka tidak akan diubah. Lanjutkan?`
+      );
+      if (!ok) return;
+    }
     const updated = applyCbtToEntries(entries, cbtPreview, cbtTarget);
     setEntries(updated);
     setDirty(true);
@@ -179,6 +202,7 @@ export function GradesPage() {
     setShowCbtImport(false);
     setCbtPreview(null);
     setCbtJsonInput("");
+    setCbtSourceWarning(null);
   }
 
   function handlePasteExcel(text: string) {
@@ -351,7 +375,12 @@ export function GradesPage() {
                   label="Target Kolom"
                   id="cbt-target"
                   value={cbtTarget}
-                  onChange={(v) => setCbtTarget(v as CbtImportTarget)}
+                  onChange={(v) => {
+                    setCbtTarget(v as CbtImportTarget);
+                    // P0-3: ganti target → clear preview (preview KD1 tidak bisa langsung diterapkan ke PTS/PAS tanpa preview ulang)
+                    setCbtPreview(null);
+                    setCbtSourceWarning(null);
+                  }}
                   options={[
                     { value: "kd1", label: "KD1" }, { value: "kd2", label: "KD2" },
                     { value: "kd3", label: "KD3" }, { value: "kd4", label: "KD4" },
@@ -378,8 +407,18 @@ export function GradesPage() {
                     Preview Match Siswa
                   </Button>
 
+                  {cbtSourceWarning && (
+                    <div className="p-2 bg-amber-50 border border-amber-200 rounded text-xs text-amber-800">
+                      ℹ {cbtSourceWarning}
+                    </div>
+                  )}
+
                   {cbtPreview && (
                     <div className="p-3 bg-slate-50 rounded-md space-y-2">
+                      {/* P1-2: tampilkan Total CBT dan Total Roster */}
+                      <div className="text-xs text-slate-600">
+                        Total CBT: <strong>{cbtPreview.summary.totalCbt}</strong> · Total Roster: <strong>{cbtPreview.summary.totalRoster}</strong>
+                      </div>
                       <div className="flex gap-3 text-sm flex-wrap">
                         <Badge variant="success">{cbtPreview.summary.matched} cocok</Badge>
                         {cbtPreview.summary.unmatchedCbt > 0 && (
