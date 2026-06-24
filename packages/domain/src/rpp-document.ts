@@ -67,6 +67,12 @@ export const RPP_IDENTITY_PLACEHOLDERS = [
   "{{TANGGAL}}",
 ] as const;
 
+/** Jenis dokumen untuk Perbarui Identitas Dokumen. */
+export const documentIdentityKindSchema = z.enum([
+  "rpp", "prota", "atp", "lkpd", "blueprint", "question_card", "exam", "other",
+]);
+export type DocumentIdentityKind = z.infer<typeof documentIdentityKindSchema>;
+
 export const rppDocumentSchema = baseEntitySchema.extend({
   academicYearId: z.string().min(1),
   teacherId: z.string().min(1),
@@ -76,6 +82,8 @@ export const rppDocumentSchema = baseEntitySchema.extend({
   subject: z.string().optional(),
   classLabel: z.string().optional(),
   semester: z.union([z.literal(1), z.literal(2)]).optional(),
+  /** BATCH-ADMIN-USABILITY-RC1-PATCH-1: jenis dokumen. */
+  documentKind: documentIdentityKindSchema.default("rpp"),
 
   /** Konten asli RPP lama (sebelum replace). */
   originalContent: z.string(),

@@ -27,6 +27,7 @@ import type {
   RppDocument,
   RppIdentityContext,
   LiteralReplacement,
+  DocumentIdentityKind,
 } from "@guru-admin/domain";
 import {
   RPP_IDENTITY_PLACEHOLDERS,
@@ -223,6 +224,7 @@ export function RppBulkReplacePage() {
           subject: ctx.subject || undefined,
           classLabel: ctx.classLabel || undefined,
           semester: ctx.semester === "Ganjil" ? 1 : 2,
+          documentKind: docKind as DocumentIdentityKind,
           originalContent: content,
           context: ctx,
           literalReplacements: validLiterals,
