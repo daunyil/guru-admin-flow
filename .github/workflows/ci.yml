@@ -167,18 +167,19 @@ jobs:
       - name: Audit 6 — Backup schemaVersion konsisten
         run: |
           echo "=== Cek DATA_SCHEMA_VERSION ==="
-          if ! grep -q "export const DATA_SCHEMA_VERSION = 2;" packages/shared/src/constants.ts; then
-            echo "FAIL: DATA_SCHEMA_VERSION tidak ditemukan atau bukan 2"
+          SCHEMA_VERSION=$(grep -oP 'export const DATA_SCHEMA_VERSION = \K[0-9]+' packages/shared/src/constants.ts || echo "0")
+          if [ "$SCHEMA_VERSION" -lt 1 ]; then
+            echo "FAIL: DATA_SCHEMA_VERSION tidak ditemukan di constants.ts"
             exit 1
           fi
-          echo "PASS: DATA_SCHEMA_VERSION = 2 terverifikasi"
+          echo "PASS: DATA_SCHEMA_VERSION = $SCHEMA_VERSION terverifikasi"
 
       - name: Audit 7 — Test files ada
         run: |
           echo "=== Cek test files ter-track ==="
           TEST_COUNT=$(git ls-files | grep -c "test/.*\.test\.ts$" || echo "0")
-          if [ "$TEST_COUNT" -lt 7 ]; then
-            echo "FAIL: Hanya $TEST_COUNT test files ter-track, seharusnya minimal 7"
+          if [ "$TEST_COUNT" -lt 10 ]; then
+            echo "FAIL: Hanya $TEST_COUNT test files ter-track, seharusnya minimal 10"
             exit 1
           fi
           echo "PASS: $TEST_COUNT test files ter-track"

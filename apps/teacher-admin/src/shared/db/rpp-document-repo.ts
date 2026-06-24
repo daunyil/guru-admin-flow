@@ -7,7 +7,7 @@
 
 import { db } from "./schema";
 import { createEntity, updateEntityFields, saveEntity, softDelete } from "./crud";
-import type { RppDocument, RppIdentityContext, LiteralReplacement } from "@guru-admin/domain";
+import type { RppDocument, RppIdentityContext, LiteralReplacement, DocumentIdentityKind } from "@guru-admin/domain";
 import { applyAllReplacements } from "@guru-admin/domain";
 
 /** List RppDocument untuk academicYearId + teacherId. */
@@ -45,6 +45,7 @@ export async function saveRppDocument(args: {
   subject?: string;
   classLabel?: string;
   semester?: 1 | 2;
+  documentKind?: DocumentIdentityKind;
   originalContent: string;
   context: RppIdentityContext;
   literalReplacements?: LiteralReplacement[];
@@ -65,6 +66,7 @@ export async function saveRppDocument(args: {
     subject: args.subject,
     classLabel: args.classLabel,
     semester: args.semester,
+    documentKind: args.documentKind ?? "rpp",
     originalContent: args.originalContent,
     processedContent,
     source: args.source,

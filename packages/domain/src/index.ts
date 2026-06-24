@@ -297,6 +297,7 @@ export {
   rppDocumentSchema,
   rppIdentityContextSchema,
   literalReplacementSchema,
+  documentIdentityKindSchema,
   RPP_IDENTITY_PLACEHOLDERS,
   parseRppDocument,
   safeParseRppDocument,
@@ -310,6 +311,7 @@ export {
   type RppDocument,
   type RppIdentityContext,
   type LiteralReplacement,
+  type DocumentIdentityKind,
 } from "./rpp-document";
 
 /* GENERATOR-COMPLETION-RC1 — RemedialProgram */
