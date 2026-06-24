@@ -294,3 +294,149 @@ export function parseExcelPaste(
 
   return { matched, unmatched };
 }
+
+/* ------------------------------------------------------------------ */
+/*  CBT JSON Import                                                    */
+/* ------------------------------------------------------------------ */
+
+/** Target kolom untuk import CBT. */
+export type CbtImportTarget = "kd1" | "kd2" | "kd3" | "kd4" | "kd5" | "kd6" | "pts" | "pas";
+
+/** Format JSON CBT yang diterima. */
+export const cbtImportSchema = z.object({
+  source: z.literal("cbt").optional(),
+  assessmentName: z.string().optional(),
+  students: z.array(
+    z.object({
+      nis: z.string().optional(),
+      name: z.string().min(1),
+      number: z.number().int().positive().optional(),
+      score: z.number().min(0).max(100),
+    })
+  ),
+});
+export type CbtImport = z.infer<typeof cbtImportSchema>;
+
+/** Hasil validasi CBT import. */
+export type CbtImportValidation = {
+  success: boolean;
+  data?: CbtImport;
+  errors: string[];
+};
+
+/** Hasil preview match CBT ke roster. */
+export type CbtMatchPreview = {
+  matched: Array<{
+    rosterStudent: { id: string; name: string; number: number; nis?: string };
+    cbtStudent: { nis?: string; name: string; number?: number; score: number };
+    matchBy: "nis" | "name" | "number";
+  }>;
+  unmatched: Array<{ nis?: string; name: string; number?: number; score: number }>;
+  summary: {
+    total: number;
+    matched: number;
+    unmatched: number;
+  };
+};
+
+/** Validasi JSON CBT. */
+export function validateCbtImport(input: unknown): CbtImportValidation {
+  const result = cbtImportSchema.safeParse(input);
+  if (!result.success) {
+    return {
+      success: false,
+      errors: result.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`),
+    };
+  }
+  if (result.data.students.length === 0) {
+    return { success: false, errors: ["Tidak ada data siswa di JSON CBT."] };
+  }
+  return { success: true, data: result.data, errors: [] };
+}
+
+/**
+ * Preview match siswa CBT ke roster.
+ * Prioritas match: NIS > exact name > number.
+ */
+export function previewCbtMatch(
+  cbtData: CbtImport,
+  roster: Array<{ id: string; name: string; number: number; nis?: string }>
+): CbtMatchPreview {
+  const matched: CbtMatchPreview["matched"] = [];
+  const unmatched: CbtMatchPreview["unmatched"] = [];
+  const usedRosterIds = new Set<string>();
+
+  // Pass 1: match by NIS
+  for (const cbtStudent of cbtData.students) {
+    if (!cbtStudent.nis) continue;
+    const rosterStudent = roster.find(
+      (r) => r.nis === cbtStudent.nis && !usedRosterIds.has(r.id)
+    );
+    if (rosterStudent) {
+      matched.push({ rosterStudent, cbtStudent, matchBy: "nis" });
+      usedRosterIds.add(rosterStudent.id);
+    }
+  }
+
+  // Pass 2: match by exact name (case-insensitive)
+  for (const cbtStudent of cbtData.students) {
+    if (matched.some((m) => m.cbtStudent === cbtStudent)) continue;
+    const rosterStudent = roster.find(
+      (r) => r.name.toLowerCase() === cbtStudent.name.toLowerCase() && !usedRosterIds.has(r.id)
+    );
+    if (rosterStudent) {
+      matched.push({ rosterStudent, cbtStudent, matchBy: "name" });
+      usedRosterIds.add(rosterStudent.id);
+    }
+  }
+
+  // Pass 3: match by number
+  for (const cbtStudent of cbtData.students) {
+    if (matched.some((m) => m.cbtStudent === cbtStudent)) continue;
+    if (!cbtStudent.number) continue;
+    const rosterStudent = roster.find(
+      (r) => r.number === cbtStudent.number && !usedRosterIds.has(r.id)
+    );
+    if (rosterStudent) {
+      matched.push({ rosterStudent, cbtStudent, matchBy: "number" });
+      usedRosterIds.add(rosterStudent.id);
+    }
+  }
+
+  // Sisa = unmatched
+  for (const cbtStudent of cbtData.students) {
+    if (!matched.some((m) => m.cbtStudent === cbtStudent)) {
+      unmatched.push(cbtStudent);
+    }
+  }
+
+  return {
+    matched,
+    unmatched,
+    summary: {
+      total: cbtData.students.length,
+      matched: matched.length,
+      unmatched: unmatched.length,
+    },
+  };
+}
+
+/**
+ * Apply CBT match ke entries — isi target kolom dengan score dari CBT.
+ */
+export function applyCbtToEntries(
+  entries: GradeEntry[],
+  matchPreview: CbtMatchPreview,
+  target: CbtImportTarget
+): GradeEntry[] {
+  const scoreByStudentId = new Map<string, number>();
+  for (const m of matchPreview.matched) {
+    scoreByStudentId.set(m.rosterStudent.id, m.cbtStudent.score);
+  }
+
+  return entries.map((e) => {
+    const score = scoreByStudentId.get(e.studentId);
+    if (score === undefined) return e;
+    return { ...e, [target]: score };
+  });
+}
