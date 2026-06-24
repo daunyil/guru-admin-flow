@@ -20,6 +20,7 @@ import {
 import { getActiveAcademicYear, getTeacherProfile } from "../../shared/db/profile-repo";
 import type { ProtaProfile, ProtaUnit } from "@guru-admin/domain";
 import { sumJP, validateJPTotal } from "@guru-admin/shared";
+import { parseProtaExcelPaste, type ProtaExcelParseResult } from "@guru-admin/domain";
 
 export function ProtaPage() {
   const [loading, setLoading] = useState(true);
@@ -714,61 +715,190 @@ function ImportModal({
   onImported: (p: ProtaProfile) => void;
   onError: (errs: string[]) => void;
 }) {
+  const [mode, setMode] = useState<"json" | "excel">("json");
   const [jsonText, setJsonText] = useState("");
+  const [excelText, setExcelText] = useState("");
+  const [excelPreview, setExcelPreview] = useState<ProtaExcelParseResult | null>(null);
+  const [excelMeta, setExcelMeta] = useState({
+    subject: "",
+    grade: "",
+    phase: "",
+    annualIntraJP: 0,
+    semester1IntraJP: 0,
+    semester2IntraJP: 0,
+  });
   const [importing, setImporting] = useState(false);
 
   async function handleImport() {
     setImporting(true);
     try {
-      let parsed: unknown;
-      try {
-        parsed = JSON.parse(jsonText);
-      } catch (e) {
-        onError([`JSON tidak valid: ${e instanceof Error ? e.message : String(e)}`]);
-        setImporting(false);
-        return;
-      }
       const teacher = await getTeacherProfile();
       if (!teacher) {
         onError(["Profil guru belum diisi. Lengkapi di menu Profil dulu."]);
         setImporting(false);
         return;
       }
-      const result = await importProtaFromJSON(parsed, academicYearId, teacher.id);
-      if (result.success && result.profile) {
-        onImported(result.profile);
+
+      if (mode === "json") {
+        let parsed: unknown;
+        try {
+          parsed = JSON.parse(jsonText);
+        } catch (e) {
+          onError([`JSON tidak valid: ${e instanceof Error ? e.message : String(e)}`]);
+          setImporting(false);
+          return;
+        }
+        const result = await importProtaFromJSON(parsed, academicYearId, teacher.id);
+        if (result.success && result.profile) {
+          onImported(result.profile);
+        } else {
+          onError(result.errors);
+        }
       } else {
-        onError(result.errors);
+        // Excel paste
+        if (!excelPreview || excelPreview.units.length === 0) {
+          onError(["Tidak ada unit valid untuk diimpor. Klik Preview dulu."]);
+          setImporting(false);
+          return;
+        }
+        if (!excelMeta.subject || !excelMeta.grade || !excelMeta.phase) {
+          onError(["Subject, Grade, Phase wajib diisi untuk mode Excel paste."]);
+          setImporting(false);
+          return;
+        }
+        // Build ProtaProfile dari Excel paste
+        const profile = await saveProtaProfile({
+          subject: excelMeta.subject,
+          grade: excelMeta.grade,
+          phase: excelMeta.phase,
+          annualIntraJP: excelMeta.annualIntraJP,
+          semester1IntraJP: excelMeta.semester1IntraJP,
+          semester2IntraJP: excelMeta.semester2IntraJP,
+          academicYearId,
+          teacherId: teacher.id,
+          units: [],
+          status: "draft",
+          sourceYearId: null,
+        });
+        // Save units
+        for (const u of excelPreview.units) {
+          await saveProtaUnit(profile.id, {
+            semester: u.semester,
+            title: u.title,
+            learningOutcome: u.learningOutcome,
+            jp: u.jp,
+            order: u.order,
+            code: u.code,
+          });
+        }
+        onImported(profile);
       }
     } finally {
       setImporting(false);
     }
   }
 
+  function handleExcelPreview() {
+    const result = parseProtaExcelPaste(excelText);
+    setExcelPreview(result);
+  }
+
   return (
     <Card>
       <CardHeader
-        title="Impor Prota dari JSON"
-        description="Format guru-admin-flow/prota/v1. Prota baru akan dibuat dengan status draft."
+        title="Impor Prota"
+        description="Mode JSON (format guru-admin-flow/prota/v1) atau Excel paste. Prota baru akan dibuat dengan status draft."
       />
-      <Textarea
-        label="JSON Prota"
-        id="import-prota-json"
-        value={jsonText}
-        onChange={setJsonText}
-        rows={12}
-        placeholder={`{
+      <div className="space-y-3">
+        <Select
+          label="Mode Impor"
+          id="prota-import-mode"
+          value={mode}
+          onChange={(v) => { setMode(v as "json" | "excel"); setExcelPreview(null); }}
+          options={[
+            { value: "json", label: "JSON (format guru-admin-flow/prota/v1)" },
+            { value: "excel", label: "Excel Paste (tab/koma/semicolon)" },
+          ]}
+        />
+
+        {mode === "json" ? (
+          <Textarea
+            label="JSON Prota"
+            id="import-prota-json"
+            value={jsonText}
+            onChange={setJsonText}
+            rows={12}
+            placeholder={`{
   "$schema": "guru-admin-flow/prota/v1",
   "subject": "Pendidikan Pancasila",
   "grade": "VII",
   ...
 }`}
-      />
-      <div className="flex gap-2 mt-3">
-        <Button onClick={handleImport} disabled={importing || !jsonText.trim()}>
-          {importing ? "Mengimpor..." : "Impor Prota"}
-        </Button>
-        <Button variant="secondary" onClick={onClose} disabled={importing}>Batal</Button>
+          />
+        ) : (
+          <>
+            <div className="grid sm:grid-cols-3 gap-3">
+              <Input label="Subject" id="prota-excel-subject" value={excelMeta.subject} onChange={(v) => setExcelMeta({ ...excelMeta, subject: v })} />
+              <Input label="Grade" id="prota-excel-grade" value={excelMeta.grade} onChange={(v) => setExcelMeta({ ...excelMeta, grade: v })} />
+              <Input label="Phase" id="prota-excel-phase" value={excelMeta.phase} onChange={(v) => setExcelMeta({ ...excelMeta, phase: v })} />
+              <Input label="Annual Intra JP" id="prota-excel-annual" type="number" value={String(excelMeta.annualIntraJP)} onChange={(v) => setExcelMeta({ ...excelMeta, annualIntraJP: Number(v) || 0 })} />
+              <Input label="Sem 1 Intra JP" id="prota-excel-sem1" type="number" value={String(excelMeta.semester1IntraJP)} onChange={(v) => setExcelMeta({ ...excelMeta, semester1IntraJP: Number(v) || 0 })} />
+              <Input label="Sem 2 Intra JP" id="prota-excel-sem2" type="number" value={String(excelMeta.semester2IntraJP)} onChange={(v) => setExcelMeta({ ...excelMeta, semester2IntraJP: Number(v) || 0 })} />
+            </div>
+            <Textarea
+              label="Paste dari Excel (header: Semester, Materi, JP, Order, Code, Learning Outcome)"
+              id="import-prota-excel"
+              value={excelText}
+              onChange={(v) => { setExcelText(v); setExcelPreview(null); }}
+              rows={10}
+              placeholder={"Semester\tMateri\tJP\tOrder\tCode\tLearning Outcome\n1\tBab 1: Norma\t2\t1\tM1\tMemahami norma\n2\tBab 3: Hukum\t2\t2\tM3\tMemahami hukum"}
+            />
+            <Button variant="secondary" className="text-sm" onClick={handleExcelPreview} disabled={!excelText.trim()}>
+              Preview Parse
+            </Button>
+            {excelPreview && (
+              <div className="p-3 bg-slate-50 rounded-md text-sm space-y-2">
+                <p className="font-semibold text-emerald-700">
+                  ✓ {excelPreview.units.length} unit siap diimpor
+                  {excelPreview.skippedRows.length > 0 && (
+                    <span className="text-amber-700"> · {excelPreview.skippedRows.length} baris di-skip</span>
+                  )}
+                </p>
+                {excelPreview.skippedRows.length > 0 && (
+                  <div className="max-h-32 overflow-y-auto text-xs text-rose-700">
+                    <p className="font-semibold">Baris di-skip:</p>
+                    {excelPreview.skippedRows.map((s, i) => (
+                      <div key={i} className="p-1">Baris {s.lineNumber}: {s.reason}</div>
+                    ))}
+                  </div>
+                )}
+                {excelPreview.units.length > 0 && (
+                  <div className="max-h-48 overflow-y-auto text-xs">
+                    {excelPreview.units.map((u, i) => (
+                      <div key={i} className="p-1 border-b border-slate-200">
+                        S{u.semester} · <strong>{u.title}</strong> · {u.jp} JP · order {u.order}
+                        {u.code && <span className="text-slate-500"> · {u.code}</span>}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </>
+        )}
+
+        <div className="flex gap-2">
+          <Button
+            onClick={handleImport}
+            disabled={
+              importing ||
+              (mode === "json" ? !jsonText.trim() : !excelPreview || excelPreview.units.length === 0)
+            }
+          >
+            {importing ? "Mengimpor..." : "Impor Prota"}
+          </Button>
+          <Button variant="secondary" onClick={onClose} disabled={importing}>Batal</Button>
+        </div>
       </div>
     </Card>
   );

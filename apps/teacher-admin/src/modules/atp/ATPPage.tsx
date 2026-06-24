@@ -11,7 +11,7 @@
 
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Card, CardHeader, Input, Textarea, Button, EmptyState, Badge } from "../../shared/ui";
+import { Card, CardHeader, Input, Textarea, Button, EmptyState, Badge, Select } from "../../shared/ui";
 import { getActiveAcademicYear, getTeacherProfile } from "../../shared/db/profile-repo";
 import {
   listATPEntries,
@@ -21,7 +21,14 @@ import {
 } from "../../shared/db/atp-entry-repo";
 import { listLKPDs } from "../../shared/db/lkpd-repo";
 import type { AcademicYear, TeacherProfile, ATPEntry, LKPD } from "@guru-admin/domain";
-import { atpEntryLabel } from "@guru-admin/domain";
+import {
+  atpEntryLabel,
+  validateAtpImport,
+  atpImportToEntries,
+  parseAtpExcelPaste,
+  atpPasteRowsToEntries,
+  type AtpPasteMeta,
+} from "@guru-admin/domain";
 
 export function ATPPage() {
   const [loading, setLoading] = useState(true);
@@ -33,6 +40,22 @@ export function ATPPage() {
   const [editing, setEditing] = useState<ATPEntry | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [showAIPrompt, setShowAIPrompt] = useState<string | null>(null);
+
+  // IMPORT-BANK-TP-PROTA-RC1: import JSON + Excel paste
+  const [showImport, setShowImport] = useState(false);
+  const [importMode, setImportMode] = useState<"json" | "excel">("json");
+  const [importJson, setImportJson] = useState("");
+  const [importExcel, setImportExcel] = useState("");
+  const [importMeta, setImportMeta] = useState<AtpPasteMeta>({
+    subject: "",
+    grade: "VII",
+    phase: "D",
+  });
+  const [importPreview, setImportPreview] = useState<
+    | { type: "json"; entries: Array<Record<string, unknown>>; errors: string[] }
+    | { type: "excel"; rows: ReturnType<typeof parseAtpExcelPaste>["rows"]; skipped: ReturnType<typeof parseAtpExcelPaste>["skippedRows"] }
+    | null
+  >(null);
 
   useEffect(() => {
     void (async () => {
@@ -92,6 +115,92 @@ export function ATPPage() {
     void reload();
   }
 
+  // IMPORT-BANK-TP-PROTA-RC1: preview import
+  function handleImportPreview() {
+    if (importMode === "json") {
+      try {
+        const json = JSON.parse(importJson);
+        const v = validateAtpImport(json);
+        if (!v.success) {
+          setImportPreview({ type: "json", entries: [], errors: v.errors });
+          return;
+        }
+        const entries = atpImportToEntries(v.data);
+        setImportPreview({ type: "json", entries: entries as unknown as Array<Record<string, unknown>>, errors: [] });
+      } catch (e) {
+        setImportPreview({
+          type: "json",
+          entries: [],
+          errors: [`JSON tidak valid: ${e instanceof Error ? e.message : String(e)}`],
+        });
+      }
+    } else {
+      // Excel paste
+      if (!importMeta.subject || !importMeta.grade || !importMeta.phase) {
+        setImportPreview({
+          type: "excel",
+          rows: [],
+          skipped: [{ lineNumber: 0, raw: "", reason: "Subject, Grade, Phase wajib diisi untuk Excel paste." }],
+        });
+        return;
+      }
+      const result = parseAtpExcelPaste(importExcel);
+      setImportPreview({ type: "excel", rows: result.rows, skipped: result.skippedRows });
+    }
+  }
+
+  async function handleImportApply() {
+    if (!year || !teacher) return;
+    if (!importPreview) return;
+    try {
+      if (importPreview.type === "json") {
+        const json = JSON.parse(importJson);
+        const v = validateAtpImport(json);
+        if (!v.success) {
+          setMessage(`Import gagal: ${v.errors.join("; ")}`);
+          return;
+        }
+        const entries = atpImportToEntries(v.data);
+        let count = 0;
+        for (const e of entries) {
+          await saveATPEntry({
+            ...e,
+            academicYearId: year.id,
+            teacherId: teacher.id,
+            teacherName: v.data.teacherName ?? teacher.name,
+            status: "draft",
+          });
+          count++;
+        }
+        setMessage(`${count} TP berhasil diimpor dari JSON.`);
+      } else {
+        // Excel paste
+        const entries = atpPasteRowsToEntries(importPreview.rows, importMeta);
+        let count = 0;
+        for (const e of entries) {
+          await saveATPEntry({
+            ...e,
+            academicYearId: year.id,
+            teacherId: teacher.id,
+            teacherName: teacher.name,
+            status: "draft",
+          });
+          count++;
+        }
+        const skippedCount = importPreview.skipped.length;
+        setMessage(`${count} TP berhasil diimpor dari Excel${skippedCount > 0 ? ` (${skippedCount} baris di-skip)` : ""}.`);
+      }
+      // Reset
+      setShowImport(false);
+      setImportJson("");
+      setImportExcel("");
+      setImportPreview(null);
+      void reload();
+    } catch (e) {
+      setMessage(`Gagal import: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+
   function generateAIPrompt(entry: ATPEntry, type: "lkpd" | "rpp" | "jurnal" | "remedial" | "pengayaan"): string {
     const base = `Sebagai guru ${entry.subject} kelas ${entry.grade} (Fase ${entry.phase}), buatkan ${type.toUpperCase()} untuk Tujuan Pembelajaran berikut:
 
@@ -143,9 +252,152 @@ Format: sesuaikan dengan standar Kurikulum Merdeka untuk ${entry.grade}.`;
               CP (Capaian Pembelajaran) adalah dokumen resmi pemerintah — diarsipkan sebagai referensi, bukan digenerate app.
             </p>
           </div>
-          <Button onClick={() => { setEditing(null); setShowForm(true); }}>+ Tambah TP</Button>
+          <div className="flex gap-2">
+            <Button variant="secondary" onClick={() => setShowImport(!showImport)}>Impor Bank TP</Button>
+            <Button onClick={() => { setEditing(null); setShowForm(true); }}>+ Tambah TP</Button>
+          </div>
         </div>
       </Card>
+
+      {showImport && (
+        <Card>
+          <CardHeader
+            title="Impor Bank TP"
+            description="Impor TP dari JSON (hasil AI) atau paste dari Excel. Subject/Grade/Phase wajib untuk mode Excel."
+          />
+          <div className="space-y-3">
+            <div className="flex gap-2 items-end">
+              <Select
+                label="Mode Impor"
+                id="atp-import-mode"
+                value={importMode}
+                onChange={(v) => { setImportMode(v as "json" | "excel"); setImportPreview(null); }}
+                options={[
+                  { value: "json", label: "JSON (format guru-admin-flow/atp/v1)" },
+                  { value: "excel", label: "Excel Paste (tab/koma/semicolon)" },
+                ]}
+              />
+              {importMode === "excel" && (
+                <>
+                  <Input
+                    label="Subject"
+                    id="atp-imp-subject"
+                    value={importMeta.subject}
+                    onChange={(v) => { setImportMeta({ ...importMeta, subject: v }); setImportPreview(null); }}
+                  />
+                  <Input
+                    label="Grade"
+                    id="atp-imp-grade"
+                    value={importMeta.grade}
+                    onChange={(v) => { setImportMeta({ ...importMeta, grade: v }); setImportPreview(null); }}
+                  />
+                  <Input
+                    label="Phase"
+                    id="atp-imp-phase"
+                    value={importMeta.phase}
+                    onChange={(v) => { setImportMeta({ ...importMeta, phase: v }); setImportPreview(null); }}
+                  />
+                </>
+              )}
+            </div>
+
+            {importMode === "json" ? (
+              <Textarea
+                label="JSON Bank TP"
+                id="atp-import-json"
+                value={importJson}
+                onChange={(v) => { setImportJson(v); setImportPreview(null); }}
+                rows={8}
+                placeholder={'{"$schema":"guru-admin-flow/atp/v1","subject":"PPKn","grade":"VII","phase":"D","entries":[{"bab":"1","elemen":"Norma","cp":"...","tp":"...","alokasiJP":2}]}'}
+              />
+            ) : (
+              <Textarea
+                label="Paste dari Excel (header: Bab, Elemen, CP, TP, Profil Pelajar, Kata Kunci, Alokasi JP)"
+                id="atp-import-excel"
+                value={importExcel}
+                onChange={(v) => { setImportExcel(v); setImportPreview(null); }}
+                rows={8}
+                placeholder={"Bab\tElemen\tCP\tTP\tProfil Pelajar\tKata Kunci\tAlokasi JP\n1\tNorma\tMemahami norma\tMenjelaskan norma\tBernalar\tnorma\t2"}
+              />
+            )}
+
+            <div className="flex gap-2">
+              <Button variant="secondary" onClick={handleImportPreview} disabled={importMode === "json" ? !importJson.trim() : !importExcel.trim()}>
+                Preview Import
+              </Button>
+              {importPreview && (
+                <Button onClick={handleImportApply} disabled={
+                  (importPreview.type === "json" && importPreview.entries.length === 0) ||
+                  (importPreview.type === "excel" && importPreview.rows.length === 0)
+                }>
+                  Impor {importPreview.type === "json"
+                    ? `${importPreview.entries.length} TP`
+                    : `${importPreview.rows.length} TP`}
+                </Button>
+              )}
+              <Button variant="secondary" onClick={() => { setShowImport(false); setImportPreview(null); }}>Batal</Button>
+            </div>
+
+            {importPreview && (
+              <div className="p-3 bg-slate-50 rounded-md space-y-2">
+                {importPreview.type === "json" ? (
+                  <>
+                    {importPreview.errors.length > 0 ? (
+                      <div className="p-2 bg-rose-100 rounded text-xs text-rose-800">
+                        <p className="font-semibold">Error:</p>
+                        <ul className="ml-4 list-disc">
+                          {importPreview.errors.map((e, i) => <li key={i}>{e}</li>)}
+                        </ul>
+                      </div>
+                    ) : (
+                      <div>
+                        <p className="text-sm font-semibold text-emerald-700">
+                          ✓ {importPreview.entries.length} TP siap diimpor
+                        </p>
+                        <div className="mt-2 max-h-48 overflow-y-auto text-xs">
+                          {importPreview.entries.map((e, i) => (
+                            <div key={i} className="p-1 border-b border-slate-200">
+                              <strong>{String(e.elemen ?? "")}</strong>: {String(e.tp ?? "").slice(0, 80)}{String(e.tp ?? "").length > 80 ? "..." : ""} ({String(e.alokasiJP ?? "?")} JP)
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <p className="text-sm font-semibold text-emerald-700">
+                      ✓ {importPreview.rows.length} baris siap diimpor
+                      {importPreview.skipped.length > 0 && (
+                        <span className="text-amber-700"> · {importPreview.skipped.length} baris di-skip</span>
+                      )}
+                    </p>
+                    {importPreview.skipped.length > 0 && (
+                      <div className="mt-2 max-h-32 overflow-y-auto text-xs text-rose-700">
+                        <p className="font-semibold">Baris di-skip:</p>
+                        {importPreview.skipped.map((s, i) => (
+                          <div key={i} className="p-1">
+                            Baris {s.lineNumber}: {s.reason}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {importPreview.rows.length > 0 && (
+                      <div className="mt-2 max-h-48 overflow-y-auto text-xs">
+                        {importPreview.rows.map((r, i) => (
+                          <div key={i} className="p-1 border-b border-slate-200">
+                            <strong>{r.elemen}</strong>: {r.tp.slice(0, 80)}{r.tp.length > 80 ? "..." : ""} ({r.alokasiJP} JP)
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        </Card>
+      )}
 
       {showForm && (
         <ATPForm

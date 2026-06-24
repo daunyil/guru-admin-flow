@@ -130,3 +130,191 @@ export function protaImportToProfile(
     })),
   };
 }
+
+/* ------------------------------------------------------------------ */
+/*  Excel Paste Parser (IMPORT-BANK-TP-PROTA-RC1)                     */
+/* ------------------------------------------------------------------ */
+
+/** Hasil parse Excel paste Prota. */
+export type ProtaExcelParseResult = {
+  /** Unit yang berhasil diparse. */
+  units: Array<{
+    semester: 1 | 2;
+    title: string;
+    learningOutcome?: string;
+    jp: number;
+    order: number;
+    code?: string;
+  }>;
+  /** Baris yang gagal diparse (dengan alasan). */
+  skippedRows: Array<{ lineNumber: number; raw: string; reason: string }>;
+};
+
+/** Normalisasi header: lowercase, hapus spasi/underscore. */
+function normalizeProtaHeader(h: string): string {
+  return h.toLowerCase().replace(/[\s_\-]+/g, "");
+}
+
+/** Mapping variasi header → canonical key. */
+const PROTA_HEADER_ALIASES: Record<string, keyof ProtaExcelParseResult["units"][number]> = {
+  semester: "semester",
+  sem: "semester",
+  title: "title",
+  judul: "title",
+  materi: "title",
+  learningoutcome: "learningOutcome",
+  lo: "learningOutcome",
+  jp: "jp",
+  alokasijp: "jp",
+  alokasi: "jp",
+  order: "order",
+  urutan: "order",
+  no: "order",
+  code: "code",
+  kode: "code",
+};
+
+/**
+ * Parse teks Excel paste untuk Prota.
+ *
+ * Format: baris pertama = header (Semester, Materi/Title, JP, Order, Code, LO).
+ * Baris berikutnya = data, separator tab/koma/titik koma.
+ *
+ * Field wajib: Semester, Materi (Title), JP, Order.
+ * Field opsional: Learning Outcome, Code.
+ *
+ * Semester: 1, 2, "Ganjil", "Genap" diterima.
+ */
+export function parseProtaExcelPaste(text: string): ProtaExcelParseResult {
+  const lines = text.trim().split("\n").map((l) => l.trim()).filter(Boolean);
+  const units: ProtaExcelParseResult["units"] = [];
+  const skippedRows: ProtaExcelParseResult["skippedRows"] = [];
+
+  if (lines.length === 0) {
+    return { units, skippedRows };
+  }
+
+  // Detect separator
+  const firstLine = lines[0];
+  let sep = "\t";
+  if (!firstLine.includes("\t")) {
+    if (firstLine.includes(";")) sep = ";";
+    else if (firstLine.includes(",")) sep = ",";
+  }
+
+  // Parse header
+  const headerRaw = firstLine.split(sep).map((h) => h.trim());
+  const headerMap: number[] = [];
+  const canonicalFields: Array<keyof ProtaExcelParseResult["units"][number]> = [];
+  headerRaw.forEach((h, idx) => {
+    const norm = normalizeProtaHeader(h);
+    const canonical = PROTA_HEADER_ALIASES[norm];
+    if (canonical && !canonicalFields.includes(canonical)) {
+      headerMap[idx] = canonicalFields.length;
+      canonicalFields.push(canonical);
+    } else {
+      headerMap[idx] = -1;
+    }
+  });
+
+  const required: Array<keyof ProtaExcelParseResult["units"][number]> = ["semester", "title", "jp", "order"];
+  const missing = required.filter((f) => !canonicalFields.includes(f));
+
+  // Mode fallback tanpa header valid
+  if (canonicalFields.length === 0 || missing.length > 0) {
+    // Asumsi urutan: Semester, Title, JP, Order, Code, LO
+    const fallbackOrder: Array<keyof ProtaExcelParseResult["units"][number]> = [
+      "semester", "title", "jp", "order", "code", "learningOutcome",
+    ];
+    const startIdx = canonicalFields.length === 0 ? 0 : 1;
+    for (let i = startIdx; i < lines.length; i++) {
+      const parts = lines[i].split(sep).map((p) => p.trim());
+      if (parts.length < 4) {
+        skippedRows.push({
+          lineNumber: i + 1,
+          raw: lines[i],
+          reason: "Minimal 4 kolom diperlukan (Semester, Materi, JP, Order).",
+        });
+        continue;
+      }
+      const unit: Partial<ProtaExcelParseResult["units"][number]> = {};
+      fallbackOrder.forEach((field, idx) => {
+        if (idx >= parts.length || !parts[idx]) return;
+        if (field === "semester") {
+          const s = parseSemester(parts[idx]);
+          if (s !== null) unit.semester = s;
+        } else if (field === "jp") {
+          const n = Number(parts[idx]);
+          if (!isNaN(n) && n > 0) unit.jp = n; // positive (schema: int().positive())
+        } else if (field === "order") {
+          const n = Number(parts[idx]);
+          if (!isNaN(n) && n >= 0) unit.order = n; // nonnegative (schema: int().nonnegative())
+        } else {
+          (unit as Record<string, unknown>)[field] = parts[idx];
+        }
+      });
+      if (unit.semester === undefined || !unit.title || unit.jp === undefined || unit.order === undefined) {
+        skippedRows.push({
+          lineNumber: i + 1,
+          raw: lines[i],
+          reason: "Field wajib kosong (Semester/Materi/JP/Order).",
+        });
+        continue;
+      }
+      units.push(unit as ProtaExcelParseResult["units"][number]);
+    }
+    if (missing.length > 0 && canonicalFields.length > 0) {
+      // Header ada tapi tidak lengkap → tambahkan warning di skippedRows[0]
+      skippedRows.unshift({
+        lineNumber: 0,
+        raw: firstLine,
+        reason: `Header tidak lengkap. Kolom wajib hilang: ${missing.join(", ")}. Mencoba mode fallback.`,
+      });
+    }
+    return { units, skippedRows };
+  }
+
+  // Mode dengan header valid
+  for (let i = 1; i < lines.length; i++) {
+    const parts = lines[i].split(sep).map((p) => p.trim());
+    const unit: Partial<ProtaExcelParseResult["units"][number]> = {};
+    parts.forEach((val, idx) => {
+      if (idx >= headerMap.length) return;
+      const canonicalIdx = headerMap[idx];
+      if (canonicalIdx === -1) return;
+      const field = canonicalFields[canonicalIdx];
+      if (!field) return;
+      if (field === "semester") {
+        const s = parseSemester(val);
+        if (s !== null) unit.semester = s;
+      } else if (field === "jp") {
+        const n = Number(val);
+        if (!isNaN(n) && n > 0) unit.jp = n; // positive
+      } else if (field === "order") {
+        const n = Number(val);
+        if (!isNaN(n) && n >= 0) unit.order = n; // nonnegative
+      } else {
+        (unit as Record<string, unknown>)[field] = val;
+      }
+    });
+    if (unit.semester === undefined || !unit.title || unit.jp === undefined || unit.order === undefined) {
+      skippedRows.push({
+        lineNumber: i + 1,
+        raw: lines[i],
+        reason: "Field wajib kosong (Semester/Materi/JP/Order).",
+      });
+      continue;
+    }
+    units.push(unit as ProtaExcelParseResult["units"][number]);
+  }
+
+  return { units, skippedRows };
+}
+
+/** Parse semester: 1, 2, "Ganjil", "Genap" → 1 | 2 | null. */
+function parseSemester(val: string): 1 | 2 | null {
+  const lower = val.toLowerCase().trim();
+  if (lower === "1" || lower === "ganjil") return 1;
+  if (lower === "2" || lower === "genap") return 2;
+  return null;
+}

@@ -191,15 +191,17 @@ export {
   type CalendarImportValidation,
 } from "./calendar-import";
 
-/* Sprint 2 — Prota import */
+/* Sprint 2 — Prota import + Excel paste (IMPORT-BANK-TP-PROTA-RC1) */
 export {
   protaImportSchema,
   protaImportUnitSchema,
   validateProtaImport,
   protaImportToProfile,
+  parseProtaExcelPaste,
   type ProtaImport,
   type ProtaImportUnit,
   type ProtaImportValidation,
+  type ProtaExcelParseResult,
 } from "./prota-import";
 
 /* Sprint 2 — Promes engine + types */
@@ -280,6 +282,21 @@ export {
   atpEntryLabel,
   type ATPEntry,
 } from "./atp-entry";
+
+/* IMPORT-BANK-TP-PROTA-RC1 — ATP import JSON + Excel paste */
+export {
+  atpImportSchema,
+  atpImportEntrySchema,
+  validateAtpImport,
+  atpImportToEntries,
+  parseAtpExcelPaste,
+  atpPasteRowsToEntries,
+  type AtpImport,
+  type AtpImportEntry,
+  type AtpImportValidation,
+  type AtpPasteMeta,
+  type AtpExcelParseResult,
+} from "./atp-import";
 
 /* APP-USABLE-RC1 — LKPD modul nyata */
 export {

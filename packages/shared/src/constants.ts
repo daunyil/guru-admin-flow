@@ -142,6 +142,9 @@ export const CALENDAR_IMPORT_SCHEMA = "guru-admin-flow/calendar/v1";
 /** Schema identifier untuk impor JSON Prota (AI → aplikasi). */
 export const PROTA_IMPORT_SCHEMA = "guru-admin-flow/prota/v1";
 
+/** Schema identifier untuk impor JSON ATP/TP (AI → aplikasi). */
+export const ATP_IMPORT_SCHEMA = "guru-admin-flow/atp/v1";
+
 /**
  * Default JP intrakurikuler per minggu untuk PPKn SMP.
  * Lihat docs/SPRINT_2_DESIGN.md §0 CRITICAL PROMES RULE.
