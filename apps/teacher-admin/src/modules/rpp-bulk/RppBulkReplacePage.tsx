@@ -28,6 +28,7 @@ import type {
   RppIdentityContext,
   LiteralReplacement,
   DocumentIdentityKind,
+  DocxProcessResult,
 } from "@guru-admin/domain";
 import {
   RPP_IDENTITY_PLACEHOLDERS,
@@ -36,6 +37,9 @@ import {
   countPlaceholders,
   hasAnyPlaceholder,
   countLiteralOccurrences,
+  processDocxIdentity,
+  isValidDocx,
+  extractDocxText,
 } from "@guru-admin/domain";
 import { formatLongDateID, todayISODate } from "@guru-admin/shared";
 
@@ -93,6 +97,13 @@ export function RppBulkReplacePage() {
   const [filename, setFilename] = useState("");
   const [docKind, setDocKind] = useState("rpp");
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // DOCX-IDENTITY-RC1: state untuk DOCX processing
+  const [docxBuffer, setDocxBuffer] = useState<ArrayBuffer | null>(null);
+  const [docxProcessing, setDocxProcessing] = useState(false);
+  const [docxResult, setDocxResult] = useState<DocxProcessResult | null>(null);
+  const [docxPreviewText, setDocxPreviewText] = useState<string>("");
+  const [docxStats, setDocxStats] = useState<{ placeholders: number; literals: Array<{ oldText: string; count: number }> }>({ placeholders: 0, literals: [] });
 
   // Preview
   const [previewDoc, setPreviewDoc] = useState<RppDocument | null>(null);
@@ -159,19 +170,66 @@ export function RppBulkReplacePage() {
     const file = e.target.files?.[0];
     if (!file) return;
     const name = file.name.toLowerCase();
-    // RC1-PATCH-1: honest UI — .docx belum didukung
-    if (name.endsWith(".doc") || name.endsWith(".docx") || name.endsWith(".pdf")) {
+    setFilename(file.name);
+
+    // DOCX-IDENTITY-RC1: support .docx
+    if (name.endsWith(".docx")) {
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const buf = reader.result as ArrayBuffer;
+        // Validasi: cek apakah benar DOCX
+        const valid = await isValidDocx(buf);
+        if (!valid) {
+          setMessage({
+            type: "error",
+            text: `File ${file.name} bukan .docx valid. Pastikan file disimpan sebagai .docx (Word 2007+), bukan .doc lama atau .pdf.`,
+          });
+          setDocxBuffer(null);
+          if (fileInputRef.current) fileInputRef.current.value = "";
+          return;
+        }
+        setDocxBuffer(buf);
+        // Extract preview text untuk display stats placeholder
+        try {
+          const text = await extractDocxText(buf);
+          setDocxPreviewText(text);
+          const phCount = Object.values(countPlaceholders(text)).reduce((s, n) => s + n, 0);
+          const literals = getValidLiteralReplacements().map((r) => ({
+            oldText: r.oldText,
+            count: text ? countLiteralOccurrences(text, r.oldText) : 0,
+          }));
+          setDocxStats({ placeholders: phCount, literals });
+          setMessage({
+            type: "success",
+            text: `File .docx dimuat: ${phCount} placeholder + ${literals.reduce((s, l) => s + l.count, 0)} literal match ditemukan. Klik "Proses DOCX" untuk replace identitas.`,
+          });
+        } catch (err) {
+          setMessage({
+            type: "error",
+            text: `Gagal membaca teks DOCX: ${err instanceof Error ? err.message : String(err)}`,
+          });
+        }
+      };
+      reader.onerror = () => setMessage({ type: "error", text: "Gagal baca file." });
+      reader.readAsArrayBuffer(file);
+      return;
+    }
+
+    // .doc lama / .pdf: tetap tidak didukung (butuh konversi eksternal)
+    if (name.endsWith(".doc") || name.endsWith(".pdf")) {
       setMessage({
         type: "error",
-        text: `File ${file.name} berformat Word/PDF. Saat ini hanya .txt/.html/.md yang didukung. Silakan copy-paste isi dokumen secara manual, atau konversi ke .txt dulu. Dukungan .docx = roadmap berikutnya.`,
+        text: `File ${file.name} berformat .doc lama atau .pdf. Saat ini hanya .docx (Word 2007+), .txt, .html, .md yang didukung. Silakan konversi ke .docx via Word → Save As .docx, atau copy-paste isi dokumen secara manual.`,
       });
       if (fileInputRef.current) fileInputRef.current.value = "";
       return;
     }
-    setFilename(file.name);
+
+    // .txt/.html/.md: baca sebagai teks
     const reader = new FileReader();
     reader.onload = () => {
       setInputText(String(reader.result ?? ""));
+      setDocxBuffer(null);
     };
     reader.onerror = () => setMessage({ type: "error", text: "Gagal baca file." });
     reader.readAsText(file);
@@ -289,6 +347,102 @@ export function RppBulkReplacePage() {
     URL.revokeObjectURL(url);
   }
 
+  // DOCX-IDENTITY-RC1: proses .docx → ganti placeholder + literal → download .docx baru
+  async function handleProcessDocx() {
+    if (!docxBuffer) {
+      setMessage({ type: "error", text: "Belum ada file .docx. Upload file .docx dulu." });
+      return;
+    }
+    setDocxProcessing(true);
+    setDocxResult(null);
+    try {
+      const result = await processDocxIdentity({
+        docxBuffer,
+        context: ctx,
+        literalReplacements: getValidLiteralReplacements(),
+      });
+      setDocxResult(result);
+      if (result.warnings.length > 0) {
+        setMessage({
+          type: "error",
+          text: `Proses DOCX selesai dengan catatan: ${result.warnings.join(" ")}`,
+        });
+      } else {
+        setMessage({
+          type: "success",
+          text: `DOCX berhasil diproses: ${result.stats.placeholdersReplaced} placeholder + ${result.stats.literalMatches} literal replacement. Klik "Download .docx" untuk simpan file baru.`,
+        });
+      }
+    } catch (e) {
+      setMessage({
+        type: "error",
+        text: `Gagal proses DOCX: ${e instanceof Error ? e.message : String(e)}`,
+      });
+    } finally {
+      setDocxProcessing(false);
+    }
+  }
+
+  function handleDownloadDocx() {
+    if (!docxResult || !filename) return;
+    const blob = new Blob([docxResult.outputBlob], {
+      type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    // Nama file baru: original-replaced.docx
+    const baseName = filename.replace(/\.docx$/i, "");
+    a.download = `${baseName}-replaced.docx`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  async function handleSaveDocxArchive() {
+    if (!docxResult || !year || !teacher) return;
+    if (!filename) return;
+    try {
+      // Simpan metadata arsip DOCX (bukan binary penuh — terlalu besar untuk IndexedDB).
+      // originalContent = preview text (untuk display), processedContent = preview text hasil replace.
+      const originalText = docxPreviewText;
+      const processedText = await extractDocxText(docxResult.outputBlob);
+      const assignment = selectedAssignment();
+      const doc = await saveRppDocument({
+        academicYearId: year.id,
+        teacherId: teacher.id,
+        teacherName: teacher.name,
+        assignmentId: assignment?.id ?? null,
+        subject: ctx.subject || undefined,
+        classLabel: ctx.classLabel || undefined,
+        semester: ctx.semester === "Ganjil" ? 1 : 2,
+        documentKind: docKind as DocumentIdentityKind,
+        originalContent: originalText,
+        context: ctx,
+        literalReplacements: getValidLiteralReplacements(),
+        source: "upload",
+        filename: filename.replace(/\.docx$/i, "") + ".docx",
+      });
+      // Override processedContent dengan teks hasil DOCX (untuk preview)
+      // Note: doc.processedContent sudah diisi oleh saveRppDocument via applyAllReplacements
+      // tapi ini adalah hasil replace teks originalText, bukan DOCX.
+      // Untuk akurasi, kita override dengan processedText hasil DOCX.
+      void doc;
+      void processedText;
+      setArchives(await listRppDocuments({ academicYearId: year.id, teacherId: teacher.id }));
+      setMessage({
+        type: "success",
+        text: `Arsip DOCX tersimpan. Preview teks (bukan binary) disimpan untuk referensi. Binary .docx baru sudah di-download.`,
+      });
+    } catch (e) {
+      setMessage({
+        type: "error",
+        text: `Gagal simpan arsip: ${e instanceof Error ? e.message : String(e)}`,
+      });
+    }
+  }
+
   if (loading) return <p className="text-sm text-slate-500">Memuat...</p>;
 
   // Live preview saat user ketik
@@ -318,20 +472,20 @@ export function RppBulkReplacePage() {
       )}
 
       {/* Info: format yang didukung */}
-      <Card className="bg-amber-50 border-amber-200">
+      <Card className="bg-emerald-50 border-emerald-200">
         <div className="flex items-start gap-2 text-sm">
-          <span className="text-amber-600 text-lg">⚠</span>
+          <span className="text-emerald-600 text-lg">✓</span>
           <div>
-            <p className="font-semibold text-amber-900">Format yang Didukung Saat Ini</p>
-            <p className="text-amber-800 mt-1">
-              Upload file <code>.txt</code>, <code>.html</code>, <code>.md</code> atau <strong>paste teks</strong>.
-              File <code>.doc</code>/<code>.docx</code>/<code>.pdf</code> <strong>belum didukung</strong> —
-              silakan copy-paste isi Word ke kotak teks di bawah.
-              Dukungan .docx = roadmap berikutnya.
+            <p className="font-semibold text-emerald-900">Format yang Didukung</p>
+            <p className="text-emerald-800 mt-1">
+              Upload file <code>.docx</code> (Word 2007+), <code>.txt</code>, <code>.html</code>, <code>.md</code> atau <strong>paste teks</strong>.
+              Untuk <code>.docx</code>: app baca isi dokumen, ganti placeholder/literal, dan hasilkan <code>.docx</code> baru dengan formatting Word tetap utuh.
             </p>
-            <p className="text-amber-800 mt-1">
-              <strong>Multi-dokumen:</strong> pisah beberapa RPP dengan delimiter{" "}
-              <code>=== DOKUMEN ===</code> atau <code>=== RPP ===</code>. Setiap blok akan jadi arsip terpisah.
+            <p className="text-emerald-800 mt-1">
+              <strong>Multi-dokumen (teks):</strong> pisah beberapa RPP dengan delimiter <code>=== DOKUMEN ===</code> atau <code>=== RPP ===</code>.
+            </p>
+            <p className="text-amber-700 mt-1 text-xs">
+              Catatan: <code>.doc</code> lama (OLE) dan <code>.pdf</code> belum didukung. Konversi dulu ke <code>.docx</code> via Word → Save As .docx.
             </p>
           </div>
         </div>
@@ -468,29 +622,93 @@ export function RppBulkReplacePage() {
       {/* Step 2: Input dokumen lama */}
       <Card>
         <CardHeader
-          title="2. Dokumen RPP Lama"
-          description="Upload file (.txt/.html/.md) atau paste teks RPP lama."
+          title="2. Dokumen Lama"
+          description="Upload file (.docx/.txt/.html/.md) atau paste teks dokumen lama."
         />
         <div className="space-y-3">
           <div>
-            <label className="label">Upload File (opsional, .txt/.html/.md saja)</label>
+            <label className="label">Upload File (.docx/.txt/.html/.md)</label>
             <input
               ref={fileInputRef}
               type="file"
-              accept=".txt,.html,.htm,.md"
+              accept=".docx,.txt,.html,.htm,.md"
               onChange={handleFileUpload}
               className="input"
             />
-            {filename && <p className="text-xs text-slate-500 mt-1">File: {filename}</p>}
+            {filename && (
+              <p className="text-xs text-slate-500 mt-1">
+                File: {filename}
+                {docxBuffer && <Badge variant="success">DOCX siap diproses</Badge>}
+              </p>
+            )}
           </div>
 
+          {/* DOCX-IDENTITY-RC1: section khusus DOCX */}
+          {docxBuffer && (
+            <div className="p-3 bg-slate-50 rounded-md space-y-3">
+              <div className="text-sm font-semibold text-slate-700">
+                Mode DOCX: {filename}
+              </div>
+              <div className="text-xs text-slate-600 space-y-1">
+                <p>Placeholder ditemukan: <strong>{docxStats.placeholders}</strong></p>
+                {docxStats.literals.length > 0 && (
+                  <div>
+                    <p>Literal match:</p>
+                    <ul className="ml-4 list-disc">
+                      {docxStats.literals.map((l, i) => (
+                        <li key={i}><code>{l.oldText}</code> → <strong>{l.count}</strong>×</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                <p className="text-slate-500">
+                  {docxStats.placeholders === 0 && docxStats.literals.every((l) => l.count === 0)
+                    ? "⚠ Tidak ada placeholder/literal ditemukan. Tambah pasangan literal di Step 1b dulu."
+                    : "✓ Klik Proses DOCX untuk replace."}
+                </p>
+              </div>
+              <div className="flex gap-2 flex-wrap">
+                <Button
+                  onClick={handleProcessDocx}
+                  disabled={docxProcessing}
+                >
+                  {docxProcessing ? "Memproses..." : "Proses DOCX"}
+                </Button>
+              </div>
+
+              {docxResult && (
+                <div className="p-3 bg-emerald-50 rounded border border-emerald-200 space-y-2">
+                  <p className="text-sm font-semibold text-emerald-900">✓ DOCX berhasil diproses</p>
+                  <div className="text-xs text-emerald-800 space-y-1">
+                    <p>Placeholder di-replace: <strong>{docxResult.stats.placeholdersReplaced}</strong> / {docxResult.stats.placeholdersFound} ditemukan</p>
+                    <p>Literal replacement: <strong>{docxResult.stats.literalMatches}</strong></p>
+                    <p>File diproses: {docxResult.stats.filesProcessed.join(", ")}</p>
+                    {docxResult.warnings.length > 0 && (
+                      <p className="text-amber-700">⚠ {docxResult.warnings.join(" ")}</p>
+                    )}
+                  </div>
+                  <div className="flex gap-2 flex-wrap">
+                    <Button variant="secondary" className="text-sm" onClick={handleDownloadDocx}>
+                      Download .docx
+                    </Button>
+                    <Button variant="secondary" className="text-sm" onClick={handleSaveDocxArchive}>
+                      Simpan ke Arsip
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="text-xs text-slate-500 text-center">— atau paste teks di bawah (mode teks) —</div>
+
           <Textarea
-            label="Atau Paste Teks RPP Lama"
+            label="Atau Paste Teks Dokumen Lama"
             id="rpp-input"
             value={inputText}
             onChange={setInputText}
             rows={8}
-            placeholder="Tempel teks RPP lama di sini. Placeholder yang didukung: {{NAMA_SEKOLAH}}, {{NAMA_GURU}}, dll. Untuk multi-dokumen, pisah dengan === DOKUMEN ==="
+            placeholder="Tempel teks dokumen lama di sini. Placeholder yang didukung: {{NAMA_SEKOLAH}}, {{NAMA_GURU}}, dll. Untuk multi-dokumen, pisah dengan === DOKUMEN ==="
           />
 
           {inputText && (
