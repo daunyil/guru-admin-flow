@@ -23,7 +23,7 @@
  *  14. Laporan Akhir Semester
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { Card, CardHeader, Button, EmptyState, Badge, Select, InfoCard } from "../../shared/ui";
 import { getActiveAcademicYear, getTeacherProfile } from "../../shared/db/profile-repo";
@@ -103,6 +103,11 @@ export function AdminPackagePage() {
   const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
+  // P1-1 FIX: requestId guard untukhindari race condition di loadDocs.
+  // Bila user ganti assignment cepat, request lama (requestId lebih kecil) tidak
+  // boleh menimpa state hasil request baru.
+  const loadDocsRequestIdRef = useRef(0);
+
   useEffect(() => {
     void (async () => {
       const [y, tp] = await Promise.all([getActiveAcademicYear(), getTeacherProfile()]);
@@ -133,6 +138,11 @@ export function AdminPackagePage() {
       setDocs([]);
       return;
     }
+
+    // P1-1 FIX: increment requestId di awal loadDocs. Simpan ke local const.
+    // Setelah semua await, cek apakah requestId local masih === ref.current.
+    // Bila tidak sama → request ini sudah stale (user ganti assignment) → skip setDocs.
+    const requestId = ++loadDocsRequestIdRef.current;
 
     // Load semua data untuk cek kelengkapan
     const [
@@ -466,6 +476,10 @@ export function AdminPackagePage() {
       },
     ];
 
+    // P1-1 FIX: cek requestId sebelum setDocs. Bila berbeda, request ini stale
+    // (user sudah ganti assignment ke yang lain) → skip supaya tidak menimpa
+    // hasil request yang lebih baru.
+    if (requestId !== loadDocsRequestIdRef.current) return;
     setDocs(items);
   }
 

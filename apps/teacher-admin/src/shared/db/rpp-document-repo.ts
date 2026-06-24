@@ -51,9 +51,22 @@ export async function saveRppDocument(args: {
   literalReplacements?: LiteralReplacement[];
   source: "upload" | "paste";
   filename?: string;
+  /**
+   * PAKET-ADMINISTRASI-FINAL-RC1-PATCH-1: override processedContent.
+   *
+   * Default: processedContent = applyAllReplacements(originalContent, ...).
+   * Tapi untuk DOCX import, originalContent adalah base64 DOCX binary (bukan teks),
+   * sehingga applyAllReplacements tidak ada efek. processedContent harus diisi
+   * dengan base64 DOCX hasil replace (docxResult.outputBlob).
+   *
+   * Bila provided, override ini dipakai langsung tanpa applyAllReplacements.
+   */
+  processedContentOverride?: string;
 }): Promise<RppDocument> {
   const literalReplacements = args.literalReplacements ?? [];
-  const processedContent = applyAllReplacements(
+  // PATCH-1: bila processedContentOverride provided (mode DOCX), pakai langsung.
+  // Bila tidak (mode teks), pakai applyAllReplacements seperti biasa.
+  const processedContent = args.processedContentOverride ?? applyAllReplacements(
     args.originalContent,
     args.context,
     literalReplacements

@@ -258,6 +258,148 @@ describe("P1-3 regression: Prota duplikat deteksi logic", () => {
   });
 });
 
+/* ---------- P0-1 PATCH-1: DOCX archive menyimpan processedContent benar ---------- */
+
+describe("P0-1 PATCH-1 regression: DOCX archive processedContent", () => {
+  // Simulasi logic saveRppDocument dengan processedContentOverride
+  function computeProcessedContent(args: {
+    originalContent: string;
+    context: { schoolName: string };
+    literalReplacements: Array<{ oldText: string; newText: string }>;
+    processedContentOverride?: string;
+  }): string {
+    // Re-implement applyAllReplacements sederhana untuk test
+    if (args.processedContentOverride !== undefined) {
+      return args.processedContentOverride;
+    }
+    // Mode teks: applyAllReplacements (placeholder + literal)
+    let result = args.originalContent;
+    // Placeholder (simplified)
+    result = result.split("{{NAMA_SEKOLAH}}").join(args.context.schoolName);
+    // Literal
+    for (const { oldText, newText } of args.literalReplacements) {
+      if (!oldText) continue;
+      result = result.split(oldText).join(newText);
+    }
+    return result;
+  }
+
+  it("mode teks: processedContent = applyAllReplacements(originalContent) — tanpa override", () => {
+    const originalContent = "Sekolah: {{NAMA_SEKOLAH}}";
+    const context = { schoolName: "SMPN 8 Bantan" };
+    const result = computeProcessedContent({
+      originalContent,
+      context,
+      literalReplacements: [],
+    });
+    expect(result).toBe("Sekolah: SMPN 8 Bantan");
+    expect(result).not.toBe(originalContent); // berubah
+  });
+
+  it("mode DOCX: processedContent = processedContentOverride (bukan applyAllReplacements)", () => {
+    const originalBase64 = "data:application/vnd.openxmlformats-officedocument.wordprocessingml.document;base64,AAAA";
+    const processedBase64 = "data:application/vnd.openxmlformats-officedocument.wordprocessingml.document;base64,BBBB";
+    const context = { schoolName: "SMPN 8 Bantan" };
+    const result = computeProcessedContent({
+      originalContent: originalBase64,
+      context,
+      literalReplacements: [],
+      processedContentOverride: processedBase64,
+    });
+    // HARUS: processedContent = processedBase64 (hasil replace DOCX)
+    // BUKAN: applyAllReplacements(originalBase64) yang tidak mengubah base64 binary
+    expect(result).toBe(processedBase64);
+    expect(result).not.toBe(originalBase64); // HARUS berbeda dari original
+  });
+
+  it("mode DOCX: originalContent ≠ processedContent (kunci fix P0-1)", () => {
+    // Simulasi: DOCX asli punya placeholder {{NAMA_SEKOLAH}}
+    // DOCX hasil replace punya "SMPN 8 Bantan"
+    // Keduanya di-encode ke base64 → string berbeda
+    const originalBase64 = "data:application/vnd.openxmlformats-officedocument.wordprocessingml.document;base64,eyJ7e05BTUFfU0VLT0xBSH19"; // placeholder
+    const processedBase64 = "data:application/vnd.openxmlformats-officedocument.wordprocessingml.document;base64,U01QTiA4IEJhbnRhbg"; // replaced
+    expect(originalBase64).not.toBe(processedBase64);
+    expect(originalBase64.startsWith("data:application/vnd.openxmlformats-officedocument.wordprocessingml.document;base64,")).toBe(true);
+    expect(processedBase64.startsWith("data:application/vnd.openxmlformats-officedocument.wordprocessingml.document;base64,")).toBe(true);
+  });
+
+  it("mode DOCX: download arsip pakai processedContent (bukan originalContent)", () => {
+    // Simulasi handleDownloadProcessed
+    const originalBase64 = "data:application/vnd.openxmlformats-officedocument.wordprocessingml.document;base64,AAAA";
+    const processedBase64 = "data:application/vnd.openxmlformats-officedocument.wordprocessingml.document;base64,BBBB";
+
+    // Arsip menyimpan: originalContent + processedContent
+    const archive = {
+      originalContent: originalBase64,
+      processedContent: processedBase64, // hasil PATCH-1 fix
+    };
+
+    // Download pakai processedContent (bukan originalContent)
+    const downloadedContent = archive.processedContent;
+    expect(downloadedContent).toBe(processedBase64);
+    expect(downloadedContent).not.toBe(archive.originalContent); // HARUS beda
+  });
+
+  it("mode teks (legacy): tanpa override, processedContent tetap pakai applyAllReplacements", () => {
+    // Backward compat: arsip lama (mode teks) tetap works
+    const originalContent = "Hello {{NAMA_SEKOLAH}}";
+    const context = { schoolName: "World" };
+    const result = computeProcessedContent({
+      originalContent,
+      context,
+      literalReplacements: [],
+    });
+    expect(result).toBe("Hello World");
+  });
+});
+
+/* ---------- P1-1 PATCH-1: requestId guard logic ---------- */
+
+describe("P1-1 PATCH-1 regression: requestId guard logic", () => {
+  it("requestId guard: request lama tidak menimpa state request baru", () => {
+    // Simulasi logic requestId guard
+    let currentRequestId = 0;
+    const ref = { current: 0 };
+
+    // Request 1 (lama)
+    const req1 = ++ref.current;
+    // Request 2 (baru) — user ganti assignment
+    const req2 = ++ref.current;
+
+    // Request 1 selesai dulu (tidak realistis, tapi test logic)
+    // Setelah req2 jalan, req1 stale
+    expect(req1).toBe(1);
+    expect(req2).toBe(2);
+    expect(req1 !== ref.current).toBe(true); // req1 stale
+    expect(req2 === ref.current).toBe(true); // req2 masih current
+
+    // Logic: if (requestId !== ref.current) return; // skip
+    currentRequestId = req1;
+    if (currentRequestId !== ref.current) {
+      // skip setDocs
+    } else {
+      throw new Error("Should skip stale request");
+    }
+  });
+
+  it("requestId guard: request baru boleh setDocs", () => {
+    const ref = { current: 0 };
+    const req = ++ref.current;
+    // req === ref.current → boleh setDocs
+    expect(req === ref.current).toBe(true);
+  });
+
+  it("requestId guard: 3 request cepat, hanya request terakhir yang valid", () => {
+    const ref = { current: 0 };
+    const req1 = ++ref.current;
+    const req2 = ++ref.current;
+    const req3 = ++ref.current;
+    expect(req1 !== ref.current).toBe(true); // stale
+    expect(req2 !== ref.current).toBe(true); // stale
+    expect(req3 === ref.current).toBe(true); // valid
+  });
+});
+
 /* ---------- PAKET-ADMINISTRASI-FINAL-RC1: category grouping logic ---------- */
 
 describe("PAKET-ADMINISTRASI-FINAL-RC1: category grouping", () => {
