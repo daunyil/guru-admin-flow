@@ -421,10 +421,11 @@ export function RppBulkReplacePage() {
     if (!docxResult || !year || !teacher) return;
     if (!filename) return;
     try {
-      // P0-4 FIX: simpan binary DOCX sebagai base64 di originalContent (prefix marker).
-      // Format: "data:application/vnd.openxmlformats-officedocument.wordprocessingml.document;base64,..."
-      // processedContent = base64 DOCX hasil replace.
-      // Preview text (untuk display) di-extract on-demand via extractDocxText.
+      // PATCH-1 FIX: simpan binary DOCX sebagai base64.
+      // - originalContent = base64 DOCX asli (sebelum replace)
+      // - processedContent = base64 DOCX hasil replace (docxResult.outputBlob)
+      //   dikirim via processedContentOverride supaya tidak di-applyAllReplacements
+      //   (yang tidak ada efek pada base64 binary).
       const originalBase64 = arrayBufferToBase64Docx(docxBuffer!);
       const processedBase64 = arrayBufferToBase64Docx(docxResult.outputBlob);
       const assignment = selectedAssignment();
@@ -438,23 +439,19 @@ export function RppBulkReplacePage() {
         semester: ctx.semester === "Ganjil" ? 1 : 2,
         documentKind: docKind as DocumentIdentityKind,
         originalContent: originalBase64,
+        // PATCH-1: override processedContent dengan base64 DOCX hasil replace.
+        // Tanpa ini, repo akan applyAllReplacements(originalBase64) yang tidak
+        // mengubah base64 binary → arsip menyimpan DOCX asli, bukan DOCX hasil replace.
+        processedContentOverride: processedBase64,
         context: ctx,
         literalReplacements: getValidLiteralReplacements(),
         source: "upload",
         filename: filename.replace(/\.docx$/i, "") + ".docx",
       });
-      // P0-4 FIX: override processedContent dengan base64 DOCX (bukan teks hasil replace placeholder).
-      // Cara: saveRppDocument sudah simpan dengan processedContent dari applyAllReplacements(teks).
-      // Karena originalContent sekarang base64 (bukan teks), applyAllReplacements tidak ada efek.
-      // Kita update langsung di Dexie setelah save.
-      // Tapi cara lebih bersih: update repo untuk terima processedContent override.
-      // Untuk sekarang, kita simpan ulang dengan processedContent manual via updateRppDocument.
-      // Cari doc yang baru disimpan (filename + academicYearId match).
-      void processedBase64;
       setArchives(await listRppDocuments({ academicYearId: year.id, teacherId: teacher.id }));
       setMessage({
         type: "success",
-        text: `Arsip DOCX tersimpan (binary .docx tersimpan di IndexedDB sebagai base64). Klik Download di arsip untuk ambil file .docx.`,
+        text: `Arsip DOCX tersimpan. Binary .docx hasil replace tersimpan di IndexedDB. Klik Download di arsip untuk ambil file .docx yang sudah diperbarui identitasnya.`,
       });
     } catch (e) {
       setMessage({
