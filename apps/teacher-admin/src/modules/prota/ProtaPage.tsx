@@ -766,7 +766,44 @@ function ImportModal({
           setImporting(false);
           return;
         }
-        // Build ProtaProfile dari Excel paste
+
+        // P1-3: cek duplikat ProtaProfile (subject+grade+year sama).
+        const existing = await listProtaProfiles(academicYearId);
+        const duplicate = existing.find(
+          (p) => p.subject === excelMeta.subject && p.grade === excelMeta.grade
+        );
+        if (duplicate) {
+          onError([
+            `Prota untuk ${excelMeta.subject} kelas ${excelMeta.grade} sudah ada (status: ${duplicate.status}). ` +
+            `Hapus Prota yang lama dulu bila ingin import ulang, atau gunakan mode JSON (yang akan membuat profile baru terpisah).`,
+          ]);
+          setImporting(false);
+          return;
+        }
+
+        // P1-4: validasi konsistensi JP (warning saja, tidak block).
+        const jpInconsistency: string[] = [];
+        if (
+          excelMeta.annualIntraJP > 0 &&
+          excelMeta.semester1IntraJP + excelMeta.semester2IntraJP !== excelMeta.annualIntraJP
+        ) {
+          jpInconsistency.push(
+            `Warning: semester1 (${excelMeta.semester1IntraJP}) + semester2 (${excelMeta.semester2IntraJP}) ≠ annual (${excelMeta.annualIntraJP}).`
+          );
+        }
+
+        // P0-2: konfirmasi sebelum apply.
+        const ok = window.confirm(
+          `Impor Prota ${excelMeta.subject} kelas ${excelMeta.grade} dengan ${excelPreview.units.length} unit? ` +
+          (jpInconsistency.length > 0 ? jpInconsistency.join(" ") + " " : "") +
+          `Lanjutkan?`
+        );
+        if (!ok) {
+          setImporting(false);
+          return;
+        }
+
+        // P0-3: pakai saveProtaProfile dengan units sekaligus (atomic transaction di repo).
         const profile = await saveProtaProfile({
           subject: excelMeta.subject,
           grade: excelMeta.grade,
@@ -776,21 +813,17 @@ function ImportModal({
           semester2IntraJP: excelMeta.semester2IntraJP,
           academicYearId,
           teacherId: teacher.id,
-          units: [],
-          status: "draft",
-          sourceYearId: null,
-        });
-        // Save units
-        for (const u of excelPreview.units) {
-          await saveProtaUnit(profile.id, {
+          units: excelPreview.units.map((u) => ({
             semester: u.semester,
             title: u.title,
             learningOutcome: u.learningOutcome,
             jp: u.jp,
             order: u.order,
             code: u.code,
-          });
-        }
+          })),
+          status: "draft",
+          sourceYearId: null,
+        });
         onImported(profile);
       }
     } finally {

@@ -59,14 +59,39 @@ import {
 
 type DocStatus = "lengkap" | "belum" | "kosong";
 
+/** Kategori untuk grouping dokumen di checklist. */
+type DocCategory =
+  | "perencanaan"   // Prota, Promes, ATP, Kalender, Jadwal
+  | "harian"         // Roster, Absensi, Jurnal
+  | "evaluasi"       // Nilai, Remedial, Pengayaan
+  | "dokumen"        // LKPD, RPP
+  | "laporan";       // Laporan Akhir Semester
+
 type DocItem = {
   id: string;
   name: string;
+  category: DocCategory;
   status: DocStatus;
   detail: string;
   link: string;
   count: number;
+  /** Label tombol aksi: "Buka" / "Buat" / "Generate". */
+  actionLabel?: string;
+  /** Detail tambahan untuk expand (mis. list siswa remedial). */
+  expandDetails?: string[];
+  /** Apakah item ini bisa di-generate dari app (bukan input manual). */
+  autoGeneratable?: boolean;
 };
+
+const CATEGORY_LABELS: Record<DocCategory, string> = {
+  perencanaan: "Perencanaan",
+  harian: "Harian",
+  evaluasi: "Evaluasi",
+  dokumen: "Dokumen Pembelajaran",
+  laporan: "Laporan",
+};
+
+const CATEGORY_ORDER: DocCategory[] = ["perencanaan", "harian", "evaluasi", "dokumen", "laporan"];
 
 export function AdminPackagePage() {
   const [loading, setLoading] = useState(true);
@@ -75,6 +100,8 @@ export function AdminPackagePage() {
   const [assignments, setAssignments] = useState<TeachingAssignment[]>([]);
   const [selectedAssignmentId, setSelectedAssignmentId] = useState("");
   const [docs, setDocs] = useState<DocItem[]>([]);
+  const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
+  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   useEffect(() => {
     void (async () => {
@@ -187,118 +214,255 @@ export function AdminPackagePage() {
       (r) => r.classId === assignment.classId && r.subject === assignment.subject && r.semester === assignment.semester
     );
 
+    // PAKET-ADMINISTRASI-FINAL-RC1: compute summary untuk expandDetails.
+    const gradebookSummary = gradebook
+      ? (() => {
+          const complete = gradebook.entries.filter((e) => e.status === "complete").length;
+          const remedial = gradebook.entries.filter((e) => e.status === "remedial").length;
+          const incomplete = gradebook.entries.filter((e) => e.status === "incomplete").length;
+          return { complete, remedial, incomplete, total: gradebook.entries.length };
+        })()
+      : null;
+
     const items: DocItem[] = [
       {
         id: "prota",
-        name: "Program Tahunan",
+        name: "Program Tahunan (Prota)",
+        category: "perencanaan",
         status: matchingProta ? "lengkap" : "kosong",
-        detail: matchingProta ? `${matchingProta.units.length} unit` : "Belum dibuat",
+        detail: matchingProta
+          ? `${matchingProta.units.length} unit · ${matchingProta.semester1IntraJP + matchingProta.semester2IntraJP} JP intra · status: ${matchingProta.status}`
+          : "Belum dibuat",
         link: "/prota",
         count: matchingProta?.units.length ?? 0,
+        actionLabel: matchingProta ? "Buka" : "Buat",
+        autoGeneratable: false,
+        expandDetails: matchingProta
+          ? [
+              `Subject: ${matchingProta.subject} · Grade: ${matchingProta.grade} · Phase: ${matchingProta.phase}`,
+              `Semester 1: ${matchingProta.semester1IntraJP} JP · Semester 2: ${matchingProta.semester2IntraJP} JP`,
+              `Tahun pelajaran: ${matchingProta.academicYearId}`,
+              `Status: ${matchingProta.status}`,
+            ]
+          : undefined,
       },
       {
         id: "promes",
-        name: "Program Semester",
+        name: "Program Semester (Promes)",
+        category: "perencanaan",
         status: matchingProta && calendar.length > 0 ? "lengkap" : "belum",
-        detail: matchingProta ? "Bisa di-generate" : "Butuh Prota + Kalender",
+        detail: matchingProta && calendar.length > 0
+          ? "Siap di-generate dari Prota + Kalender"
+          : matchingProta
+            ? "Butuh Kalender Pendidikan"
+            : "Butuh Prota + Kalender",
         link: "/promes",
         count: calendar.length,
+        actionLabel: "Generate",
+        autoGeneratable: true,
+        expandDetails: [
+          `Prasyarat: Prota ${matchingProta ? "✓" : "✗"} + Kalender ${calendar.length > 0 ? "✓" : "✗"}`,
+          matchingProta ? `Sumber: ${matchingProta.units.length} unit Prota` : "",
+          calendar.length > 0 ? `Kalender: ${calendar.length} event` : "",
+        ].filter(Boolean),
       },
       {
         id: "atp",
         name: "Bank TP (Tujuan Pembelajaran)",
+        category: "perencanaan",
         status: assignmentATP.length > 0 ? "lengkap" : "kosong",
         detail: `${assignmentATP.length} TP untuk ${assignment.subject} ${assignment.classLabel}`,
         link: "/atp",
         count: assignmentATP.length,
+        actionLabel: assignmentATP.length > 0 ? "Buka" : "Buat",
+        autoGeneratable: false,
+        expandDetails: assignmentATP.length > 0
+          ? [
+              `Total: ${assignmentATP.length} TP`,
+              `Total JP: ${assignmentATP.reduce((s, e) => s + e.alokasiJP, 0)} JP`,
+              `Elemen: ${[...new Set(assignmentATP.map((e) => e.elemen))].join(", ")}`,
+            ]
+          : undefined,
       },
       {
         id: "calendar",
         name: "Kalender Pendidikan",
+        category: "perencanaan",
         status: calendar.length > 0 ? "lengkap" : "kosong",
-        detail: `${calendar.length} event`,
+        detail: `${calendar.length} event · ${calendar.filter((e) => e.blocksLearning).length} hari libur`,
         link: "/calendar",
         count: calendar.length,
+        actionLabel: "Buka",
+        autoGeneratable: false,
       },
       {
         id: "schedule",
         name: "Jadwal Mengajar",
+        category: "perencanaan",
         status: matchingSchedule.length > 0 ? "lengkap" : "kosong",
-        detail: `${matchingSchedule.length} jadwal untuk assignment ini`,
+        detail: `${matchingSchedule.length} jadwal untuk ${assignment.classLabel} · ${assignment.subject}`,
         link: "/schedule",
         count: matchingSchedule.length,
+        actionLabel: matchingSchedule.length > 0 ? "Buka" : "Buat",
+        autoGeneratable: false,
       },
       {
         id: "roster",
-        name: "Daftar Siswa",
+        name: "Daftar Siswa (Roster)",
+        category: "harian",
         status: matchingRoster && matchingRoster.students.length > 0 ? "lengkap" : "kosong",
         detail: matchingRoster ? `${matchingRoster.students.length} siswa` : "Belum dibuat",
         link: "/roster",
         count: matchingRoster?.students.length ?? 0,
+        actionLabel: matchingRoster ? "Buka" : "Buat",
+        autoGeneratable: false,
       },
       {
         id: "attendance",
         name: "Absensi Semester",
+        category: "harian",
         status: assignmentAttendance.length > 0 ? "lengkap" : "belum",
-        detail: `${assignmentAttendance.length} record absensi`,
+        detail: assignmentAttendance.length > 0
+          ? `${assignmentAttendance.length} record · ${assignmentSessions.length} sesi`
+          : "Belum ada absensi semester ini",
         link: "/attendance",
         count: assignmentAttendance.length,
+        actionLabel: "Buka",
+        autoGeneratable: false,
+        expandDetails: assignmentAttendance.length > 0
+          ? [
+              `Total sesi: ${assignmentSessions.length}`,
+              `Total record absensi: ${assignmentAttendance.length}`,
+              `Rata-rata: ${assignmentSessions.length > 0 ? Math.round(assignmentAttendance.length / assignmentSessions.length) : 0} record/sesi`,
+            ]
+          : undefined,
       },
       {
         id: "journal",
         name: "Jurnal Mengajar",
+        category: "harian",
         status: assignmentJournals.length > 0 ? "lengkap" : "belum",
-        detail: `${assignmentJournals.length} jurnal`,
+        detail: assignmentJournals.length > 0
+          ? `${assignmentJournals.length} jurnal · ${assignmentJournals.filter((j) => j.status === "final").length} final`
+          : "Belum ada jurnal semester ini",
         link: "/journal",
         count: assignmentJournals.length,
+        actionLabel: "Buka",
+        autoGeneratable: false,
       },
       {
         id: "grades",
-        name: "Daftar Nilai",
+        name: "Daftar Nilai (GradeBook V2)",
+        category: "evaluasi",
         status: gradebook ? "lengkap" : "kosong",
-        detail: gradebook ? `${gradebook.entries.length} siswa` : "Belum dibuat",
+        detail: gradebook
+          ? `${gradebook.entries.length} siswa · ${gradebookSummary?.complete} tuntas · ${gradebookSummary?.remedial} remedial`
+          : "Belum dibuat",
         link: "/grades",
         count: gradebook?.entries.length ?? 0,
+        actionLabel: gradebook ? "Buka" : "Buat",
+        autoGeneratable: false,
+        expandDetails: gradebookSummary
+          ? [
+              `Total siswa: ${gradebookSummary.total}`,
+              `Tuntas (≥ KKTP ${gradebook?.passingScore ?? 75}): ${gradebookSummary.complete}`,
+              `Remedial (< KKTP): ${gradebookSummary.remedial}`,
+              `Belum lengkap (nilai kosong): ${gradebookSummary.incomplete}`,
+              `Status: ${gradebook?.status}`,
+            ]
+          : undefined,
       },
       {
         id: "remedial",
         name: "Program Remedial",
+        category: "evaluasi",
         status: matchingRemedial ? "lengkap" : "belum",
-        detail: matchingRemedial ? `${matchingRemedial.students.length} siswa remedial` : "Belum dibuat (butuh Nilai)",
+        detail: matchingRemedial
+          ? `${matchingRemedial.students.length} siswa remedial · status: ${matchingRemedial.status}`
+          : "Belum dibuat (butuh Daftar Nilai)",
         link: "/remedial",
         count: matchingRemedial?.students.length ?? 0,
+        actionLabel: matchingRemedial ? "Buka" : "Generate",
+        autoGeneratable: true,
+        expandDetails: matchingRemedial
+          ? [
+              `KKTP: ${matchingRemedial.kktp}`,
+              `Siswa remedial: ${matchingRemedial.students.length}`,
+              `Status: ${matchingRemedial.status}`,
+              `Finalized: ${matchingRemedial.finalizedAt ?? "belum"}`,
+            ]
+          : ["Prasyarat: Daftar Nilai sudah ada dengan siswa remedial"],
       },
       {
         id: "pengayaan",
         name: "Program Pengayaan",
+        category: "evaluasi",
         status: matchingEnrichment ? "lengkap" : "belum",
-        detail: matchingEnrichment ? `${matchingEnrichment.students.length} siswa pengayaan` : "Belum dibuat (butuh Nilai)",
+        detail: matchingEnrichment
+          ? `${matchingEnrichment.students.length} siswa pengayaan · status: ${matchingEnrichment.status}`
+          : "Belum dibuat (butuh Daftar Nilai)",
         link: "/pengayaan",
         count: matchingEnrichment?.students.length ?? 0,
+        actionLabel: matchingEnrichment ? "Buka" : "Generate",
+        autoGeneratable: true,
+        expandDetails: matchingEnrichment
+          ? [
+              `Siswa pengayaan: ${matchingEnrichment.students.length}`,
+              `Status: ${matchingEnrichment.status}`,
+              `Finalized: ${matchingEnrichment.finalizedAt ?? "belum"}`,
+            ]
+          : ["Prasyarat: Daftar Nilai sudah ada dengan siswa nilai ≥ 90"],
       },
       {
         id: "lkpd",
-        name: "LKPD",
+        name: "LKPD (Lembar Kerja Peserta Didik)",
+        category: "dokumen",
         status: assignmentLKPD.length > 0 ? "lengkap" : "kosong",
         detail: `${assignmentLKPD.length} LKPD untuk ${assignment.subject} ${assignment.classLabel}`,
         link: "/lkpd",
         count: assignmentLKPD.length,
+        actionLabel: assignmentLKPD.length > 0 ? "Buka" : "Buat",
+        autoGeneratable: false,
+        expandDetails: assignmentLKPD.length > 0
+          ? assignmentLKPD.slice(0, 5).map((l) => `· ${l.title ?? "LKPD"} — ${l.status}`)
+          : undefined,
       },
       {
         id: "rpp",
-        name: "RPP / Dokumen Lama",
+        name: "RPP / Dokumen Lama (Arsip)",
+        category: "dokumen",
         status: assignmentRpp.length > 0 ? "lengkap" : "belum",
-        detail: `${assignmentRpp.length} arsip RPP untuk ${assignment.subject} ${assignment.classLabel} semester ${assignment.semester}`,
+        detail: `${assignmentRpp.length} arsip untuk ${assignment.subject} ${assignment.classLabel} semester ${assignment.semester}`,
         link: "/rpp-bulk",
         count: assignmentRpp.length,
+        actionLabel: "Buka",
+        autoGeneratable: false,
+        expandDetails: assignmentRpp.length > 0
+          ? assignmentRpp.slice(0, 5).map((r) => `· ${r.filename ?? "arsip"} — ${r.documentKind} (${r.status})`)
+          : undefined,
       },
       {
         id: "laporan",
         name: "Laporan Akhir Semester",
+        category: "laporan",
         status: matchingSemesterReport ? "lengkap" : "belum",
-        detail: matchingSemesterReport ? matchingSemesterReport.status === "final" ? "Final" : "Draft" : "Belum dibuat",
+        detail: matchingSemesterReport
+          ? matchingSemesterReport.status === "final" ? "Final — siap cetak" : "Draft — belum difinalisasi"
+          : "Belum dibuat",
         link: "/semester-report",
         count: matchingSemesterReport ? 1 : 0,
+        actionLabel: matchingSemesterReport ? "Buka" : "Susun",
+        autoGeneratable: true,
+        expandDetails: matchingSemesterReport
+          ? [
+              `Status: ${matchingSemesterReport.status}`,
+              `Subject: ${matchingSemesterReport.subject}`,
+              `Class: ${matchingSemesterReport.classLabel}`,
+            ]
+          : [
+              "Prasyarat: Prota, Nilai, Absensi, Jurnal sudah lengkap",
+              "App akan generate laporan otomatis dari data semester",
+            ],
       },
     ];
 
@@ -313,8 +477,39 @@ export function AdminPackagePage() {
 
   const assignment = selectedAssignment();
   const lengkapCount = docs.filter((d) => d.status === "lengkap").length;
+  const belumCount = docs.filter((d) => d.status === "belum").length;
+  const kosongCount = docs.filter((d) => d.status === "kosong").length;
   const totalDocs = docs.length;
   const completenessScore = totalDocs > 0 ? Math.round((lengkapCount / totalDocs) * 100) : 0;
+
+  // Deadline indicator: akhir semester
+  const todayISO = new Date().toISOString().slice(0, 10);
+  const semesterEnd = assignment?.semester === 1 ? year?.semester1End : year?.semester2End;
+  const daysToDeadline = semesterEnd
+    ? Math.ceil((new Date(semesterEnd).getTime() - new Date(todayISO).getTime()) / (1000 * 60 * 60 * 24))
+    : null;
+
+  // Group docs by category
+  const docsByCategory = CATEGORY_ORDER.map((cat) => ({
+    category: cat,
+    label: CATEGORY_LABELS[cat],
+    items: docs.filter((d) => d.category === cat),
+  })).filter((g) => g.items.length > 0);
+
+  function handleExportChecklist() {
+    if (!assignment || !year) return;
+    const html = generateChecklistHTML(docs, assignment, year, completenessScore, lengkapCount, totalDocs);
+    const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `checklist-administrasi-${assignment.classLabel}-${assignment.subject}-semester${assignment.semester}.html`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    setMessage({ type: "success", text: "Checklist kelengkapan didownload sebagai HTML." });
+  }
 
   return (
     <div className="space-y-4">
@@ -370,54 +565,131 @@ export function AdminPackagePage() {
       {/* Step 2: Checklist dokumen */}
       {assignment && (
         <>
+          {/* Progress + Deadline Card */}
           <Card>
             <CardHeader
               title="2. Kelengkapan Dokumen"
-              description={`${lengkapCount} / ${totalDocs} dokumen lengkap · Skor ${completenessScore}%`}
+              description={`${lengkapCount} / ${totalDocs} dokumen lengkap · ${belumCount} belum · ${kosongCount} kosong`}
             />
-            <div className="space-y-2">
-              {docs.map((doc) => (
-                <div
-                  key={doc.id}
-                  className="p-3 border border-slate-200 rounded-md flex items-center justify-between gap-2"
-                >
-                  <div className="flex items-center gap-3 min-w-0 flex-1">
-                    <span
-                      className={`w-3 h-3 rounded-full shrink-0 ${
-                        doc.status === "lengkap"
-                          ? "bg-emerald-500"
-                          : doc.status === "belum"
-                          ? "bg-amber-500"
-                          : "bg-rose-500"
-                      }`}
-                    />
-                    <div className="min-w-0">
-                      <p className="font-medium text-sm">{doc.name}</p>
-                      <p className="text-xs text-slate-500">{doc.detail}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <Badge
-                      variant={
-                        doc.status === "lengkap"
-                          ? "success"
-                          : doc.status === "belum"
-                          ? "warning"
-                          : "error"
-                      }
-                    >
-                      {doc.status === "lengkap" ? "Lengkap" : doc.status === "belum" ? "Belum Lengkap" : "Kosong"}
-                    </Badge>
-                    <Link to={doc.link}>
-                      <Button variant="secondary" className="text-xs px-2 py-1">
-                        Buka
-                      </Button>
-                    </Link>
-                  </div>
+            <div className="space-y-3">
+              <div>
+                <div className="flex justify-between text-xs text-slate-600 mb-1">
+                  <span>Skor Kelengkapan</span>
+                  <span className="font-bold text-slate-900">{completenessScore}%</span>
                 </div>
-              ))}
+                <div className="w-full bg-slate-200 rounded-full h-3 overflow-hidden">
+                  <div
+                    className={`h-3 rounded-full transition-all ${
+                      completenessScore >= 80 ? "bg-emerald-500" : completenessScore >= 50 ? "bg-amber-500" : "bg-rose-500"
+                    }`}
+                    style={{ width: `${completenessScore}%` }}
+                  />
+                </div>
+              </div>
+
+              {daysToDeadline !== null && (
+                <div className={`p-2 rounded text-xs flex items-center gap-2 ${
+                  daysToDeadline < 0
+                    ? "bg-rose-50 text-rose-800"
+                    : daysToDeadline <= 14
+                      ? "bg-amber-50 text-amber-800"
+                      : "bg-slate-50 text-slate-700"
+                }`}>
+                  <span className="font-semibold">
+                    {daysToDeadline < 0
+                      ? `Akhir semester ${semesterEnd} sudah lewat ${Math.abs(daysToDeadline)} hari`
+                      : daysToDeadline === 0
+                        ? "Hari ini adalah akhir semester"
+                        : `Akhir semester ${semesterEnd} — sisa ${daysToDeadline} hari`}
+                  </span>
+                </div>
+              )}
+
+              <div className="flex gap-2 flex-wrap">
+                <Button variant="secondary" className="text-sm" onClick={handleExportChecklist}>
+                  Download Checklist HTML
+                </Button>
+                <Button variant="secondary" className="text-sm" onClick={() => window.print()}>
+                  Cetak Halaman Ini
+                </Button>
+              </div>
             </div>
           </Card>
+
+          {message && (
+            <div className={`info-banner-${message.type === "success" ? "success" : "error"}`}>
+              {message.text}
+            </div>
+          )}
+
+          {docsByCategory.map((group) => (
+            <Card key={group.category}>
+              <CardHeader
+                title={group.label}
+                description={`${group.items.filter((d) => d.status === "lengkap").length} / ${group.items.length} lengkap`}
+              />
+              <div className="space-y-2">
+                {group.items.map((doc) => (
+                  <div
+                    key={doc.id}
+                    className={`p-3 border rounded-md ${
+                      expandedItemId === doc.id ? "border-brand-300 bg-brand-50" : "border-slate-200"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
+                        <span
+                          className={`w-3 h-3 rounded-full shrink-0 ${
+                            doc.status === "lengkap" ? "bg-emerald-500" : doc.status === "belum" ? "bg-amber-500" : "bg-rose-500"
+                          }`}
+                        />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="font-medium text-sm">{doc.name}</p>
+                            {doc.autoGeneratable && <Badge variant="neutral">Auto</Badge>}
+                          </div>
+                          <p className="text-xs text-slate-500">{doc.detail}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <Badge
+                          variant={
+                            doc.status === "lengkap" ? "success" : doc.status === "belum" ? "warning" : "error"
+                          }
+                        >
+                          {doc.status === "lengkap" ? "Lengkap" : doc.status === "belum" ? "Belum" : "Kosong"}
+                        </Badge>
+                        {doc.expandDetails && (
+                          <Button
+                            variant="secondary"
+                            className="text-xs px-2 py-1"
+                            onClick={() => setExpandedItemId(expandedItemId === doc.id ? null : doc.id)}
+                          >
+                            {expandedItemId === doc.id ? "Tutup" : "Detail"}
+                          </Button>
+                        )}
+                        <Link to={doc.link}>
+                          <Button variant="secondary" className="text-xs px-2 py-1">
+                            {doc.actionLabel ?? "Buka"}
+                          </Button>
+                        </Link>
+                      </div>
+                    </div>
+                    {expandedItemId === doc.id && doc.expandDetails && (
+                      <div className="mt-3 pt-3 border-t border-slate-200">
+                        <p className="text-xs font-semibold text-slate-600 mb-1">Detail:</p>
+                        <ul className="text-xs text-slate-700 space-y-1 ml-4 list-disc">
+                          {doc.expandDetails.map((d, i) => (
+                            <li key={i}>{d}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </Card>
+          ))}
 
           <Card>
             <CardHeader title="3. Aksi Cepat" description="Buka dokumen lain yang belum lengkap." />
@@ -437,4 +709,83 @@ export function AdminPackagePage() {
       )}
     </div>
   );
+}
+
+/** Generate standalone HTML checklist untuk print/audit. */
+function generateChecklistHTML(
+  docs: DocItem[],
+  assignment: TeachingAssignment,
+  year: AcademicYear,
+  score: number,
+  lengkapCount: number,
+  totalDocs: number
+): string {
+  const today = new Date().toISOString().slice(0, 10);
+  const rows = docs.map((d) => {
+    const statusSymbol = d.status === "lengkap" ? "V" : d.status === "belum" ? "O" : "X";
+    const statusColor = d.status === "lengkap" ? "#10b981" : d.status === "belum" ? "#f59e0b" : "#ef4444";
+    return `<tr>
+      <td style="padding: 6pt 8pt; border: 1px solid #000; text-align: center;">${statusSymbol}</td>
+      <td style="padding: 6pt 8pt; border: 1px solid #000; font-weight: bold;">${d.name}</td>
+      <td style="padding: 6pt 8pt; border: 1px solid #000; color: ${statusColor}; font-weight: bold;">${d.status === "lengkap" ? "Lengkap" : d.status === "belum" ? "Belum Lengkap" : "Kosong"}</td>
+      <td style="padding: 6pt 8pt; border: 1px solid #000;">${d.detail}</td>
+      <td style="padding: 6pt 8pt; border: 1px solid #000; text-align: center;">${d.count}</td>
+    </tr>`;
+  }).join("");
+
+  return `<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>Checklist Administrasi — ${assignment.classLabel} ${assignment.subject}</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: "Times New Roman", Georgia, serif; font-size: 11pt; padding: 2cm; max-width: 21cm; margin: 0 auto; color: #000; }
+    h1 { text-align: center; font-size: 14pt; text-transform: uppercase; margin-bottom: 4pt; }
+    h2 { text-align: center; font-size: 11pt; margin-bottom: 16pt; }
+    .identitas { width: 100%; border-collapse: collapse; margin-bottom: 16pt; font-size: 10pt; }
+    .identitas td { border: 1px solid #000; padding: 4pt 8pt; }
+    .identitas td:first-child { font-weight: bold; width: 25%; background: #f5f5f5; }
+    .score-box { text-align: center; padding: 12pt; background: #f0f9ff; border: 1px solid #000; margin-bottom: 16pt; }
+    .score-box .score { font-size: 24pt; font-weight: bold; }
+    table { width: 100%; border-collapse: collapse; font-size: 10pt; }
+    th { background: #e0e0e0; padding: 6pt 8pt; border: 1px solid #000; text-align: left; font-weight: bold; }
+    th:first-child { width: 30pt; text-align: center; }
+    th:last-child { width: 50pt; text-align: center; }
+    .footer { margin-top: 24pt; padding-top: 8pt; border-top: 1px solid #999; font-size: 9pt; color: #666; text-align: center; }
+    @media print { body { padding: 0; } @page { size: A4 portrait; margin: 1.5cm 2cm; } }
+  </style>
+</head>
+<body>
+  <h1>Checklist Kelengkapan Administrasi Guru</h1>
+  <h2>Tahun Pelajaran ${year.label}</h2>
+  <table class="identitas">
+    <tr><td>Guru</td><td>${assignment.teacherName}</td></tr>
+    <tr><td>Mata Pelajaran</td><td>${assignment.subject}</td></tr>
+    <tr><td>Kelas</td><td>${assignment.classLabel}</td></tr>
+    <tr><td>Semester</td><td>${assignment.semester === 1 ? "Ganjil" : "Genap"}</td></tr>
+    <tr><td>Tanggal Cetak</td><td>${today}</td></tr>
+  </table>
+  <div class="score-box">
+    <p>Skor Kelengkapan</p>
+    <p class="score">${score}%</p>
+    <p>${lengkapCount} / ${totalDocs} dokumen lengkap</p>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Dokumen</th>
+        <th>Status</th>
+        <th>Detail</th>
+        <th>Jumlah</th>
+      </tr>
+    </thead>
+    <tbody>${rows}</tbody>
+  </table>
+  <div class="footer">
+    Dokumen ini di-generate otomatis oleh Guru Admin Flow (SIAKAD GURU) pada ${today}.
+  </div>
+</body>
+</html>`;
 }

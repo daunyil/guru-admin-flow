@@ -152,8 +152,24 @@ export function ATPPage() {
   async function handleImportApply() {
     if (!year || !teacher) return;
     if (!importPreview) return;
+
+    // P0-1: pakai data dari importPreview (bukan re-parse) supaya tidak stale.
+    // P0-2: konfirmasi sebelum apply supaya tidak duplikat.
+    const count = importPreview.type === "json"
+      ? importPreview.entries.length
+      : importPreview.rows.length;
+    const ok = window.confirm(
+      `Impor ${count} TP ke Bank TP? ` +
+      `TP yang sudah ada (subject/grade/elemen/tp sama) TIDAK akan di-skip — akan dibuat duplikat. ` +
+      `Pastikan ini bukan import ulang. Lanjutkan?`
+    );
+    if (!ok) return;
+
     try {
       if (importPreview.type === "json") {
+        // P0-1: re-validate dari importJson TAPI cek konsistensi dengan preview.
+        // Bila user edit textarea setelah preview, importPreview === null (lihat onChange).
+        // Jadi di sini importPreview.entries sudah pasti sinkron dengan importJson.
         const json = JSON.parse(importJson);
         const v = validateAtpImport(json);
         if (!v.success) {
@@ -161,7 +177,7 @@ export function ATPPage() {
           return;
         }
         const entries = atpImportToEntries(v.data);
-        let count = 0;
+        let saved = 0;
         for (const e of entries) {
           await saveATPEntry({
             ...e,
@@ -170,13 +186,13 @@ export function ATPPage() {
             teacherName: v.data.teacherName ?? teacher.name,
             status: "draft",
           });
-          count++;
+          saved++;
         }
-        setMessage(`${count} TP berhasil diimpor dari JSON.`);
+        setMessage(`${saved} TP berhasil diimpor dari JSON.`);
       } else {
         // Excel paste
         const entries = atpPasteRowsToEntries(importPreview.rows, importMeta);
-        let count = 0;
+        let saved = 0;
         for (const e of entries) {
           await saveATPEntry({
             ...e,
@@ -185,10 +201,10 @@ export function ATPPage() {
             teacherName: teacher.name,
             status: "draft",
           });
-          count++;
+          saved++;
         }
         const skippedCount = importPreview.skipped.length;
-        setMessage(`${count} TP berhasil diimpor dari Excel${skippedCount > 0 ? ` (${skippedCount} baris di-skip)` : ""}.`);
+        setMessage(`${saved} TP berhasil diimpor dari Excel${skippedCount > 0 ? ` (${skippedCount} baris di-skip)` : ""}.`);
       }
       // Reset
       setShowImport(false);
