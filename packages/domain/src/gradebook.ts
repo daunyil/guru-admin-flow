@@ -332,10 +332,14 @@ export type CbtMatchPreview = {
     matchBy: "nis" | "name" | "number";
   }>;
   unmatched: Array<{ nis?: string; name: string; number?: number; score: number }>;
+  /** PATCH-1: siswa roster yang tidak ditemukan di data CBT. */
+  missingRoster: Array<{ id: string; name: string; number: number; nis?: string }>;
   summary: {
-    total: number;
+    totalCbt: number;
+    totalRoster: number;
     matched: number;
-    unmatched: number;
+    unmatchedCbt: number;
+    missingRoster: number;
   };
 };
 
@@ -357,6 +361,9 @@ export function validateCbtImport(input: unknown): CbtImportValidation {
 /**
  * Preview match siswa CBT ke roster.
  * Prioritas match: NIS > exact name > number.
+ *
+ * PATCH-1: juga track siswa roster yang tidak ditemukan di CBT (missingRoster).
+ * NIS dan nama di-trim() sebelum match.
  */
 export function previewCbtMatch(
   cbtData: CbtImport,
@@ -366,11 +373,15 @@ export function previewCbtMatch(
   const unmatched: CbtMatchPreview["unmatched"] = [];
   const usedRosterIds = new Set<string>();
 
-  // Pass 1: match by NIS
+  // Helper: trim string
+  const trim = (s: string | undefined) => (s ?? "").trim();
+
+  // Pass 1: match by NIS (trimmed)
   for (const cbtStudent of cbtData.students) {
-    if (!cbtStudent.nis) continue;
+    const cbtNis = trim(cbtStudent.nis);
+    if (!cbtNis) continue;
     const rosterStudent = roster.find(
-      (r) => r.nis === cbtStudent.nis && !usedRosterIds.has(r.id)
+      (r) => trim(r.nis) === cbtNis && !usedRosterIds.has(r.id)
     );
     if (rosterStudent) {
       matched.push({ rosterStudent, cbtStudent, matchBy: "nis" });
@@ -378,11 +389,12 @@ export function previewCbtMatch(
     }
   }
 
-  // Pass 2: match by exact name (case-insensitive)
+  // Pass 2: match by exact name (case-insensitive, trimmed)
   for (const cbtStudent of cbtData.students) {
     if (matched.some((m) => m.cbtStudent === cbtStudent)) continue;
+    const cbtName = trim(cbtStudent.name).toLowerCase();
     const rosterStudent = roster.find(
-      (r) => r.name.toLowerCase() === cbtStudent.name.toLowerCase() && !usedRosterIds.has(r.id)
+      (r) => trim(r.name).toLowerCase() === cbtName && !usedRosterIds.has(r.id)
     );
     if (rosterStudent) {
       matched.push({ rosterStudent, cbtStudent, matchBy: "name" });
@@ -403,20 +415,28 @@ export function previewCbtMatch(
     }
   }
 
-  // Sisa = unmatched
+  // Sisa CBT = unmatched (CBT data yang tidak cocok roster)
   for (const cbtStudent of cbtData.students) {
     if (!matched.some((m) => m.cbtStudent === cbtStudent)) {
       unmatched.push(cbtStudent);
     }
   }
 
+  // PATCH-1: siswa roster yang tidak ada di CBT = missingRoster
+  const missingRoster = roster
+    .filter((r) => !usedRosterIds.has(r.id))
+    .map((r) => ({ id: r.id, name: r.name, number: r.number, nis: r.nis }));
+
   return {
     matched,
     unmatched,
+    missingRoster,
     summary: {
-      total: cbtData.students.length,
+      totalCbt: cbtData.students.length,
+      totalRoster: roster.length,
       matched: matched.length,
-      unmatched: unmatched.length,
+      unmatchedCbt: unmatched.length,
+      missingRoster: missingRoster.length,
     },
   };
 }

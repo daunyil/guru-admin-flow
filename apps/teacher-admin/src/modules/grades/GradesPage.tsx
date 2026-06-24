@@ -364,7 +364,7 @@ export function GradesPage() {
                     id="cbt-json"
                     label=""
                     value={cbtJsonInput}
-                    onChange={setCbtJsonInput}
+                    onChange={(v) => { setCbtJsonInput(v); setCbtPreview(null); }}
                     rows={6}
                     placeholder='{"source":"cbt","students":[{"nis":"2025001","name":"Andi","score":85},{"name":"Budi","number":2,"score":70}]}'
                   />
@@ -374,10 +374,13 @@ export function GradesPage() {
 
                   {cbtPreview && (
                     <div className="p-3 bg-slate-50 rounded-md space-y-2">
-                      <div className="flex gap-3 text-sm">
+                      <div className="flex gap-3 text-sm flex-wrap">
                         <Badge variant="success">{cbtPreview.summary.matched} cocok</Badge>
-                        {cbtPreview.summary.unmatched > 0 && (
-                          <Badge variant="error">{cbtPreview.summary.unmatched} tidak cocok</Badge>
+                        {cbtPreview.summary.unmatchedCbt > 0 && (
+                          <Badge variant="error">{cbtPreview.summary.unmatchedCbt} CBT tidak cocok</Badge>
+                        )}
+                        {cbtPreview.summary.missingRoster > 0 && (
+                          <Badge variant="warning">{cbtPreview.summary.missingRoster} siswa belum ada nilai CBT</Badge>
                         )}
                       </div>
 
@@ -406,15 +409,30 @@ export function GradesPage() {
                                 <td className="py-1 px-2 text-rose-400">-</td>
                                 <td className="py-1 px-2">{u.name}</td>
                                 <td className="py-1 px-2">{u.score}</td>
-                                <td className="py-1 px-2"><Badge variant="error">tidak cocok</Badge></td>
+                                <td className="py-1 px-2"><Badge variant="error">CBT tidak cocok</Badge></td>
+                              </tr>
+                            ))}
+                            {cbtPreview.missingRoster.map((m, i) => (
+                              <tr key={`miss-${i}`} className="border-b border-slate-100 bg-amber-50">
+                                <td className="py-1 px-2">{m.name}</td>
+                                <td className="py-1 px-2 text-amber-400">-</td>
+                                <td className="py-1 px-2 text-amber-400">-</td>
+                                <td className="py-1 px-2"><Badge variant="warning">belum ada CBT</Badge></td>
                               </tr>
                             ))}
                           </tbody>
                         </table>
                       </div>
 
+                      {cbtPreview.summary.missingRoster > 0 && (
+                        <div className="p-2 bg-amber-100 rounded text-xs text-amber-800">
+                          ⚠ {cbtPreview.summary.missingRoster} siswa roster belum ada di data CBT.
+                          Nilai lama mereka tidak akan diubah. Pastikan ini disengaja.
+                        </div>
+                      )}
+
                       <Button onClick={handleCbtApply} disabled={cbtPreview.summary.matched === 0}>
-                        Terapkan ke Kolom {cbtTarget.toUpperCase()}
+                        Terapkan ke Kolom {cbtTarget.toUpperCase()} ({cbtPreview.summary.matched} siswa)
                       </Button>
                     </div>
                   )}
