@@ -46,6 +46,15 @@ import type {
   AcademicYear,
   TeacherProfile,
   TeachingAssignment,
+  ATPEntry,
+  LKPD,
+  RppDocument,
+} from "@guru-admin/domain";
+import {
+  filterATPForAssignment,
+  filterLKPDForAssignment,
+  filterRppDocumentsForAssignment,
+  deriveGradeFromClassLabel,
 } from "@guru-admin/domain";
 
 type DocStatus = "lengkap" | "belum" | "kosong";
@@ -118,14 +127,22 @@ export function AdminPackagePage() {
       listTeachingSchedules(year.id),
       listLessonSessions(year.id, assignment.semester),
       listJournals(year.id, assignment.semester),
-      listATPEntries({ academicYearId: year.id, teacherId: teacher.id }),
-      listLKPDs({ academicYearId: year.id, teacherId: teacher.id }),
-      listRppDocuments({ academicYearId: year.id, teacherId: teacher.id }),
+      listATPEntries({ academicYearId: year.id, teacherId: teacher.id }) as Promise<ATPEntry[]>,
+      listLKPDs({ academicYearId: year.id, teacherId: teacher.id }) as Promise<LKPD[]>,
+      listRppDocuments({ academicYearId: year.id, teacherId: teacher.id }) as Promise<RppDocument[]>,
       listRemedialPrograms({ academicYearId: year.id, teacherId: teacher.id }),
       listEnrichmentPrograms({ academicYearId: year.id, teacherId: teacher.id }),
       listSemesterReports(year.id),
       db.attendanceRecords.toArray(),
     ]);
+
+    // P0-4: filter ATP/LKPD/RPP per assignment — bukan global count.
+    // Sebelumnya pakai atpEntries.length / lkpds.length / rppDocs.length
+    // yang hanya filter academicYearId+teacherId, sehingga ATP kelas 7A ikut
+    // dihitung untuk kelas 7B (false positive).
+    const assignmentATP = filterATPForAssignment(atpEntries, assignment);
+    const assignmentLKPD = filterLKPDForAssignment(lkpds, assignment);
+    const assignmentRpp = filterRppDocumentsForAssignment(rppDocs, assignment);
 
     // Filter by assignment
     const assignmentSessions = sessions.filter(
@@ -141,11 +158,7 @@ export function AdminPackagePage() {
 
     // RC1-PATCH-1: harden filter Prota — match by teacherId + subject + grade.
     // Grade di-derive dari classLabel assignment (VII A → VII, VIII B → VIII, IX C → IX).
-    const deriveGrade = (classLabel: string): string => {
-      const match = classLabel.match(/^(VIII|VII|IX|X|XI|XII)/i);
-      return match ? match[1].toUpperCase() : "";
-    };
-    const assignmentGrade = deriveGrade(assignment.classLabel);
+    const assignmentGrade = deriveGradeFromClassLabel(assignment.classLabel);
     const matchingProta = protas.find(
       (p) =>
         p.subject === assignment.subject &&
@@ -194,10 +207,10 @@ export function AdminPackagePage() {
       {
         id: "atp",
         name: "Bank TP (Tujuan Pembelajaran)",
-        status: atpEntries.length > 0 ? "lengkap" : "kosong",
-        detail: `${atpEntries.length} TP`,
+        status: assignmentATP.length > 0 ? "lengkap" : "kosong",
+        detail: `${assignmentATP.length} TP untuk ${assignment.subject} ${assignment.classLabel}`,
         link: "/atp",
-        count: atpEntries.length,
+        count: assignmentATP.length,
       },
       {
         id: "calendar",
@@ -266,18 +279,18 @@ export function AdminPackagePage() {
       {
         id: "lkpd",
         name: "LKPD",
-        status: lkpds.length > 0 ? "lengkap" : "kosong",
-        detail: `${lkpds.length} LKPD`,
+        status: assignmentLKPD.length > 0 ? "lengkap" : "kosong",
+        detail: `${assignmentLKPD.length} LKPD untuk ${assignment.subject} ${assignment.classLabel}`,
         link: "/lkpd",
-        count: lkpds.length,
+        count: assignmentLKPD.length,
       },
       {
         id: "rpp",
         name: "RPP / Dokumen Lama",
-        status: rppDocs.length > 0 ? "lengkap" : "belum",
-        detail: `${rppDocs.length} arsip RPP`,
+        status: assignmentRpp.length > 0 ? "lengkap" : "belum",
+        detail: `${assignmentRpp.length} arsip RPP untuk ${assignment.subject} ${assignment.classLabel} semester ${assignment.semester}`,
         link: "/rpp-bulk",
-        count: rppDocs.length,
+        count: assignmentRpp.length,
       },
       {
         id: "laporan",

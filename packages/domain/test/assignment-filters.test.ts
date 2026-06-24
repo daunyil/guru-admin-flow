@@ -269,3 +269,158 @@ describe("assignment-filters — matchesAssignmentContext", () => {
     expect(matchesAssignmentContext(item, makeAssignment())).toBe(true);
   });
 });
+
+/* ------------------------------------------------------------------ */
+/*  FULL-APP-AUDIT-RC1-FIX-1: P0-4 regression tests                  */
+/*  Memastikan ATP/LKPD/RPP tidak muncul false positive untuk kelas/  */
+/*  mapel/semester yang berbeda (bug sebelumnya: pakai .length global). */
+/* ------------------------------------------------------------------ */
+
+describe("FULL-APP-AUDIT-RC1-FIX-1 — P0-4 false positive regression", () => {
+  const assignment7A = makeAssignment({
+    id: "asg-7a",
+    classId: "VII A", classLabel: "VII A",
+    subject: "PPKn", teacherId: "t1",
+    semester: 1,
+  });
+  const assignment7B = makeAssignment({
+    id: "asg-7b",
+    classId: "VII B", classLabel: "VII B",
+    subject: "PPKn", teacherId: "t1",
+    semester: 1,
+  });
+  const assignment8A = makeAssignment({
+    id: "asg-8a",
+    classId: "VIII A", classLabel: "VIII A",
+    subject: "PPKn", teacherId: "t1",
+    semester: 1,
+  });
+  const assignmentMatematika7A = makeAssignment({
+    id: "asg-mtk-7a",
+    classId: "VII A", classLabel: "VII A",
+    subject: "Matematika", teacherId: "t1",
+    semester: 1,
+  });
+
+  it("ATP kelas 7A tidak muncul untuk kelas 7B (subject+grade sama, classId beda)", () => {
+    const atpEntries = [
+      { teacherId: "t1", subject: "PPKn", grade: "VII", classId: "VII A" },
+      { teacherId: "t1", subject: "PPKn", grade: "VII", classId: "VII B" },
+    ];
+    expect(filterATPForAssignment(atpEntries, assignment7A)).toHaveLength(1);
+    expect(filterATPForAssignment(atpEntries, assignment7A)[0].classId).toBe("VII A");
+    expect(filterATPForAssignment(atpEntries, assignment7B)).toHaveLength(1);
+    expect(filterATPForAssignment(atpEntries, assignment7B)[0].classId).toBe("VII B");
+  });
+
+  it("ATP grade VIII tidak muncul untuk assignment grade VII", () => {
+    const atpEntries = [
+      { teacherId: "t1", subject: "PPKn", grade: "VII", classId: undefined },
+      { teacherId: "t1", subject: "PPKn", grade: "VIII", classId: undefined },
+    ];
+    expect(filterATPForAssignment(atpEntries, assignment7A)).toHaveLength(1);
+    expect(filterATPForAssignment(atpEntries, assignment7A)[0].grade).toBe("VII");
+    expect(filterATPForAssignment(atpEntries, assignment8A)).toHaveLength(1);
+    expect(filterATPForAssignment(atpEntries, assignment8A)[0].grade).toBe("VIII");
+  });
+
+  it("ATP subject beda tidak muncul (PPKn vs Matematika)", () => {
+    const atpEntries = [
+      { teacherId: "t1", subject: "PPKn", grade: "VII", classId: undefined },
+      { teacherId: "t1", subject: "Matematika", grade: "VII", classId: undefined },
+    ];
+    expect(filterATPForAssignment(atpEntries, assignment7A)).toHaveLength(1);
+    expect(filterATPForAssignment(atpEntries, assignment7A)[0].subject).toBe("PPKn");
+    expect(filterATPForAssignment(atpEntries, assignmentMatematika7A)).toHaveLength(1);
+    expect(filterATPForAssignment(atpEntries, assignmentMatematika7A)[0].subject).toBe("Matematika");
+  });
+
+  it("ATP teacherId beda tidak muncul", () => {
+    const atpEntries = [
+      { teacherId: "t1", subject: "PPKn", grade: "VII", classId: undefined },
+      { teacherId: "t2", subject: "PPKn", grade: "VII", classId: undefined },
+    ];
+    expect(filterATPForAssignment(atpEntries, assignment7A)).toHaveLength(1);
+    expect(filterATPForAssignment(atpEntries, assignment7A)[0].teacherId).toBe("t1");
+  });
+
+  it("LKPD kelas 7A tidak muncul untuk kelas 7B", () => {
+    const lkpds = [
+      { teacherId: "t1", subject: "PPKn", grade: "VII", classId: "VII A" },
+      { teacherId: "t1", subject: "PPKn", grade: "VII", classId: "VII B" },
+    ];
+    expect(filterLKPDForAssignment(lkpds, assignment7A)).toHaveLength(1);
+    expect(filterLKPDForAssignment(lkpds, assignment7A)[0].classId).toBe("VII A");
+    expect(filterLKPDForAssignment(lkpds, assignment7B)).toHaveLength(1);
+    expect(filterLKPDForAssignment(lkpds, assignment7B)[0].classId).toBe("VII B");
+  });
+
+  it("LKPD subject beda tidak muncul", () => {
+    const lkpds = [
+      { teacherId: "t1", subject: "PPKn", grade: "VII", classId: undefined },
+      { teacherId: "t1", subject: "Matematika", grade: "VII", classId: undefined },
+    ];
+    expect(filterLKPDForAssignment(lkpds, assignment7A)).toHaveLength(1);
+    expect(filterLKPDForAssignment(lkpds, assignment7A)[0].subject).toBe("PPKn");
+  });
+
+  it("LKPD grade beda tidak muncul (VII vs VIII)", () => {
+    const lkpds = [
+      { teacherId: "t1", subject: "PPKn", grade: "VII", classId: undefined },
+      { teacherId: "t1", subject: "PPKn", grade: "VIII", classId: undefined },
+    ];
+    expect(filterLKPDForAssignment(lkpds, assignment7A)).toHaveLength(1);
+    expect(filterLKPDForAssignment(lkpds, assignment7A)[0].grade).toBe("VII");
+  });
+
+  it("RPP dengan assignmentId tidak muncul untuk assignment lain", () => {
+    const rppDocs = [
+      { teacherId: "t1", assignmentId: "asg-7a", subject: "PPKn", classLabel: "VII A", semester: 1 as const },
+      { teacherId: "t1", assignmentId: "asg-7b", subject: "PPKn", classLabel: "VII B", semester: 1 as const },
+    ];
+    expect(filterRppDocumentsForAssignment(rppDocs, assignment7A)).toHaveLength(1);
+    expect(filterRppDocumentsForAssignment(rppDocs, assignment7A)[0].assignmentId).toBe("asg-7a");
+    expect(filterRppDocumentsForAssignment(rppDocs, assignment7B)).toHaveLength(1);
+    expect(filterRppDocumentsForAssignment(rppDocs, assignment7B)[0].assignmentId).toBe("asg-7b");
+  });
+
+  it("RPP tanpa assignmentId: filter by subject + classLabel + semester", () => {
+    const rppDocs = [
+      { teacherId: "t1", assignmentId: null, subject: "PPKn", classLabel: "VII A", semester: 1 as const },
+      { teacherId: "t1", assignmentId: null, subject: "PPKn", classLabel: "VII B", semester: 1 as const },
+      { teacherId: "t1", assignmentId: null, subject: "Matematika", classLabel: "VII A", semester: 1 as const },
+      { teacherId: "t1", assignmentId: null, subject: "PPKn", classLabel: "VII A", semester: 2 as const },
+    ];
+    expect(filterRppDocumentsForAssignment(rppDocs, assignment7A)).toHaveLength(1);
+    // Yang cocok hanya: PPKn + VII A + semester 1
+  });
+
+  it("RPP teacherId beda tidak muncul", () => {
+    const rppDocs = [
+      { teacherId: "t1", assignmentId: "asg-7a", subject: "PPKn", classLabel: "VII A", semester: 1 as const },
+      { teacherId: "t2", assignmentId: "asg-7a", subject: "PPKn", classLabel: "VII A", semester: 1 as const },
+    ];
+    expect(filterRppDocumentsForAssignment(rppDocs, assignment7A)).toHaveLength(1);
+    expect(filterRppDocumentsForAssignment(rppDocs, assignment7A)[0].teacherId).toBe("t1");
+  });
+
+  it("Simulasi bug lama: 3 ATP global tetapi hanya 1 yang valid untuk assignment", () => {
+    // Bug lama: atpEntries.length === 3 → status "lengkap" meski untuk kelas lain.
+    // Fix baru: filterATPForAssignment === 1 → tetap "lengkap" tapi count benar.
+    const atpEntries = [
+      { teacherId: "t1", subject: "PPKn", grade: "VII", classId: "VII A" },
+      { teacherId: "t1", subject: "PPKn", grade: "VII", classId: "VII B" },
+      { teacherId: "t1", subject: "Matematika", grade: "VII", classId: "VII A" },
+    ];
+    const filtered = filterATPForAssignment(atpEntries, assignment7A);
+    expect(atpEntries.length).toBe(3); // bug lama pakai ini
+    expect(filtered.length).toBe(1);   // fix baru pakai ini
+    // Status yang benar: "lengkap" (1 > 0), detail "1 TP" bukan "3 TP"
+  });
+
+  it("Simulasi edge case: roster 0 assignment → semua filter return []", () => {
+    expect(filterATPForAssignment([], assignment7A)).toEqual([]);
+    expect(filterLKPDForAssignment([], assignment7A)).toEqual([]);
+    expect(filterRppDocumentsForAssignment([], assignment7A)).toEqual([]);
+  });
+});
