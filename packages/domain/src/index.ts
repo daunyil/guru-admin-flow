@@ -322,6 +322,14 @@ export {
   type DocumentIdentityKind,
 } from "./rpp-document";
 
+/* DOCX-IDENTITY-RC1 — DOCX identity replacement (Plan Kerja item #4) */
+export {
+  processDocxIdentity,
+  isValidDocx,
+  extractDocxText,
+  type DocxProcessResult,
+} from "./docx-identity";
+
 /* GENERATOR-COMPLETION-RC1 — RemedialProgram */
 export {
   remedialProgramSchema,
