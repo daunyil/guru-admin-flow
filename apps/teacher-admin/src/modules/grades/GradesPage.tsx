@@ -115,7 +115,13 @@ export function GradesPage() {
     setDirty(false);
   }
 
-  useEffect(() => { void loadEntries(); }, [selectedAssignmentId]);
+  useEffect(() => {
+    void loadEntries();
+    // PATCH-AUDIT: ganti assignment → clear preview CBT lama (roster beda → preview beda)
+    setCbtPreview(null);
+    setCbtJsonInput("");
+    setShowCbtImport(false);
+  }, [selectedAssignmentId]);
 
   function setScore(idx: number, field: keyof GradeEntry, value: string) {
     const num = value === "" ? null : Math.max(0, Math.min(100, Number(value)));
@@ -158,7 +164,7 @@ export function GradesPage() {
       }
       const preview = previewCbtMatch(validation.data!, roster.students);
       setCbtPreview(preview);
-      setMessage(`Preview: ${preview.summary.matched} cocok, ${preview.summary.unmatched} tidak cocok.`);
+      setMessage(`Preview: ${preview.summary.matched} cocok, ${preview.summary.unmatchedCbt} CBT tidak cocok, ${preview.summary.missingRoster} siswa roster belum ada nilai.`);
     } catch (e) {
       setMessage("JSON tidak valid: " + (e instanceof Error ? e.message : String(e)));
     }
