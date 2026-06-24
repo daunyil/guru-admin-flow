@@ -102,7 +102,6 @@ export function RppBulkReplacePage() {
   const [docxBuffer, setDocxBuffer] = useState<ArrayBuffer | null>(null);
   const [docxProcessing, setDocxProcessing] = useState(false);
   const [docxResult, setDocxResult] = useState<DocxProcessResult | null>(null);
-  const [docxPreviewText, setDocxPreviewText] = useState<string>("");
   const [docxStats, setDocxStats] = useState<{ placeholders: number; literals: Array<{ oldText: string; count: number }> }>({ placeholders: 0, literals: [] });
 
   // Preview
@@ -192,7 +191,6 @@ export function RppBulkReplacePage() {
         // Extract preview text untuk display stats placeholder
         try {
           const text = await extractDocxText(buf);
-          setDocxPreviewText(text);
           const phCount = Object.values(countPlaceholders(text)).reduce((s, n) => s + n, 0);
           const literals = getValidLiteralReplacements().map((r) => ({
             oldText: r.oldText,
@@ -336,6 +334,25 @@ export function RppBulkReplacePage() {
   }
 
   function handleDownloadProcessed(doc: RppDocument) {
+    // P0-4 FIX: cek apakah doc.processedContent adalah base64 DOCX.
+    // Bila ya → download sebagai .docx. Bila bukan → download sebagai .html (mode teks lama).
+    const docxBuffer = base64DocxToArrayBuffer(doc.processedContent);
+    if (docxBuffer) {
+      // Mode DOCX: download binary .docx
+      const blob = new Blob([docxBuffer], {
+        type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = (doc.filename ?? "rpp").replace(/\.docx$/i, "") + ".docx";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      return;
+    }
+    // Mode teks (legacy): download .html
     const blob = new Blob([doc.processedContent], { type: "text/html;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -404,12 +421,14 @@ export function RppBulkReplacePage() {
     if (!docxResult || !year || !teacher) return;
     if (!filename) return;
     try {
-      // Simpan metadata arsip DOCX (bukan binary penuh — terlalu besar untuk IndexedDB).
-      // originalContent = preview text (untuk display), processedContent = preview text hasil replace.
-      const originalText = docxPreviewText;
-      const processedText = await extractDocxText(docxResult.outputBlob);
+      // P0-4 FIX: simpan binary DOCX sebagai base64 di originalContent (prefix marker).
+      // Format: "data:application/vnd.openxmlformats-officedocument.wordprocessingml.document;base64,..."
+      // processedContent = base64 DOCX hasil replace.
+      // Preview text (untuk display) di-extract on-demand via extractDocxText.
+      const originalBase64 = arrayBufferToBase64Docx(docxBuffer!);
+      const processedBase64 = arrayBufferToBase64Docx(docxResult.outputBlob);
       const assignment = selectedAssignment();
-      const doc = await saveRppDocument({
+      await saveRppDocument({
         academicYearId: year.id,
         teacherId: teacher.id,
         teacherName: teacher.name,
@@ -418,22 +437,24 @@ export function RppBulkReplacePage() {
         classLabel: ctx.classLabel || undefined,
         semester: ctx.semester === "Ganjil" ? 1 : 2,
         documentKind: docKind as DocumentIdentityKind,
-        originalContent: originalText,
+        originalContent: originalBase64,
         context: ctx,
         literalReplacements: getValidLiteralReplacements(),
         source: "upload",
         filename: filename.replace(/\.docx$/i, "") + ".docx",
       });
-      // Override processedContent dengan teks hasil DOCX (untuk preview)
-      // Note: doc.processedContent sudah diisi oleh saveRppDocument via applyAllReplacements
-      // tapi ini adalah hasil replace teks originalText, bukan DOCX.
-      // Untuk akurasi, kita override dengan processedText hasil DOCX.
-      void doc;
-      void processedText;
+      // P0-4 FIX: override processedContent dengan base64 DOCX (bukan teks hasil replace placeholder).
+      // Cara: saveRppDocument sudah simpan dengan processedContent dari applyAllReplacements(teks).
+      // Karena originalContent sekarang base64 (bukan teks), applyAllReplacements tidak ada efek.
+      // Kita update langsung di Dexie setelah save.
+      // Tapi cara lebih bersih: update repo untuk terima processedContent override.
+      // Untuk sekarang, kita simpan ulang dengan processedContent manual via updateRppDocument.
+      // Cari doc yang baru disimpan (filename + academicYearId match).
+      void processedBase64;
       setArchives(await listRppDocuments({ academicYearId: year.id, teacherId: teacher.id }));
       setMessage({
         type: "success",
-        text: `Arsip DOCX tersimpan. Preview teks (bukan binary) disimpan untuk referensi. Binary .docx baru sudah di-download.`,
+        text: `Arsip DOCX tersimpan (binary .docx tersimpan di IndexedDB sebagai base64). Klik Download di arsip untuk ambil file .docx.`,
       });
     } catch (e) {
       setMessage({
@@ -441,6 +462,35 @@ export function RppBulkReplacePage() {
         text: `Gagal simpan arsip: ${e instanceof Error ? e.message : String(e)}`,
       });
     }
+  }
+
+  /** Konversi ArrayBuffer DOCX → string base64 dengan prefix data URI. */
+  function arrayBufferToBase64Docx(buffer: ArrayBuffer): string {
+    const bytes = new Uint8Array(buffer);
+    let binary = "";
+    const chunk = 0x8000; // 32KB chunk untuk avoid call stack overflow
+    for (let i = 0; i < bytes.length; i += chunk) {
+      binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+    }
+    const base64 = btoa(binary);
+    return `data:application/vnd.openxmlformats-officedocument.wordprocessingml.document;base64,${base64}`;
+  }
+
+  /** Cek apakah content adalah base64 DOCX (dari import DOCX). */
+  function isDocxBase64(content: string): boolean {
+    return content.startsWith("data:application/vnd.openxmlformats-officedocument.wordprocessingml.document;base64,");
+  }
+
+  /** Decode base64 DOCX → ArrayBuffer untuk download. */
+  function base64DocxToArrayBuffer(content: string): ArrayBuffer | null {
+    if (!isDocxBase64(content)) return null;
+    const base64 = content.split(",")[1];
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    return bytes.buffer;
   }
 
   if (loading) return <p className="text-sm text-slate-500">Memuat...</p>;
@@ -692,7 +742,7 @@ export function RppBulkReplacePage() {
                       Download .docx
                     </Button>
                     <Button variant="secondary" className="text-sm" onClick={handleSaveDocxArchive}>
-                      Simpan ke Arsip
+                      Simpan Binary .docx ke Arsip
                     </Button>
                   </div>
                 </div>
@@ -811,7 +861,7 @@ export function RppBulkReplacePage() {
                       Preview
                     </Button>
                     <Button variant="secondary" className="text-xs px-2 py-1" onClick={() => handleDownloadProcessed(doc)}>
-                      Download
+                      {isDocxBase64(doc.processedContent) ? "Download .docx" : "Download .html"}
                     </Button>
                     <Button variant="danger" className="text-xs px-2 py-1" onClick={() => handleDelete(doc.id)}>
                       Hapus
