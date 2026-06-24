@@ -142,10 +142,18 @@ export {
   parseGradeBook,
   safeParseGradeBook,
   parseExcelPaste,
+  cbtImportSchema,
+  validateCbtImport,
+  previewCbtMatch,
+  applyCbtToEntries,
   type GradeBook,
   type GradeEntry,
   type GradeEntryStatus,
   type GradeBookSummary,
+  type CbtImport,
+  type CbtImportValidation,
+  type CbtMatchPreview,
+  type CbtImportTarget,
 } from "./gradebook";
 
 /* Entitas pendukung */

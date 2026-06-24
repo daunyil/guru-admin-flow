@@ -21,6 +21,8 @@ import type {
 } from "@guru-admin/domain";
 import {
   calculateGradeBookEntries, assignmentShortLabel, buildContextInfo, parseExcelPaste,
+  validateCbtImport, previewCbtMatch, applyCbtToEntries,
+  type CbtImportTarget, type CbtMatchPreview,
 } from "@guru-admin/domain";
 
 /** Kolom nilai yang bisa diisi. */
@@ -48,6 +50,12 @@ export function GradesPage() {
   const [dirty, setDirty] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [pasteText, setPasteText] = useState("");
+
+  // CBT import
+  const [cbtJsonInput, setCbtJsonInput] = useState("");
+  const [cbtTarget, setCbtTarget] = useState<CbtImportTarget>("kd1");
+  const [cbtPreview, setCbtPreview] = useState<CbtMatchPreview | null>(null);
+  const [showCbtImport, setShowCbtImport] = useState(false);
 
   useEffect(() => {
     void (async () => {
@@ -134,6 +142,37 @@ export function GradesPage() {
     }));
     setDirty(true);
     setMessage("Nilai diacak terkontrol (75-94). Klik Simpan.");
+  }
+
+  function handleCbtPreview() {
+    const assignment = selectedAssignment();
+    if (!assignment) return;
+    const roster = rosters.find((r) => r.classId === assignment.classId);
+    if (!roster) return;
+    try {
+      const json = JSON.parse(cbtJsonInput);
+      const validation = validateCbtImport(json);
+      if (!validation.success) {
+        setMessage(validation.errors.join("; "));
+        return;
+      }
+      const preview = previewCbtMatch(validation.data!, roster.students);
+      setCbtPreview(preview);
+      setMessage(`Preview: ${preview.summary.matched} cocok, ${preview.summary.unmatched} tidak cocok.`);
+    } catch (e) {
+      setMessage("JSON tidak valid: " + (e instanceof Error ? e.message : String(e)));
+    }
+  }
+
+  function handleCbtApply() {
+    if (!cbtPreview) return;
+    const updated = applyCbtToEntries(entries, cbtPreview, cbtTarget);
+    setEntries(updated);
+    setDirty(true);
+    setMessage(`Nilai CBT diterapkan ke kolom ${cbtTarget.toUpperCase()} (${cbtPreview.summary.matched} siswa). Klik Simpan.`);
+    setShowCbtImport(false);
+    setCbtPreview(null);
+    setCbtJsonInput("");
   }
 
   function handlePasteExcel(text: string) {
@@ -297,11 +336,98 @@ export function GradesPage() {
             </div>
           </Card>
 
+          {/* Import CBT JSON */}
+          <Card>
+            <CardHeader title="Import Nilai dari CBT" description="Paste JSON dari sistem CBT. Pilih target kolom (KD/PTS/PAS)." />
+            <div className="space-y-3">
+              <div className="flex gap-2 items-end">
+                <Select
+                  label="Target Kolom"
+                  id="cbt-target"
+                  value={cbtTarget}
+                  onChange={(v) => setCbtTarget(v as CbtImportTarget)}
+                  options={[
+                    { value: "kd1", label: "KD1" }, { value: "kd2", label: "KD2" },
+                    { value: "kd3", label: "KD3" }, { value: "kd4", label: "KD4" },
+                    { value: "kd5", label: "KD5" }, { value: "kd6", label: "KD6" },
+                    { value: "pts", label: "PTS" }, { value: "pas", label: "PAS" },
+                  ]}
+                />
+                <Button variant="secondary" className="text-sm" onClick={() => setShowCbtImport(!showCbtImport)}>
+                  {showCbtImport ? "Tutup" : "Buka Import CBT"}
+                </Button>
+              </div>
+
+              {showCbtImport && (
+                <>
+                  <Textarea
+                    id="cbt-json"
+                    label=""
+                    value={cbtJsonInput}
+                    onChange={setCbtJsonInput}
+                    rows={6}
+                    placeholder='{"source":"cbt","students":[{"nis":"2025001","name":"Andi","score":85},{"name":"Budi","number":2,"score":70}]}'
+                  />
+                  <Button variant="secondary" className="text-sm" onClick={handleCbtPreview} disabled={!cbtJsonInput.trim()}>
+                    Preview Match Siswa
+                  </Button>
+
+                  {cbtPreview && (
+                    <div className="p-3 bg-slate-50 rounded-md space-y-2">
+                      <div className="flex gap-3 text-sm">
+                        <Badge variant="success">{cbtPreview.summary.matched} cocok</Badge>
+                        {cbtPreview.summary.unmatched > 0 && (
+                          <Badge variant="error">{cbtPreview.summary.unmatched} tidak cocok</Badge>
+                        )}
+                      </div>
+
+                      {/* Match table */}
+                      <div className="overflow-x-auto max-h-48">
+                        <table className="w-full text-xs">
+                          <thead>
+                            <tr className="border-b border-slate-200 text-left">
+                              <th className="py-1 px-2">Roster</th>
+                              <th className="py-1 px-2">CBT</th>
+                              <th className="py-1 px-2">Skor</th>
+                              <th className="py-1 px-2">Match</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {cbtPreview.matched.map((m, i) => (
+                              <tr key={i} className="border-b border-slate-100">
+                                <td className="py-1 px-2">{m.rosterStudent.name}</td>
+                                <td className="py-1 px-2">{m.cbtStudent.name}</td>
+                                <td className="py-1 px-2 font-bold">{m.cbtStudent.score}</td>
+                                <td className="py-1 px-2"><Badge variant="neutral">{m.matchBy}</Badge></td>
+                              </tr>
+                            ))}
+                            {cbtPreview.unmatched.map((u, i) => (
+                              <tr key={`un-${i}`} className="border-b border-slate-100 bg-rose-50">
+                                <td className="py-1 px-2 text-rose-400">-</td>
+                                <td className="py-1 px-2">{u.name}</td>
+                                <td className="py-1 px-2">{u.score}</td>
+                                <td className="py-1 px-2"><Badge variant="error">tidak cocok</Badge></td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      <Button onClick={handleCbtApply} disabled={cbtPreview.summary.matched === 0}>
+                        Terapkan ke Kolom {cbtTarget.toUpperCase()}
+                      </Button>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </Card>
+
           {/* Paste Excel multi-kolom */}
           <Card>
             <CardHeader title="Paste dari Excel" description="Format: No, Nama, KD1, KD2, KD3, KD4, KD5, KD6, PTS, PAS (dipisah tab/koma)." />
             <Textarea id="paste-grades" label="" value={pasteText} onChange={(v) => { setPasteText(v); if (v.trim()) handlePasteExcel(v); }} rows={5}
-              placeholder="1	Andi	80	85	75	90	70	85	78	82&#10;2	Budi	70	75	65	80	60	75	68	72" />
+              placeholder="1    Andi    80      85      75      90      70      85      78      82&#10;2        Budi    70      75      65      80      60      75      68      72" />
           </Card>
         </>
       )}
