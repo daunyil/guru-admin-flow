@@ -370,7 +370,7 @@ export function EvaluationDocsPage() {
                   </div>
 
                   <Button onClick={handleGenerateBlueprintPrompt} disabled={selectedTpIds.size === 0}>
-                    Buat Prompt Kisi-kisi
+                    Buat Prompt AI Kisi-kisi
                   </Button>
                 </div>
               </Card>
@@ -379,14 +379,14 @@ export function EvaluationDocsPage() {
                 <Card>
                   <CardHeader title="3. Prompt Kisi-kisi untuk Claude" description="Copy prompt ini, paste ke Claude, tunggu jawaban JSON." />
                   <Textarea id="bp-prompt" label="" value={blueprintPrompt} onChange={() => {}} rows={10} />
-                  <div className="mt-2"><Button variant="secondary" onClick={() => copyToClipboard(blueprintPrompt)}>Copy Prompt</Button></div>
+                  <div className="mt-2"><Button variant="secondary" onClick={() => copyToClipboard(blueprintPrompt)}>Salin Prompt ke AI</Button></div>
                 </Card>
               )}
 
               <Card>
                 <CardHeader title="4. Paste JSON dari Claude" description="Paste hasil JSON dari Claude di sini." />
                 <Textarea id="bp-json" label="" value={blueprintJsonInput} onChange={setBlueprintJsonInput} rows={8} placeholder='{"blueprints":[...]}' />
-                <div className="mt-2"><Button onClick={handleParseBlueprint} disabled={!blueprintJsonInput.trim()}>Import Kisi-kisi</Button></div>
+                <div className="mt-2"><Button onClick={handleParseBlueprint} disabled={!blueprintJsonInput.trim()}>Periksa &amp; Simpan Kisi-kisi</Button></div>
               </Card>
 
               {blueprintResult?.success && blueprintResult.blueprints && (
@@ -413,7 +413,7 @@ export function EvaluationDocsPage() {
                     </table>
                   </div>
                   <div className="mt-3">
-                    <Button onClick={handleGenerateCardPrompt}>Buat Prompt Kartu Soal</Button>
+                    <Button onClick={handleGenerateCardPrompt}>Buat Prompt AI Kartu Soal</Button>
                     <Button variant="secondary" className="ml-2" onClick={() => setTab("kartu-soal")}>Lanjut ke Kartu Soal</Button>
                   </div>
                 </Card>
@@ -428,14 +428,14 @@ export function EvaluationDocsPage() {
                 <Card>
                   <CardHeader title="6. Prompt Kartu Soal untuk Claude" description="Copy, paste ke Claude, tunggu JSON." />
                   <Textarea id="qc-prompt" label="" value={cardPrompt} onChange={() => {}} rows={10} />
-                  <div className="mt-2"><Button variant="secondary" onClick={() => copyToClipboard(cardPrompt)}>Copy Prompt</Button></div>
+                  <div className="mt-2"><Button variant="secondary" onClick={() => copyToClipboard(cardPrompt)}>Salin Prompt ke AI</Button></div>
                 </Card>
               )}
 
               <Card>
                 <CardHeader title="7. Paste JSON Kartu Soal dari Claude" />
                 <Textarea id="qc-json" label="" value={cardJsonInput} onChange={setCardJsonInput} rows={8} placeholder='{"questions":[...]}' />
-                <div className="mt-2"><Button onClick={handleParseCard} disabled={!cardJsonInput.trim()}>Import Kartu Soal</Button></div>
+                <div className="mt-2"><Button onClick={handleParseCard} disabled={!cardJsonInput.trim()}>Periksa &amp; Simpan Kartu Soal</Button></div>
               </Card>
 
               {cardResult?.success && cardResult.questions && (

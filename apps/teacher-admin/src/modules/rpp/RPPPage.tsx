@@ -89,7 +89,7 @@ ${placeholders[7].key}, ........................`;
     <div className="space-y-4">
       <div className="page-header">
         <h1 className="text-2xl font-bold text-slate-900">RPP Template</h1>
-        <p className="text-sm text-slate-500 mt-1">Generate placeholder untuk Word. RPP tetap Word, app hanya bantu identitas.</p>
+        <p className="text-sm text-slate-500 mt-1">Buat placeholder untuk Word. RPP tetap Word, app hanya bantu identitas.</p>
       </div>
 
       {message && <div className="info-banner-success">{message}</div>}

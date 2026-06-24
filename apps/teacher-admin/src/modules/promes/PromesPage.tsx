@@ -139,7 +139,7 @@ export function PromesPage() {
       {error && <div className="p-3 rounded-md bg-rose-50 border border-rose-200 text-sm text-rose-700">{error}</div>}
 
       <Card>
-        <CardHeader title="Generate Promes" description="Promes = Prota + Kalender + options. Generate on-demand (tidak persist)." />
+        <CardHeader title="Susun Promes" description="Promes = Prota + Kalender + options. Generate on-demand (tidak persist)." />
 
         {profiles.length === 0 ? (
           <EmptyState
@@ -211,7 +211,7 @@ export function PromesPage() {
 
             <div className="flex gap-2">
               <Button onClick={handleGenerate} disabled={generating}>
-                {generating ? "Generating..." : "Generate Promes"}
+                {generating ? "Menyusun..." : "Susun Promes"}
               </Button>
               {result && (
                 <Button variant="secondary" onClick={() => window.print()}>
@@ -246,7 +246,7 @@ function Header({ yearLabel }: { yearLabel?: string }) {
     <div>
       <h1 className="text-2xl font-bold text-slate-900">Program Semester (Promes)</h1>
       <p className="text-sm text-slate-500 mt-1">
-        {yearLabel ? `Tahun pelajaran: ${yearLabel}` : "Generate dari Prota + Kalender."}
+        {yearLabel ? `Tahun pelajaran: ${yearLabel}` : "Susun dari Prota + Kalender."}
       </p>
     </div>
   );

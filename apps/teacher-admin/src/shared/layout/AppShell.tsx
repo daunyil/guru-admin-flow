@@ -29,7 +29,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { to: "/", label: "Hari Ini", icon: Calendar },
       { to: "/admin-package", label: "Paket Administrasi", icon: BookMarked },
-      { to: "/auto-document", label: "Dokumen Otomatis", icon: BookMarked },
+      { to: "/auto-document", label: "Paket Administrasi Guru", icon: BookMarked },
       { to: "/completeness", label: "Cek Kelengkapan", icon: ListChecks },
     ],
   },
@@ -66,7 +66,7 @@ const NAV_GROUPS: NavGroup[] = [
       { to: "/atp", label: "Bank TP", icon: ListChecks },
       { to: "/lkpd", label: "LKPD", icon: BookOpen },
       { to: "/rpp", label: "RPP / Modul Ajar", icon: FileText },
-      { to: "/rpp-bulk", label: "Ganti Identitas RPP", icon: FileText },
+      { to: "/rpp-bulk", label: "Perbarui Identitas Dokumen", icon: FileText },
       { to: "/semester-report", label: "Laporan Semester", icon: FileSpreadsheet },
     ],
   },

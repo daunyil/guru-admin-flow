@@ -40,15 +40,20 @@ const ENRICHMENT_PRESETS = [
   "Presentasi singkat",
   "Tutor sebaya",
   "Rangkuman materi lanjutan",
+  "Lainnya",
 ];
 
 /** Preset materi pengayaan untuk dropdown. */
 const MATERIAL_PRESETS = [
-  "Materi lanjutan dari bab berikutnya",
-  "Pendalaman materi saat ini",
-  "Proyek aplikasi materi",
-  "Eksplorasi topik terkait",
+  "Pendalaman materi",
+  "Pengembangan contoh kasus",
+  "Tugas eksplorasi",
+  "Latihan soal tingkat lanjut",
+  "Produk sederhana",
 ];
+
+const DEFAULT_ENRICHMENT_NOTE = "Siswa diberi tugas pengembangan untuk memperdalam pemahaman materi.";
+const DEFAULT_ENRICHMENT_PLAN = `Program pengayaan diberikan kepada siswa yang telah mencapai atau melampaui target pembelajaran. Kegiatan pengayaan dilakukan melalui tugas lanjutan, proyek sederhana, soal tantangan, atau pendalaman materi agar siswa dapat mengembangkan pemahamannya secara lebih luas.`;
 
 export function EnrichmentPage() {
   const [loading, setLoading] = useState(true);
@@ -275,7 +280,7 @@ export function EnrichmentPage() {
             )}
             {assignment && (
               <Button onClick={handleGenerate}>
-                {program ? "Re-Generate dari Nilai Terbaru" : "Generate dari GradeBook"}
+                {program ? "Susun Ulang dari Nilai Terbaru" : "Susun dari Nilai"}
               </Button>
             )}
           </div>
@@ -327,6 +332,27 @@ export function EnrichmentPage() {
                       onChange={setPresetNote}
                       placeholder="Catatan cepat (opsional)"
                     />
+                    <Button
+                      variant="secondary"
+                      className="text-sm"
+                      onClick={async () => {
+                        if (!program) return;
+                        const updatedStudents = program.students.map((s) => ({
+                          ...s,
+                          activity: ENRICHMENT_PRESETS[0],
+                          material: MATERIAL_PRESETS[0],
+                          note: DEFAULT_ENRICHMENT_NOTE,
+                        }));
+                        const updated = await updateEnrichmentProgram(program.id, { students: updatedStudents, plan: plan || DEFAULT_ENRICHMENT_PLAN });
+                        if (updated) {
+                          setProgram(updated);
+                          setPlan(DEFAULT_ENRICHMENT_PLAN);
+                        }
+                        setMessage({ type: "success", text: "Isi otomatis diterapkan. Masih bisa edit per siswa." });
+                      }}
+                    >
+                      Isi Otomatis Semua
+                    </Button>
                     <Button
                       variant="secondary"
                       className="text-sm"
