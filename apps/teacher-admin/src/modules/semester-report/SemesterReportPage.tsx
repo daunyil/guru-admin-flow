@@ -150,7 +150,7 @@ export function SemesterReportPage() {
 
       <Card>
         <CardHeader
-          title="Generate Laporan"
+          title="Susun Laporan"
           description="Pilih Data Mengajar. Laporan akan filter data sesuai assignment (guru + mapel + kelas + semester)."
         />
         <div className="space-y-3">
@@ -190,7 +190,7 @@ export function SemesterReportPage() {
 
           <div className="flex gap-2 flex-wrap">
             <Button onClick={handleGenerate} disabled={generating || !selectedAssignment}>
-              {generating ? "Generating..." : "Generate Laporan"}
+              {generating ? "Menyusun..." : "Susun Laporan"}
             </Button>
             {report && (
               <Button variant="secondary" onClick={() => setShowDocument(!showDocument)}>

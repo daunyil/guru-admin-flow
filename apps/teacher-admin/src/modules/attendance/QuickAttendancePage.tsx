@@ -334,7 +334,7 @@ export function QuickAttendancePage() {
                 </div>
                 {recap.total === 0 && (
                   <p className="text-xs text-amber-700 mt-2">
-                    Belum ada sesi untuk assignment ini. Generate sesi di menu Jadwal dulu.
+                    Belum ada sesi untuk assignment ini. Buat sesi di menu Jadwal dulu.
                   </p>
                 )}
               </Card>

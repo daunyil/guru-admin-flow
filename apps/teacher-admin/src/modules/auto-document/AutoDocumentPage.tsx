@@ -6,7 +6,7 @@
  *
  * Flow:
  *   1. Pilih Data Mengajar
- *   2. Klik "Generate Paket Dokumen"
+ *   2. Klik "Susun Paket Dokumen"
  *   3. App load semua data terkait assignment
  *   4. Tampilkan preview: 12 dokumen dengan status available/draft/not_available
  *   5. Tombol cetak (print CSS)
@@ -253,7 +253,7 @@ export function AutoDocumentPage() {
             )}
             {assignment && (
               <Button onClick={handleGenerate} disabled={generating}>
-                {generating ? "Generating..." : "Generate Paket Dokumen"}
+                {generating ? "Menyusun..." : "Susun Paket Dokumen"}
               </Button>
             )}
           </div>

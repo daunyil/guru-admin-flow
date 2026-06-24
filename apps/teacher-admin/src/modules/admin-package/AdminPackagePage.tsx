@@ -273,7 +273,7 @@ export function AdminPackagePage() {
       },
       {
         id: "rpp",
-        name: "RPP (Arsip Bulk Replace)",
+        name: "RPP / Dokumen Lama",
         status: rppDocs.length > 0 ? "lengkap" : "belum",
         detail: `${rppDocs.length} arsip RPP`,
         link: "/rpp-bulk",
@@ -408,12 +408,15 @@ export function AdminPackagePage() {
 
           <Card>
             <CardHeader title="3. Aksi Cepat" description="Buka dokumen lain yang belum lengkap." />
+            <p className="text-xs text-slate-500 mb-3">
+              Dokumen yang dibuat dari app akan mengambil identitas otomatis. Dokumen lama dari Word dapat diperbarui melalui menu Perbarui Identitas Dokumen.
+            </p>
             <div className="flex gap-2 flex-wrap">
-              <Link to="/rpp-bulk"><Button variant="secondary" className="text-sm">RPP Bulk Replace</Button></Link>
+              <Link to="/rpp-bulk"><Button variant="secondary" className="text-sm">Perbarui Identitas Dokumen</Button></Link>
               <Link to="/remedial"><Button variant="secondary" className="text-sm">Program Remedial</Button></Link>
               <Link to="/pengayaan"><Button variant="secondary" className="text-sm">Program Pengayaan</Button></Link>
               <Link to="/lkpd"><Button variant="secondary" className="text-sm">Buat LKPD</Button></Link>
-              <Link to="/semester-report"><Button variant="secondary" className="text-sm">Generate Laporan</Button></Link>
+              <Link to="/semester-report"><Button variant="secondary" className="text-sm">Susun Laporan</Button></Link>
               <Link to="/backup"><Button variant="secondary" className="text-sm">Backup Semua</Button></Link>
             </div>
           </Card>

@@ -37,15 +37,19 @@ const REMEDIAL_PRESETS = [
   "Bimbingan individual",
   "Tutor sebaya",
   "Ulangan ulang",
+  "Lainnya",
 ];
 
 /** Preset jadwal remedial untuk dropdown. */
 const SCHEDULE_PRESETS = [
-  "Setelah jam pelajaran",
-  "Jam istirahat",
-  "Hari Sabtu",
-  "Jadwal khusus",
+  "Pertemuan berikutnya",
+  "Di luar jam pelajaran",
+  "Setelah KBM",
+  "Sesuai kesepakatan guru dan siswa",
 ];
+
+const DEFAULT_REMEDIAL_NOTE = "Perlu penguatan materi yang belum tuntas.";
+const DEFAULT_REMEDIAL_PLAN = `Program remedial dilaksanakan bagi siswa yang belum mencapai KKTP. Bentuk kegiatan berupa pembelajaran ulang secara singkat, bimbingan, dan tugas perbaikan sesuai kebutuhan siswa. Setelah kegiatan remedial, guru memberi kesempatan kepada siswa untuk memperbaiki hasil belajar melalui tugas atau penilaian ulang.`;
 
 export function RemedialPage() {
   const [loading, setLoading] = useState(true);
@@ -292,7 +296,7 @@ export function RemedialPage() {
             )}
             {assignment && (
               <Button onClick={handleGenerate}>
-                {program ? "Re-Generate dari Nilai Terbaru" : "Generate dari GradeBook"}
+                {program ? "Susun Ulang dari Nilai Terbaru" : "Susun dari Nilai"}
               </Button>
             )}
           </div>
@@ -345,6 +349,28 @@ export function RemedialPage() {
                       onChange={setPresetNote}
                       placeholder="Catatan cepat (opsional)"
                     />
+                    <Button
+                      variant="secondary"
+                      className="text-sm"
+                      onClick={async () => {
+                        if (!program) return;
+                        const updatedStudents = program.students.map((s) => ({
+                          ...s,
+                          method: REMEDIAL_PRESETS[0],
+                          schedule: SCHEDULE_PRESETS[0],
+                          note: DEFAULT_REMEDIAL_NOTE,
+                          remedialScore: s.remedialScore ?? program.kktp,
+                        }));
+                        const updated = await updateRemedialProgram(program.id, { students: updatedStudents, plan: plan || DEFAULT_REMEDIAL_PLAN });
+                        if (updated) {
+                          setProgram(updated);
+                          setPlan(DEFAULT_REMEDIAL_PLAN);
+                        }
+                        setMessage({ type: "success", text: "Isi otomatis diterapkan. Masih bisa edit per siswa." });
+                      }}
+                    >
+                      Isi Otomatis Semua
+                    </Button>
                     <Button
                       variant="secondary"
                       className="text-sm"

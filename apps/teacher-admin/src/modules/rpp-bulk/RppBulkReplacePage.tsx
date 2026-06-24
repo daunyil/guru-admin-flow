@@ -1,18 +1,13 @@
 /**
- * RPP Bulk Identity Replacement — ganti identitas RPP lama secara massal.
+ * Perbarui Identitas Dokumen — ganti identitas dokumen lama secara massal.
  *
- * GENERATOR-COMPLETION-RC1 Phase 1.
- * GENERATOR-COMPLETION-RC1-PATCH-1:
- *   + literal text replacement (identitas lama → identitas baru)
- *   + multi-dokumen via delimiter (=== DOKUMEN === atau === RPP ===)
- *   + honest UI: .docx belum didukung, info jelas
+ * BATCH-ADMIN-USABILITY-RC1: ubah dari "RPP Bulk Replace" ke
+ * "Perbarui Identitas Dokumen" yang mendukung berbagai jenis dokumen.
  *
- * Filosofi: RPP-nya sudah jadi, tapi masih pakai identitas sekolah/guru lain.
- * Guru upload/paste banyak RPP lama, app ganti:
- *   1. Placeholder: {{NAMA_SEKOLAH}} → value
- *   2. Literal: "SMA Negeri 1" → "SMPN 8 Bantan" (input guru)
+ * Jenis dokumen yang didukung:
+ *   RPP/Modul Ajar, Prota, ATP, LKPD, Kisi-kisi, Kartu Soal, Naskah Soal, Lainnya.
  *
- * Isi materi dan langkah pembelajaran TIDAK diubah.
+ * Mode teks/paste tetap aman. DOCX = roadmap berikutnya.
  */
 
 import { useEffect, useState, useRef } from "react";
@@ -95,6 +90,7 @@ export function RppBulkReplacePage() {
   // Input content
   const [inputText, setInputText] = useState("");
   const [filename, setFilename] = useState("");
+  const [docKind, setDocKind] = useState("rpp");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Preview
@@ -307,9 +303,9 @@ export function RppBulkReplacePage() {
   return (
     <div className="space-y-4">
       <div className="page-header">
-        <h1 className="text-2xl font-bold text-slate-900">RPP — Ganti Identitas Massal</h1>
+        <h1 className="text-2xl font-bold text-slate-900">Perbarui Identitas Dokumen</h1>
         <p className="text-sm text-slate-500 mt-1">
-          {year ? `TP ${year.label}` : "Belum ada tahun aktif"} · Ganti identitas RPP lama tanpa ubah isi materi.
+          {year ? `TP ${year.label}` : "Belum ada tahun aktif"} · Ganti identitas dokumen lama tanpa ubah isi materi.
         </p>
       </div>
 
@@ -337,6 +333,27 @@ export function RppBulkReplacePage() {
             </p>
           </div>
         </div>
+      </Card>
+
+      {/* Pilih jenis dokumen */}
+      <Card>
+        <CardHeader title="Jenis Dokumen" description="Pilih jenis dokumen yang akan diperbarui identitasnya." />
+        <Select
+          label="Jenis Dokumen"
+          id="doc-kind"
+          value={docKind}
+          onChange={setDocKind}
+          options={[
+            { value: "rpp", label: "RPP / Modul Ajar" },
+            { value: "prota", label: "Prota" },
+            { value: "atp", label: "ATP" },
+            { value: "lkpd", label: "LKPD" },
+            { value: "blueprint", label: "Kisi-kisi" },
+            { value: "question_card", label: "Kartu Soal" },
+            { value: "exam", label: "Naskah Soal" },
+            { value: "other", label: "Dokumen Lain" },
+          ]}
+        />
       </Card>
 
       {/* Step 1: Identitas */}

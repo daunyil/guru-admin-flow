@@ -63,7 +63,7 @@ export function MobileAttendancePage() {
       </Card>
       <Card>
         <CardHeader title="Sesi Mengajar" description={`${sessions.length} sesi`} />
-        {sessions.length === 0 ? <EmptyState title="Tidak ada sesi" description="Generate sesi dari menu Jadwal." /> : (
+        {sessions.length === 0 ? <EmptyState title="Tidak ada sesi" description="Buat sesi dari menu Jadwal." /> : (
           <div className="space-y-2">
             {sessions.map((session) => (
               <button key={session.id} onClick={() => setSelectedSessionId(session.id)} className={`w-full p-4 text-left rounded-2xl border ${selectedSessionId === session.id ? "border-brand-400 bg-brand-50" : "border-slate-100 bg-white"}`}>
