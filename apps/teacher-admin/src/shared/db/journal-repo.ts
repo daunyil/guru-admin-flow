@@ -20,8 +20,14 @@ import {
   resyncJournalAttendance,
   finalizeJournal as finalizeJournalHelper,
 } from "@guru-admin/domain";
-// SUPABASE-DAILY-INPUT-BRIDGE-RC1: push ke cloud (best-effort)
-import { pushJournalToCloud } from "../supabase/daily-bridge";
+import { getLessonSession } from "./lesson-session-repo";
+import { findAssignment } from "./teaching-assignment-repo";
+// SUPABASE-STABILITY-FIXPACK-01B: push parent cloud sebelum child journal
+import {
+  pushJournalToCloud,
+  pushLessonSessionToCloud,
+  pushTeachingAssignmentToCloud,
+} from "../supabase/daily-bridge";
 
 /** Get TeachingJournal by sessionId (1:1 relationship). */
 export async function getJournalBySession(sessionId: string): Promise<TeachingJournal | undefined> {
@@ -53,6 +59,60 @@ export async function listJournals(
 }
 
 /**
+ * SUPABASE-STABILITY-FIXPACK-01B:
+ * Push jurnal ke cloud dengan urutan parent → child:
+ *   1. teaching_assignments
+ *   2. lesson_sessions
+ *   3. journal_entries
+ *
+ * Local save tetap sudah selesai sebelum fungsi ini dipanggil. Semua kegagalan
+ * hanya console.warn dan tidak memblokir app lokal.
+ */
+async function pushJournalWithCloudParents(
+  journal: TeachingJournal,
+  sessionHint?: LessonSession
+): Promise<void> {
+  const session = sessionHint ?? await getLessonSession(journal.sessionId);
+  if (!session) {
+    console.warn(`[Supabase Bridge] Push journal dibatalkan: session lokal ${journal.sessionId} tidak ditemukan.`);
+    return;
+  }
+
+  const assignment = await findAssignment({
+    academicYearId: session.academicYearId,
+    semester: session.semester,
+    teacherId: session.teacherId,
+    subject: session.subject,
+    classId: session.classId,
+  });
+
+  if (!assignment) {
+    console.warn(
+      `[Supabase Bridge] Push journal dibatalkan: data Guru & Mapel tidak ditemukan ` +
+      `untuk ${session.classLabel} · ${session.subject} · semester ${session.semester}.`
+    );
+    return;
+  }
+
+  const assignmentPush = await pushTeachingAssignmentToCloud(assignment);
+  if (!assignmentPush.success) {
+    console.warn(`[Supabase Bridge] Push teaching_assignment gagal: ${assignmentPush.error}`);
+    return;
+  }
+
+  const sessionPush = await pushLessonSessionToCloud(session, assignment.id);
+  if (!sessionPush.success) {
+    console.warn(`[Supabase Bridge] Push lesson_session gagal: ${sessionPush.error}`);
+    return;
+  }
+
+  const journalPush = await pushJournalToCloud(journal);
+  if (!journalPush.success) {
+    console.warn(`[Supabase Bridge] Push journal gagal: ${journalPush.error}`);
+  }
+}
+
+/**
  * Inisialisasi jurnal untuk sesi: bila belum ada, auto-generate dari sesi + Prota + absensi.
  * Bila sudah ada, return existing.
  */
@@ -70,8 +130,7 @@ export async function initJournalForSession(args: {
     attendanceRecords: args.attendanceRecords,
   });
   await saveEntity("teachingJournals", journal);
-  // FIXPACK-01 P1-1: push ke cloud best-effort + console.warn bila gagal
-  void pushJournalToCloud(journal).catch((e) => {
+  void pushJournalWithCloudParents(journal, args.session).catch((e) => {
     console.warn("[Supabase Bridge] Push journal (create) gagal:", e instanceof Error ? e.message : String(e));
   });
   return journal;
@@ -94,8 +153,7 @@ export async function updateJournal(
   }
   const updated = applyJournalInput(existing, input);
   await saveEntity("teachingJournals", updated);
-  // FIXPACK-01 P1-1: push ke cloud best-effort + console.warn bila gagal
-  void pushJournalToCloud(updated).catch((e) => {
+  void pushJournalWithCloudParents(updated).catch((e) => {
     console.warn("[Supabase Bridge] Push journal (update) gagal:", e instanceof Error ? e.message : String(e));
   });
   return updated;
@@ -111,8 +169,7 @@ export async function resyncJournal(
   if (existing.locked) return existing; // tidak re-sync bila locked
   const resynced = resyncJournalAttendance(existing, attendanceRecords);
   await saveEntity("teachingJournals", resynced);
-  // FIXPACK-01 P1-1: push ke cloud best-effort + console.warn bila gagal
-  void pushJournalToCloud(resynced).catch((e) => {
+  void pushJournalWithCloudParents(resynced).catch((e) => {
     console.warn("[Supabase Bridge] Push journal (resync) gagal:", e instanceof Error ? e.message : String(e));
   });
   return resynced;
@@ -131,8 +188,7 @@ export async function finalizeJournal(
     return { success: false, errors: result.errors };
   }
   await saveEntity("teachingJournals", result.journal);
-  // FIXPACK-01 P1-1: push ke cloud best-effort + console.warn bila gagal
-  void pushJournalToCloud(result.journal).catch((e) => {
+  void pushJournalWithCloudParents(result.journal).catch((e) => {
     console.warn("[Supabase Bridge] Push journal (finalize) gagal:", e instanceof Error ? e.message : String(e));
   });
   return { success: true, journal: result.journal, errors: [] };
