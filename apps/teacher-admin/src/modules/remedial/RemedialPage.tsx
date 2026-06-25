@@ -363,11 +363,13 @@ export function RemedialPage() {
                       className="text-sm"
                       onClick={async () => {
                         if (!program) return;
+                        // UX-DOC-07: pakai preset yang user isi (presetMethod/presetSchedule/presetNote)
+                        // bila ada, fallback ke default bila kosong.
                         const updatedStudents = program.students.map((s) => ({
                           ...s,
-                          method: REMEDIAL_PRESETS[0],
-                          schedule: SCHEDULE_PRESETS[0],
-                          note: DEFAULT_REMEDIAL_NOTE,
+                          method: presetMethod || REMEDIAL_PRESETS[0],
+                          schedule: presetSchedule || SCHEDULE_PRESETS[0],
+                          note: presetNote || DEFAULT_REMEDIAL_NOTE,
                           remedialScore: s.remedialScore ?? program.kktp,
                         }));
                         const updated = await updateRemedialProgram(program.id, { students: updatedStudents, plan: plan || DEFAULT_REMEDIAL_PLAN });

@@ -128,25 +128,32 @@ export function ProtaPage() {
         ) : (
           <div className="space-y-2">
             {profiles.map((p) => (
-              <button
+              <div
                 key={p.id}
-                onClick={() => setSelectedId(p.id)}
                 className={`w-full text-left p-3 border rounded-md transition-colors ${
                   selectedId === p.id
                     ? "border-brand-400 bg-brand-50"
                     : "border-slate-200 hover:border-brand-300 hover:bg-slate-50"
                 }`}
               >
-                <div className="flex items-center justify-between">
-                  <div>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="min-w-0 flex-1">
                     <span className="font-medium text-slate-900">{p.subject} — Kelas {p.grade}</span>
                     <Badge variant={statusBadge(p.status)}>{statusLabel(p.status)}</Badge>
+                    <span className="text-xs text-slate-500 ml-2">
+                      {p.units.length} unit · {sumJP(p.units)} JP
+                    </span>
                   </div>
-                  <span className="text-xs text-slate-500">
-                    {p.units.length} unit · {sumJP(p.units)} JP
-                  </span>
+                  {/* UX-PLAN-06: tombol Buka eksplisit, bukan seluruh row clickable */}
+                  <Button
+                    variant={selectedId === p.id ? "primary" : "secondary"}
+                    className="text-xs px-3 py-1 shrink-0"
+                    onClick={() => setSelectedId(p.id)}
+                  >
+                    {selectedId === p.id ? "Dipilih" : "Buka"}
+                  </Button>
                 </div>
-              </button>
+              </div>
             ))}
           </div>
         )}

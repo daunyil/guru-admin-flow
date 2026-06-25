@@ -28,9 +28,9 @@ const NAV_GROUPS: NavGroup[] = [
     title: "Pusat",
     items: [
       { to: "/", label: "Hari Ini", icon: Calendar },
+      // UX-REL-01: Paket Administrasi = pusat tunggal. Auto Document + Cek Kelengkapan
+      // digabung ke sini (route tetap ada untuk backward compat, tapi tidak di sidebar).
       { to: "/admin-package", label: "Paket Administrasi", icon: BookMarked },
-      { to: "/auto-document", label: "Paket Administrasi Guru", icon: BookMarked },
-      { to: "/completeness", label: "Cek Kelengkapan", icon: ListChecks },
     ],
   },
   {

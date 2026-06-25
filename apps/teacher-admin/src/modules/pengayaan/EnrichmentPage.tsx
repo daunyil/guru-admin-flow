@@ -181,7 +181,7 @@ export function EnrichmentPage() {
       setProgram(result);
       setMessage({
         type: "success",
-        text: `Program pengayaan dibuat. ${result.students.length} siswa di atas threshold ${threshold}.`,
+        text: `Program pengayaan dibuat. ${result.students.length} siswa di atas batas nilai ${threshold}.`,
       });
     } catch (e) {
       setMessage({ type: "error", text: e instanceof Error ? e.message : "Gagal generate." });
@@ -279,7 +279,7 @@ export function EnrichmentPage() {
             )}
             {assignment && (
               <Input
-                label="Threshold Pengayaan"
+                label="Batas Nilai Pengayaan"
                 id="enr-thr"
                 type="number"
                 value={String(threshold)}
