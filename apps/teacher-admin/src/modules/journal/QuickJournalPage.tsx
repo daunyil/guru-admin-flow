@@ -383,65 +383,69 @@ export function QuickJournalPage() {
             </Card>
           )}
 
-          {/* Mode: Jurnal Susulan — daftar pertemuan belum jurnal */}
+          {/* Mode: Jurnal Susulan — UX-STABILITY: semua pertemuan, hijau/merah */}
           {mode === "susulan" && (
             <Card>
               <CardHeader
                 title="Jurnal Susulan"
-                description={`${recap.pending} pertemuan belum berjurnal`}
+                description={`${recap.done} sudah berjurnal · ${recap.pending} belum berjurnal`}
               />
-              {recap.pendingMeetings.length === 0 ? (
+              {allAssignmentSessions.length === 0 ? (
                 <EmptyState
-                  title="Semua pertemuan sudah berjurnal 🎉"
-                  description="Tidak ada jurnal susulan tertunda."
+                  title="Belum ada pertemuan"
+                  description="Generate sesi dari menu Jadwal dulu."
                 />
               ) : (
                 <div className="space-y-2 max-h-96 overflow-y-auto">
-                  {recap.pendingMeetings.map((s) => {
+                  {/* UX-STABILITY: tampilkan SEMUA pertemuan (hijau/merah), bukan hanya yang belum */}
+                  {[...recap.doneMeetings, ...recap.pendingMeetings]
+                    .sort((a, b) => a.date.localeCompare(b.date) || a.startPeriod - b.startPeriod)
+                    .map((s, i) => {
                     const isManual = s.teachingScheduleId === "manual" || s.teachingScheduleId === "susulan";
                     const isPast = s.date < todayISODate();
                     const isActive = selectedSessionId === s.id;
+                    const done = recap.doneMeetings.some((d) => d.id === s.id);
                     return (
                       <div
                         key={s.id}
-                        className={`w-full text-left p-3 border rounded-md transition-all ${
+                        className={`p-3 border rounded-lg transition-all ${
                           isActive
                             ? "border-brand-500 bg-brand-50 ring-2 ring-brand-200"
-                            : isPast
-                              ? "border-amber-300 bg-amber-50"
-                              : "border-slate-200"
+                            : done
+                              ? "border-emerald-300 bg-emerald-50"
+                              : "border-rose-300 bg-rose-50"
                         }`}
                       >
                         <div className="flex items-center justify-between gap-2">
                           <div className="min-w-0 flex-1">
-                            <p className="font-medium text-sm">
-                              {formatLongDateID(s.date)}
-                            </p>
-                            <p className="text-xs text-slate-500">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-medium text-sm">Pertemuan {i + 1}</span>
+                              <span className="text-xs text-slate-500">· {formatLongDateID(s.date)}</span>
+                            </div>
+                            <p className="text-xs text-slate-500 mt-0.5">
                               {isManual ? "Manual" : `Jam ${s.startPeriod} · ${s.startTime}–${s.endTime}`}
                               {s.plannedUnitId ? " · Punya rencana materi" : ""}
                             </p>
                           </div>
                           <div className="flex items-center gap-2 shrink-0">
-                            {isActive && (
+                            {isActive ? (
                               <Badge variant="success">Sedang diisi</Badge>
-                            )}
-                            {!isActive && (
-                              <Badge variant="warning">
-                                {isPast ? "Susulan" : "Belum jurnal"}
-                              </Badge>
-                            )}
-                            {!isActive && (
-                              <Button
-                                variant={isPast ? "primary" : "secondary"}
-                                className="text-xs px-3 py-1"
-                                onClick={() => {
-                                  setDate(s.date);
-                                  setSelectedSessionId(s.id);
-                                }}
-                              >
-                                Buat Jurnal
-                              </Button>
+                            ) : (
+                              <>
+                                <Badge variant={done ? "success" : "error"}>
+                                  {done ? "Sudah jurnal" : isPast ? "Susulan" : "Belum jurnal"}
+                                </Badge>
+                                <Button
+                                  variant={done ? "secondary" : "primary"}
+                                  className="text-xs px-3 py-1"
+                                  onClick={() => {
+                                    setDate(s.date);
+                                    setSelectedSessionId(s.id);
+                                  }}
+                                >
+                                  {done ? "Ubah" : "Buat Jurnal"}
+                                </Button>
+                              </>
                             )}
                           </div>
                         </div>
@@ -754,6 +758,28 @@ function QuickJournalEditor({
           onChange={setActualMaterialTitle}
           placeholder={journal.plannedMaterialTitle ?? "Tulis materi"}
         />
+
+        {/* UX-STABILITY-FIXPACK-01: chip kegiatan cepat — klik untuk tambah ke catatan */}
+        {!isLocked && (
+          <div>
+            <label className="label">Kegiatan Cepat (klik untuk tambah ke catatan)</label>
+            <div className="flex gap-2 flex-wrap">
+              {["Diskusi", "Tanya Jawab", "Presentasi", "Latihan", "Refleksi", "Kerja Kelompok"].map((kegiatan) => (
+                <button
+                  key={kegiatan}
+                  type="button"
+                  onClick={() => {
+                    const prefix = note.trim() ? `${note.trim()}, ` : "";
+                    setNote(`${prefix}${kegiatan}`);
+                  }}
+                  className="px-3 py-1.5 text-xs rounded-full border border-brand-300 text-brand-700 bg-brand-50 hover:bg-brand-100 transition-colors"
+                >
+                  {kegiatan}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         <Select
           label="Realisasi"
