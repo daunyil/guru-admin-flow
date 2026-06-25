@@ -102,28 +102,28 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Audit 1 — Tidak ada Supabase dependency
+      - name: Audit 1 — Supabase dependency tercatat (allow setelah SUPABASE-AUTH-RLS-RC1)
         run: |
-          echo "=== Cek Supabase di package.json mana pun ==="
+          echo "=== Cek Supabase di package.json (diizinkan sejak SUPABASE-AUTH-RLS-RC1) ==="
           if grep -rni "supabase" --include="package.json" . \
              | grep -v node_modules \
              | grep -v package-lock.json \
              | grep -E '"@supabase|supabase-js|"supabase":'; then
-            echo "FAIL: Ditemukan dependency Supabase"
-            exit 1
+            echo "PASS: Supabase dependency tercatat (sesuai keputusan SUPABASE-AUTH-RLS-RC1)"
+          else
+            echo "PASS: Tidak ada dependency Supabase (mode lokal murni)"
           fi
-          echo "PASS: Tidak ada dependency Supabase"
 
-      - name: Audit 2 — Tidak ada import @supabase di kode
+      - name: Audit 2 — Import @supabase terbatas di shared/supabase (allow setelah SUPABASE-AUTH-RLS-RC1)
         run: |
-          echo "=== Cek import @supabase di kode ==="
+          echo "=== Cek import @supabase di kode (diizinkan hanya di shared/supabase/*) ==="
           if grep -rni "@supabase" \
              --include="*.ts" --include="*.tsx" --include="*.js" --include="*.jsx" \
-             . | grep -v node_modules; then
-            echo "FAIL: Ditemukan import @supabase di kode"
+             . | grep -v node_modules | grep -v "shared/supabase/"; then
+            echo "FAIL: Ditemukan import @supabase di luar shared/supabase/"
             exit 1
           fi
-          echo "PASS: Tidak ada import @supabase"
+          echo "PASS: Import @supabase terbatas di shared/supabase/ (sesuai keputusan SUPABASE-AUTH-RLS-RC1)"
 
       - name: Audit 3 — Tidak ada token/credential ter-commit
         run: |
