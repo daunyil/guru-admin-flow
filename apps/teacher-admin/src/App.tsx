@@ -1,9 +1,11 @@
 /**
  * Root App: router + AppShell.
  * AI-PROMPT-BRIDGE-RC1: 26 routes — +/evaluation-docs.
+ * SUPABASE-AUTH-RLS-RC1: AuthGate aktif hanya saat env Supabase diisi.
  */
 
 import { HashRouter, Routes, Route } from "react-router-dom";
+import { AuthGate } from "./modules/auth/AuthGate";
 import { AppShell } from "./shared/layout/AppShell";
 import { TodayPage } from "./routes/TodayPage";
 import { ProfilePage } from "./modules/profile/ProfilePage";
@@ -34,36 +36,38 @@ import { EvaluationDocsPage } from "./modules/evaluation-docs/EvaluationDocsPage
 export function App() {
   return (
     <HashRouter>
-      <AppShell>
-        <Routes>
-          <Route path="/" element={<TodayPage />} />
-          <Route path="/profile" element={<ProfilePage />} />
-          <Route path="/new-year" element={<NewYearWizard />} />
-          <Route path="/backup" element={<BackupPage />} />
-          <Route path="/apps-script-import" element={<AppsScriptImportPage />} />
-          <Route path="/calendar" element={<CalendarPage />} />
-          <Route path="/prota" element={<ProtaPage />} />
-          <Route path="/promes" element={<PromesPage />} />
-          <Route path="/schedule" element={<SchedulePage />} />
-          <Route path="/roster" element={<RosterPage />} />
-          <Route path="/assignments" element={<AssignmentsPage />} />
-          <Route path="/attendance" element={<QuickAttendancePage />} />
-          <Route path="/journal" element={<QuickJournalPage />} />
-          <Route path="/grades" element={<GradesPage />} />
-          <Route path="/atp" element={<ATPPage />} />
-          <Route path="/lkpd" element={<LKPDPage />} />
-          <Route path="/rpp" element={<RPPPage />} />
-          <Route path="/rpp-bulk" element={<RppBulkReplacePage />} />
-          <Route path="/remedial" element={<RemedialPage />} />
-          <Route path="/pengayaan" element={<EnrichmentPage />} />
-          <Route path="/admin-package" element={<AdminPackagePage />} />
-          <Route path="/semester-report" element={<SemesterReportPage />} />
-          <Route path="/completeness" element={<CompletenessPage />} />
-          <Route path="/auto-document" element={<AutoDocumentPage />} />
-          <Route path="/evaluation-docs" element={<EvaluationDocsPage />} />
-          <Route path="*" element={<TodayPage />} />
-        </Routes>
-      </AppShell>
+      <AuthGate>
+        <AppShell>
+          <Routes>
+            <Route path="/" element={<TodayPage />} />
+            <Route path="/profile" element={<ProfilePage />} />
+            <Route path="/new-year" element={<NewYearWizard />} />
+            <Route path="/backup" element={<BackupPage />} />
+            <Route path="/apps-script-import" element={<AppsScriptImportPage />} />
+            <Route path="/calendar" element={<CalendarPage />} />
+            <Route path="/prota" element={<ProtaPage />} />
+            <Route path="/promes" element={<PromesPage />} />
+            <Route path="/schedule" element={<SchedulePage />} />
+            <Route path="/roster" element={<RosterPage />} />
+            <Route path="/assignments" element={<AssignmentsPage />} />
+            <Route path="/attendance" element={<QuickAttendancePage />} />
+            <Route path="/journal" element={<QuickJournalPage />} />
+            <Route path="/grades" element={<GradesPage />} />
+            <Route path="/atp" element={<ATPPage />} />
+            <Route path="/lkpd" element={<LKPDPage />} />
+            <Route path="/rpp" element={<RPPPage />} />
+            <Route path="/rpp-bulk" element={<RppBulkReplacePage />} />
+            <Route path="/remedial" element={<RemedialPage />} />
+            <Route path="/pengayaan" element={<EnrichmentPage />} />
+            <Route path="/admin-package" element={<AdminPackagePage />} />
+            <Route path="/semester-report" element={<SemesterReportPage />} />
+            <Route path="/completeness" element={<CompletenessPage />} />
+            <Route path="/auto-document" element={<AutoDocumentPage />} />
+            <Route path="/evaluation-docs" element={<EvaluationDocsPage />} />
+            <Route path="*" element={<TodayPage />} />
+          </Routes>
+        </AppShell>
+      </AuthGate>
     </HashRouter>
   );
 }
