@@ -13,8 +13,14 @@ import {
   applyAttendanceChanges,
   backfillNisInRecords,
 } from "@guru-admin/domain";
-// SUPABASE-DAILY-INPUT-BRIDGE-RC1: push ke cloud (best-effort)
-import { pushAttendanceToCloud } from "../supabase/daily-bridge";
+import { getLessonSession } from "./lesson-session-repo";
+import { findAssignment } from "./teaching-assignment-repo";
+// SUPABASE-STABILITY-FIXPACK-01B: push parent cloud sebelum child attendance
+import {
+  pushAttendanceToCloud,
+  pushLessonSessionToCloud,
+  pushTeachingAssignmentToCloud,
+} from "../supabase/daily-bridge";
 
 /** Get AttendanceRecord[] untuk satu sesi. */
 export async function getAttendanceBySession(sessionId: string): Promise<AttendanceRecord[]> {
@@ -56,6 +62,60 @@ export async function getAttendanceByTeacherDate(
   return all.filter(
     (r) => !r.deletedAt && r.date === dateISO
   ) as AttendanceRecord[];
+}
+
+/**
+ * SUPABASE-STABILITY-FIXPACK-01B:
+ * Push absen ke cloud dengan urutan parent → child:
+ *   1. teaching_assignments
+ *   2. lesson_sessions
+ *   3. attendance_records
+ *
+ * Local save tetap sudah selesai sebelum fungsi ini dipanggil. Semua kegagalan
+ * hanya console.warn dan tidak memblokir app lokal.
+ */
+async function pushAttendanceWithCloudParents(records: AttendanceRecord[]): Promise<void> {
+  if (records.length === 0) return;
+
+  const sessionId = records[0].sessionId;
+  const session = await getLessonSession(sessionId);
+  if (!session) {
+    console.warn(`[Supabase Bridge] Push attendance dibatalkan: session lokal ${sessionId} tidak ditemukan.`);
+    return;
+  }
+
+  const assignment = await findAssignment({
+    academicYearId: session.academicYearId,
+    semester: session.semester,
+    teacherId: session.teacherId,
+    subject: session.subject,
+    classId: session.classId,
+  });
+
+  if (!assignment) {
+    console.warn(
+      `[Supabase Bridge] Push attendance dibatalkan: data Guru & Mapel tidak ditemukan ` +
+      `untuk ${session.classLabel} · ${session.subject} · semester ${session.semester}.`
+    );
+    return;
+  }
+
+  const assignmentPush = await pushTeachingAssignmentToCloud(assignment);
+  if (!assignmentPush.success) {
+    console.warn(`[Supabase Bridge] Push teaching_assignment gagal: ${assignmentPush.error}`);
+    return;
+  }
+
+  const sessionPush = await pushLessonSessionToCloud(session, assignment.id);
+  if (!sessionPush.success) {
+    console.warn(`[Supabase Bridge] Push lesson_session gagal: ${sessionPush.error}`);
+    return;
+  }
+
+  const attendancePush = await pushAttendanceToCloud(records);
+  if (!attendancePush.success) {
+    console.warn(`[Supabase Bridge] Push attendance gagal: ${attendancePush.error}`);
+  }
 }
 
 /**
@@ -119,8 +179,7 @@ export async function saveDefaultAttendance(
       await db.attendanceRecords.put(r);
     }
   });
-  // FIXPACK-01 P1-1: push ke cloud best-effort + console.warn bila gagal (bukan silent)
-  void pushAttendanceToCloud(records).catch((e) => {
+  void pushAttendanceWithCloudParents(records).catch((e) => {
     console.warn("[Supabase Bridge] Push attendance gagal:", e instanceof Error ? e.message : String(e));
   });
 }
@@ -148,10 +207,9 @@ export async function updateAttendance(
     }
   });
 
-  // FIXPACK-01 P1-1: push hanya yang berubah + console.warn bila gagal
   const changed = updated.filter((r) => changesMap.has(r.studentId));
   if (changed.length > 0) {
-    void pushAttendanceToCloud(changed).catch((e) => {
+    void pushAttendanceWithCloudParents(changed).catch((e) => {
       console.warn("[Supabase Bridge] Push attendance (update) gagal:", e instanceof Error ? e.message : String(e));
     });
   }
