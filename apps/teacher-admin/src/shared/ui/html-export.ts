@@ -57,6 +57,17 @@ export function generateStandaloneHTML(args: {
       font-size: 11pt;
       margin-bottom: 12pt;
     }
+    /* UX-PRINT-04: schoolName dipakai sebagai header di atas dokumen */
+    .document-school-name {
+      text-align: center;
+      font-weight: bold;
+      font-size: 12pt;
+      text-transform: uppercase;
+      letter-spacing: 0.5pt;
+      margin-bottom: 8pt;
+      padding-bottom: 4pt;
+      border-bottom: 1px solid #000;
+    }
     .document-identity {
       width: 100%;
       border-collapse: collapse;
@@ -131,6 +142,7 @@ export function generateStandaloneHTML(args: {
   </style>
 </head>
 <body>
+${args.schoolName ? `<div class="document-school-name">${args.schoolName}</div>` : ""}
 ${content}
 </body>
 </html>`;

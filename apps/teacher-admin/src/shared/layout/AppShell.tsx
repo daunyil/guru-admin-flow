@@ -82,10 +82,12 @@ const NAV_GROUPS: NavGroup[] = [
 ];
 
 const MOBILE_PRIMARY: NavItem[] = [
+  // UX-MOB-01: bottom nav HP — Hari Ini, Absen, Jurnal, Paket, Lainnya
+  // Paket Administrasi jadi menu utama HP (sebelumnya Nilai, kurang penting untuk harian)
   { to: "/", label: "Hari Ini", icon: Calendar },
   { to: "/attendance", label: "Absen", icon: CheckCircle },
   { to: "/journal", label: "Jurnal", icon: BookOpen },
-  { to: "/grades", label: "Nilai", icon: FileSpreadsheet },
+  { to: "/admin-package", label: "Paket", icon: BookMarked },
 ];
 
 // NAV_GROUPS dipakai langsung untuk desktop sidebar + mobile "Lainnya" modal
@@ -120,7 +122,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             </div>
             <div>
               <p className="font-bold text-sm text-slate-900 leading-none">SIAKAD GURU</p>
-              <p className="text-[10px] text-slate-400 mt-0.5">v0.7</p>
+              <p className="text-[10px] text-slate-400 mt-0.5">v1.0 RC</p>
             </div>
           </div>
         </div>
@@ -197,6 +199,21 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <div className="text-xl font-black leading-none">{formatClock(now)}</div>
                 <div className="text-[8px] font-bold uppercase text-white/55">WIB</div>
               </div>
+              {/* UX-MOB-02: shortcut Profil + Kelas dan Mapel di header HP */}
+              <button
+                onClick={() => navigate("/assignments")}
+                className="w-10 h-10 rounded-xl bg-white/15 border border-white/20 text-white text-base active:scale-95"
+                title="Kelas dan Mapel"
+              >
+                📚
+              </button>
+              <button
+                onClick={() => navigate("/profile")}
+                className="w-10 h-10 rounded-xl bg-white/15 border border-white/20 text-white text-base active:scale-95"
+                title="Profil"
+              >
+                👤
+              </button>
               <button
                 onClick={() => navigate("/backup")}
                 className="w-10 h-10 rounded-xl bg-white/15 border border-white/20 text-white text-base active:scale-95"
@@ -222,7 +239,8 @@ export function AppShell({ children }: { children: ReactNode }) {
             to={item.to}
             end={item.to === "/"}
             className={({ isActive }) =>
-              `flex-1 flex flex-col items-center gap-0.5 py-2.5 text-[8px] font-extrabold uppercase tracking-wide ${
+              // UX-MOB-04: label 11px, sentence case (bukan uppercase 8px)
+              `flex-1 flex flex-col items-center gap-0.5 py-2.5 text-[11px] font-semibold ${
                 isActive ? "text-brand-700" : "text-slate-400"
               }`
             }
@@ -233,7 +251,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         ))}
         <button
           onClick={() => setShowMore(true)}
-          className="flex-1 flex flex-col items-center gap-0.5 py-2.5 text-[8px] font-extrabold uppercase tracking-wide text-slate-400"
+          className="flex-1 flex flex-col items-center gap-0.5 py-2.5 text-[11px] font-semibold text-slate-400"
         >
           <MoreHorizontal className="w-5 h-5" />
           <span>Lainnya</span>
