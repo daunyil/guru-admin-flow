@@ -1,5 +1,5 @@
 /**
- * SUPABASE-DAILY-INPUT-BRIDGE-RC1 + SUPABASE-STABILITY-FIXPACK-01
+ * SUPABASE-DAILY-INPUT-BRIDGE-RC1 + SUPABASE-STABILITY-FIXPACK-01B
  *
  * Bridge untuk push/pull data harian (Absen + Jurnal) ke/dari Supabase.
  * Fallback ke lokal bila Supabase tidak dikonfigurasi (return null, tidak throw).
@@ -8,13 +8,17 @@
  *   - Save lokal → push ke cloud (best-effort, tidak block save lokal)
  *   - Load: prioritaskan lokal, cloud sebagai backup/sync
  *
- * FIXPACK-01:
- *   - P0-2: pushLessonSessionToCloud dipanggil sebelum push attendance/journal
- *     supaya FK session_id terpenuhi.
- *   - P1-1: push gagal sekarang console.warn (bukan silent fallback).
- *   - P1-2: pull-to-local DINONAKTIFKAN sampai mapping lengkap.
+ * FIXPACK-01B:
+ *   - P0: attendance_records/journal_entries tidak boleh dipush sebelum parent
+ *     teaching_assignments + lesson_sessions cloud benar-benar ada.
+ *   - pushLessonSessionToCloud sekarang wajib menerima assignmentId yang valid,
+ *     bukan fallback ke teachingScheduleId/sessionId.
+ *   - pushAttendanceToCloud/pushJournalToCloud menolak push child bila session
+ *     belum ada di cloud, sehingga gagal dengan pesan jelas, bukan FK error acak.
  *
  * Schema cloud:
+ *   - teaching_assignments (id, teacher_id, academic_year_label, semester,
+ *      class_id, class_label, subject, is_active, created_at)
  *   - lesson_sessions (id, assignment_id, teacher_id, class_id, class_label,
  *      subject, session_date, start_period, duration_jp, status, created_at)
  *   - attendance_records (id, session_id, teacher_id, student_id, student_name,
@@ -25,7 +29,12 @@
 
 import { supabase, isSupabaseConfigured, requireSupabase } from "./client";
 import { getCurrentCloudAuthState, type CloudTeacherProfile } from "./auth";
-import type { AttendanceRecord, TeachingJournal, LessonSession } from "@guru-admin/domain";
+import type {
+  AttendanceRecord,
+  TeachingJournal,
+  LessonSession,
+  TeachingAssignment,
+} from "@guru-admin/domain";
 
 /** Hasil push ke cloud. */
 export type PushResult =
@@ -54,20 +63,20 @@ async function getCloudTeacherId(): Promise<string | null> {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Lesson Session Bridge (FIXPACK-01 P0-2)                            */
+/*  Parent Bridge: TeachingAssignment + LessonSession                  */
 /* ------------------------------------------------------------------ */
 
 /**
- * FIXPACK-01 P0-2: Push LessonSession lokal ke Supabase `lesson_sessions`.
+ * Push TeachingAssignment lokal ke Supabase `teaching_assignments`.
  *
- * WAJIB dipanggil sebelum push attendance/journal, karena attendance_records
- * dan journal_entries punya FK session_id → lesson_sessions.id.
- * Tanpa ini, push attendance/jurnal akan ditolak Supabase (FK violation).
- *
- * Best-effort: bila gagal, return error tapi tidak throw.
+ * Catatan penting:
+ * - Cloud teacher_id memakai teacher_profiles.id dari user login, bukan
+ *   teacherId lokal. Ini sesuai policy RLS owner/admin.
+ * - id cloud memakai assignment.id lokal supaya LessonSession bisa memakai
+ *   assignment_id yang valid.
  */
-export async function pushLessonSessionToCloud(
-  session: LessonSession
+export async function pushTeachingAssignmentToCloud(
+  assignment: TeachingAssignment
 ): Promise<PushResult> {
   if (!await isBridgeActive()) {
     return { success: true, pushed: 0 };
@@ -79,13 +88,61 @@ export async function pushLessonSessionToCloud(
 
   try {
     const sb = requireSupabase();
-    // Mapping LessonSession lokal → lesson_sessions cloud.
-    // Catatan: assignment_id cloud butuh FK ke teaching_assignments cloud.
-    // Bila assignment lokal belum di-push ke cloud, ini akan gagal FK.
-    // Untuk sekarang, kita coba upsert; bila FK gagal, return error jelas.
     const row = {
-      id: session.id, // pakai id lokal (string uuid) sebagai id cloud
-      assignment_id: session.teachingScheduleId ?? session.id, // fallback: pakai session id sendiri
+      id: assignment.id,
+      teacher_id: teacherId,
+      academic_year_label: assignment.academicYearId,
+      semester: assignment.semester,
+      class_id: assignment.classId,
+      class_label: assignment.classLabel,
+      subject: assignment.subject,
+      is_active: !assignment.deletedAt,
+    };
+
+    const { error } = await sb
+      .from("teaching_assignments")
+      .upsert(row, { onConflict: "id" });
+
+    if (error) {
+      return { success: false, error: error.message, pushed: 0 };
+    }
+    return { success: true, pushed: 1 };
+  } catch (e) {
+    return {
+      success: false,
+      error: e instanceof Error ? e.message : String(e),
+      pushed: 0,
+    };
+  }
+}
+
+/**
+ * Push LessonSession lokal ke Supabase `lesson_sessions`.
+ *
+ * Wajib menerima assignmentId cloud yang valid. Jangan pakai fallback
+ * teachingScheduleId/sessionId karena assignment_id adalah FK ke
+ * teaching_assignments.id.
+ */
+export async function pushLessonSessionToCloud(
+  session: LessonSession,
+  assignmentId: string
+): Promise<PushResult> {
+  if (!await isBridgeActive()) {
+    return { success: true, pushed: 0 };
+  }
+  const teacherId = await getCloudTeacherId();
+  if (!teacherId) {
+    return { success: false, error: "Teacher ID cloud tidak ditemukan", pushed: 0 };
+  }
+  if (!assignmentId) {
+    return { success: false, error: "Assignment ID cloud kosong", pushed: 0 };
+  }
+
+  try {
+    const sb = requireSupabase();
+    const row = {
+      id: session.id,
+      assignment_id: assignmentId,
       teacher_id: teacherId,
       class_id: session.classId,
       class_label: session.classLabel,
@@ -114,15 +171,14 @@ export async function pushLessonSessionToCloud(
 }
 
 /**
- * FIXPACK-01 P0-2: Pastikan lesson_session ada di cloud sebelum push child.
- * Dipanggil oleh pushAttendanceToCloud dan pushJournalToCloud.
- * Best-effort: bila gagal, log warning tapi lanjut (child push akan fail dengan FK error jelas).
+ * Pastikan lesson_session sudah ada di cloud sebelum push child.
+ * Return false berarti child push harus dibatalkan agar tidak menghasilkan
+ * FK violation di attendance_records/journal_entries.
  */
-async function ensureLessonSessionInCloud(sessionId: string): Promise<void> {
-  if (!await isBridgeActive()) return;
+async function hasLessonSessionInCloud(sessionId: string): Promise<boolean> {
+  if (!await isBridgeActive()) return false;
 
   try {
-    // Cek apakah session sudah ada di cloud
     const sb = requireSupabase();
     const { data, error } = await sb
       .from("lesson_sessions")
@@ -132,21 +188,22 @@ async function ensureLessonSessionInCloud(sessionId: string): Promise<void> {
 
     if (error) {
       console.warn(`[Supabase Bridge] Gagal cek lesson_session ${sessionId}: ${error.message}`);
-      return;
+      return false;
     }
 
     if (!data) {
-      // Session belum ada di cloud. Kita TIDAK bisa push di sini karena
-      // butuh LessonSession object lengkap (bukan hanya id).
-      // Solusi: repo yang panggil harus pushLessonSessionToCloud(session) dulu.
       console.warn(
         `[Supabase Bridge] lesson_session ${sessionId} belum ada di cloud. ` +
-        `Push attendance/jurnal mungkin akan ditolak FK. ` +
-        `Pastikan repo memanggil pushLessonSessionToCloud(session) sebelum push child.`
+        `Push child dibatalkan. Pastikan pushTeachingAssignmentToCloud() dan ` +
+        `pushLessonSessionToCloud() berhasil sebelum push absen/jurnal.`
       );
+      return false;
     }
+
+    return true;
   } catch (e) {
     console.warn(`[Supabase Bridge] Error cek lesson_session: ${e instanceof Error ? e.message : String(e)}`);
+    return false;
   }
 }
 
@@ -178,10 +235,18 @@ export async function pushAttendanceToCloud(
     return { success: false, error: "Teacher ID cloud tidak ditemukan", pushed: 0 };
   }
 
-  // FIXPACK-01 P0-2: pastikan lesson_session ada di cloud sebelum push attendance
-  // (FK session_id → lesson_sessions.id)
-  if (records.length > 0) {
-    await ensureLessonSessionInCloud(records[0].sessionId);
+  if (records.length === 0) {
+    return { success: true, pushed: 0 };
+  }
+
+  const sessionId = records[0].sessionId;
+  const hasSession = await hasLessonSessionInCloud(sessionId);
+  if (!hasSession) {
+    return {
+      success: false,
+      error: `lesson_session ${sessionId} belum ada di cloud`,
+      pushed: 0,
+    };
   }
 
   try {
@@ -196,10 +261,6 @@ export async function pushAttendanceToCloud(
       note: r.note ?? null,
     }));
 
-    // Upsert by (session_id, student_id) — bila sudah ada, update status/note.
-    // Catatan: tabel cloud perlu unique constraint (session_id, student_id)
-    // supaya upsert bekerja. Bila belum ada, insert akan dobel. Tapi RLS
-    // membatasi per teacher, jadi konflik hanya untuk guru yang sama.
     const { error } = await sb
       .from("attendance_records")
       .upsert(rows, { onConflict: "session_id,student_id" });
@@ -240,16 +301,15 @@ export async function pullAttendanceFromCloud(
     }
     if (!data) return { success: true, data: [] };
 
-    // Map cloud → lokal (field name snake_case → camelCase)
     const records: AttendanceRecord[] = (data as Array<Record<string, unknown>>).map((row) => ({
       id: String(row.id ?? ""),
       sessionId: String(row.session_id ?? ""),
       studentId: String(row.student_id ?? ""),
       studentName: String(row.student_name ?? ""),
       studentNumber: row.student_number as number | undefined,
-      classId: "", // tidak ada di cloud schema (diambil dari session)
+      classId: "",
       classLabel: "",
-      date: "", // tidak ada di cloud (diambil dari session)
+      date: "",
       status: String(row.status ?? "present") as AttendanceRecord["status"],
       note: row.note as string | undefined,
       createdAt: row.created_at ? String(row.created_at) : "",
@@ -292,9 +352,14 @@ export async function pushJournalToCloud(
     return { success: false, error: "Teacher ID cloud tidak ditemukan", pushed: 0 };
   }
 
-  // FIXPACK-01 P0-2: pastikan lesson_session ada di cloud sebelum push journal
-  // (FK session_id → lesson_sessions.id)
-  await ensureLessonSessionInCloud(journal.sessionId);
+  const hasSession = await hasLessonSessionInCloud(journal.sessionId);
+  if (!hasSession) {
+    return {
+      success: false,
+      error: `lesson_session ${journal.sessionId} belum ada di cloud`,
+      pushed: 0,
+    };
+  }
 
   try {
     const sb = requireSupabase();
@@ -307,7 +372,6 @@ export async function pushJournalToCloud(
       locked: journal.status === "final",
     };
 
-    // Upsert by session_id (1 jurnal per sesi)
     const { error } = await sb
       .from("journal_entries")
       .upsert(row, { onConflict: "session_id" });
@@ -410,7 +474,7 @@ export async function pullJournalFromCloud(
 export async function syncAttendanceFromCloud(
   sessionId: string
 ): Promise<AttendanceRecord[] | null> {
-  void sessionId; // unused — function disabled
+  void sessionId;
   console.warn("[Supabase Bridge] syncAttendanceFromCloud dinonaktifkan (FIXPACK-01 P1-2). Mapping cloud→lokal belum lengkap.");
   return null;
 }
@@ -423,7 +487,7 @@ export async function syncAttendanceFromCloud(
 export async function syncJournalFromCloud(
   sessionId: string
 ): Promise<TeachingJournal | null> {
-  void sessionId; // unused — function disabled
+  void sessionId;
   console.warn("[Supabase Bridge] syncJournalFromCloud dinonaktifkan (FIXPACK-01 P1-2). Mapping cloud→lokal belum lengkap.");
   return null;
 }
