@@ -249,8 +249,9 @@ export function TodayPage() {
                 description="Tidak masalah. Anda bisa absen manual atau buat jurnal manual."
                 action={
                   <div className="flex gap-2">
-                    <Link to="/attendance"><Button variant="secondary">Absen Manual</Button></Link>
-                    <Link to="/journal"><Button variant="secondary">Jurnal Manual</Button></Link>
+                    {/* UX-DAILY-05/06: langsung buka mode manual via query param */}
+                    <Link to="/attendance?mode=manual"><Button variant="secondary">Absen Manual</Button></Link>
+                    <Link to="/journal?mode=manual"><Button variant="secondary">Jurnal Manual</Button></Link>
                   </div>
                 }
               />
