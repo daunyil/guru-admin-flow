@@ -70,8 +70,10 @@ export async function initJournalForSession(args: {
     attendanceRecords: args.attendanceRecords,
   });
   await saveEntity("teachingJournals", journal);
-  // SUPABASE-DAILY-INPUT-BRIDGE-RC1: push ke cloud (best-effort)
-  void pushJournalToCloud(journal).catch(() => {/* silent fallback */});
+  // FIXPACK-01 P1-1: push ke cloud best-effort + console.warn bila gagal
+  void pushJournalToCloud(journal).catch((e) => {
+    console.warn("[Supabase Bridge] Push journal (create) gagal:", e instanceof Error ? e.message : String(e));
+  });
   return journal;
 }
 
@@ -92,8 +94,10 @@ export async function updateJournal(
   }
   const updated = applyJournalInput(existing, input);
   await saveEntity("teachingJournals", updated);
-  // SUPABASE-DAILY-INPUT-BRIDGE-RC1: push ke cloud (best-effort)
-  void pushJournalToCloud(updated).catch(() => {/* silent fallback */});
+  // FIXPACK-01 P1-1: push ke cloud best-effort + console.warn bila gagal
+  void pushJournalToCloud(updated).catch((e) => {
+    console.warn("[Supabase Bridge] Push journal (update) gagal:", e instanceof Error ? e.message : String(e));
+  });
   return updated;
 }
 
@@ -107,8 +111,10 @@ export async function resyncJournal(
   if (existing.locked) return existing; // tidak re-sync bila locked
   const resynced = resyncJournalAttendance(existing, attendanceRecords);
   await saveEntity("teachingJournals", resynced);
-  // SUPABASE-DAILY-INPUT-BRIDGE-RC1: push ke cloud (best-effort)
-  void pushJournalToCloud(resynced).catch(() => {/* silent fallback */});
+  // FIXPACK-01 P1-1: push ke cloud best-effort + console.warn bila gagal
+  void pushJournalToCloud(resynced).catch((e) => {
+    console.warn("[Supabase Bridge] Push journal (resync) gagal:", e instanceof Error ? e.message : String(e));
+  });
   return resynced;
 }
 
@@ -125,8 +131,10 @@ export async function finalizeJournal(
     return { success: false, errors: result.errors };
   }
   await saveEntity("teachingJournals", result.journal);
-  // SUPABASE-DAILY-INPUT-BRIDGE-RC1: push ke cloud (best-effort, termasuk locked=true)
-  void pushJournalToCloud(result.journal).catch(() => {/* silent fallback */});
+  // FIXPACK-01 P1-1: push ke cloud best-effort + console.warn bila gagal
+  void pushJournalToCloud(result.journal).catch((e) => {
+    console.warn("[Supabase Bridge] Push journal (finalize) gagal:", e instanceof Error ? e.message : String(e));
+  });
   return { success: true, journal: result.journal, errors: [] };
 }
 

@@ -119,8 +119,10 @@ export async function saveDefaultAttendance(
       await db.attendanceRecords.put(r);
     }
   });
-  // SUPABASE-DAILY-INPUT-BRIDGE-RC1: push ke cloud (best-effort, tidak block)
-  void pushAttendanceToCloud(records).catch(() => {/* silent fallback */});
+  // FIXPACK-01 P1-1: push ke cloud best-effort + console.warn bila gagal (bukan silent)
+  void pushAttendanceToCloud(records).catch((e) => {
+    console.warn("[Supabase Bridge] Push attendance gagal:", e instanceof Error ? e.message : String(e));
+  });
 }
 
 /**
@@ -146,10 +148,12 @@ export async function updateAttendance(
     }
   });
 
-  // SUPABASE-DAILY-INPUT-BRIDGE-RC1: push hanya yang berubah (best-effort)
+  // FIXPACK-01 P1-1: push hanya yang berubah + console.warn bila gagal
   const changed = updated.filter((r) => changesMap.has(r.studentId));
   if (changed.length > 0) {
-    void pushAttendanceToCloud(changed).catch(() => {/* silent fallback */});
+    void pushAttendanceToCloud(changed).catch((e) => {
+      console.warn("[Supabase Bridge] Push attendance (update) gagal:", e instanceof Error ? e.message : String(e));
+    });
   }
 
   return updated;
