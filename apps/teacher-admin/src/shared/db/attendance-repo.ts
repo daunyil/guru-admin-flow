@@ -13,6 +13,8 @@ import {
   applyAttendanceChanges,
   backfillNisInRecords,
 } from "@guru-admin/domain";
+// SUPABASE-DAILY-INPUT-BRIDGE-RC1: push ke cloud (best-effort)
+import { pushAttendanceToCloud } from "../supabase/daily-bridge";
 
 /** Get AttendanceRecord[] untuk satu sesi. */
 export async function getAttendanceBySession(sessionId: string): Promise<AttendanceRecord[]> {
@@ -117,6 +119,8 @@ export async function saveDefaultAttendance(
       await db.attendanceRecords.put(r);
     }
   });
+  // SUPABASE-DAILY-INPUT-BRIDGE-RC1: push ke cloud (best-effort, tidak block)
+  void pushAttendanceToCloud(records).catch(() => {/* silent fallback */});
 }
 
 /**
@@ -141,6 +145,12 @@ export async function updateAttendance(
       }
     }
   });
+
+  // SUPABASE-DAILY-INPUT-BRIDGE-RC1: push hanya yang berubah (best-effort)
+  const changed = updated.filter((r) => changesMap.has(r.studentId));
+  if (changed.length > 0) {
+    void pushAttendanceToCloud(changed).catch(() => {/* silent fallback */});
+  }
 
   return updated;
 }
