@@ -270,15 +270,30 @@
 }
 
 @media print {
-  /* PRINT-EXPORT-POLISH-RC1: print CSS rapi seperti administrasi guru nyata */
+  /* UX-PRINT-01/03: print CSS rapi seperti administrasi guru nyata */
 
-  /* Hide all non-print elements */
+  /* UX-PRINT-01: Hide SEMUA elemen body, lalu hanya tampilkan .print-area.
+     Ini memastikan form/editor/card lain di luar .print-area TIDAK ikut cetak. */
+  body * {
+    visibility: hidden !important;
+  }
+  .print-area,
+  .print-area * {
+    visibility: visible !important;
+  }
+  .print-area {
+    display: block !important;
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+  }
+
+  /* Hide all non-print elements (redundant safety, visibility:hidden sudah handle) */
   .no-print,
   header,
   nav,
   footer,
-  .btn,
-  .badge,
   .AppShell-header,
   .AppShell-nav,
   .siakad-header,
@@ -286,10 +301,9 @@
     display: none !important;
   }
 
-  /* Show only print area */
-  .print-area {
-    display: block !important;
-  }
+  /* UX-PRINT-03: JANGAN hide semua .badge global. Badge di dalam .print-area
+     (status dokumen) harus tetap terlihat. Hanya hide .badge di luar .print-area
+     (sudah ditangani visibility:hidden di body *). */
 
   /* Reset body for print */
   body {
