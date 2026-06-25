@@ -60,3 +60,12 @@ create table if not exists public.journal_entries (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+-- SUPABASE-DAILY-INPUT-BRIDGE-RC1: unique constraints untuk upsert bridge
+-- Dipakai oleh daily-bridge.ts upsert(onConflict)
+-- 1 attendance per (session, student); 1 journal per session
+create unique index if not exists attendance_records_session_student_unique
+  on public.attendance_records (session_id, student_id);
+
+create unique index if not exists journal_entries_session_unique
+  on public.journal_entries (session_id);

@@ -197,7 +197,15 @@ export function PromesPage() {
                 {generating ? "Menyusun..." : "Susun Promes"}
               </Button>
               {result && (
-                <Button variant="secondary" onClick={() => window.print()}>
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    // FIXPACK-01 QA-P2-01: buka mode dokumen dulu (yang punya .print-area
+                    // + .document-page.document-landscape), baru user klik Cetak di sana.
+                    // Sebelumnya: window.print() langsung di mode kerja → print kosong.
+                    setShowDocument(true);
+                  }}
+                >
                   Cetak Preview
                 </Button>
               )}
