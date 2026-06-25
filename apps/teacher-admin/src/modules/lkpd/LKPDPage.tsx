@@ -200,7 +200,7 @@ export function LKPDPage() {
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-medium text-sm">{l.title}</span>
                     <Badge variant={l.status === "final" ? "success" : "neutral"}>
-                      {l.status === "final" ? "Final" : "Draft"}
+                      {l.status === "final" ? "Final" : "Draf"}
                     </Badge>
                     {l.classLabel && <Badge variant="neutral">{l.classLabel}</Badge>}
                     <Badge variant="neutral">{l.subject}</Badge>

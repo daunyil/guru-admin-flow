@@ -323,7 +323,7 @@ function ModeKerja({
           <Badge variant="success">✓ Laporan sudah difinalisasi (snapshot tersimpan)</Badge>
         ) : canFinalize ? (
           <Button onClick={onFinalize} disabled={finalizing}>
-            {finalizing ? "Finalizing..." : "Finalisasi Laporan"}
+            {finalizing ? "Memfinalisasi..." : "Finalisasi Laporan"}
           </Button>
         ) : (
           <div className="space-y-1">

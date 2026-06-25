@@ -249,7 +249,7 @@ export function AdminPackagePage() {
         autoGeneratable: false,
         expandDetails: matchingProta
           ? [
-              `Subject: ${matchingProta.subject} · Grade: ${matchingProta.grade} · Phase: ${matchingProta.phase}`,
+              `Mapel: ${matchingProta.subject} · Kelas: ${matchingProta.grade} · Fase: ${matchingProta.phase}`,
               `Semester 1: ${matchingProta.semester1IntraJP} JP · Semester 2: ${matchingProta.semester2IntraJP} JP`,
               `Tahun pelajaran: ${matchingProta.academicYearId}`,
               `Status: ${matchingProta.status}`,
@@ -396,7 +396,7 @@ export function AdminPackagePage() {
           : "Belum dibuat (butuh Daftar Nilai)",
         link: "/remedial",
         count: matchingRemedial?.students.length ?? 0,
-        actionLabel: matchingRemedial ? "Buka" : "Generate",
+        actionLabel: matchingRemedial ? "Buka" : "Susun",
         autoGeneratable: true,
         expandDetails: matchingRemedial
           ? [
@@ -417,7 +417,7 @@ export function AdminPackagePage() {
           : "Belum dibuat (butuh Daftar Nilai)",
         link: "/pengayaan",
         count: matchingEnrichment?.students.length ?? 0,
-        actionLabel: matchingEnrichment ? "Buka" : "Generate",
+        actionLabel: matchingEnrichment ? "Buka" : "Susun",
         autoGeneratable: true,
         expandDetails: matchingEnrichment
           ? [
@@ -664,7 +664,7 @@ export function AdminPackagePage() {
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2 flex-wrap">
                             <p className="font-medium text-sm">{doc.name}</p>
-                            {doc.autoGeneratable && <Badge variant="neutral">Auto</Badge>}
+                            {doc.autoGeneratable && <Badge variant="neutral">Otomatis</Badge>}
                           </div>
                           <p className="text-xs text-slate-500">{doc.detail}</p>
                         </div>
