@@ -199,7 +199,7 @@ export function RppBulkReplacePage() {
           setDocxStats({ placeholders: phCount, literals });
           setMessage({
             type: "success",
-            text: `File .docx dimuat: ${phCount} placeholder + ${literals.reduce((s, l) => s + l.count, 0)} literal match ditemukan. Klik "Proses DOCX" untuk replace identitas.`,
+            text: `File .docx dimuat: ${phCount} teks identitas ditemukan + ${literals.reduce((s, l) => s + l.count, 0)} teks pengganti siap. Klik "Proses DOCX" untuk mulai.`,
           });
         } catch (err) {
           setMessage({
@@ -303,7 +303,7 @@ export function RppBulkReplacePage() {
 
       setMessage({
         type: "success",
-        text: `${saved.length} dokumen diproses & disimpan. ${placeholderCount} placeholder + ${literalCount} literal replacement diterapkan.`,
+        text: `${saved.length} dokumen diproses & disimpan. ${placeholderCount} identitas terisi + ${literalCount} teks lama diganti.`,
       });
       setInputText("");
       setFilename("");
@@ -387,7 +387,7 @@ export function RppBulkReplacePage() {
       } else {
         setMessage({
           type: "success",
-          text: `DOCX berhasil diproses: ${result.stats.placeholdersReplaced} placeholder + ${result.stats.literalMatches} literal replacement. Klik "Download .docx" untuk simpan file baru.`,
+          text: `DOCX berhasil diproses: ${result.stats.placeholdersReplaced} identitas terisi + ${result.stats.literalMatches} teks lama diganti. Klik "Download .docx" untuk simpan file baru.`,
         });
       }
     } catch (e) {
@@ -526,7 +526,7 @@ export function RppBulkReplacePage() {
             <p className="font-semibold text-emerald-900">Format yang Didukung</p>
             <p className="text-emerald-800 mt-1">
               Upload file <code>.docx</code> (Word 2007+), <code>.txt</code>, <code>.html</code>, <code>.md</code> atau <strong>paste teks</strong>.
-              Untuk <code>.docx</code>: app baca isi dokumen, ganti placeholder/literal, dan hasilkan <code>.docx</code> baru dengan formatting Word tetap utuh.
+              Untuk <code>.docx</code>: app baca isi dokumen, ganti identitas lama dengan yang baru, dan hasilkan <code>.docx</code> baru dengan format Word tetap utuh.
             </p>
             <p className="text-emerald-800 mt-1">
               <strong>Multi-dokumen (teks):</strong> pisah beberapa RPP dengan delimiter <code>=== DOKUMEN ===</code> atau <code>=== RPP ===</code>.
@@ -620,7 +620,7 @@ export function RppBulkReplacePage() {
       <Card>
         <CardHeader
           title="1b. Ganti Teks Identitas Lama (Opsional)"
-          description="Untuk RPP yang identitasnya ditulis langsung sebagai teks (bukan placeholder). Contoh: 'SMA Negeri 1' → 'SMPN 8 Bantan'."
+          description="Untuk RPP yang identitasnya ditulis langsung sebagai teks (bukan kode). Contoh: 'SMA Negeri 1' → 'SMPN 8 Bantan'."
         />
         <div className="space-y-2">
           {literalReplacements.map((r, i) => (
