@@ -246,11 +246,11 @@ export function TodayPage() {
             {todaySessions.length === 0 ? (
               <EmptyState
                 title="Tidak ada jadwal mengajar hari ini"
-                description="Tidak masalah. Anda bisa absen manual atau buat jurnal manual."
+                description="Tidak masalah. Anda bisa absen susulan atau buat jurnal manual."
                 action={
                   <div className="flex gap-2">
-                    {/* UX-DAILY-05/06: langsung buka mode manual via query param */}
-                    <Link to="/attendance?mode=manual"><Button variant="secondary">Absen Manual</Button></Link>
+                    {/* UX-STABILITY: Absen tidak punya mode manual lagi, ganti ke susulan */}
+                    <Link to="/attendance?mode=susulan"><Button variant="secondary">Absen Susulan</Button></Link>
                     <Link to="/journal?mode=manual"><Button variant="secondary">Jurnal Manual</Button></Link>
                   </div>
                 }
@@ -333,8 +333,8 @@ export function TodayPage() {
           <Card>
             <CardHeader title="Tanpa Jadwal" description="Absen atau jurnal manual kapan saja." />
             <div className="flex gap-2">
-              <Link to="/attendance"><Button variant="secondary">Absen Manual</Button></Link>
-              <Link to="/journal"><Button variant="secondary">Jurnal Manual</Button></Link>
+              <Link to="/attendance?mode=susulan"><Button variant="secondary">Absen Susulan</Button></Link>
+              <Link to="/journal?mode=manual"><Button variant="secondary">Jurnal Manual</Button></Link>
             </div>
           </Card>
         </>
