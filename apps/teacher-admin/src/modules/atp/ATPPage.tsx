@@ -153,59 +153,103 @@ export function ATPPage() {
     if (!year || !teacher) return;
     if (!importPreview) return;
 
-    // P0-1: pakai data dari importPreview (bukan re-parse) supaya tidak stale.
-    // P0-2: konfirmasi sebelum apply supaya tidak duplikat.
-    const count = importPreview.type === "json"
-      ? importPreview.entries.length
-      : importPreview.rows.length;
+    // UX-PLAN-02: deteksi duplikat (subject + grade + tp sama) → default skip
+    // Build entries dari preview
+    let entries: Array<{
+      subject: string; grade: string; phase: string; bab?: string;
+      elemen: string; cp: string; tp: string; profilPelajar?: string;
+      kataKunci?: string; alokasiJP: number; classId?: string;
+    }>;
+    let teacherNameForImport = teacher.name;
+
+    if (importPreview.type === "json") {
+      const json = JSON.parse(importJson);
+      const v = validateAtpImport(json);
+      if (!v.success) {
+        setMessage(`Import gagal: ${v.errors.join("; ")}`);
+        return;
+      }
+      entries = atpImportToEntries(v.data);
+      teacherNameForImport = v.data.teacherName ?? teacher.name;
+    } else {
+      entries = atpPasteRowsToEntries(importPreview.rows, importMeta);
+    }
+
+    if (entries.length === 0) {
+      setMessage("Tidak ada TP untuk diimpor.");
+      return;
+    }
+
+    // Cek duplikat vs existing entries
+    const existingKey = (e: { subject: string; grade: string; tp: string }) =>
+      `${e.subject}|${e.grade}|${e.tp}`;
+    const existingKeys = new Set(entries.map(existingKey));
+    // entries lokal sudah pasti unik? Tidak — bisa ada duplikat di input sendiri.
+    // Pakai listATPEntries untuk dapat existing di DB
+    const existing = await listATPEntries({ academicYearId: year.id, teacherId: teacher.id });
+    const dbKeys = new Set(existing.map(existingKey));
+    const duplicates = entries.filter((e) => dbKeys.has(existingKey(e)));
+    const newEntries = entries.filter((e) => !dbKeys.has(existingKey(e)));
+    void existingKeys; // unused tapi keep untuk clarity
+
+    // UX-PLAN-02: bila ada duplikat, confirm typed "IMPOR DUPLIKAT"
+    let importDuplicates = false;
+    if (duplicates.length > 0) {
+      const typed = window.prompt(
+        `Ditemukan ${duplicates.length} TP duplikat (subject + kelas + TP sama sudah ada).\n` +
+        `Default: hanya ${newEntries.length} TP baru yang akan diimpor.\n\n` +
+        `Untuk memaksa impor duplikat juga, ketik: IMPOR DUPLIKAT\n` +
+        `(atau klik Batal untuk hanya impor ${newEntries.length} TP baru)`
+      );
+      if (typed === "IMPOR DUPLIKAT") {
+        importDuplicates = true;
+      } else if (typed === null) {
+        // User klik Cancel → batalkan seluruh import
+        setMessage("Import dibatalkan.");
+        return;
+      }
+      // typed lain (kosong/random) → lanjut import hanya yang baru (default skip duplikat)
+    }
+
+    // Bila semua duplikat dan user tidak paksa → info
+    if (newEntries.length === 0 && !importDuplicates) {
+      setMessage(`Semua ${duplicates.length} TP sudah ada (duplikat). Tidak ada yang diimpor.`);
+      setShowImport(false);
+      setImportJson("");
+      setImportExcel("");
+      setImportPreview(null);
+      return;
+    }
+
     const ok = window.confirm(
-      `Impor ${count} TP ke Bank TP? ` +
-      `TP yang sudah ada (subject/grade/elemen/tp sama) TIDAK akan di-skip — akan dibuat duplikat. ` +
-      `Pastikan ini bukan import ulang. Lanjutkan?`
+      `Impor ${importDuplicates ? entries.length : newEntries.length} TP ke Bank TP?` +
+      (duplicates.length > 0 && !importDuplicates
+        ? `\n(${duplicates.length} duplikat di-skip)`
+        : importDuplicates
+          ? `\n(TERMASUK ${duplicates.length} duplikat — akan dibuat entry baru)`
+          : "")
     );
     if (!ok) return;
 
     try {
-      if (importPreview.type === "json") {
-        // P0-1: re-validate dari importJson TAPI cek konsistensi dengan preview.
-        // Bila user edit textarea setelah preview, importPreview === null (lihat onChange).
-        // Jadi di sini importPreview.entries sudah pasti sinkron dengan importJson.
-        const json = JSON.parse(importJson);
-        const v = validateAtpImport(json);
-        if (!v.success) {
-          setMessage(`Import gagal: ${v.errors.join("; ")}`);
-          return;
-        }
-        const entries = atpImportToEntries(v.data);
-        let saved = 0;
-        for (const e of entries) {
-          await saveATPEntry({
-            ...e,
-            academicYearId: year.id,
-            teacherId: teacher.id,
-            teacherName: v.data.teacherName ?? teacher.name,
-            status: "draft",
-          });
-          saved++;
-        }
-        setMessage(`${saved} TP berhasil diimpor dari JSON.`);
-      } else {
-        // Excel paste
-        const entries = atpPasteRowsToEntries(importPreview.rows, importMeta);
-        let saved = 0;
-        for (const e of entries) {
-          await saveATPEntry({
-            ...e,
-            academicYearId: year.id,
-            teacherId: teacher.id,
-            teacherName: teacher.name,
-            status: "draft",
-          });
-          saved++;
-        }
-        const skippedCount = importPreview.skipped.length;
-        setMessage(`${saved} TP berhasil diimpor dari Excel${skippedCount > 0 ? ` (${skippedCount} baris di-skip)` : ""}.`);
+      const toImport = importDuplicates ? entries : newEntries;
+      let saved = 0;
+      for (const e of toImport) {
+        await saveATPEntry({
+          ...e,
+          academicYearId: year.id,
+          teacherId: teacher.id,
+          teacherName: teacherNameForImport,
+          status: "draft",
+        });
+        saved++;
       }
+      const skippedMsg = importDuplicates
+        ? ""
+        : duplicates.length > 0
+          ? ` (${duplicates.length} duplikat di-skip)`
+          : "";
+      setMessage(`${saved} TP berhasil diimpor${skippedMsg}.`);
       // Reset
       setShowImport(false);
       setImportJson("");

@@ -260,20 +260,24 @@ export function AdminPackagePage() {
         id: "promes",
         name: "Program Semester (Promes)",
         category: "perencanaan",
-        status: matchingProta && calendar.length > 0 ? "lengkap" : "belum",
+        // UX-REL-03: Promes TIDAK "lengkap" hanya karena Prota+Kalender ada.
+        // Promes belum persist (UX-PLAN-09), jadi status selalu "belum" sampai
+        // guru benar-benar susun + cetak/simpan. Detail jelaskan kesiapan.
+        status: "belum",
         detail: matchingProta && calendar.length > 0
-          ? "Siap di-generate dari Prota + Kalender"
+          ? "Siap disusun dari Prota + Kalender (klik Susun Promes)"
           : matchingProta
             ? "Butuh Kalender Pendidikan"
             : "Butuh Prota + Kalender",
         link: "/promes",
         count: calendar.length,
-        actionLabel: "Generate",
+        actionLabel: "Susun",
         autoGeneratable: true,
         expandDetails: [
           `Prasyarat: Prota ${matchingProta ? "✓" : "✗"} + Kalender ${calendar.length > 0 ? "✓" : "✗"}`,
           matchingProta ? `Sumber: ${matchingProta.units.length} unit Prota` : "",
           calendar.length > 0 ? `Kalender: ${calendar.length} event` : "",
+          "Catatan: Promes belum tersimpan otomatis. Susun lalu cetak/download.",
         ].filter(Boolean),
       },
       {

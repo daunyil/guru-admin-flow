@@ -1,10 +1,10 @@
 /**
  * Apps Script Import — halaman /apps-script-import
  *
- * APPS-SCRIPT-BRIDGE-RC1: jembatan satu arah Apps Script → App Generator.
+ * APPS-SCRIPT-BRIDGE-RC1: jembatan satu arah Absen/Jurnal HP → Aplikasi Administrasi.
  *
  * Flow:
- *   1. Upload JSON atau paste JSON dari Apps Script.
+ *   1. Upload JSON atau paste JSON dari file export HP.
  *   2. App validasi + tampilkan preview (jumlah students/gurus/absensi/jurnal/nilai).
  *   3. Guru klik "Konfirmasi Import".
  *   4. App import data (idempotent) + tampilkan ringkasan hasil.
@@ -87,6 +87,15 @@ export function AppsScriptImportPage() {
 
   async function handleImport() {
     if (!validation?.success || !validation.data) return;
+    // UX-REL-07: confirm kuat sebelum import data besar/update
+    const totalItems = validation.data.students?.length ?? 0;
+    const ok = window.confirm(
+      `Import data dari file export HP/Absen?\n\n` +
+      `Akan diproses: ${totalItems} siswa + data absensi/jurnal/nilai.\n` +
+      `Import bersifat idempotent (data yang sama tidak dobel).\n\n` +
+      `Lanjutkan?`
+    );
+    if (!ok) return;
     setImporting(true);
     setSummary(null);
     try {
@@ -207,9 +216,9 @@ export function AppsScriptImportPage() {
   return (
     <div className="space-y-4">
       <div className="page-header">
-        <h1 className="text-2xl font-bold text-slate-900">Import dari Apps Script</h1>
+        <h1 className="text-2xl font-bold text-slate-900">Import dari Absen/Jurnal HP</h1>
         <p className="text-sm text-slate-500 mt-1">
-          {year ? `TP ${year.label}` : "Belum ada tahun aktif"} · Jembatan satu arah: Apps Script → App Generator.
+          {year ? `TP ${year.label}` : "Belum ada tahun aktif"} · Jembatan satu arah: Absen/Jurnal HP → Aplikasi Administrasi.
         </p>
       </div>
 
@@ -226,14 +235,14 @@ export function AppsScriptImportPage() {
           <div>
             <p className="font-semibold text-brand-900">Cara Pakai</p>
             <p className="text-brand-800 mt-1">
-              Gunakan export dari Apps Script V2: <code>exportForAppGenerator()</code> atau{" "}
+              Gunakan export dari file export HP V2: <code>exportForAppGenerator()</code> atau{" "}
               <code>backupDataV3()</code>. App akan memetakan: siswa → Daftar Siswa,
               guru → Kelas dan Mapel, absensi → Sesi + Absensi, jurnal → Sesi + Jurnal,
               nilai → Daftar Nilai.
               Import ulang file yang sama tidak membuat data dobel (idempotent).
             </p>
             <p className="text-brand-800 mt-1">
-              Upload file <code>.json</code> atau paste teks JSON hasil export.
+              Upload file <code>.json</code> atau paste teks file export HP.
             </p>
           </div>
         </div>
@@ -242,8 +251,8 @@ export function AppsScriptImportPage() {
       {/* Step 1: Input JSON */}
       <Card>
         <CardHeader
-          title="1. Masukkan JSON dari Apps Script"
-          description="Upload file .json atau paste teks JSON."
+          title="1. Masukkan JSON dari file export HP"
+          description="Upload file .json atau paste teks file export."
         />
         <div className="space-y-3">
           <div>

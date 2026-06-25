@@ -903,11 +903,28 @@ export function RppBulkReplacePage() {
 
             <div className="print-area">
               <div className="document-page document-portrait">
-                <div
-                  className="rpp-content"
-                  style={{ whiteSpace: "pre-wrap", fontFamily: "inherit" }}
-                  dangerouslySetInnerHTML={{ __html: previewDoc.processedContent }}
-                />
+                {isDocxBase64(previewDoc.processedContent) ? (
+                  // UX-DOC-05: arsip DOCX base64 TIDAK boleh ditampilkan sebagai HTML.
+                  // Tampilkan info + tombol Download saja.
+                  <div className="p-4 bg-slate-50 rounded text-center space-y-3">
+                    <p className="text-sm font-semibold text-slate-700">
+                      Arsip DOCX (binary)
+                    </p>
+                    <p className="text-xs text-slate-500">
+                      File .docx hasil replace identitas. Preview teks tidak tersedia untuk arsip DOCX.
+                      Klik Download untuk mengambil file .docx.
+                    </p>
+                    <Button variant="secondary" className="text-sm" onClick={() => handleDownloadProcessed(previewDoc)}>
+                      Download .docx
+                    </Button>
+                  </div>
+                ) : (
+                  <div
+                    className="rpp-content"
+                    style={{ whiteSpace: "pre-wrap", fontFamily: "inherit" }}
+                    dangerouslySetInnerHTML={{ __html: previewDoc.processedContent }}
+                  />
+                )}
               </div>
             </div>
           </div>

@@ -303,7 +303,7 @@ export function EvaluationDocsPage() {
                   {showDocument && (
                     <div className="print-area">
                       <div className="document-page document-portrait">
-                        <div className="document-title">RINCIAN MINGGU EFektIF</div>
+                        <div className="document-title">RINCIAN MINGGU EFEKTIF</div>
                         <div className="document-subtitle">{school?.name ?? "Sekolah"}</div>
                         <div className="document-subtitle">TP {year?.label} — Semester {assignment.semester === 1 ? "Ganjil" : "Genap"}</div>
                         <table className="document-identity">

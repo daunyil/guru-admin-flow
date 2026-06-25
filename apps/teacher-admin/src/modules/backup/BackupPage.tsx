@@ -94,6 +94,21 @@ export function BackupPage() {
 
   async function handleConfirmRestore() {
     if (!pendingFile) return;
+    // UX-REL-06: typed confirm "RESTORE" untuk mencegah salah klik
+    const typed = window.prompt(
+      `PERINGATAN: Restore akan MENGHAPUS SEMUA data lokal saat ini ` +
+      `dan menggantinya dengan data dari file backup.\n\n` +
+      `Data yang akan direstore:\n` +
+      `- ${pendingSummary?.counts.academicYears ?? 0} tahun pelajaran\n` +
+      `- ${pendingSummary?.counts.protaProfiles ?? 0} Prota\n` +
+      `- ${pendingSummary?.counts.gradeBooks ?? 0} rekap nilai\n` +
+      `- ${pendingSummary?.counts.classRosters ?? 0} daftar siswa\n\n` +
+      `Ketik RESTORE untuk konfirmasi:`
+    );
+    if (typed !== "RESTORE") {
+      setError("Restore dibatalkan. Ketik RESTORE untuk konfirmasi.");
+      return;
+    }
     setImporting(true);
     setError(null);
     setSuccess(null);
