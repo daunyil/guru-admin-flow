@@ -1,11 +1,11 @@
 /**
  * Auto Document Engine — halaman /auto-document
  *
- * AUTO-DOCUMENT-ENGINE-RC1: engine yang mengumpulkan data per Data Mengajar
+ * AUTO-DOCUMENT-ENGINE-RC1: engine yang mengumpulkan data per Kelas dan Mapel
  * menjadi paket administrasi guru. Preview kelengkapan + tombol cetak.
  *
  * Flow:
- *   1. Pilih Data Mengajar
+ *   1. Pilih Kelas dan Mapel
  *   2. Klik "Susun Paket Dokumen"
  *   3. App load semua data terkait assignment
  *   4. Tampilkan preview: 12 dokumen dengan status available/draft/not_available
@@ -92,7 +92,7 @@ export function AutoDocumentPage() {
     if (!year || !teacher) return;
     const assignment = selectedAssignment();
     if (!assignment) {
-      setMessage({ type: "error", text: "Pilih Data Mengajar dulu." });
+      setMessage({ type: "error", text: "Pilih Kelas dan Mapel dulu." });
       return;
     }
     setGenerating(true);
@@ -203,7 +203,7 @@ export function AutoDocumentPage() {
       <div className="page-header">
         <h1 className="text-2xl font-bold text-slate-900">Auto Document Engine</h1>
         <p className="text-sm text-slate-500 mt-1">
-          {year ? `TP ${year.label}` : "Belum ada tahun aktif"} · Generate paket administrasi guru per Data Mengajar.
+          {year ? `TP ${year.label}` : "Belum ada tahun aktif"} · Generate paket administrasi guru per Kelas dan Mapel.
         </p>
       </div>
 
@@ -213,22 +213,22 @@ export function AutoDocumentPage() {
         </div>
       )}
 
-      {/* Step 1: Pilih Data Mengajar */}
+      {/* Step 1: Pilih Kelas dan Mapel */}
       <Card>
         <CardHeader
-          title="1. Pilih Data Mengajar"
+          title="1. Pilih Kelas dan Mapel"
           description="Engine akan baca semua data terkait assignment untuk membuat paket."
         />
         {assignments.length === 0 ? (
           <EmptyState
-            title="Belum ada Data Mengajar"
-            description="Buka menu Data Mengajar untuk membuat assignment dulu."
-            action={<Button variant="secondary" onClick={() => (window.location.hash = "#/assignments")}>Buka Data Mengajar</Button>}
+            title="Belum ada Kelas dan Mapel"
+            description="Buka menu Kelas dan Mapel untuk membuat assignment dulu."
+            action={<Button variant="secondary" onClick={() => (window.location.hash = "#/assignments")}>Buka Kelas dan Mapel</Button>}
           />
         ) : (
           <div className="space-y-3">
             <Select
-              label="Data Mengajar"
+              label="Kelas dan Mapel"
               id="auto-doc-asg"
               value={selectedAssignmentId}
               onChange={setSelectedAssignmentId}

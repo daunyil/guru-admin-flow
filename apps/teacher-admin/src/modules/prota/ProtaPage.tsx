@@ -186,12 +186,13 @@ function statusBadge(status: ProtaProfile["status"]): "success" | "warning" | "e
 }
 
 function statusLabel(status: ProtaProfile["status"]): string {
+  // UX-PLAN-04: label Indonesia (Draf, Siap Dicek, Final, Perlu Revisi, Dikunci)
   switch (status) {
-    case "draft": return "Draft";
-    case "ready_for_review": return "Ready for Review";
+    case "draft": return "Draf";
+    case "ready_for_review": return "Siap Dicek";
     case "final": return "Final";
-    case "revised": return "Revised";
-    case "locked": return "Locked";
+    case "revised": return "Perlu Revisi";
+    case "locked": return "Dikunci";
   }
 }
 

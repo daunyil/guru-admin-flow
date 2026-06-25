@@ -1,9 +1,9 @@
 /**
- * Paket Administrasi Guru — halaman pusat dokumen per Data Mengajar.
+ * Paket Administrasi Guru — halaman pusat dokumen per Kelas dan Mapel.
  *
  * GENERATOR-COMPLETION-RC1 Phase 6.
  *
- * Pilih Data Mengajar → app tampilkan checklist 14 dokumen administrasi
+ * Pilih Kelas dan Mapel → app tampilkan checklist 14 dokumen administrasi
  * dengan status lengkap/belum lengkap + tombol preview per dokumen.
  *
  * Dokumen yang dicek:
@@ -530,26 +530,26 @@ export function AdminPackagePage() {
       <div className="page-header">
         <h1 className="text-2xl font-bold text-slate-900">Paket Administrasi Guru</h1>
         <p className="text-sm text-slate-500 mt-1">
-          {year ? `TP ${year.label}` : "Belum ada tahun aktif"} · Pusat dokumen administrasi per Data Mengajar.
+          {year ? `TP ${year.label}` : "Belum ada tahun aktif"} · Pusat dokumen administrasi per Kelas dan Mapel.
         </p>
       </div>
 
-      {/* Step 1: Pilih Data Mengajar */}
+      {/* Step 1: Pilih Kelas dan Mapel */}
       <Card>
         <CardHeader
-          title="1. Pilih Data Mengajar"
+          title="1. Pilih Kelas dan Mapel"
           description="App cek kelengkapan 14 dokumen administrasi untuk assignment ini."
         />
         {assignments.length === 0 ? (
           <EmptyState
-            title="Belum ada Data Mengajar"
-            description="Buka menu Data Mengajar untuk membuat assignment dulu."
-            action={<Button variant="secondary" onClick={() => (window.location.hash = "#/assignments")}>Buka Data Mengajar</Button>}
+            title="Belum ada Kelas dan Mapel"
+            description="Buka menu Kelas dan Mapel untuk membuat assignment dulu."
+            action={<Button variant="secondary" onClick={() => (window.location.hash = "#/assignments")}>Buka Kelas dan Mapel</Button>}
           />
         ) : (
           <div className="space-y-3">
             <Select
-              label="Data Mengajar"
+              label="Kelas dan Mapel"
               id="pkg-asg"
               value={selectedAssignmentId}
               onChange={setSelectedAssignmentId}

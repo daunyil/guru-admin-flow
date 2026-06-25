@@ -216,7 +216,8 @@ function ImportModal({
   const [text, setText] = useState("");
   const [parsed, setParsed] = useState<ParsedStudent[]>([]);
   const [showPreview, setShowPreview] = useState(false);
-  const [importMode, setImportMode] = useState<"replace" | "append">("replace");
+  // UX-FOUND-03: default "append" (Tambahkan) lebih aman — tidak hapus siswa existing
+  const [importMode, setImportMode] = useState<"replace" | "append">("append");
   const [importing, setImporting] = useState(false);
 
   function parseExcelPaste(raw: string): ParsedStudent[] {
@@ -379,6 +380,21 @@ function ImportModal({
         onError("Tidak ada siswa valid untuk diimpor.");
         setImporting(false);
         return;
+      }
+
+      // UX-FOUND-03: typed confirm untuk mode "Ganti Semua" (replace)
+      // Default ke "Tambahkan" bila roster sudah berisi siswa (lebih aman)
+      if (importMode === "replace" && roster.students.length > 0) {
+        const typed = window.prompt(
+          `PERINGATAN: Mode "Ganti Semua" akan MENGHAPUS ${roster.students.length} siswa yang sudah ada ` +
+          `dan menggantinya dengan ${valid.length} siswa baru.\n\n` +
+          `Ketik GANTI untuk konfirmasi:`
+        );
+        if (typed !== "GANTI") {
+          onError("Import dibatalkan. Ketik GANTI untuk konfirmasi ganti semua siswa.");
+          setImporting(false);
+          return;
+        }
       }
 
       if (importMode === "replace") {

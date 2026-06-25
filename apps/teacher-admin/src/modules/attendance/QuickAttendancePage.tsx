@@ -4,7 +4,7 @@
  *
  * PATCH-FLOW-RC2D:
  *   - Mode Susulan = window catch-up:
- *     - Pilih Data Mengajar
+ *     - Pilih Kelas dan Mapel
  *     - Tampilkan rekap: total/sudah absen/belum absen/batal
  *     - Daftar pertemuan belum absen (sorted by date asc)
  *     - Tombol "Isi Absen" per pertemuan → buka editor
@@ -184,7 +184,7 @@ export function QuickAttendancePage() {
     if (!year || !teacher) return;
     const assignment = selectedAssignment();
     if (!assignment) {
-      setMessage({ type: "error", text: "Pilih Data Mengajar dulu." });
+      setMessage({ type: "error", text: "Pilih Kelas dan Mapel dulu." });
       return;
     }
     const roster = await findClassRoster(year.id, assignment.classId);
@@ -310,17 +310,17 @@ export function QuickAttendancePage() {
           <Card>
             <CardHeader
               title="Absen Susulan"
-              description="Pilih Data Mengajar. Tampilkan rekap pertemuan + daftar belum absen."
+              description="Pilih Kelas dan Mapel. Tampilkan rekap pertemuan + daftar belum absen."
             />
             {assignments.length === 0 ? (
               <EmptyState
-                title="Belum ada Data Mengajar"
-                description="Buka menu 'Data Mengajar' untuk membuat assignment dulu."
-                action={<Button variant="secondary" onClick={() => (window.location.hash = "#/assignments")}>Buka Data Mengajar</Button>}
+                title="Belum ada Kelas dan Mapel"
+                description="Buka menu 'Kelas dan Mapel' untuk membuat assignment dulu."
+                action={<Button variant="secondary" onClick={() => (window.location.hash = "#/assignments")}>Buka Kelas dan Mapel</Button>}
               />
             ) : (
               <Select
-                label="Data Mengajar"
+                label="Kelas dan Mapel"
                 id="susulan-asg"
                 value={selectedAssignmentId}
                 onChange={handleAssignmentChange}
@@ -453,14 +453,14 @@ export function QuickAttendancePage() {
             />
             {assignments.length === 0 ? (
               <EmptyState
-                title="Belum ada Data Mengajar"
-                description="Buka menu 'Data Mengajar' untuk membuat assignment dulu."
-                action={<Button variant="secondary" onClick={() => (window.location.hash = "#/assignments")}>Buka Data Mengajar</Button>}
+                title="Belum ada Kelas dan Mapel"
+                description="Buka menu 'Kelas dan Mapel' untuk membuat assignment dulu."
+                action={<Button variant="secondary" onClick={() => (window.location.hash = "#/assignments")}>Buka Kelas dan Mapel</Button>}
               />
             ) : (
               <div className="space-y-3">
                 <Select
-                  label="Data Mengajar"
+                  label="Kelas dan Mapel"
                   id="manual-asg"
                   value={selectedAssignmentId}
                   onChange={handleAssignmentChange}

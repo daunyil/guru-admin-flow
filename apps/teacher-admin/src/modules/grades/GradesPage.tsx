@@ -7,7 +7,7 @@
  *   - Nilai Akhir dihitung otomatis: rata-rata KD (40%) + PTS (25%) + PAS (35%).
  *   - Paste Excel multi-kolom (No, Nama, KD1-KD6, PTS, PAS).
  *   - Isi Otomatis Semua (preset nilai).
- *   - Pilih Data Mengajar sebagai konteks.
+ *   - Pilih Kelas dan Mapel sebagai konteks.
  */
 
 import { useEffect, useState } from "react";
@@ -329,20 +329,20 @@ export function GradesPage() {
       <div className="page-header">
         <h1 className="text-2xl font-bold text-slate-900">Daftar Nilai</h1>
         <p className="text-sm text-slate-500 mt-1">
-          {assignment ? assignmentShortLabel(assignment) : "Pilih Data Mengajar dulu."}
+          {assignment ? assignmentShortLabel(assignment) : "Pilih Kelas dan Mapel dulu."}
         </p>
       </div>
 
       {message && <div className="info-banner-success">{message}</div>}
 
-      {/* Pilih Data Mengajar */}
+      {/* Pilih Kelas dan Mapel */}
       <Card>
-        <CardHeader title="Pilih Data Mengajar" description="KD1=Bab1, KD2=Bab2, dst. Nilai Akhir = rata-rata KD (40%) + PTS (25%) + PAS (35%)." />
+        <CardHeader title="Pilih Kelas dan Mapel" description="KD1=Bab1, KD2=Bab2, dst. Nilai Akhir = rata-rata KD (40%) + PTS (25%) + PAS (35%)." />
         {assignments.length === 0 ? (
-          <EmptyState title="Belum ada Data Mengajar" description="Buka menu Data Mengajar dulu."
-            action={<Button variant="secondary" onClick={() => (window.location.hash = "#/assignments")}>Buka Data Mengajar</Button>} />
+          <EmptyState title="Belum ada Kelas dan Mapel" description="Buka menu Kelas dan Mapel dulu."
+            action={<Button variant="secondary" onClick={() => (window.location.hash = "#/assignments")}>Buka Kelas dan Mapel</Button>} />
         ) : (
-          <Select label="Data Mengajar" id="g-assignment" value={selectedAssignmentId} onChange={handleAssignmentChange}
+          <Select label="Kelas dan Mapel" id="g-assignment" value={selectedAssignmentId} onChange={handleAssignmentChange}
             options={[{ value: "", label: "-- Pilih --" }, ...assignments.map((a) => ({ value: a.id, label: `${a.classLabel} · ${a.subject} · ${a.teacherName}` }))]} />
         )}
       </Card>

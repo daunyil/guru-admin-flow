@@ -228,7 +228,7 @@ export function AppsScriptImportPage() {
             <p className="text-brand-800 mt-1">
               Gunakan export dari Apps Script V2: <code>exportForAppGenerator()</code> atau{" "}
               <code>backupDataV3()</code>. App akan memetakan: siswa → Daftar Siswa,
-              guru → Data Mengajar, absensi → Sesi + Absensi, jurnal → Sesi + Jurnal,
+              guru → Kelas dan Mapel, absensi → Sesi + Absensi, jurnal → Sesi + Jurnal,
               nilai → Daftar Nilai.
               Import ulang file yang sama tidak membuat data dobel (idempotent).
             </p>
@@ -299,7 +299,7 @@ export function AppsScriptImportPage() {
           <div className="space-y-3">
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-center">
               <PreviewStat label="Siswa" value={preview.counts.students} />
-              <PreviewStat label="Data Mengajar" value={preview.counts.gurus} />
+              <PreviewStat label="Kelas dan Mapel" value={preview.counts.gurus} />
               <PreviewStat label="Absensi" value={preview.counts.absensi} />
               <PreviewStat label="Jurnal" value={preview.counts.jurnal} />
               <PreviewStat label="Nilai" value={preview.counts.nilai} />
@@ -345,7 +345,7 @@ export function AppsScriptImportPage() {
           <div className="space-y-3">
             <div className="grid grid-cols-1 sm:grid-cols-5 gap-3">
               <SummaryCard title="Siswa" data={summary.students} />
-              <SummaryCard title="Data Mengajar" data={summary.gurus} />
+              <SummaryCard title="Kelas dan Mapel" data={summary.gurus} />
               <SummaryCard title="Absensi" data={summary.absensi} />
               <SummaryCard title="Jurnal" data={summary.jurnal} />
               <SummaryCard title="Nilai" data={summary.nilai} />

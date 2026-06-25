@@ -107,6 +107,12 @@ export function LKPDPage() {
   }
 
   async function handleFinalize(id: string) {
+    // UX-DOC-01: konfirmasi sebelum finalkan
+    const ok = window.confirm(
+      "Finalkan LKPD? Setelah final, LKPD tidak bisa diedit langsung. " +
+      "Untuk mengubah, gunakan tombol 'Buka Revisi' terlebih dahulu."
+    );
+    if (!ok) return;
     const result = await finalizeLKPD(id);
     if (result.success) {
       setMessage({ type: "success", text: "LKPD difinalkan." });
@@ -114,6 +120,17 @@ export function LKPDPage() {
     } else {
       setMessage({ type: "error", text: result.errors.join(", ") });
     }
+  }
+
+  // UX-DOC-02: Buka Revisi — ubah status final → draft supaya bisa edit lagi
+  async function handleOpenRevision(lkpd: LKPD) {
+    const ok = window.confirm(
+      `Buka revisi untuk "${lkpd.title}"? Status akan kembali ke Draf dan LKPD bisa diedit lagi.`
+    );
+    if (!ok) return;
+    await updateLKPD(lkpd.id, { status: "draft" as const, finalizedAt: null });
+    setMessage({ type: "success", text: "LKPD dibuka untuk revisi (status: Draf)." });
+    void reload();
   }
 
   async function handleDelete(id: string) {
@@ -199,16 +216,26 @@ export function LKPDPage() {
                   <Button variant="secondary" className="text-xs px-2 py-1" onClick={() => setPreviewing(l)}>
                     Preview
                   </Button>
-                  <Button
-                    variant="secondary"
-                    className="text-xs px-2 py-1"
-                    onClick={() => { setEditing(l); setShowForm(true); }}
-                  >
-                    Edit
-                  </Button>
-                  {l.status !== "final" && (
-                    <Button className="text-xs px-2 py-1" onClick={() => handleFinalize(l.id)}>
-                      Finalkan
+                  {l.status !== "final" ? (
+                    <>
+                      <Button
+                        variant="secondary"
+                        className="text-xs px-2 py-1"
+                        onClick={() => { setEditing(l); setShowForm(true); }}
+                      >
+                        Edit
+                      </Button>
+                      <Button className="text-xs px-2 py-1" onClick={() => handleFinalize(l.id)}>
+                        Finalkan
+                      </Button>
+                    </>
+                  ) : (
+                    <Button
+                      variant="secondary"
+                      className="text-xs px-2 py-1"
+                      onClick={() => handleOpenRevision(l)}
+                    >
+                      Buka Revisi
                     </Button>
                   )}
                   <Button variant="danger" className="text-xs px-2 py-1" onClick={() => handleDelete(l.id)}>

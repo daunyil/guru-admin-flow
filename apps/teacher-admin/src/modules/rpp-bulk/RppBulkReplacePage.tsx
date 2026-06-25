@@ -451,7 +451,7 @@ export function RppBulkReplacePage() {
       setArchives(await listRppDocuments({ academicYearId: year.id, teacherId: teacher.id }));
       setMessage({
         type: "success",
-        text: `Arsip DOCX tersimpan. Binary .docx hasil replace tersimpan di IndexedDB. Klik Download di arsip untuk ambil file .docx yang sudah diperbarui identitasnya.`,
+        text: `Arsip DOCX tersimpan. File .docx hasil replace tersimpan di arsip. Klik Download di arsip untuk ambil file .docx yang sudah diperbarui identitasnya.`,
       });
     } catch (e) {
       setMessage({
@@ -563,12 +563,12 @@ export function RppBulkReplacePage() {
       <Card>
         <CardHeader
           title="1. Identitas Baru"
-          description="Auto-fill dari Profil Sekolah + Guru. Pilih Data Mengajar untuk auto-fill mapel/kelas/semester."
+          description="Auto-fill dari Profil Sekolah + Guru. Pilih Kelas dan Mapel untuk auto-fill mapel/kelas/semester."
         />
         <div className="space-y-3">
           {assignments.length > 0 && (
             <Select
-              label="Data Mengajar (opsional, untuk auto-fill mapel/kelas/semester)"
+              label="Kelas dan Mapel (opsional, untuk auto-fill mapel/kelas/semester)"
               id="rpp-asg"
               value={selectedAssignmentId}
               onChange={handleAssignmentPick}
@@ -739,7 +739,7 @@ export function RppBulkReplacePage() {
                       Download .docx
                     </Button>
                     <Button variant="secondary" className="text-sm" onClick={handleSaveDocxArchive}>
-                      Simpan Binary .docx ke Arsip
+                      Simpan ke Arsip
                     </Button>
                   </div>
                 </div>

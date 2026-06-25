@@ -212,15 +212,15 @@ export function EvaluationDocsPage() {
         </div>
       )}
 
-      {/* Pilih Data Mengajar */}
+      {/* Pilih Kelas dan Mapel */}
       <Card>
-        <CardHeader title="1. Pilih Data Mengajar" description="Filter TP + konteks dari assignment." />
+        <CardHeader title="1. Pilih Kelas dan Mapel" description="Filter TP + konteks dari assignment." />
         {assignments.length === 0 ? (
-          <EmptyState title="Belum ada Data Mengajar" description="Buka menu Data Mengajar dulu." />
+          <EmptyState title="Belum ada Kelas dan Mapel" description="Buka menu Kelas dan Mapel dulu." />
         ) : (
           <div className="space-y-3">
             <Select
-              label="Data Mengajar"
+              label="Kelas dan Mapel"
               id="ev-asg"
               value={selectedAssignmentId}
               onChange={setSelectedAssignmentId}
