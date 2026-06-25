@@ -57,6 +57,12 @@ export function GradesPage() {
   const [cbtPreview, setCbtPreview] = useState<CbtMatchPreview | null>(null);
   const [showCbtImport, setShowCbtImport] = useState(false);
 
+  // UX-DAILY-07: paste Excel preview (tidak langsung apply)
+  const [pastePreview, setPastePreview] = useState<{
+    matched: Array<{ studentName: string; studentNumber?: number; scores: Partial<GradeEntry> }>;
+    unmatched: string[];
+  } | null>(null);
+
   useEffect(() => {
     void (async () => {
       const [y, tp] = await Promise.all([getActiveAcademicYear(), getTeacherProfile()]);
@@ -121,7 +127,23 @@ export function GradesPage() {
     setCbtPreview(null);
     setCbtJsonInput("");
     setShowCbtImport(false);
+    // UX-DAILY-07: clear paste preview juga (roster beda → match beda)
+    setPastePreview(null);
+    setPasteText("");
   }, [selectedAssignmentId]);
+
+  // UX-DAILY-09: dirty guard saat ganti Kelas dan Mapel
+  function handleAssignmentChange(newId: string) {
+    if (newId === selectedAssignmentId) return;
+    if (dirty) {
+      const ok = window.confirm(
+        "Nilai belum disimpan. Ganti Kelas dan Mapel akan membuang perubahan. Lanjutkan?"
+      );
+      if (!ok) return;
+    }
+    setSelectedAssignmentId(newId);
+    setDirty(false);
+  }
 
   function setScore(idx: number, field: keyof GradeEntry, value: string) {
     const num = value === "" ? null : Math.max(0, Math.min(100, Number(value)));
@@ -205,7 +227,8 @@ export function GradesPage() {
     setCbtSourceWarning(null);
   }
 
-  function handlePasteExcel(text: string) {
+  // UX-DAILY-07: preview paste Excel dulu, TIDAK langsung apply
+  function handlePastePreview(text: string) {
     const assignment = selectedAssignment();
     if (!assignment) return;
     const roster = rosters.find((r) => r.classId === assignment.classId);
@@ -213,21 +236,47 @@ export function GradesPage() {
 
     const { matched, unmatched } = parseExcelPaste(text, roster.students);
     if (matched.length === 0) {
+      setPastePreview(null);
       setMessage("Tidak ada siswa yang cocok. Pastikan format: No, Nama, KD1-KD6, PTS, PAS.");
       return;
     }
 
+    setPastePreview({
+      matched: matched.map((m) => ({
+        studentName: m.rosterStudent.name,
+        studentNumber: m.rosterStudent.number,
+        scores: m.scores,
+      })),
+      unmatched,
+    });
+    setMessage(`Preview: ${matched.length} siswa cocok, ${unmatched.length} baris tidak cocok. Klik "Terapkan ke Nilai" untuk menyimpan.`);
+  }
+
+  // UX-DAILY-07: apply paste setelah user konfirmasi
+  function handleApplyPaste() {
+    if (!pastePreview) return;
+    // UX-DAILY-07: confirm bila ada unmatched
+    if (pastePreview.unmatched.length > 0) {
+      const ok = window.confirm(
+        `${pastePreview.unmatched.length} baris tidak cocok dengan roster dan akan diabaikan. ` +
+        `Lanjutkan apply ${pastePreview.matched.length} siswa yang cocok?`
+      );
+      if (!ok) return;
+    }
+
+    // Build map studentName → scores dari preview (cari by name di entries)
     const next = [...entries];
-    for (const { rosterStudent, scores } of matched) {
-      const idx = next.findIndex((e) => e.studentId === rosterStudent.id);
+    for (const { studentName, scores } of pastePreview.matched) {
+      const idx = next.findIndex((e) => e.studentName === studentName);
       if (idx >= 0) {
         next[idx] = { ...next[idx], ...scores };
       }
     }
     setEntries(next);
     setDirty(true);
-    const msg = `${matched.length} siswa cocok. ${unmatched.length} baris tidak cocok.`;
-    setMessage(msg);
+    setMessage(`${pastePreview.matched.length} siswa diterapkan ke nilai. Klik Simpan untuk menyimpan permanen.`);
+    setPastePreview(null);
+    setPasteText("");
   }
 
   async function handleSave() {
@@ -293,7 +342,7 @@ export function GradesPage() {
           <EmptyState title="Belum ada Data Mengajar" description="Buka menu Data Mengajar dulu."
             action={<Button variant="secondary" onClick={() => (window.location.hash = "#/assignments")}>Buka Data Mengajar</Button>} />
         ) : (
-          <Select label="Data Mengajar" id="g-assignment" value={selectedAssignmentId} onChange={setSelectedAssignmentId}
+          <Select label="Data Mengajar" id="g-assignment" value={selectedAssignmentId} onChange={handleAssignmentChange}
             options={[{ value: "", label: "-- Pilih --" }, ...assignments.map((a) => ({ value: a.id, label: `${a.classLabel} · ${a.subject} · ${a.teacherName}` }))]} />
         )}
       </Card>
@@ -488,9 +537,64 @@ export function GradesPage() {
 
           {/* Paste Excel multi-kolom */}
           <Card>
-            <CardHeader title="Paste dari Excel" description="Format: No, Nama, KD1, KD2, KD3, KD4, KD5, KD6, PTS, PAS (dipisah tab/koma)." />
-            <Textarea id="paste-grades" label="" value={pasteText} onChange={(v) => { setPasteText(v); if (v.trim()) handlePasteExcel(v); }} rows={5}
+            <CardHeader title="Paste dari Excel" description="Format: No, Nama, KD1, KD2, KD3, KD4, KD5, KD6, PTS, PAS (dipisah tab/koma). Preview dulu sebelum apply." />
+            <Textarea id="paste-grades" label="" value={pasteText} onChange={(v) => { setPasteText(v); setPastePreview(null); if (v.trim()) handlePastePreview(v); }} rows={5}
               placeholder="1    Andi    80      85      75      90      70      85      78      82&#10;2        Budi    70      75      65      80      60      75      68      72" />
+            <div className="flex gap-2 mt-2">
+              <Button variant="secondary" className="text-sm" onClick={handlePastePreview.bind(null, pasteText)} disabled={!pasteText.trim()}>
+                Preview Match
+              </Button>
+              {pastePreview && (
+                <Button className="text-sm" onClick={handleApplyPaste} disabled={pastePreview.matched.length === 0}>
+                  Terapkan ke Nilai ({pastePreview.matched.length} siswa)
+                </Button>
+              )}
+            </div>
+
+            {pastePreview && (
+              <div className="p-3 bg-slate-50 rounded-md space-y-2 mt-2">
+                <div className="flex gap-3 text-sm flex-wrap">
+                  <Badge variant="success">{pastePreview.matched.length} cocok</Badge>
+                  {pastePreview.unmatched.length > 0 && (
+                    <Badge variant="error">{pastePreview.unmatched.length} tidak cocok</Badge>
+                  )}
+                </div>
+                <div className="overflow-x-auto max-h-48">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="border-b border-slate-200 text-left">
+                        <th className="py-1 px-2">Siswa</th>
+                        <th className="py-1 px-2">Nilai (KD/PTS/PAS)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {pastePreview.matched.map((m, i) => (
+                        <tr key={i} className="border-b border-slate-100">
+                          <td className="py-1 px-2">{m.studentNumber}. {m.studentName}</td>
+                          <td className="py-1 px-2 text-slate-600">
+                            {Object.entries(m.scores)
+                              .filter(([, v]) => v !== null && v !== undefined)
+                              .map(([k, v]) => `${k.toUpperCase()}: ${v}`)
+                              .join(", ") || "(kosong)"}
+                          </td>
+                        </tr>
+                      ))}
+                      {pastePreview.unmatched.map((u, i) => (
+                        <tr key={`un-${i}`} className="border-b border-slate-100 bg-rose-50">
+                          <td className="py-1 px-2 text-rose-400">-</td>
+                          <td className="py-1 px-2 text-rose-700">{u}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {pastePreview.unmatched.length > 0 && (
+                  <p className="text-xs text-amber-700">
+                    ⚠ {pastePreview.unmatched.length} baris tidak cocok dengan roster. Bila Anda "Terapkan", baris ini akan diabaikan.
+                  </p>
+                )}
+              </div>
+            )}
           </Card>
         </>
       )}

@@ -13,7 +13,7 @@
  *     tombol "Buat Jurnal" per pertemuan.
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Card, CardHeader, Input, Textarea, Button, EmptyState, Badge, Select, ContextCard, PrintExportButtons } from "../../shared/ui";
 import {
@@ -75,6 +75,28 @@ export function QuickJournalPage() {
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [searchParams] = useSearchParams();
 
+  // UX-DAILY-03: ref untuk auto-scroll ke editor jurnal
+  const editorRef = useRef<HTMLDivElement | null>(null);
+
+  // UX-DAILY-04: clear selectedSessionId saat ganti assignment
+  function handleAssignmentChange(newId: string) {
+    if (selectedSessionId) {
+      const ok = window.confirm(
+        "Ganti Kelas dan Mapel akan menutup jurnal yang sedang diisi. Lanjutkan?"
+      );
+      if (!ok) return;
+    }
+    setSelectedAssignmentId(newId);
+    setSelectedSessionId(null);
+  }
+
+  // UX-DAILY-03: auto-scroll ke editor saat selectedSessionId berubah
+  useEffect(() => {
+    if (selectedSessionId && editorRef.current) {
+      editorRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [selectedSessionId]);
+
   useEffect(() => {
     void (async () => {
       const [y, sp, tp] = await Promise.all([getActiveAcademicYear(), getSchoolProfile(), getTeacherProfile()]);
@@ -90,6 +112,13 @@ export function QuickJournalPage() {
       }
       const urlSessionId = searchParams.get("sessionId");
       if (urlSessionId) setSelectedSessionId(urlSessionId);
+      // UX-DAILY-06: baca ?mode=manual dari URL (dari tombol Today "Jurnal Manual")
+      const urlMode = searchParams.get("mode");
+      if (urlMode === "manual") {
+        setMode("manual");
+      } else if (urlMode === "susulan") {
+        setMode("susulan");
+      }
       setLoading(false);
     })();
   }, []);
@@ -214,7 +243,7 @@ export function QuickJournalPage() {
             label="Data Mengajar"
             id="jrn-assignment"
             value={selectedAssignmentId}
-            onChange={setSelectedAssignmentId}
+            onChange={handleAssignmentChange}
             options={[
               { value: "", label: "-- Pilih --" },
               ...assignments.map((a) => ({
@@ -371,19 +400,20 @@ export function QuickJournalPage() {
                   {recap.pendingMeetings.map((s) => {
                     const isManual = s.teachingScheduleId === "manual" || s.teachingScheduleId === "susulan";
                     const isPast = s.date < todayISODate();
+                    const isActive = selectedSessionId === s.id;
                     return (
-                      <button
+                      <div
                         key={s.id}
-                        onClick={() => {
-                          setDate(s.date);
-                          setSelectedSessionId(s.id);
-                        }}
-                        className={`w-full text-left p-3 border rounded-md ${
-                          isPast ? "border-amber-300 bg-amber-50" : "border-slate-200"
+                        className={`w-full text-left p-3 border rounded-md transition-all ${
+                          isActive
+                            ? "border-brand-500 bg-brand-50 ring-2 ring-brand-200"
+                            : isPast
+                              ? "border-amber-300 bg-amber-50"
+                              : "border-slate-200"
                         }`}
                       >
-                        <div className="flex items-center justify-between">
-                          <div>
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="min-w-0 flex-1">
                             <p className="font-medium text-sm">
                               {formatLongDateID(s.date)}
                             </p>
@@ -392,11 +422,30 @@ export function QuickJournalPage() {
                               {s.plannedUnitId ? " · Punya rencana materi" : ""}
                             </p>
                           </div>
-                          <Badge variant="warning">
-                            {isPast ? "Susulan" : "Belum jurnal"}
-                          </Badge>
+                          <div className="flex items-center gap-2 shrink-0">
+                            {isActive && (
+                              <Badge variant="success">Sedang diisi</Badge>
+                            )}
+                            {!isActive && (
+                              <Badge variant="warning">
+                                {isPast ? "Susulan" : "Belum jurnal"}
+                              </Badge>
+                            )}
+                            {!isActive && (
+                              <Button
+                                variant={isPast ? "primary" : "secondary"}
+                                className="text-xs px-3 py-1"
+                                onClick={() => {
+                                  setDate(s.date);
+                                  setSelectedSessionId(s.id);
+                                }}
+                              >
+                                Buat Jurnal
+                              </Button>
+                            )}
+                          </div>
                         </div>
-                      </button>
+                      </div>
                     );
                   })}
                 </div>
@@ -419,17 +468,21 @@ export function QuickJournalPage() {
           )}
 
           {selectedSessionId && (
-            <QuickJournalEditor
-              sessionId={selectedSessionId}
-              academicYearId={year?.id ?? ""}
-              schoolName={school?.name ?? ""}
-              teacherName={assignment?.teacherName ?? teacher?.name ?? ""}
-              onSaved={(msg) => {
-                setMessage({ type: "success", text: msg });
-                void loadAssignmentData();
-              }}
-              onError={(msg) => setMessage({ type: "error", text: msg })}
-            />
+            <div ref={editorRef}>
+              <QuickJournalEditor
+                sessionId={selectedSessionId}
+                academicYearId={year?.id ?? ""}
+                schoolName={school?.name ?? ""}
+                teacherName={assignment?.teacherName ?? teacher?.name ?? ""}
+                onSaved={(msg) => {
+                  setMessage({ type: "success", text: msg });
+                  void loadAssignmentData();
+                  // UX-DAILY-03: clear selection setelah simpan di mode susulan
+                  if (mode === "susulan") setSelectedSessionId(null);
+                }}
+                onError={(msg) => setMessage({ type: "error", text: msg })}
+              />
+            </div>
           )}
         </>
       )}

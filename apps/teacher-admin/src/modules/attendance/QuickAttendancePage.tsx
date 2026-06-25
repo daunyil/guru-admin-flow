@@ -12,7 +12,7 @@
  *   - Mode Dari Jadwal tetap untuk absen hari ini dari jadwal.
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Card, CardHeader, Input, Select, Button, EmptyState, Badge, ContextCard, InfoCard, PrintExportButtons } from "../../shared/ui";
 import { getLessonSessionsByDate, getLessonSession, findOrCreateManualSession, listLessonSessions } from "../../shared/db/lesson-session-repo";
@@ -69,6 +69,9 @@ export function QuickAttendancePage() {
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [searchParams] = useSearchParams();
 
+  // UX-DAILY-01: ref untuk auto-scroll ke editor saat pertemuan dipilih
+  const editorRef = useRef<HTMLDivElement | null>(null);
+
   useEffect(() => {
     void (async () => {
       const [y, tp] = await Promise.all([getActiveAcademicYear(), getTeacherProfile()]);
@@ -90,6 +93,13 @@ export function QuickAttendancePage() {
         setSelectedSessionId(urlSessionId);
         setMode("jadwal");
       }
+      // UX-DAILY-05: baca ?mode=manual dari URL (dari tombol Today "Absen Manual")
+      const urlMode = searchParams.get("mode");
+      if (urlMode === "manual") {
+        setMode("manual");
+      } else if (urlMode === "susulan") {
+        setMode("susulan");
+      }
       setLoading(false);
     })();
   }, []);
@@ -102,6 +112,30 @@ export function QuickAttendancePage() {
   useEffect(() => {
     void reloadSessions();
   }, [date]);
+
+  // UX-DAILY-01: auto-scroll ke editor saat selectedSessionId berubah
+  useEffect(() => {
+    if (selectedSessionId && editorRef.current) {
+      editorRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [selectedSessionId]);
+
+  // UX-DAILY-02: clear selectedSessionId saat ganti assignment (hindari salah input ke sesi lama)
+  function handleAssignmentChange(newId: string) {
+    if (selectedSessionId) {
+      const ok = window.confirm(
+        "Ganti Kelas dan Mapel akan menutup sesi yang sedang diisi. Lanjutkan?"
+      );
+      if (!ok) return;
+    }
+    setSelectedAssignmentId(newId);
+    setSelectedSessionId(null);
+  }
+
+  // UX-DAILY-01: handler explicit untuk pilih pertemuan susulan
+  function handlePickSusulan(sessionId: string) {
+    setSelectedSessionId(sessionId);
+  }
 
   // PATCH-FLOW-RC2D: load all assignment sessions + attendance for catch-up recap
   async function loadAssignmentCatchupData() {
@@ -289,7 +323,7 @@ export function QuickAttendancePage() {
                 label="Data Mengajar"
                 id="susulan-asg"
                 value={selectedAssignmentId}
-                onChange={setSelectedAssignmentId}
+                onChange={handleAssignmentChange}
                 options={[
                   { value: "", label: "-- Pilih --" },
                   ...assignments.map((a) => ({
@@ -355,27 +389,47 @@ export function QuickAttendancePage() {
                     {recap.pendingMeetings.map((s) => {
                       const isManual = s.teachingScheduleId === "manual" || s.teachingScheduleId === "susulan";
                       const isPast = s.date < todayISODate();
+                      const isActive = selectedSessionId === s.id;
                       return (
-                        <button
+                        <div
                           key={s.id}
-                          onClick={() => setSelectedSessionId(s.id)}
-                          className={`w-full text-left p-3 border rounded-md ${
-                            isPast ? "border-amber-300 bg-amber-50" : "border-slate-200"
+                          className={`w-full text-left p-3 border rounded-md transition-all ${
+                            isActive
+                              ? "border-brand-500 bg-brand-50 ring-2 ring-brand-200"
+                              : isPast
+                                ? "border-amber-300 bg-amber-50"
+                                : "border-slate-200"
                           }`}
                         >
-                          <div className="flex items-center justify-between">
-                            <div>
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="min-w-0 flex-1">
                               <p className="font-medium text-sm">{formatLongDateID(s.date)}</p>
                               <p className="text-xs text-slate-500">
                                 {isManual ? "Manual" : `Jam ${s.startPeriod} · ${s.startTime}–${s.endTime}`}
                                 {s.plannedUnitId ? " · Punya rencana materi" : ""}
                               </p>
                             </div>
-                            <Badge variant="warning">
-                              {isPast ? "Susulan" : "Belum absen"}
-                            </Badge>
+                            <div className="flex items-center gap-2 shrink-0">
+                              {isActive && (
+                                <Badge variant="success">Sedang diisi</Badge>
+                              )}
+                              {!isActive && (
+                                <Badge variant="warning">
+                                  {isPast ? "Susulan" : "Belum absen"}
+                                </Badge>
+                              )}
+                              {!isActive && (
+                                <Button
+                                  variant={isPast ? "primary" : "secondary"}
+                                  className="text-xs px-3 py-1"
+                                  onClick={() => handlePickSusulan(s.id)}
+                                >
+                                  Isi Absen
+                                </Button>
+                              )}
+                            </div>
                           </div>
-                        </button>
+                        </div>
                       );
                     })}
                   </div>
@@ -409,7 +463,7 @@ export function QuickAttendancePage() {
                   label="Data Mengajar"
                   id="manual-asg"
                   value={selectedAssignmentId}
-                  onChange={setSelectedAssignmentId}
+                  onChange={handleAssignmentChange}
                   options={[
                     { value: "", label: "-- Pilih --" },
                     ...assignments.map((a) => ({
@@ -437,18 +491,23 @@ export function QuickAttendancePage() {
 
       {/* Attendance Editor */}
       {selectedSessionId && (
-        <AttendanceEditor
-          sessionId={selectedSessionId}
-          mode={mode === "jadwal" ? "jadwal" : "manual"}
-          date={date}
-          year={year}
-          onSaved={(msg) => {
-            setMessage({ type: "success", text: msg });
-            // Reload catch-up data bila mode susulan
-            if (mode === "susulan") void loadAssignmentCatchupData();
-          }}
-          onError={(msg) => setMessage({ type: "error", text: msg })}
-        />
+        <div ref={editorRef}>
+          <AttendanceEditor
+            sessionId={selectedSessionId}
+            mode={mode === "jadwal" ? "jadwal" : "manual"}
+            date={date}
+            year={year}
+            onSaved={(msg) => {
+              setMessage({ type: "success", text: msg });
+              // UX-DAILY-01: reload catch-up data + clear selection setelah simpan di mode susulan
+              if (mode === "susulan") {
+                void loadAssignmentCatchupData();
+                setSelectedSessionId(null);
+              }
+            }}
+            onError={(msg) => setMessage({ type: "error", text: msg })}
+          />
+        </div>
       )}
     </div>
   );
