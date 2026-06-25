@@ -135,8 +135,17 @@ export function EnrichmentPage() {
     if (!year || !teacher) return;
     const assignment = selectedAssignment();
     if (!assignment) {
-      setMessage({ type: "error", text: "Pilih Data Mengajar dulu." });
+      setMessage({ type: "error", text: "Pilih Kelas dan Mapel dulu." });
       return;
+    }
+    // UX-DOC-08: confirm bila program sudah ada (Susun Ulang akan overwrite edit)
+    if (program) {
+      const ok = window.confirm(
+        "Susun ulang dari nilai terbaru akan mengganti daftar siswa pengayaan " +
+        "dengan data nilai terbaru. Edit manual yang sudah diisi akan dipertahankan " +
+        "untuk siswa yang masih ada. Lanjutkan?"
+      );
+      if (!ok) return;
     }
     try {
       const gb = await findGradeBook({
@@ -235,17 +244,17 @@ export function EnrichmentPage() {
       )}
 
       <Card>
-        <CardHeader title="1. Pilih Data Mengajar" description="Filter siswa dari GradeBook sesuai assignment." />
+        <CardHeader title="1. Pilih Kelas dan Mapel" description="Filter siswa dari GradeBook sesuai assignment." />
         {assignments.length === 0 ? (
           <EmptyState
-            title="Belum ada Data Mengajar"
-            description="Buka menu Data Mengajar untuk membuat assignment dulu."
-            action={<Button variant="secondary" onClick={() => (window.location.hash = "#/assignments")}>Buka Data Mengajar</Button>}
+            title="Belum ada Kelas dan Mapel"
+            description="Buka menu Kelas dan Mapel untuk membuat assignment dulu."
+            action={<Button variant="secondary" onClick={() => (window.location.hash = "#/assignments")}>Buka Kelas dan Mapel</Button>}
           />
         ) : (
           <div className="space-y-3">
             <Select
-              label="Data Mengajar"
+              label="Kelas dan Mapel"
               id="enr-asg"
               value={selectedAssignmentId}
               onChange={setSelectedAssignmentId}

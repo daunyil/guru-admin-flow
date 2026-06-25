@@ -203,19 +203,19 @@ export function TodayPage() {
         </Card>
       ) : (
         <>
-          {/* PATCH-FLOW-RC2C: warning bila belum ada Data Mengajar */}
+          {/* PATCH-FLOW-RC2C: warning bila belum ada Kelas dan Mapel */}
           {assignments.length === 0 && (
             <Card className="border-amber-200 bg-amber-50">
               <div className="flex items-start gap-3">
                 <span className="text-amber-600 text-xl">⚠</span>
                 <div className="flex-1">
-                  <p className="font-semibold text-amber-900">Belum ada Data Mengajar</p>
+                  <p className="font-semibold text-amber-900">Belum ada Kelas dan Mapel</p>
                   <p className="text-sm text-amber-800 mt-1">
-                    Buat Data Mengajar dulu sebelum absen/jurnal/nilai. Assignment mengikat
+                    Buat Kelas dan Mapel dulu sebelum absen/jurnal/nilai. Assignment mengikat
                     guru+mapel+kelas+semester+tahun pelajaran supaya data tidak bercampur.
                   </p>
                   <Link to="/assignments">
-                    <Button variant="secondary" className="text-sm mt-2">Buat Data Mengajar</Button>
+                    <Button variant="secondary" className="text-sm mt-2">Buat Kelas dan Mapel</Button>
                   </Link>
                 </div>
               </div>

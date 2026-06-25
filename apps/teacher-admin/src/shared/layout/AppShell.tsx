@@ -52,7 +52,7 @@ const NAV_GROUPS: NavGroup[] = [
   {
     title: "Perencanaan",
     items: [
-      { to: "/assignments", label: "Data Mengajar", icon: BookMarked },
+      { to: "/assignments", label: "Kelas dan Mapel", icon: BookMarked },
       { to: "/calendar", label: "Kalender Pendidikan", icon: Calendar },
       { to: "/prota", label: "Prota Resmi", icon: ClipboardList },
       { to: "/promes", label: "Promes", icon: FileText },

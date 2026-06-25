@@ -89,6 +89,24 @@ export const DOCUMENT_STATUSES = [
   "locked",
 ] as const;
 
+/**
+ * Label Indonesia untuk DocumentStatus.
+ * UX-PLAN-04: ganti istilah developer (ready_for_review, revised, locked)
+ * dengan bahasa guru.
+ */
+export const DOCUMENT_STATUS_LABELS: Record<string, string> = {
+  draft: "Draf",
+  ready_for_review: "Siap Dicek",
+  final: "Final",
+  revised: "Perlu Revisi",
+  locked: "Dikunci",
+};
+
+/** Helper: dapatkan label Indonesia untuk status dokumen. */
+export function documentStatusLabel(status: string): string {
+  return DOCUMENT_STATUS_LABELS[status] ?? status;
+}
+
 /** Status nilai ringan v0.6. */
 export const GRADE_ENTRY_STATUSES = [
   "complete",

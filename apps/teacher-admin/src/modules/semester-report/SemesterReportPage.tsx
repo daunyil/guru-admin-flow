@@ -2,11 +2,11 @@
  * Modul M08 Laporan Akhir Semester — halaman /semester-report
  * Sumber: docs/PROJECT_CONTRACT.md §4.1 (M08)
  *
- * APP-USABLE-RC1B: pilih Data Mengajar (bukan Prota). Filter data by
+ * APP-USABLE-RC1B: pilih Kelas dan Mapel (bukan Prota). Filter data by
  * assignment 5-tuple (teacherId + subject + classId + semester).
  *
  * Dua mode:
- *   - Mode Kerja: pilih Data Mengajar, generate, lihat summary, finalize
+ *   - Mode Kerja: pilih Kelas dan Mapel, generate, lihat summary, finalize
  *   - Mode Dokumen: format Word/Excel-like, print CSS, tanda tangan
  */
 
@@ -92,6 +92,14 @@ export function SemesterReportPage() {
 
   async function handleGenerate() {
     if (!selectedAssignment) return;
+    // UX-DOC-10: confirm bila laporan sudah ada (Susun ulang akan overwrite)
+    if (report) {
+      const ok = window.confirm(
+        "Susun ulang laporan akan mengganti data laporan yang sudah ada " +
+        "dengan data terbaru. Lanjutkan?"
+      );
+      if (!ok) return;
+    }
     setGenerating(true);
     setError(null);
     try {
@@ -151,18 +159,18 @@ export function SemesterReportPage() {
       <Card>
         <CardHeader
           title="Susun Laporan"
-          description="Pilih Data Mengajar. Laporan akan filter data sesuai assignment (guru + mapel + kelas + semester)."
+          description="Pilih Kelas dan Mapel. Laporan akan filter data sesuai assignment (guru + mapel + kelas + semester)."
         />
         <div className="space-y-3">
           {assignments.length === 0 ? (
             <EmptyState
-              title="Belum ada Data Mengajar"
-              description="Buka menu 'Data Mengajar' untuk membuat assignment dulu."
-              action={<Button variant="secondary" onClick={() => (window.location.hash = "#/assignments")}>Buka Data Mengajar</Button>}
+              title="Belum ada Kelas dan Mapel"
+              description="Buka menu 'Kelas dan Mapel' untuk membuat assignment dulu."
+              action={<Button variant="secondary" onClick={() => (window.location.hash = "#/assignments")}>Buka Kelas dan Mapel</Button>}
             />
           ) : (
             <Select
-              label="Data Mengajar"
+              label="Kelas dan Mapel"
               id="sr-assignment"
               value={selectedAssignmentId}
               onChange={setSelectedAssignmentId}
@@ -232,7 +240,7 @@ function Header({ yearLabel }: { yearLabel?: string }) {
     <div>
       <h1 className="text-2xl font-bold text-slate-900">Laporan Akhir Semester</h1>
       <p className="text-sm text-slate-500 mt-1">
-        {yearLabel ? `Tahun pelajaran: ${yearLabel}` : "Rekap dari jurnal + absensi + sesi per Data Mengajar."}
+        {yearLabel ? `Tahun pelajaran: ${yearLabel}` : "Rekap dari jurnal + absensi + sesi per Kelas dan Mapel."}
       </p>
     </div>
   );

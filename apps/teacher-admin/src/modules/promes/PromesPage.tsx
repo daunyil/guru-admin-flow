@@ -69,27 +69,10 @@ export function PromesPage() {
     })();
   }, []);
 
-  // APP-USABLE-RC1A: auto-generate Promes saat profile+calendar+year sudah ada,
-  // supaya user langsung lihat hasil saat buka menu Program Semester.
-  useEffect(() => {
-    if (!activeYear || profiles.length === 0 || calendar.length === 0) return;
-    if (result) return; // jangan override bila user sudah generate
-    const profile = profiles.find((p) => p.id === selectedProfileId) ?? profiles[0];
-    if (!profile) return;
-    try {
-      const r = generatePromes({
-        prota: profile,
-        academicYear: activeYear,
-        calendar,
-        semester,
-        options,
-      });
-      setResult(r);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Gagal generate Promes otomatis.");
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeYear, selectedProfileId, profiles, calendar]);
+  // UX-PLAN-07: HAPUS auto-generate diam-diam. Guru harus klik "Susun Promes"
+  // secara eksplisit. Sebelumnya useEffect ini auto-generate saat buka halaman,
+  // yang membingungkan guru (data muncul tanpa aksi).
+  // Sekarang: halaman buka kosong, guru pilih Prota + semester + klik "Susun Promes".
 
   async function handleGenerate() {
     if (!activeYear) return;

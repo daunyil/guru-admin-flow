@@ -1,5 +1,5 @@
 /**
- * AssignmentsPage — manage "Data Mengajar".
+ * AssignmentsPage — manage "Kelas dan Mapel".
  *
  * PATCH-FLOW-RC2C: assignment = (academicYearId, semester, teacherId, subject, classId).
  * Halaman ini untuk:
@@ -145,7 +145,7 @@ export function AssignmentsPage() {
   return (
     <div className="space-y-4">
       <div className="page-header">
-        <h1 className="text-2xl font-bold text-slate-900">Data Mengajar</h1>
+        <h1 className="text-2xl font-bold text-slate-900">Kelas dan Mapel</h1>
         <p className="text-sm text-slate-500 mt-1">
           {year ? `TP ${year.label}` : "Belum ada tahun aktif"} · Semester {semester}
         </p>
@@ -184,7 +184,7 @@ export function AssignmentsPage() {
       {/* Add form */}
       {showAddForm && (
         <Card>
-          <CardHeader title="Tambah Data Mengajar" description="Pilih kelas dari roster + isi mapel." />
+          <CardHeader title="Tambah Kelas dan Mapel" description="Pilih kelas dari roster + isi mapel." />
           <div className="grid sm:grid-cols-2 gap-3">
             <Select
               label="Kelas (dari Roster)"
@@ -227,12 +227,12 @@ export function AssignmentsPage() {
       {/* List assignments */}
       <Card>
         <CardHeader
-          title="Daftar Data Mengajar"
+          title="Daftar Kelas dan Mapel"
           description={`${assignments.length} assignment untuk semester ${semester}`}
         />
         {assignments.length === 0 ? (
           <EmptyState
-            title="Belum ada Data Mengajar"
+            title="Belum ada Kelas dan Mapel"
             description="Tambah manual, atau klik 'Auto-Gen dari Jadwal' bila sudah ada jadwal mengajar."
           />
         ) : (
@@ -269,7 +269,7 @@ export function AssignmentsPage() {
 
       {/* Info card */}
       <Card>
-        <CardHeader title="Cara Pakai" description="Kenapa Data Mengajar penting?" />
+        <CardHeader title="Cara Pakai" description="Kenapa Kelas dan Mapel penting?" />
         <div className="text-sm text-slate-700 space-y-2">
           <p>
             <strong>1 assignment = 1 paket mengajar</strong> (guru + mapel + kelas + semester + tahun pelajaran).
