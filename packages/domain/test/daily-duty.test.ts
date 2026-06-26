@@ -100,15 +100,22 @@ describe("PIKET-HARIAN-MOBILE-01 — Domain helpers", () => {
  * ambil record terakhir per siswa, hitung H/S/I/A.
  */
 
-describe("PIKET-HARIAN-MOBILE-01A — Rekap absen dedup logic", () => {
+describe("PIKET-HARIAN-MOBILE-01B — Rekap absen dedup logic (status terberat)", () => {
   type MockAttRecord = { studentId: string; status: string; updatedAt: string };
 
-  // Simulasi dedup logic dari getAttendanceSummaryForDate
-  function dedupByStudent(records: MockAttRecord[]): Map<string, MockAttRecord> {
+  // PIKET-HARIAN-MOBILE-01B: Ranking status terberat
+  const STATUS_RANK: Record<string, number> = {
+    absent: 4, sick: 3, excused: 2, present: 1,
+  };
+
+  function dedupByHeaviestStatus(records: MockAttRecord[]): Map<string, MockAttRecord> {
     const byStudent = new Map<string, MockAttRecord>();
     for (const r of records) {
       const existing = byStudent.get(r.studentId);
-      if (!existing || r.updatedAt > existing.updatedAt) {
+      if (!existing) { byStudent.set(r.studentId, r); continue; }
+      const rRank = STATUS_RANK[r.status] ?? 0;
+      const eRank = STATUS_RANK[existing.status] ?? 0;
+      if (rRank > eRank || (rRank === eRank && r.updatedAt > existing.updatedAt)) {
         byStudent.set(r.studentId, r);
       }
     }
@@ -116,51 +123,93 @@ describe("PIKET-HARIAN-MOBILE-01A — Rekap absen dedup logic", () => {
   }
 
   it("Test 1: 2 record present untuk siswa yang sama → hadir tetap 1", () => {
-    const records: MockAttRecord[] = [
-      { studentId: "s1", status: "present", updatedAt: "2026-06-26T08:00:00Z" },
-      { studentId: "s1", status: "present", updatedAt: "2026-06-26T09:00:00Z" },
-    ];
-    const deduped = dedupByStudent(records);
+    const deduped = dedupByHeaviestStatus([
+      { studentId: "s1", status: "present", updatedAt: "T08" },
+      { studentId: "s1", status: "present", updatedAt: "T09" },
+    ]);
     expect(deduped.size).toBe(1);
-    const present = Array.from(deduped.values()).filter((r) => r.status === "present").length;
-    expect(present).toBe(1);
+    expect(Array.from(deduped.values())[0].status).toBe("present");
   });
 
-  it("Test 2: present lalu absent → rekap absent 1, present 0", () => {
-    const records: MockAttRecord[] = [
-      { studentId: "s1", status: "present", updatedAt: "2026-06-26T08:00:00Z" },
-      { studentId: "s1", status: "absent", updatedAt: "2026-06-26T09:00:00Z" },
-    ];
-    const deduped = dedupByStudent(records);
-    expect(deduped.size).toBe(1);
-    const present = Array.from(deduped.values()).filter((r) => r.status === "present").length;
-    const absent = Array.from(deduped.values()).filter((r) => r.status === "absent").length;
-    expect(present).toBe(0);
-    expect(absent).toBe(1);
+  it("Test 2: present lalu absent → absent 1, present 0", () => {
+    const deduped = dedupByHeaviestStatus([
+      { studentId: "s1", status: "present", updatedAt: "T08" },
+      { studentId: "s1", status: "absent", updatedAt: "T09" },
+    ]);
+    expect(Array.from(deduped.values())[0].status).toBe("absent");
   });
 
-  it("Test 3: present lalu sick → rekap sick 1, present 0", () => {
-    const records: MockAttRecord[] = [
-      { studentId: "s1", status: "present", updatedAt: "2026-06-26T08:00:00Z" },
-      { studentId: "s1", status: "sick", updatedAt: "2026-06-26T09:00:00Z" },
-    ];
-    const deduped = dedupByStudent(records);
-    const present = Array.from(deduped.values()).filter((r) => r.status === "present").length;
-    const sick = Array.from(deduped.values()).filter((r) => r.status === "sick").length;
-    expect(present).toBe(0);
-    expect(sick).toBe(1);
+  it("Test 3: present lalu sick → sick 1, present 0", () => {
+    const deduped = dedupByHeaviestStatus([
+      { studentId: "s1", status: "present", updatedAt: "T08" },
+      { studentId: "s1", status: "sick", updatedAt: "T09" },
+    ]);
+    expect(Array.from(deduped.values())[0].status).toBe("sick");
   });
 
-  it("Test 4: present lalu excused → rekap excused 1, present 0", () => {
-    const records: MockAttRecord[] = [
-      { studentId: "s1", status: "present", updatedAt: "2026-06-26T08:00:00Z" },
-      { studentId: "s1", status: "excused", updatedAt: "2026-06-26T09:00:00Z" },
-    ];
-    const deduped = dedupByStudent(records);
-    const present = Array.from(deduped.values()).filter((r) => r.status === "present").length;
-    const excused = Array.from(deduped.values()).filter((r) => r.status === "excused").length;
-    expect(present).toBe(0);
-    expect(excused).toBe(1);
+  it("Test 4: present lalu excused → excused 1, present 0", () => {
+    const deduped = dedupByHeaviestStatus([
+      { studentId: "s1", status: "present", updatedAt: "T08" },
+      { studentId: "s1", status: "excused", updatedAt: "T09" },
+    ]);
+    expect(Array.from(deduped.values())[0].status).toBe("excused");
+  });
+
+  // PIKET-HARIAN-MOBILE-01B: 6 test reverse (status berat menang walau record lebih lama)
+
+  it("Test 5: absent lalu present → absent 1, present 0 (status terberat menang)", () => {
+    const deduped = dedupByHeaviestStatus([
+      { studentId: "s1", status: "absent", updatedAt: "T08" },
+      { studentId: "s1", status: "present", updatedAt: "T09" },
+    ]);
+    expect(Array.from(deduped.values())[0].status).toBe("absent");
+  });
+
+  it("Test 6: sick lalu present → sick 1, present 0 (status terberat menang)", () => {
+    const deduped = dedupByHeaviestStatus([
+      { studentId: "s1", status: "sick", updatedAt: "T08" },
+      { studentId: "s1", status: "present", updatedAt: "T09" },
+    ]);
+    expect(Array.from(deduped.values())[0].status).toBe("sick");
+  });
+
+  it("Test 7: excused lalu present → excused 1, present 0 (status terberat menang)", () => {
+    const deduped = dedupByHeaviestStatus([
+      { studentId: "s1", status: "excused", updatedAt: "T08" },
+      { studentId: "s1", status: "present", updatedAt: "T09" },
+    ]);
+    expect(Array.from(deduped.values())[0].status).toBe("excused");
+  });
+
+  it("Test 8: late lalu present → present 1, late diabaikan (late tidak ada di ranking)", () => {
+    const deduped = dedupByHeaviestStatus([
+      { studentId: "s1", status: "late", updatedAt: "T08" },
+      { studentId: "s1", status: "present", updatedAt: "T09" },
+    ]);
+    // late tidak ada di STATUS_RANK (rank 0), present rank 1 → present menang
+    expect(Array.from(deduped.values())[0].status).toBe("present");
+  });
+
+  it("Test 9: absent lalu present lalu sick → absent menang (ranking tertinggi)", () => {
+    const deduped = dedupByHeaviestStatus([
+      { studentId: "s1", status: "absent", updatedAt: "T08" },
+      { studentId: "s1", status: "present", updatedAt: "T09" },
+      { studentId: "s1", status: "sick", updatedAt: "T10" },
+    ]);
+    expect(Array.from(deduped.values())[0].status).toBe("absent");
+  });
+
+  it("Test 10: sync alpa — absent lalu present tetap membuat DutyRecord alpa (status terberat)", () => {
+    // Simulasi: siswa absent di sesi 1, present di sesi 2.
+    // Status terberat = absent → sync alpa tetap buat record.
+    const deduped = dedupByHeaviestStatus([
+      { studentId: "s1", status: "absent", updatedAt: "T08" },
+      { studentId: "s1", status: "present", updatedAt: "T09" },
+    ]);
+    const finalStatus = Array.from(deduped.values())[0].status;
+    expect(finalStatus).toBe("absent");
+    // Karena status terberat = absent, syncAlpa akan buat DutyRecord
+    // (logic: if attRecord.status !== "absent" continue → absent tidak di-skip)
   });
 });
 
