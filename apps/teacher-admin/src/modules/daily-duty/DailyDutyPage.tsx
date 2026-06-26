@@ -13,10 +13,10 @@ import {
   listDutyRules, seedDefaultDutyRulesIfEmpty,
   findOrCreateDutyReport, getDutyReportByDate, updateDutyReportNote, finalizeDutyReport, unlockDutyReport,
   addDutyRecord, deleteDutyRecord, listDutyRecordsByDate, listDutyRecordsByStudent,
-  getAttendanceSummaryForDate, syncAlpaFromAttendance,
+  getAttendanceDetailForDate, syncAlpaFromAttendance,
 } from "../../shared/db/daily-duty-repo";
-import type { DutyRule, DutyRecord, ClassAttendanceSummary } from "@guru-admin/domain";
-import { getStudentDutyStatus, summarizeDutyRecords } from "@guru-admin/domain";
+import type { DutyRule, DutyRecord, ClassAttendanceDetail } from "@guru-admin/domain";
+import { getStudentDutyStatus, summarizeDutyRecords, formatSIADetail } from "@guru-admin/domain";
 import type { AcademicYear, TeacherProfile, ClassRoster } from "@guru-admin/domain";
 
 type Tab = "catat" | "rekap" | "catatan" | "riwayat" | "cetak";
@@ -30,7 +30,7 @@ export function DailyDutyPage() {
   const [rules, setRules] = useState<DutyRule[]>([]);
   const [rosters, setRosters] = useState<ClassRoster[]>([]);
   const [records, setRecords] = useState<DutyRecord[]>([]);
-  const [attendanceSummary, setAttendanceSummary] = useState<ClassAttendanceSummary[]>([]);
+  const [attendanceDetail, setAttendanceDetail] = useState<ClassAttendanceDetail[]>([]);
   const [reportNote, setReportNote] = useState("");
   const [reportFinalized, setReportFinalized] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -57,13 +57,13 @@ export function DailyDutyPage() {
 
   async function loadData() {
     if (!year) return;
-    const [recs, summary, report] = await Promise.all([
+    const [recs, detail, report] = await Promise.all([
       listDutyRecordsByDate(year.id, date),
-      getAttendanceSummaryForDate({ academicYearId: year.id, date }),
+      getAttendanceDetailForDate({ academicYearId: year.id, date }),
       getDutyReportByDate(year.id, date),
     ]);
     setRecords(recs);
-    setAttendanceSummary(summary);
+    setAttendanceDetail(detail);
     if (report) { setReportNote(report.note ?? ""); setReportFinalized(report.finalized); }
     else { setReportNote(""); setReportFinalized(false); }
   }
@@ -228,22 +228,32 @@ export function DailyDutyPage() {
       {/* TAB: Rekap Kehadiran */}
       {tab === "rekap" && (
         <Card>
-          <CardHeader title="Rekap Kehadiran Hari Ini" description="Dari absen utama (read-only)." />
-          {attendanceSummary.length === 0 ? (
+          <CardHeader title="Rekap Kehadiran Hari Ini" description="Dari absen utama (read-only). Nama siswa Hadir tidak ditampilkan." />
+          {attendanceDetail.length === 0 ? (
             <EmptyState title="Belum ada data" description="Belum ada kelas/roster." />
           ) : (
-            <div className="space-y-2">
-              {attendanceSummary.map((s) => (
-                <div key={s.classId} className="p-3 border rounded-lg flex items-center justify-between">
-                  <span className="font-medium text-sm">{s.classLabel}</span>
-                  {s.source === "empty" ? (
-                    <Badge variant="warning">Absen belum diisi</Badge>
-                  ) : (
-                    <div className="flex gap-2 text-xs">
-                      <Badge variant="success">H {s.present}</Badge>
-                      <Badge variant="warning">S {s.sick}</Badge>
-                      <Badge variant="neutral">I {s.excused}</Badge>
-                      <Badge variant="error">A {s.absent}</Badge>
+            <div className="space-y-3">
+              {attendanceDetail.map((s) => (
+                <div key={s.classId} className="p-3 border rounded-lg">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-medium text-sm">{s.classLabel}</span>
+                    {s.source === "empty" ? (
+                      <Badge variant="warning">Absen belum diisi</Badge>
+                    ) : (
+                      <div className="flex gap-2 text-xs">
+                        <Badge variant="success">H {s.present}</Badge>
+                        <Badge variant="warning">S {s.sick}</Badge>
+                        <Badge variant="neutral">I {s.excused}</Badge>
+                        <Badge variant="error">A {s.absent}</Badge>
+                      </div>
+                    )}
+                  </div>
+                  {/* PIKET-REPORT-APPSCRIPT-PARITY-02A: nama siswa S/I/A */}
+                  {s.source === "attendance" && (s.sick > 0 || s.excused > 0 || s.absent > 0) && (
+                    <div className="text-xs text-slate-600 space-y-0.5">
+                      {s.sickStudents.length > 0 && <p>Sakit: {s.sickStudents.join(", ")}</p>}
+                      {s.excusedStudents.length > 0 && <p>Izin: {s.excusedStudents.join(", ")}</p>}
+                      {s.absentStudents.length > 0 && <p>Alpa: {s.absentStudents.join(", ")}</p>}
                     </div>
                   )}
                 </div>
@@ -336,15 +346,17 @@ export function DailyDutyPage() {
               </table>
               <div className="document-section-title">A. REKAP KEHADIRAN</div>
               <table className="document-table">
-                <thead><tr><th>Kelas</th><th>Hadir</th><th>Sakit</th><th>Izin</th><th>Alpa</th></tr></thead>
+                <thead><tr><th>No</th><th>Kelas</th><th>H</th><th>S</th><th>I</th><th>A</th><th>Daftar Siswa S/I/A</th></tr></thead>
                 <tbody>
-                  {attendanceSummary.map((s) => (
+                  {attendanceDetail.map((s, i) => (
                     <tr key={s.classId}>
+                      <td className="text-center">{i + 1}</td>
                       <td>{s.classLabel}</td>
                       <td className="text-center">{s.source === "empty" ? "-" : s.present}</td>
                       <td className="text-center">{s.source === "empty" ? "-" : s.sick}</td>
                       <td className="text-center">{s.source === "empty" ? "-" : s.excused}</td>
                       <td className="text-center">{s.source === "empty" ? "-" : s.absent}</td>
+                      <td>{s.source === "empty" ? "—" : formatSIADetail(s)}</td>
                     </tr>
                   ))}
                 </tbody>

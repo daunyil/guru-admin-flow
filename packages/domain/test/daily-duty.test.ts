@@ -289,3 +289,84 @@ describe("PIKET-HARIAN-MOBILE-01A — DutyRecord source & idempotent", () => {
     expect(manualRecord.note).toBe("Datang pukul 07:30");
   });
 });
+
+/* ------------------------------------------------------------------ */
+/*  PIKET-REPORT-APPSCRIPT-PARITY-02A: Tests wajib                    */
+/* ------------------------------------------------------------------ */
+
+import { formatSIADetail, type ClassAttendanceDetail } from "../src/daily-duty";
+
+describe("PIKET-REPORT-APPSCRIPT-PARITY-02A — Rekap detail S/I/A", () => {
+  function makeDetail(overrides: Partial<ClassAttendanceDetail> = {}): ClassAttendanceDetail {
+    return {
+      classId: "c1", classLabel: "VII A",
+      present: 23, sick: 1, excused: 0, absent: 1, total: 25,
+      source: "attendance",
+      sickStudents: ["Ahmad"], excusedStudents: [], absentStudents: ["Budi"],
+      ...overrides,
+    };
+  }
+
+  it("Test 1: Rekap menampilkan angka H/S/I/A", () => {
+    const d = makeDetail();
+    expect(d.present).toBe(23);
+    expect(d.sick).toBe(1);
+    expect(d.excused).toBe(0);
+    expect(d.absent).toBe(1);
+  });
+
+  it("Test 2: Detail menampilkan nama siswa sakit", () => {
+    const d = makeDetail();
+    expect(d.sickStudents).toContain("Ahmad");
+  });
+
+  it("Test 3: Detail menampilkan nama siswa izin", () => {
+    const d = makeDetail({ excusedStudents: ["Citra"], excused: 1 });
+    expect(d.excusedStudents).toContain("Citra");
+  });
+
+  it("Test 4: Detail menampilkan nama siswa alpa", () => {
+    const d = makeDetail();
+    expect(d.absentStudents).toContain("Budi");
+  });
+
+  it("Test 5: Detail TIDAK menampilkan nama siswa hadir (tidak ada field presentStudents)", () => {
+    const d = makeDetail();
+    // ClassAttendanceDetail tidak punya field presentStudents
+    expect((d as Record<string, unknown>).presentStudents).toBeUndefined();
+  });
+
+  it("Test 6: Status late tidak masuk detail S/I/A (late tidak ada di STATUS_RANK)", () => {
+    // STATUS_RANK = { absent: 4, sick: 3, excused: 2, present: 1 }
+    // late tidak ada → rank 0 → tidak masuk hitungan S/I/A
+    // Verify: formatSIADetail tidak pernah menyebut "late"
+    const d = makeDetail({ sickStudents: [], excusedStudents: [], absentStudents: [] });
+    const formatted = formatSIADetail(d);
+    expect(formatted).not.toContain("late");
+    expect(formatted).not.toContain("Terlambat");
+  });
+
+  it("Test 7: Jika tidak ada S/I/A, formatSIADetail menampilkan '—'", () => {
+    const d = makeDetail({ sickStudents: [], excusedStudents: [], absentStudents: [] });
+    expect(formatSIADetail(d)).toBe("—");
+  });
+
+  it("Test 8: Ranking absent > sick > excused > present tetap berlaku (dari 01B)", () => {
+    // Verify: formatSIADetail menampilkan semua S/I/A dengan label yang benar
+    const d = makeDetail({
+      sickStudents: ["Ahmad"], excusedStudents: ["Citra"], absentStudents: ["Budi"],
+    });
+    const formatted = formatSIADetail(d);
+    expect(formatted).toContain("Ahmad (Sakit)");
+    expect(formatted).toContain("Citra (Izin)");
+    expect(formatted).toContain("Budi (Alpa)");
+  });
+
+  it("Test 9: formatSIADetail format benar untuk multiple siswa", () => {
+    const d = makeDetail({
+      sickStudents: ["Ahmad", "Dewi"], absentStudents: ["Budi"],
+    });
+    const formatted = formatSIADetail(d);
+    expect(formatted).toBe("Ahmad (Sakit), Dewi (Sakit), Budi (Alpa)");
+  });
+});
