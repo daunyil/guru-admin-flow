@@ -46,7 +46,7 @@ export const DAY_LABELS_ID: Record<number, string> = {
   3: "Rabu",
   4: "Kamis",
   5: "Jumat",
-  6: "Jum'at",
+  6: "Sabtu",
   7: "Minggu",
 };
 
