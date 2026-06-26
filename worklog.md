@@ -138,3 +138,61 @@ Stage Summary:
 - Tidak ada perubahan schema data; `DATA_SCHEMA_VERSION` tetap 7.
 - Tidak ada fitur baru ditambahkan pada release lock.
 - Dokumen release dan panduan operasional sudah tersedia untuk handover.
+
+---
+
+Task ID: PIKET-QUICK-INPUT-LIST-02B
+Agent: main (sprint owner)
+Task: Polish form input Piket menjadi list-based smart search. Cari siswa → kelas otomatis mengikuti siswa. Cari pelanggaran → poin otomatis tampil. Simpan catatan. Bukan wizard, bukan chip kecil berantakan.
+
+Work Log:
+- Fetch origin main ke local sprint0-push (local sebelumnya di f2ccc3d, remote di 1741087 — fast-forward 12 sprint).
+- Baca DailyDutyPage.tsx (catat tab lama: Select kelas + Select siswa + chip kecil jenis catatan + Textarea + Simpan), daily-duty.ts (domain), daily-duty-repo.ts, daily-duty.test.ts (27 test lama).
+- Tambah helper di packages/domain/src/daily-duty.ts:
+  - normalizeSearchText(): lowercase + NFD + hapus diakritik (\p{Diacritic}) + collapse whitespace + trim
+  - matchSmartSearch(): tiap kata query (split " ") harus include di target (case-insensitive via normalize)
+  - DUTY_RULE_SEARCH_KEYWORDS: Record<DutyRecordType, string[]> — sinonim per type (late: terlambat/telat/lambat; absent_without_notice: alpa/absen/tidak hadir/tidak masuk; incomplete_uniform: seragam/atribut/baju/topi/dasi/sepatu; class_disruption: ribut/gaduh/mengganggu; fight: berkelahi/kelahi/berantem/pukul; dll)
+  - makeRuleSearchTarget(rule): gabungan label + category + type + points + keywords
+  - searchDutyRules(rules, query): filter rule pakai matchSmartSearch
+  - StudentSearchable interface: { id, name, number?, nis?, nisn?, classId, classLabel }
+  - makeStudentSearchTarget(student): gabungan name + number + nis + nisn + classLabel
+  - searchStudents<T extends StudentSearchable>(students, query): filter siswa
+  - validateDutyRecordInput({ selectedStudent, selectedRule, note }): { ok: true } | { ok: false, message }
+- Export helper baru dari packages/domain/src/index.ts.
+- Tambah 27 test di packages/domain/test/daily-duty.test.ts dalam 4 describe block:
+  - "Search siswa cerdas" (8 tests): case-insensitive, penggalan, nama tengah/belakang, beberapa kata "muh st", nomor "18", class mengikuti siswa, query kosong, NIS
+  - "Search pelanggaran cerdas" (8 tests): case-insensitive, "telat"→Terlambat, "seragam"→Atribut, "tidak masuk"→Alpa, "10"→aturan 10 poin, sinonim berkelahi/berantem/kelahi, "gaduh"→Ribut, query kosong
+  - "Poin otomatis & validasi" (5 tests): poin dari DutyRule.points, Lainnya wajib catatan, siswa wajib, pelanggaran wajib, rule non-Lainnya tidak wajib catatan
+  - "Helper primitives" (6 tests): normalizeSearchText diakritik, normalizeSearchText whitespace, matchSmartSearch semua kata, DUTY_RULE_SEARCH_KEYWORDS lengkap untuk 10 type, makeRuleSearchTarget gabungan, makeStudentSearchTarget gabungan (pakai normalizeSearchText untuk assertion)
+- Refactor DailyDutyPage.tsx tab "Catat":
+  - State baru: catatClassFilter ("all" | classId), studentQuery, ruleQuery, selectedStudent (StudentSearchable | null), selectedRule (DutyRule | null). Catatan/tindakLanjut tetap.
+  - State riwayat dipecah jadi riwayatClassId/riwayatStudentId (tidak ikut dirombak — out of scope).
+  - allStudents = useMemo flatMap rosters → StudentSearchable[] (classId/classLabel dari roster siswa, bukan filter)
+  - filteredStudents = useMemo searchStudents(byClass, studentQuery)
+  - filteredRules = useMemo searchDutyRules(rules, ruleQuery)
+  - handleCatat pakai validateDutyRecordInput, lalu addDutyRecord dengan classId/classLabel dari selectedStudent, points dari selectedRule
+  - UI: filter kelas (chips Semua + rosters), search siswa (input + list 50 max dengan overflow hint), search pelanggaran (input + list), ringkasan (selectedStudent.name + classLabel, selectedRule.label + points), Textarea catatan (label dinamis: wajib untuk Lainnya), Textarea tindak lanjut, Button Simpan
+  - Klik siswa reset pelanggaran + catatan (poin tergantung rule, harus konsisten)
+  - Helper categoryLabel(category) → label Bahasa Indonesia (Kehadiran, Kedisiplinan, Kesehatan, Izin, Lainnya)
+- Run gates di sprint0-push:
+  - typecheck PASS (3 workspaces)
+  - test PASS (559 tests, +27 baru untuk 02B)
+  - build PASS (1,116 KB JS, 36 KB CSS — same as before, code-split deferred per non-goals)
+- Commit ad0a911, push ke origin/main (1741087..ad0a911).
+
+Stage Summary:
+- Input Piket tidak lagi berupa chip kecil berantakan. Sekarang list-based smart search.
+- Guru bisa mencari siswa dari semua kelas (filter kelas "Semua") atau persempit per kelas.
+- Kelas otomatis mengikuti siswa: classId/classLabel di DutyRecord mengikuti roster siswa, BUKAN filter dropdown.
+- Search siswa cerdas: case-insensitive, penggalan, nama tengah/belakang, beberapa kata ("muh st"), nomor siswa ("18"), NIS.
+- Search pelanggaran cerdas: case-insensitive, sinonim ("telat"→Terlambat, "seragam"→Atribut, "tidak masuk"→Alpa, "berantem"→Berkelahi, "gaduh"→Ribut), bisa cari by poin ("10").
+- Poin pelanggaran otomatis dari DutyRule.points. Tidak diketik manual.
+- Ringkasan sebelum simpan: nama siswa + kelas + label pelanggaran + poin.
+- Validasi terpusat di domain (validateDutyRecordInput): siswa wajib, pelanggaran wajib, "Lainnya" wajib catatan.
+- Simpan tetap menghasilkan DutyRecord manual (source="manual", attendanceLinkType=null). Tidak ada perubahan schema database.
+- Riwayat tab tidak dirombak (tetap Select-based — out of scope sprint ini).
+- Schema Dexie TIDAK berubah. Tidak ada migrasi.
+- File changed: 4 files, +681/-45 lines.
+- Test count: 532 (lama) + 27 (baru) = 559 PASS.
+- Commit: ad0a911 (pushed to origin/main).
+- READY FOR SENIOR AUDIT.
