@@ -13,7 +13,7 @@ import {
   listDutyRules, seedDefaultDutyRulesIfEmpty,
   findOrCreateDutyReport, getDutyReportByDate, updateDutyReportNote, finalizeDutyReport, unlockDutyReport,
   addDutyRecord, deleteDutyRecord, listDutyRecordsByDate, listDutyRecordsByStudent,
-  getAttendanceSummaryForDate,
+  getAttendanceSummaryForDate, syncAlpaFromAttendance,
 } from "../../shared/db/daily-duty-repo";
 import type { DutyRule, DutyRecord, ClassAttendanceSummary } from "@guru-admin/domain";
 import { getStudentDutyStatus, summarizeDutyRecords } from "@guru-admin/domain";
@@ -91,7 +91,9 @@ export function DailyDutyPage() {
       studentId: student.id, studentName: student.name, studentNumber: student.number,
       classId: selectedClassId, classLabel: roster?.classLabel ?? "",
       category: rule.category, type: rule.type, ruleId: rule.id, ruleLabel: rule.label,
-      points: rule.points, note: catatan || undefined, followUp: tindakLanjut || undefined,
+      points: rule.points,
+      source: "manual", attendanceLinkType: null, // PIKET-HARIAN-MOBILE-01A Fix 4: terlambat = manual
+      note: catatan || undefined, followUp: tindakLanjut || undefined,
       recordedByTeacherId: teacher.id, recordedByTeacherName: teacher.name,
     });
     setMessage(`Catatan tersimpan: ${student.name} — ${rule.label} (${rule.points} poin).`);
@@ -122,6 +124,22 @@ export function DailyDutyPage() {
     await unlockDutyReport(report.id);
     setReportFinalized(false);
     setMessage("Laporan dibuka untuk revisi.");
+  }
+
+  async function handleSyncAlpa() {
+    if (!year || !teacher) return;
+    if (reportFinalized) { setMessage("Laporan sudah difinalisasi. Buka revisi dulu."); return; }
+    const ok = window.confirm(
+      "Sinkron Alpa dari Absen? Siswa dengan status 'Alpa' di absen utama " +
+      "akan dibuat catatan piket (10 poin). Catatan yang sudah ada tidak akan dobel."
+    );
+    if (!ok) return;
+    const result = await syncAlpaFromAttendance({
+      academicYearId: year.id, date,
+      dutyTeacherId: teacher.id, dutyTeacherName: teacher.name,
+    });
+    setMessage(`Sinkron Alpa: ${result.created} baru, ${result.skipped} sudah ada (skip).`);
+    void loadData();
   }
 
   async function handleSaveNote() {
@@ -259,6 +277,7 @@ export function DailyDutyPage() {
             <Textarea label="Catatan Umum Guru Piket" id="duty-report-note" value={reportNote} onChange={setReportNote} rows={3} />
             <div className="flex gap-2">
               <Button variant="secondary" className="text-sm" onClick={handleSaveNote} disabled={reportFinalized}>Simpan Catatan</Button>
+              {!reportFinalized && <Button variant="secondary" className="text-sm" onClick={handleSyncAlpa}>Sinkron Alpa dari Absen</Button>}
               {!reportFinalized ? <Button className="text-sm" onClick={handleFinalize}>Finalisasi</Button> : <Button variant="secondary" className="text-sm" onClick={handleUnlock}>Buka Revisi</Button>}
             </div>
           </div>

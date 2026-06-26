@@ -124,12 +124,18 @@ export async function addDutyRecord(args: {
   ruleId?: string;
   ruleLabel: string;
   points: number;
+  source?: DutyRecord["source"];
+  attendanceLinkType?: DutyRecord["attendanceLinkType"];
   note?: string;
   followUp?: string;
   recordedByTeacherId: string;
   recordedByTeacherName: string;
 }): Promise<DutyRecord> {
-  const entity = createEntity(args) as DutyRecord;
+  const entity = createEntity({
+    ...args,
+    source: args.source ?? "manual",
+    attendanceLinkType: args.attendanceLinkType ?? null,
+  }) as DutyRecord;
   await db.dailyDutyRecords.put(entity);
   return entity;
 }
@@ -203,7 +209,18 @@ export async function getAttendanceSummaryForDate(args: {
       (r) => !r.deletedAt && r.date === args.date
     );
 
-    if (dayRecords.length === 0) {
+    // PIKET-HARIAN-MOBILE-01A Fix 1: dedup by studentId — ambil record terakhir per siswa
+    // Sebelumnya: 2 record present untuk siswa yang sama dihitung 2x.
+    // Sekarang: group by studentId, ambil record dengan updatedAt terbaru.
+    const byStudent = new Map<string, typeof dayRecords[number]>();
+    for (const r of dayRecords) {
+      const existing = byStudent.get(r.studentId);
+      if (!existing || (r.updatedAt ?? "") > (existing.updatedAt ?? "")) {
+        byStudent.set(r.studentId, r);
+      }
+    }
+
+    if (byStudent.size === 0) {
       summaries.push({
         classId: roster.classId,
         classLabel: roster.classLabel,
@@ -212,10 +229,11 @@ export async function getAttendanceSummaryForDate(args: {
         source: "empty",
       });
     } else {
-      const present = dayRecords.filter((r) => r.status === "present").length;
-      const sick = dayRecords.filter((r) => r.status === "sick").length;
-      const excused = dayRecords.filter((r) => r.status === "excused").length;
-      const absent = dayRecords.filter((r) => r.status === "absent").length;
+      // PIKET-HARIAN-MOBILE-01A Fix 2: rekap hanya H/S/I/A (tidak ada kolom Terlambat)
+      const present = Array.from(byStudent.values()).filter((r) => r.status === "present").length;
+      const sick = Array.from(byStudent.values()).filter((r) => r.status === "sick").length;
+      const excused = Array.from(byStudent.values()).filter((r) => r.status === "excused").length;
+      const absent = Array.from(byStudent.values()).filter((r) => r.status === "absent").length;
       summaries.push({
         classId: roster.classId,
         classLabel: roster.classLabel,
@@ -227,4 +245,109 @@ export async function getAttendanceSummaryForDate(args: {
   }
 
   return summaries;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Sync Alpa from Attendance (PIKET-HARIAN-MOBILE-01A Fix 3)         */
+/* ------------------------------------------------------------------ */
+
+/**
+ * PIKET-HARIAN-MOBILE-01A Fix 3: Sinkron Alpa dari absen utama.
+ *
+ * Baca attendanceRecords untuk tanggal tertentu, cari siswa dengan status "absent",
+ * buat DutyRecord dengan type "absent_without_notice", points 10, source "attendance",
+ * attendanceLinkType "absent_auto".
+ *
+ * IDEMPOTENT: bila sudah ada DutyRecord dengan attendanceLinkType "absent_auto"
+ * untuk siswa+tanggal yang sama, skip (tidak dobel).
+ *
+ * Return: jumlah record baru yang dibuat.
+ */
+export async function syncAlpaFromAttendance(args: {
+  academicYearId: string;
+  date: string;
+  dutyTeacherId: string;
+  dutyTeacherName: string;
+}): Promise<{ created: number; skipped: number; total: number }> {
+  const rosters = await listClassRosters(args.academicYearId);
+  const report = await findOrCreateDutyReport({
+    academicYearId: args.academicYearId,
+    date: args.date,
+    dutyTeacherId: args.dutyTeacherId,
+    dutyTeacherName: args.dutyTeacherName,
+  });
+
+  // Cari existing absent_auto records untuk tanggal ini (idempotent check)
+  const existingRecords = await listDutyRecordsByDate(args.academicYearId, args.date);
+  const existingAbsentAutoStudentIds = new Set(
+    existingRecords
+      .filter((r) => r.attendanceLinkType === "absent_auto")
+      .map((r) => r.studentId)
+  );
+
+  // Cari rule absent_without_notice
+  const allRules = await listAllDutyRules();
+  const absentRule = allRules.find((r) => r.type === "absent_without_notice");
+  if (!absentRule) {
+    return { created: 0, skipped: 0, total: 0 };
+  }
+
+  let created = 0;
+  let skipped = 0;
+
+  for (const roster of rosters) {
+    if (!roster.students || roster.students.length === 0) continue;
+    // READ-ONLY: baca attendanceRecords
+    const records = await db.attendanceRecords
+      .where("classId")
+      .equals(roster.classId)
+      .toArray();
+    const dayRecords = records.filter(
+      (r) => !r.deletedAt && r.date === args.date
+    );
+
+    // Dedup by studentId (ambil record terakhir)
+    const byStudent = new Map<string, typeof dayRecords[number]>();
+    for (const r of dayRecords) {
+      const existing = byStudent.get(r.studentId);
+      if (!existing || (r.updatedAt ?? "") > (existing.updatedAt ?? "")) {
+        byStudent.set(r.studentId, r);
+      }
+    }
+
+    // Buat DutyRecord untuk siswa absent
+    for (const [studentId, attRecord] of byStudent) {
+      if (attRecord.status !== "absent") continue;
+      if (existingAbsentAutoStudentIds.has(studentId)) {
+        skipped++;
+        continue;
+      }
+      const student = roster.students.find((s) => s.id === studentId);
+      if (!student) continue;
+
+      await addDutyRecord({
+        dutyReportId: report.id,
+        academicYearId: args.academicYearId,
+        date: args.date,
+        studentId,
+        studentName: attRecord.studentName,
+        studentNumber: attRecord.studentNumber,
+        classId: roster.classId,
+        classLabel: roster.classLabel,
+        category: "attendance",
+        type: "absent_without_notice",
+        ruleId: absentRule.id,
+        ruleLabel: absentRule.label,
+        points: absentRule.points,
+        source: "attendance",
+        attendanceLinkType: "absent_auto",
+        note: "Disinkron dari absen utama (alpa)",
+        recordedByTeacherId: args.dutyTeacherId,
+        recordedByTeacherName: args.dutyTeacherName,
+      });
+      created++;
+    }
+  }
+
+  return { created, skipped, total: created + skipped };
 }
