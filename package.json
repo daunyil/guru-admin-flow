@@ -1,8 +1,8 @@
 {
   "name": "guru-admin-flow",
-  "version": "0.5.1",
+  "version": "1.0.0",
   "private": true,
-  "description": "Asisten administrasi guru — local-first PWA. Sprint 1: fondasi aplikasi lokal.",
+  "description": "Asisten administrasi guru — local-first PWA v1.0 stable.",
   "workspaces": [
     "apps/*",
     "packages/*"
