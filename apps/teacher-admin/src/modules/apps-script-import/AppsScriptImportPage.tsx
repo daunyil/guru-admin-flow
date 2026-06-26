@@ -314,9 +314,33 @@ export function AppsScriptImportPage() {
               <PreviewStat label="Nilai" value={preview.counts.nilai} />
             </div>
 
-            {validation.warnings.length > 0 && (
+            {/* APPS-SCRIPT-IMPORT-ADAPTER-01: daftar kelas+mapel unik */}
+            {preview.uniqueClasses.length > 0 && (
+              <div className="p-3 bg-white rounded-md">
+                <p className="text-xs font-semibold text-slate-600 mb-2">Kelas dan Mapel yang akan diproses:</p>
+                <div className="flex gap-2 flex-wrap">
+                  {preview.uniqueClasses.map((c, i) => (
+                    <Badge key={i} variant="neutral">{c.classLabel} · {c.subject} · {c.teacherName}</Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* APPS-SCRIPT-IMPORT-ADAPTER-01: warning duplikat + missing class */}
+            {preview.warnings.length > 0 && (
               <div className="p-3 bg-amber-50 rounded-md text-sm text-amber-800">
                 <p className="font-semibold">Peringatan:</p>
+                <ul className="list-disc pl-5 mt-1">
+                  {preview.warnings.map((w, i) => (
+                    <li key={i}>{w}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {validation.warnings.length > 0 && (
+              <div className="p-3 bg-amber-50 rounded-md text-sm text-amber-800">
+                <p className="font-semibold">Peringatan Validasi:</p>
                 <ul className="list-disc pl-5 mt-1">
                   {validation.warnings.map((w, i) => (
                     <li key={i}>{w}</li>
