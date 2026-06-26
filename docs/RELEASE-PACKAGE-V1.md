@@ -4,7 +4,8 @@
 - **APP_VERSION**: 1.0.0
 - **DATA_SCHEMA_VERSION**: 7
 - **Tanggal Release**: 2026-06-26
-- **Commit**: `5a0150ca0a929aaa4754758a43e724f284006a74`
+- **Commit**: `9c157a63f6ed50990e41f021f141ffe2753194f6`
+- **Catatan**: v1.0.0 adalah baseline code-complete sebelum field test. Patch dokumentasi setelah tag dicatat sebagai RELEASE-PACKAGE-01B.
 
 ---
 

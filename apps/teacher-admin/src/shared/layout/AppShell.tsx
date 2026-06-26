@@ -188,13 +188,13 @@ export function AppShell({ children }: { children: ReactNode }) {
                       : "bg-slate-100 text-slate-500"
               }`}
               title={
-                syncStatus === "cloud-active" ? "Tersinkron dengan cloud"
+                syncStatus === "cloud-active" ? "Cloud aktif / user terhubung"
                 : syncStatus === "cloud-error" ? `${syncErrors.length} error sync`
                 : syncStatus === "offline" ? "Cloud belum dikonfigurasi / belum login"
                 : "Mode lokal (offline)"
               }
             >
-              {syncStatus === "cloud-active" ? "☁ Tersinkron" : syncStatus === "cloud-error" ? `⚠ ${syncErrors.length} error` : syncStatus === "offline" ? "☁ Offline" : "📱 Lokal"}
+              {syncStatus === "cloud-active" ? "☁ Cloud aktif" : syncStatus === "cloud-error" ? `⚠ ${syncErrors.length} error` : syncStatus === "offline" ? "☁ Offline" : "📱 Lokal"}
             </button>
             <button
               onClick={() => navigate("/backup")}
