@@ -196,3 +196,66 @@ Stage Summary:
 - Test count: 532 (lama) + 27 (baru) = 559 PASS.
 - Commit: ad0a911 (pushed to origin/main).
 - READY FOR SENIOR AUDIT.
+
+---
+
+Task ID: JOURNAL-REVIEW-NARRATIVE-03
+Agent: main (sprint owner)
+Task: Polish Jurnal Mengajar. (1) Review sebelum final — tombol final terkunci sampai review dibuka. (2) Narasi jurnal lebih mengalir — bukan chip mentah. (3) Mode Jurnal Manual dipindah ke Opsi Darurat. (4) Date Guard saat sedang mengisi draft. Tidak ada perubahan schema besar.
+
+Work Log:
+- Fetch origin main (ada commit baru 41c5721 fix(auth): persist Supabase login session on mobile — dari push Bapak/agent lain).
+- Baca QuickJournalPage.tsx (874 baris, ada QuickJournalEditor di file yang sama), journal-helpers.ts, journal-helpers.test.ts.
+- Buat packages/domain/src/journal-narrative.ts (NEW):
+  - buildJournalNarrative(input): pure function, ubah input terstruktur → 3 narasi (activityNarrative, noteNarrative, followUpNarrative). Pattern: "Pembelajaran membahas <material> melalui <activities> untuk membantu siswa memahami materi." + "Siswa mengikuti kegiatan dengan <response>. Secara umum pembelajaran berjalan baik, namun <obstacle>." + "Tindak lanjut dilakukan melalui <followUp> pada pertemuan berikutnya." Bila input kosong → kalimat default aman.
+  - joinActivities: 1='x', 2='x dan y', 3+='x, y, dan z'.
+  - canFinalizeJournal({material, activities, reviewOpened}): validasi terpusat. Materi wajib, kegiatan wajib, review wajib dibuka. Return {ok:true} atau {ok:false,message}.
+  - dateChangeRequiresConfirm({hasActiveDraft, isFinal}): Date Guard helper. true bila ada draft aktif atau jurnal final.
+  - packStructuredNote / unpackStructuredNote: simpan {activities, studentResponse, obstacle, freeNote} sebagai JSON di field `note` yang sudah ada. Format: {"__v":1,...}. Backward compat: note lama plain text → unpack sebagai freeNote. Schema TIDAK berubah.
+  - Constants: JOURNAL_ACTIVITY_CHOICES (7), JOURNAL_RESPONSE_CHOICES (5), JOURNAL_OBSTACLE_CHOICES (4), JOURNAL_FOLLOWUP_CHOICES (5).
+- Export dari packages/domain/src/index.ts.
+- Buat packages/domain/test/journal-narrative.test.ts (NEW): 26 tests dalam 4 describe block.
+  - buildJournalNarrative wajib (12 tests)
+  - Narasi berkualitas (3 tests)
+  - Quick choices constants (4 tests)
+  - canFinalizeJournal UI logic (7 tests): review wajib, materi wajib, kegiatan wajib, input berubah → review reset, default mode bukan manual, date change konfirmasi, final tidak bisa edit.
+- Refactor QuickJournalPage.tsx (+335/-63 baris):
+  - Mode selector: primary = Hari Ini + Jurnal Susulan. "Jurnal Manual" dipindah ke "Opsi Lainnya / Darurat" (collapsible, label jadi "Buat Jurnal di Luar Jadwal", warning kuning mode darurat).
+  - Date Guard: handleDateChange() bungkus setDate dengan konfirmasi bila selectedSessionId aktif. Pesan: "Mengganti tanggal akan menutup draft jurnal yang sedang diisi. Lanjutkan?"
+  - QuickJournalEditor refactor:
+    - State baru: reviewOpened, activities[], studentResponse, obstacle, freeNote. State lama `note` dihapus.
+    - invalidateReview(): reset reviewOpened=false saat input berubah.
+    - Wrapped setters (setActualMaterial, setActivitiesList, setResponse, setObstacleVal, setFreeNoteVal, setFollowUpVal, setRealization) panggil invalidateReview.
+    - narrative = useMemo(buildJournalNarrative(...))
+    - finalizeCheck = canFinalizeJournal(...) — tombol "Setujui & Finalkan" disabled bila !ok. Hint warning tampilkan alasan.
+    - Tombol "Lihat Review" → setReviewOpened(true) + setShowDocument(true). Setelah review, tombol jadi "✓ Review Dibuka".
+    - Input terstruktur: Materi (Input) + Kegiatan Pembelajaran (chip toggle brand) + Realisasi (Select) + Respons Siswa (chip toggle emerald) + Kendala (chip toggle amber) + Catatan Tambahan (Textarea) + Tindak Lanjut (chip toggle sky).
+    - Chip disabled saat isLocked.
+    - handleSaveDraft: pack structured note → JSON → simpan ke field `note`.
+    - handleApproveAndFinalize: cek finalizeCheck → pack → save → finalize.
+    - handleCopyPrevious: unpack note jurnal sebelumnya, isi structured state.
+    - handleUnlock: reset reviewOpened=false.
+    - Saat load: unpack journal.note ke structured state. Bila jurnal.locked, reviewOpened=true.
+    - Preview/cetak: kolom Materi, Kegiatan Pembelajaran (=narrative.activityNarrative), Catatan/Respons Siswa (=narrative.noteNarrative), Tindak Lanjut (=narrative.followUpNarrative). Bukan chip mentah.
+    - Badge "✓ Review dibuka" muncul saat reviewOpened && !isLocked.
+    - Label "Manual" di header diganti "Darurat".
+- Run gates:
+  - typecheck PASS (3 workspaces)
+  - test PASS (585 tests, +26 baru untuk JOURNAL-REVIEW-NARRATIVE-03)
+  - build PASS (1,123 KB JS, 37 KB CSS)
+- Commit 5d1be5c (rebase di atas 41c5721 dari remote), push ke origin/main (41c5721..5d1be5c).
+
+Stage Summary:
+- Guru bisa melihat review jurnal sebelum final (tombol "Lihat Review" → Mode Dokumen).
+- Tombol "Setujui & Finalkan" terkunci sampai review dibuka. Hint warning tampilkan alasan.
+- Bila isi jurnal berubah setelah review, reviewOpened kembali false (invalidateReview di semua setter).
+- Hasil jurnal menjadi kalimat naratif yang rapi: "Pembelajaran membahas norma dalam kehidupan melalui diskusi, tanya jawab, dan latihan untuk membantu siswa memahami materi." Bukan chip mentah "diskusi, tanya jawab, latihan".
+- Quick choices tetap tersedia untuk 5 field: Kegiatan (7 chip), Respons Siswa (5 chip), Kendala (4 chip), Tindak Lanjut (5 chip), plus Catatan Tambahan bebas.
+- Mode Jurnal Manual dipindah ke "Opsi Lainnya / Darurat" — collapsible, label "Buat Jurnal di Luar Jadwal", warning kuning. Mode primary tetap Hari Ini + Jurnal Susulan.
+- Date Guard aktif: ganti tanggal saat draft aktif → konfirmasi "Mengganti tanggal akan menutup draft jurnal yang sedang diisi. Lanjutkan?"
+- Final journal tidak bisa diedit tanpa buka revisi (chip disabled, tombol "Buka Kembali" untuk unlock).
+- Schema database TIDAK berubah. Hanya encoding field `note` yang berubah (plain text → JSON __v:1). Backward compat dijaga.
+- File changed: 4 files, +949/-63 lines (2 new files: journal-narrative.ts + test).
+- Test count: 559 (lama) + 26 (baru) = 585 PASS.
+- Commit: 5d1be5c (pushed to origin/main, rebased on 41c5721).
+- READY FOR SENIOR AUDIT.
