@@ -52,6 +52,8 @@ export function buildPiketLetter(input: BuildPiketLetterInput): PiketLetterDocum
 }
 
 export function buildParentSummonsLetter(input: BuildPiketLetterInput): PiketLetterDocument {
+  const activeRecords = getActiveSortedRecords(input.records);
+
   return {
     letterType: "parent_summons",
     title: "SURAT PANGGILAN ORANG TUA/WALI SISWA",
@@ -62,13 +64,13 @@ export function buildParentSummonsLetter(input: BuildPiketLetterInput): PiketLet
     opening: "Dengan hormat,",
     studentIdentity: buildStudentIdentity(input),
     bodyParagraphs: [
-      "Berdasarkan catatan kedisiplinan siswa pada buku piket sekolah, kami mengundang Bapak/Ibu orang tua/wali dari siswa berikut untuk hadir ke sekolah dalam rangka pembinaan dan klarifikasi terhadap beberapa catatan yang telah tercatat.",
-      "Sehubungan dengan hal tersebut, kami mengharapkan kehadiran Bapak/Ibu di sekolah untuk berdiskusi bersama pihak sekolah mengenai langkah pembinaan yang tepat bagi siswa.",
-      "Demikian surat panggilan ini kami sampaikan. Atas perhatian dan kerja sama Bapak/Ibu, kami ucapkan terima kasih.",
+      "Berdasarkan rekap catatan piket sekolah, siswa tersebut telah memiliki beberapa catatan yang perlu mendapat perhatian bersama antara pihak sekolah dan orang tua/wali.",
+      "Sehubungan dengan hal tersebut, kami mengundang Bapak/Ibu orang tua/wali untuk hadir ke sekolah guna berdiskusi mengenai langkah pembinaan yang tepat dan mendukung perbaikan perilaku siswa.",
+      "Kami berharap kehadiran Bapak/Ibu dapat membantu proses pembinaan berjalan lebih baik, terarah, dan tetap mengutamakan perkembangan positif siswa.",
     ],
-    recordRows: buildRecordRows(input.records),
-    additionalNote: buildAdditionalNote(input.records.length),
-    closing: "Hormat kami,",
+    recordRows: buildRecordRows(activeRecords),
+    additionalNote: buildAdditionalNote(activeRecords.length),
+    closing: "Demikian surat panggilan ini kami sampaikan. Atas perhatian dan kerja sama Bapak/Ibu, kami ucapkan terima kasih.",
     signatureBlocks: [
       { role: "Guru Piket / Wali Kelas", name: input.dutyTeacherName },
       { role: "Kepala Sekolah", name: input.principalName, nip: input.principalNip },
@@ -77,6 +79,8 @@ export function buildParentSummonsLetter(input: BuildPiketLetterInput): PiketLet
 }
 
 export function buildStudentStatementLetter(input: BuildPiketLetterInput): PiketLetterDocument {
+  const activeRecords = getActiveSortedRecords(input.records);
+
   return {
     letterType: "student_statement",
     title: "SURAT PERNYATAAN SISWA",
@@ -89,10 +93,10 @@ export function buildStudentStatementLetter(input: BuildPiketLetterInput): Piket
     bodyParagraphs: [
       "Dengan ini menyatakan bahwa saya telah mengetahui dan memahami catatan yang tercatat dalam buku piket sekolah.",
       "Saya berjanji akan memperbaiki sikap, menaati tata tertib sekolah, serta tidak mengulangi kesalahan yang sama di kemudian hari.",
-      "Apabila saya mengulangi kesalahan tersebut, saya bersedia menerima pembinaan dan tindak lanjut sesuai ketentuan yang berlaku di sekolah.",
+      "Apabila saya mengulangi kesalahan tersebut, saya bersedia mengikuti pembinaan dan tindak lanjut sesuai ketentuan yang berlaku di sekolah.",
     ],
-    recordRows: buildRecordRows(input.records),
-    additionalNote: buildAdditionalNote(input.records.length),
+    recordRows: buildRecordRows(activeRecords),
+    additionalNote: buildAdditionalNote(activeRecords.length),
     closing: "Demikian surat pernyataan ini saya buat dengan sebenar-benarnya dan penuh kesadaran.",
     signatureBlocks: [
       { role: "Mengetahui, Guru Piket / Wali Kelas", name: input.dutyTeacherName },
@@ -113,10 +117,14 @@ function buildStudentIdentity(input: BuildPiketLetterInput): Array<{ label: stri
   ];
 }
 
-function buildRecordRows(records: DutyRecord[]): PiketLetterRecordRow[] {
+function getActiveSortedRecords(records: DutyRecord[]): DutyRecord[] {
   return [...records]
     .filter((r) => !r.deletedAt)
-    .sort((a, b) => b.date.localeCompare(a.date))
+    .sort((a, b) => b.date.localeCompare(a.date));
+}
+
+function buildRecordRows(records: DutyRecord[]): PiketLetterRecordRow[] {
+  return records
     .slice(0, MAX_RECORD_ROWS)
     .map((r) => ({
       date: r.date,
@@ -126,7 +134,7 @@ function buildRecordRows(records: DutyRecord[]): PiketLetterRecordRow[] {
     }));
 }
 
-function buildAdditionalNote(recordCount: number): string | undefined {
-  if (recordCount <= MAX_RECORD_ROWS) return undefined;
+function buildAdditionalNote(activeRecordCount: number): string | undefined {
+  if (activeRecordCount <= MAX_RECORD_ROWS) return undefined;
   return "Catatan lainnya tersimpan dalam rekap piket sekolah.";
 }
