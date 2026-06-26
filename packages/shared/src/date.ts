@@ -71,23 +71,31 @@ export function toISOTimestamp(date: Date = new Date()): string {
  * Penting: Date konstruktor interpretasi "2025-08-18" sebagai UTC midnight,
  * yang bisa geser tanggal di timezone Asia/Jakarta. Kita pakai pendekatan
  * menambahkan T00:00:00 lokal secara eksplisit.
+ *
+ * FIXPACK MV-P1-01: Bila input berupa ISO timestamp (mis. "2026-06-25T23:58:15+00:00"),
+ * ambil 10 karakter pertama (bagian tanggal saja). Sebelumnya, input dengan timezone
+ * langsung ditolak → crash LKPD page.
  */
 export function parseISODate(iso: string): Date {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) {
+  // FIXPACK MV-P1-01: normalize — bila mengandung "T", ambil 10 karakter pertama
+  const dateOnly = iso.includes("T") ? iso.slice(0, 10) : iso;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateOnly)) {
     throw new Error(`Format tanggal tidak valid: ${iso}. Harus YYYY-MM-DD.`);
   }
   // Buat Date dari "YYYY-MM-DDT00:00:00" di timezone lokal
   // Trik: gunakan parts eksplisit untuk hindari ambiguity
-  const [y, m, d] = iso.split("-").map(Number);
+  const [y, m, d] = dateOnly.split("-").map(Number);
   return new Date(y, m - 1, d, 0, 0, 0, 0);
 }
 
 /**
  * Validasi format ISO date (YYYY-MM-DD).
+ * FIXPACK MV-P1-01: juga accept ISO timestamp (normalize ke date-only).
  */
 export function isValidISODate(iso: string): boolean {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return false;
-  const [y, m, d] = iso.split("-").map(Number);
+  const dateOnly = iso.includes("T") ? iso.slice(0, 10) : iso;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateOnly)) return false;
+  const [y, m, d] = dateOnly.split("-").map(Number);
   if (m < 1 || m > 12) return false;
   if (d < 1 || d > 31) return false;
   // Cek dengan parse dan round-trip
