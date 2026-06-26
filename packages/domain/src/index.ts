@@ -457,6 +457,22 @@ export {
   finalizeJournal,
 } from "./journal-helpers";
 
+/* JOURNAL-REVIEW-NARRATIVE-03 — Narrative builder + quick choices */
+export {
+  buildJournalNarrative,
+  canFinalizeJournal,
+  dateChangeRequiresConfirm,
+  packStructuredNote,
+  unpackStructuredNote,
+  JOURNAL_ACTIVITY_CHOICES,
+  JOURNAL_RESPONSE_CHOICES,
+  JOURNAL_OBSTACLE_CHOICES,
+  JOURNAL_FOLLOWUP_CHOICES,
+  type JournalNarrativeInput,
+  type JournalNarrativeResult,
+  type JournalStructuredNote,
+} from "./journal-narrative";
+
 /* Sprint 5 — Semester Report generator (rekap lengkap) */
 export {
   generateSemesterReport,

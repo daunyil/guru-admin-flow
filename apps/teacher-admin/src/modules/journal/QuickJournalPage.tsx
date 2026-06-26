@@ -13,7 +13,7 @@
  *     tombol "Buat Jurnal" per pertemuan.
  */
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Card, CardHeader, Input, Textarea, Button, EmptyState, Badge, Select, ContextCard, PrintExportButtons } from "../../shared/ui";
 import {
@@ -47,6 +47,15 @@ import {
   assignmentShortLabel,
   recapJournalsForAssignment,
   buildContextInfo,
+  buildJournalNarrative,
+  canFinalizeJournal,
+  dateChangeRequiresConfirm,
+  packStructuredNote,
+  unpackStructuredNote,
+  JOURNAL_ACTIVITY_CHOICES,
+  JOURNAL_RESPONSE_CHOICES,
+  JOURNAL_OBSTACLE_CHOICES,
+  JOURNAL_FOLLOWUP_CHOICES,
 } from "@guru-admin/domain";
 import { formatLongDateID, todayISODate } from "@guru-admin/shared";
 
@@ -74,9 +83,26 @@ export function QuickJournalPage() {
   const [mode, setMode] = useState<JournalMode>("pertemuan");
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [searchParams] = useSearchParams();
+  // JOURNAL-REVIEW-NARRATIVE-03: Opsi Lainnya / Darurat (Jurnal Manual)
+  const [showEmergencyOptions, setShowEmergencyOptions] = useState(false);
 
-  // UX-DAILY-03: ref untuk auto-scroll ke editor jurnal
+  // UX-DAILY-04: ref untuk auto-scroll ke editor jurnal
   const editorRef = useRef<HTMLDivElement | null>(null);
+
+  // JOURNAL-REVIEW-NARRATIVE-03 §9: Date Guard — bungkus setDate dengan konfirmasi
+  function handleDateChange(newDate: string) {
+    if (newDate === date) return;
+    const hasActiveDraft = !!selectedSessionId;
+    if (dateChangeRequiresConfirm({ hasActiveDraft, isFinal: false })) {
+      const ok = window.confirm(
+        "Mengganti tanggal akan menutup draft jurnal yang sedang diisi. Lanjutkan?"
+      );
+      if (!ok) return;
+      // Tutup draft yang sedang aktif
+      setSelectedSessionId(null);
+    }
+    setDate(newDate);
+  }
 
   // UX-DAILY-04: clear selectedSessionId saat ganti assignment
   function handleAssignmentChange(newId: string) {
@@ -293,13 +319,14 @@ export function QuickJournalPage() {
             )}
           </Card>
 
-          {/* Mode selector + date */}
+          {/* Mode selector + date — JOURNAL-REVIEW-NARRATIVE-03 */}
           <Card>
             <div className="flex gap-2 flex-wrap items-end">
               <div className="flex-1 min-w-[160px]">
-                <Input label="" id="jrn-date" type="date" value={date} onChange={setDate} />
+                <Input label="" id="jrn-date" type="date" value={date} onChange={handleDateChange} />
               </div>
               <div className="flex gap-2 flex-wrap">
+                {/* Primary modes: Hari Ini + Jurnal Susulan */}
                 <Button
                   variant={mode === "pertemuan" ? "primary" : "secondary"}
                   onClick={() => setMode("pertemuan")}
@@ -314,15 +341,31 @@ export function QuickJournalPage() {
                 >
                   Jurnal Susulan
                 </Button>
+                {/* JOURNAL-REVIEW-NARRATIVE-03 §3: Jurnal Manual dipindah ke Opsi Darurat */}
+                <Button
+                  variant={showEmergencyOptions ? "danger" : "secondary"}
+                  onClick={() => setShowEmergencyOptions(!showEmergencyOptions)}
+                  className="text-sm"
+                >
+                  {showEmergencyOptions ? "▲ Tutup Opsi" : "▼ Opsi Lainnya"}
+                </Button>
+              </div>
+            </div>
+            {showEmergencyOptions && (
+              <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                <p className="text-xs font-semibold text-amber-900 mb-2">Opsi Darurat</p>
+                <p className="text-xs text-amber-800 mb-3">
+                  Hanya digunakan bila sesi tidak tersedia di jadwal (mis. jurnal pengganti di luar jadwal reguler).
+                </p>
                 <Button
                   variant={mode === "manual" ? "primary" : "secondary"}
                   onClick={() => setMode("manual")}
                   className="text-sm"
                 >
-                  Jurnal Manual
+                  Buat Jurnal di Luar Jadwal
                 </Button>
               </div>
-            </div>
+            )}
           </Card>
 
           {/* Mode: Hari Ini — pilih pertemuan di tanggal dipilih */}
@@ -335,11 +378,11 @@ export function QuickJournalPage() {
               {sessions.length === 0 ? (
                 <EmptyState
                   title="Tidak ada pertemuan di tanggal ini"
-                  description="Pilih tanggal lain, atau pakai Jurnal Susulan / Jurnal Manual."
+                  description="Pilih tanggal lain, atau buka Opsi Lainnya untuk Jurnal Susulan / Darurat."
                   action={
                     <div className="flex gap-2">
                       <Button variant="secondary" onClick={() => setMode("susulan")}>Jurnal Susulan</Button>
-                      <Button variant="secondary" onClick={() => setMode("manual")}>Jurnal Manual</Button>
+                      <Button variant="secondary" onClick={() => { setShowEmergencyOptions(true); setMode("manual"); }}>Jurnal Darurat</Button>
                     </div>
                   }
                 />
@@ -474,16 +517,22 @@ export function QuickJournalPage() {
             </Card>
           )}
 
-          {/* Mode: Jurnal Manual */}
+          {/* Mode: Jurnal Manual — JOURNAL-REVIEW-NARRATIVE-03: label jadi 'Buat Jurnal di Luar Jadwal' */}
           {mode === "manual" && (
             <Card>
               <CardHeader
-                title="Jurnal Manual"
-                description={`Buat jurnal ad-hoc untuk ${assignmentShortLabel(assignment)} di ${formatLongDateID(date)}`}
+                title="Buat Jurnal di Luar Jadwal"
+                description={`Jurnal darurat untuk ${assignmentShortLabel(assignment)} di ${formatLongDateID(date)}`}
               />
-              <Button onClick={handleStartManualJournal}>Mulai Jurnal Manual</Button>
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-md mb-3">
+                <p className="text-xs text-amber-900">
+                  <strong>Catatan:</strong> Mode ini hanya untuk kondisi darurat bila sesi tidak tersedia di jadwal.
+                  Untuk jurnal reguler, gunakan <em>Hari Ini</em> atau <em>Jurnal Susulan</em>.
+                </p>
+              </div>
+              <Button onClick={handleStartManualJournal}>Mulai Jurnal Darurat</Button>
               <p className="text-xs text-slate-500 mt-2">
-                Catatan: bila sudah ada sesi manual untuk tanggal+kelas+mapel ini, sesi akan dipakai ulang.
+                Bila sudah ada sesi manual untuk tanggal+kelas+mapel ini, sesi akan dipakai ulang.
               </p>
             </Card>
           )}
@@ -531,13 +580,38 @@ function QuickJournalEditor({
   const [journal, setJournal] = useState<TeachingJournal | null>(null);
   const [needsAttendance, setNeedsAttendance] = useState(false);
   const [showDocument, setShowDocument] = useState(false);
+
+  // JOURNAL-REVIEW-NARRATIVE-03 §4: review state
+  const [reviewOpened, setReviewOpened] = useState(false);
+
+  // Realization + material + followUp (existing schema fields)
   const [realizationStatus, setRealizationStatus] = useState<RealizationStatus>("done");
   const [actualMaterialTitle, setActualMaterialTitle] = useState("");
-  const [note, setNote] = useState("");
   const [followUp, setFollowUp] = useState("");
+
+  // JOURNAL-REVIEW-NARRATIVE-03 §5: structured input (stored as JSON in `note`)
+  const [activities, setActivities] = useState<string[]>([]);
+  const [studentResponse, setStudentResponse] = useState("");
+  const [obstacle, setObstacle] = useState("");
+  const [freeNote, setFreeNote] = useState("");
+
   const [protas, setProtas] = useState<ProtaProfile[]>([]);
   const [availableUnits, setAvailableUnits] = useState<ProtaUnit[]>([]);
   const [selectedUnitId, setSelectedUnitId] = useState<string>("");
+
+  // Helper: reset reviewOpened saat input berubah (spec §4: "Jika isi jurnal berubah setelah review, reviewOpened kembali false.")
+  function invalidateReview() {
+    setReviewOpened(false);
+  }
+
+  // Wrapped setters that invalidate review
+  function setActualMaterial(v: string) { setActualMaterialTitle(v); invalidateReview(); }
+  function setActivitiesList(v: string[]) { setActivities(v); invalidateReview(); }
+  function setResponse(v: string) { setStudentResponse(v); invalidateReview(); }
+  function setObstacleVal(v: string) { setObstacle(v); invalidateReview(); }
+  function setFreeNoteVal(v: string) { setFreeNote(v); invalidateReview(); }
+  function setFollowUpVal(v: string) { setFollowUp(v); invalidateReview(); }
+  function setRealization(v: RealizationStatus) { setRealizationStatus(v); invalidateReview(); }
 
   useEffect(() => {
     void (async () => {
@@ -568,21 +642,49 @@ function QuickJournalEditor({
         setNeedsAttendance(result.needsAttendance);
         setRealizationStatus(result.journal.realizationStatus);
         setActualMaterialTitle(result.journal.actualMaterialTitle ?? "");
-        setNote(result.journal.note ?? "");
         setFollowUp(result.journal.followUp ?? "");
+        // JOURNAL-REVIEW-NARRATIVE-03: unpack structured note
+        const structured = unpackStructuredNote(result.journal.note);
+        setActivities(structured.activities);
+        setStudentResponse(structured.studentResponse);
+        setObstacle(structured.obstacle);
+        setFreeNote(structured.freeNote);
         if (result.journal.plannedUnitId) setSelectedUnitId(result.journal.plannedUnitId);
+        // Review dimulai tertutup. Bila jurnal sudah final, anggap review sudah dilakukan.
+        setReviewOpened(result.journal.locked);
       }
       setLoading(false);
     })();
   }, [sessionId]);
 
+  // JOURNAL-REVIEW-NARRATIVE-03 §6: build narrative on-the-fly for preview/print
+  const narrative = useMemo(
+    () => buildJournalNarrative({
+      material: actualMaterialTitle || journal?.plannedMaterialTitle || "",
+      activities,
+      studentResponse,
+      obstacle,
+      followUp,
+      freeNote,
+    }),
+    [actualMaterialTitle, journal, activities, studentResponse, obstacle, followUp, freeNote],
+  );
+
+  // JOURNAL-REVIEW-NARRATIVE-03 §4: tombol final aktif hanya bila canFinalizeJournal.ok
+  const finalizeCheck = canFinalizeJournal({
+    material: actualMaterialTitle || journal?.plannedMaterialTitle || "",
+    activities,
+    reviewOpened,
+  });
+
   async function handleSaveDraft() {
     if (!journal) return;
     try {
+      const structuredNote = packStructuredNote({ activities, studentResponse, obstacle, freeNote });
       const updated = await updateJournal(journal.id, {
         realizationStatus,
         actualMaterialTitle: actualMaterialTitle || undefined,
-        note: note || undefined,
+        note: structuredNote,
         followUp: followUp || undefined,
       });
       if (updated) {
@@ -594,15 +696,21 @@ function QuickJournalEditor({
     }
   }
 
-  // PATCH-FLOW-RC2D: Setujui & Simpan = finalizeJournal (locked=true)
+  // JOURNAL-REVIEW-NARRATIVE-03: Setujui & Finalkan = review + finalize
   async function handleApproveAndFinalize() {
     if (!journal) return;
+    // Spec §4: validasi final wajib review dibuka
+    if (!finalizeCheck.ok) {
+      onError(finalizeCheck.ok ? "" : finalizeCheck.message);
+      return;
+    }
     try {
+      const structuredNote = packStructuredNote({ activities, studentResponse, obstacle, freeNote });
       // Simpan input dulu
       const updated = await updateJournal(journal.id, {
         realizationStatus,
         actualMaterialTitle: actualMaterialTitle || undefined,
-        note: note || undefined,
+        note: structuredNote,
         followUp: followUp || undefined,
       });
       if (!updated) {
@@ -628,6 +736,7 @@ function QuickJournalEditor({
       const unlocked = await unlockJournal(journal.id);
       if (unlocked) {
         setJournal(unlocked);
+        setReviewOpened(false); // reset review saat buka revisi
         onSaved("Jurnal dibuka kembali (draft).");
       }
     } catch (e) {
@@ -650,10 +759,15 @@ function QuickJournalEditor({
 
       if (prev) {
         setActualMaterialTitle(prev.actualMaterialTitle ?? prev.plannedMaterialTitle ?? "");
-        setNote(prev.note ?? "");
+        const structured = unpackStructuredNote(prev.note);
+        setActivities(structured.activities);
+        setStudentResponse(structured.studentResponse);
+        setObstacle(structured.obstacle);
+        setFreeNote(structured.freeNote);
         setFollowUp(prev.followUp ?? "");
         setRealizationStatus(prev.realizationStatus);
-        onSaved("Disalin dari jurnal sebelumnya. Klik Setujui & Finalkan.");
+        invalidateReview();
+        onSaved("Disalin dari jurnal sebelumnya. Buka review lalu Setujui & Finalkan.");
       } else {
         onError("Tidak ada jurnal sebelumnya untuk kelas+mapel ini.");
       }
@@ -667,7 +781,16 @@ function QuickJournalEditor({
     setSelectedUnitId(unitId);
     const unit = availableUnits.find((u) => u.id === unitId);
     if (unit) {
-      setActualMaterialTitle(unit.title);
+      setActualMaterial(unit.title);
+    }
+  }
+
+  // Toggle activity chip
+  function toggleActivity(activity: string) {
+    if (activities.includes(activity)) {
+      setActivitiesList(activities.filter((a) => a !== activity));
+    } else {
+      setActivitiesList([...activities, activity]);
     }
   }
 
@@ -676,16 +799,18 @@ function QuickJournalEditor({
 
   const isLocked = journal.locked;
   const isManualSession = session.teachingScheduleId === "manual" || session.teachingScheduleId === "susulan";
+  const effectiveMaterial = actualMaterialTitle || journal.plannedMaterialTitle || "";
 
   return (
     <Card>
       <CardHeader
         title={`Jurnal — ${session.classLabel}`}
-        description={`${session.subject} · ${formatLongDateID(journal.date)}${isManualSession ? " · Manual" : ` · Jam ${session.startPeriod}`}`}
+        description={`${session.subject} · ${formatLongDateID(journal.date)}${isManualSession ? " · Darurat" : ` · Jam ${session.startPeriod}`}`}
       />
 
       <div className="flex gap-2 mb-4 flex-wrap">
         <Badge variant={isLocked ? "success" : "neutral"}>{isLocked ? "Final" : "Draft"}</Badge>
+        {reviewOpened && !isLocked && <Badge variant="success">✓ Review dibuka</Badge>}
         {journal.totalStudents > 0 && (
           <Badge variant="neutral">
             H:{journal.presentCount} S:{journal.sickCount} I:{journal.excusedCount} A:{journal.absentCount}
@@ -728,14 +853,25 @@ function QuickJournalEditor({
         </div>
       </div>
 
+      {/* JOURNAL-REVIEW-NARRATIVE-03 §4: tombol Simpan Draft + Lihat Review / Setujui & Finalkan */}
       <div className="flex gap-2 flex-wrap mb-4">
         {!isLocked ? (
           <>
-            <Button onClick={handleApproveAndFinalize} className="bg-brand-600">
+            <Button
+              onClick={handleApproveAndFinalize}
+              disabled={!finalizeCheck.ok}
+              className="bg-brand-600 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
               ✓ Setujui & Finalkan
             </Button>
             <Button variant="secondary" onClick={handleSaveDraft}>
               Simpan Draft
+            </Button>
+            <Button
+              variant={reviewOpened ? "primary" : "secondary"}
+              onClick={() => { setReviewOpened(true); setShowDocument(true); }}
+            >
+              {reviewOpened ? "✓ Review Dibuka" : "Lihat Review"}
             </Button>
             <Button variant="secondary" onClick={handleCopyPrevious}>
               Salin Sebelumnya
@@ -754,6 +890,13 @@ function QuickJournalEditor({
         </Button>
       </div>
 
+      {/* Validasi hint */}
+      {!isLocked && !finalizeCheck.ok && (
+        <div className="p-2 bg-amber-50 border border-amber-200 rounded text-xs text-amber-800 mb-4">
+          ⚠ {finalizeCheck.message}
+        </div>
+      )}
+
       <div className="space-y-3">
         {availableUnits.length > 0 && (
           <Select
@@ -769,62 +912,126 @@ function QuickJournalEditor({
         )}
 
         <Input
-          label="Materi Aktual"
+          label="Materi / Pokok Bahasan"
           id="jrn-material"
           value={actualMaterialTitle}
-          onChange={setActualMaterialTitle}
+          onChange={setActualMaterial}
           placeholder={journal.plannedMaterialTitle ?? "Tulis materi"}
         />
 
-        {/* UX-STABILITY-FIXPACK-01: chip kegiatan cepat — klik untuk tambah ke catatan */}
-        {!isLocked && (
-          <div>
-            <label className="label">Kegiatan Cepat (klik untuk tambah ke catatan)</label>
-            <div className="flex gap-2 flex-wrap">
-              {["Diskusi", "Tanya Jawab", "Presentasi", "Latihan", "Refleksi", "Kerja Kelompok"].map((kegiatan) => (
-                <button
-                  key={kegiatan}
-                  type="button"
-                  onClick={() => {
-                    const prefix = note.trim() ? `${note.trim()}, ` : "";
-                    setNote(`${prefix}${kegiatan}`);
-                  }}
-                  className="px-3 py-1.5 text-xs rounded-full border border-brand-300 text-brand-700 bg-brand-50 hover:bg-brand-100 transition-colors"
-                >
-                  {kegiatan}
-                </button>
-              ))}
-            </div>
+        {/* JOURNAL-REVIEW-NARRATIVE-03 §5: Kegiatan Pembelajaran (chip quick choices) */}
+        <div>
+          <label className="label">Kegiatan Pembelajaran</label>
+          <div className="flex gap-2 flex-wrap">
+            {JOURNAL_ACTIVITY_CHOICES.map((kegiatan) => (
+              <button
+                key={kegiatan}
+                type="button"
+                disabled={isLocked}
+                onClick={() => toggleActivity(kegiatan)}
+                className={`px-3 py-1.5 text-xs rounded-full border transition-colors ${
+                  activities.includes(kegiatan)
+                    ? "border-brand-500 bg-brand-100 text-brand-800"
+                    : "border-brand-300 text-brand-700 bg-brand-50 hover:bg-brand-100"
+                } ${isLocked ? "opacity-50 cursor-not-allowed" : ""}`}
+              >
+                {kegiatan}
+              </button>
+            ))}
           </div>
-        )}
+          {activities.length > 0 && (
+            <p className="text-xs text-slate-500 mt-2">
+              Terpilih: {activities.join(", ")}
+            </p>
+          )}
+        </div>
 
         <Select
           label="Realisasi"
           id="jrn-real"
           value={realizationStatus}
-          onChange={(v) => setRealizationStatus(v as RealizationStatus)}
+          onChange={(v) => setRealization(v as RealizationStatus)}
           options={REALIZATION_OPTIONS.map((s) => ({ value: s.value, label: s.label }))}
         />
 
+        {/* JOURNAL-REVIEW-NARRATIVE-03 §5: Respons Siswa (chip quick choices) */}
+        <div>
+          <label className="label">Respons Siswa</label>
+          <div className="flex gap-2 flex-wrap">
+            {JOURNAL_RESPONSE_CHOICES.map((resp) => (
+              <button
+                key={resp}
+                type="button"
+                disabled={isLocked}
+                onClick={() => setResponse(studentResponse === resp ? "" : resp)}
+                className={`px-3 py-1.5 text-xs rounded-full border transition-colors ${
+                  studentResponse === resp
+                    ? "border-emerald-500 bg-emerald-100 text-emerald-800"
+                    : "border-emerald-300 text-emerald-700 bg-emerald-50 hover:bg-emerald-100"
+                } ${isLocked ? "opacity-50 cursor-not-allowed" : ""}`}
+              >
+                {resp}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* JOURNAL-REVIEW-NARRATIVE-03 §5: Kendala / Catatan (chip quick choices) */}
+        <div>
+          <label className="label">Kendala / Catatan</label>
+          <div className="flex gap-2 flex-wrap">
+            {JOURNAL_OBSTACLE_CHOICES.map((obs) => (
+              <button
+                key={obs}
+                type="button"
+                disabled={isLocked}
+                onClick={() => setObstacleVal(obstacle === obs ? "" : obs)}
+                className={`px-3 py-1.5 text-xs rounded-full border transition-colors ${
+                  obstacle === obs
+                    ? "border-amber-500 bg-amber-100 text-amber-800"
+                    : "border-amber-300 text-amber-700 bg-amber-50 hover:bg-amber-100"
+                } ${isLocked ? "opacity-50 cursor-not-allowed" : ""}`}
+              >
+                {obs}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* JOURNAL-REVIEW-NARRATIVE-03 §5: Catatan tambahan bebas */}
         <Textarea
-          label="Catatan (opsional)"
-          id="jrn-note"
-          value={note}
-          onChange={setNote}
+          label="Catatan Tambahan (opsional)"
+          id="jrn-freenote"
+          value={freeNote}
+          onChange={setFreeNoteVal}
           rows={2}
-          placeholder="Catatan singkat..."
+          placeholder="Catatan tambahan dari guru..."
         />
 
-        <Textarea
-          label="Tindak Lanjut (opsional)"
-          id="jrn-followup"
-          value={followUp}
-          onChange={setFollowUp}
-          rows={2}
-          placeholder="Rencana pertemuan berikutnya..."
-        />
+        {/* JOURNAL-REVIEW-NARRATIVE-03 §5: Tindak Lanjut (chip quick choices) */}
+        <div>
+          <label className="label">Tindak Lanjut</label>
+          <div className="flex gap-2 flex-wrap">
+            {JOURNAL_FOLLOWUP_CHOICES.map((fu) => (
+              <button
+                key={fu}
+                type="button"
+                disabled={isLocked}
+                onClick={() => setFollowUpVal(followUp === fu ? "" : fu)}
+                className={`px-3 py-1.5 text-xs rounded-full border transition-colors ${
+                  followUp === fu
+                    ? "border-sky-500 bg-sky-100 text-sky-800"
+                    : "border-sky-300 text-sky-700 bg-sky-50 hover:bg-sky-100"
+                } ${isLocked ? "opacity-50 cursor-not-allowed" : ""}`}
+              >
+                {fu}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
+      {/* JOURNAL-REVIEW-NARRATIVE-03 §8: Preview pakai narrative */}
       {showDocument && (
         <div className="print-area mt-4">
           <div className="document-page document-portrait">
@@ -841,18 +1048,20 @@ function QuickJournalEditor({
                   <td>Tanggal</td><td>{formatLongDateID(journal.date)}</td>
                 </tr>
                 <tr>
-                  <td>Jam ke</td><td>{isManualSession ? "Manual" : `${session.startPeriod} (${session.startTime}–${session.endTime})`}</td>
+                  <td>Jam ke</td><td>{isManualSession ? "Darurat" : `${session.startPeriod} (${session.startTime}–${session.endTime})`}</td>
                   <td>Realisasi</td><td>{REALIZATION_OPTIONS.find((s) => s.value === realizationStatus)?.label}</td>
                 </tr>
               </tbody>
             </table>
             <table className="document-table">
               <tbody>
-                <tr><td style={{ fontWeight: "bold", background: "#f5f5f5" }}>Materi</td><td>{actualMaterialTitle || journal.plannedMaterialTitle || "-"}</td></tr>
+                <tr><td style={{ fontWeight: "bold", background: "#f5f5f5" }}>Materi</td><td>{effectiveMaterial || "-"}</td></tr>
                 <tr><td style={{ fontWeight: "bold", background: "#f5f5f5" }}>Tujuan Pembelajaran</td><td>{journal.plannedLearningOutcome ?? "-"}</td></tr>
                 <tr><td style={{ fontWeight: "bold", background: "#f5f5f5" }}>Kehadiran</td><td>H: {journal.presentCount} · S: {journal.sickCount} · I: {journal.excusedCount} · A: {journal.absentCount} · Total: {journal.totalStudents}</td></tr>
-                <tr><td style={{ fontWeight: "bold", background: "#f5f5f5" }}>Catatan</td><td>{note || "-"}</td></tr>
-                <tr><td style={{ fontWeight: "bold", background: "#f5f5f5" }}>Tindak Lanjut</td><td>{followUp || "-"}</td></tr>
+                {/* JOURNAL-REVIEW-NARRATIVE-03 §8: pakai narrative */}
+                <tr><td style={{ fontWeight: "bold", background: "#f5f5f5" }}>Kegiatan Pembelajaran</td><td>{narrative.activityNarrative}</td></tr>
+                <tr><td style={{ fontWeight: "bold", background: "#f5f5f5" }}>Catatan / Respons Siswa</td><td>{narrative.noteNarrative}</td></tr>
+                <tr><td style={{ fontWeight: "bold", background: "#f5f5f5" }}>Tindak Lanjut</td><td>{narrative.followUpNarrative}</td></tr>
               </tbody>
             </table>
             <div className="signature-grid">
