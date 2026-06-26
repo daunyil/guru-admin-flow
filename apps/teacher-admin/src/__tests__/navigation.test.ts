@@ -2,7 +2,7 @@
  * NAV-DAILY-GATE-01: Test kontrak navigasi.
  */
 import { describe, it, expect } from "vitest";
-import { NAV_GROUPS, MOBILE_PRIMARY, getPrimaryNavLabels, getMobileNavLabels, GATE_GROUPS } from "../shared/layout/navigation";
+import { getPrimaryNavLabels, getMobileNavLabels, GATE_GROUPS } from "../shared/layout/navigation";
 
 describe("NAV-DAILY-GATE-01 — Kontrak menu utama", () => {
   it("Sidebar menampilkan Absen", () => { expect(getPrimaryNavLabels()).toContain("Absen"); });
