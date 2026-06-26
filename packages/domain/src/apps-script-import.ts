@@ -168,6 +168,12 @@ export type AppsScriptImportPreview = {
     jurnal: number;
     nilai: number;
   };
+  /** APPS-SCRIPT-IMPORT-ADAPTER-01: daftar kelas+mapel unik dari data import. */
+  uniqueClasses: Array<{ classId: string; classLabel: string; subject: string; teacherName: string }>;
+  /** Daftar duplikat terdeteksi (id yang sama muncul lebih dari sekali). */
+  duplicateIds: string[];
+  /** Daftar data tanpa classId/subject (akan di-skip saat import). */
+  missingClassData: Array<{ type: string; id: string; reason: string }>;
   errors: string[];
   warnings: string[];
 };
@@ -213,8 +219,74 @@ export function validateAppsScriptImport(input: unknown): AppsScriptImportValida
 /**
  * Generate preview ringkasan dari data yang sudah divalidasi.
  * Pure function.
+ *
+ * APPS-SCRIPT-IMPORT-ADAPTER-01: enhanced dengan:
+ * - uniqueClasses: daftar kelas+mapel unik (supaya guru tahu apa yang akan masuk)
+ * - duplicateIds: deteksi ID duplikat di students/gurus
+ * - missingClassData: data tanpa classId/subject (akan di-skip)
  */
 export function previewAppsScriptImport(data: AppsScriptImport): AppsScriptImportPreview {
+  const warnings: string[] = [];
+
+  // Deteksi kelas+mapel unik dari gurus (assignment)
+  const classMap = new Map<string, { classId: string; classLabel: string; subject: string; teacherName: string }>();
+  for (const g of data.gurus) {
+    const key = `${g.classId}|${g.subject}`;
+    if (!classMap.has(key)) {
+      classMap.set(key, {
+        classId: g.classId,
+        classLabel: g.classLabel,
+        subject: g.subject,
+        teacherName: g.teacherName,
+      });
+    }
+  }
+  const uniqueClasses = Array.from(classMap.values());
+
+  // Deteksi duplikat ID di students
+  const studentIds = new Map<string, number>();
+  for (const s of data.students) {
+    studentIds.set(s.id, (studentIds.get(s.id) ?? 0) + 1);
+  }
+  const duplicateIds = Array.from(studentIds.entries())
+    .filter(([, count]) => count > 1)
+    .map(([id]) => id);
+
+  if (duplicateIds.length > 0) {
+    warnings.push(`${duplicateIds.length} ID siswa duplikat ditemukan. Hanya entry pertama yang akan dipakai.`);
+  }
+
+  // Deteksi data tanpa classId/subject (absensi/jurnal/nilai)
+  const missingClassData: Array<{ type: string; id: string; reason: string }> = [];
+  for (const a of data.absensi) {
+    if (!a.classId || !a.subject) {
+      missingClassData.push({ type: "absensi", id: a.id ?? "?", reason: "classId atau subject kosong" });
+    }
+  }
+  for (const j of data.jurnal) {
+    if (!j.classId || !j.subject) {
+      missingClassData.push({ type: "jurnal", id: j.id ?? "?", reason: "classId atau subject kosong" });
+    }
+  }
+  for (const n of data.nilai) {
+    if (!n.classId || !n.subject) {
+      missingClassData.push({ type: "nilai", id: n.id ?? "?", reason: "classId atau subject kosong" });
+    }
+  }
+
+  if (missingClassData.length > 0) {
+    warnings.push(`${missingClassData.length} data tanpa classId/subject akan di-skip saat import.`);
+  }
+
+  // Warning bila kelas+mapel dari absensi/jurnal/nilai tidak ada di gurus
+  const guruClassKeys = new Set(uniqueClasses.map((c) => `${c.classId}|${c.subject}`));
+  for (const a of data.absensi) {
+    if (a.classId && a.subject && !guruClassKeys.has(`${a.classId}|${a.subject}`)) {
+      warnings.push(`Absensi untuk ${a.classId} · ${a.subject} tidak punya Data Kelas dan Mapel di file ini. Akan dibuat baru saat import.`);
+      break; // satu warning cukup
+    }
+  }
+
   return {
     valid: true,
     counts: {
@@ -224,7 +296,10 @@ export function previewAppsScriptImport(data: AppsScriptImport): AppsScriptImpor
       jurnal: data.jurnal.length,
       nilai: data.nilai.length,
     },
+    uniqueClasses,
+    duplicateIds,
+    missingClassData,
     errors: [],
-    warnings: [],
+    warnings,
   };
 }
