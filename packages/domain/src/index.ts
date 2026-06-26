@@ -490,6 +490,7 @@ export {
   dutyRecordTypeSchema,
   summarizeDutyRecords,
   getStudentDutyStatus,
+  getDutyStatusVariant,
   DEFAULT_DUTY_RULES,
   normalizeSearchText,
   matchSmartSearch,
@@ -499,6 +500,8 @@ export {
   makeStudentSearchTarget,
   searchStudents,
   validateDutyRecordInput,
+  buildStudentDutyLedger,
+  filterDutyRecordsByStudent,
   formatSIADetail,
   type DutyRule,
   type DutyReport,
@@ -509,4 +512,6 @@ export {
   type ClassAttendanceSummary,
   type ClassAttendanceDetail,
   type StudentSearchable,
+  type StudentDutyLedgerItem,
+  type DutyStatusVariant,
 } from "./daily-duty";

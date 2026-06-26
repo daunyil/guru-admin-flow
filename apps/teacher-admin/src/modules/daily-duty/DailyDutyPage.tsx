@@ -13,16 +13,18 @@ import {
   listDutyRules, seedDefaultDutyRulesIfEmpty,
   findOrCreateDutyReport, getDutyReportByDate, updateDutyReportNote, finalizeDutyReport, unlockDutyReport,
   addDutyRecord, deleteDutyRecord, listDutyRecordsByDate, listDutyRecordsByStudent,
+  listDutyRecordsByAcademicYear,
   getAttendanceDetailForDate, syncAlpaFromAttendance,
 } from "../../shared/db/daily-duty-repo";
-import type { DutyRule, DutyRecord, ClassAttendanceDetail, StudentSearchable } from "@guru-admin/domain";
+import type { DutyRule, DutyRecord, ClassAttendanceDetail, StudentSearchable, StudentDutyLedgerItem } from "@guru-admin/domain";
 import {
   getStudentDutyStatus, summarizeDutyRecords, formatSIADetail,
   searchStudents, searchDutyRules, validateDutyRecordInput,
+  buildStudentDutyLedger, filterDutyRecordsByStudent,
 } from "@guru-admin/domain";
 import type { AcademicYear, TeacherProfile, ClassRoster } from "@guru-admin/domain";
 
-type Tab = "catat" | "rekap" | "catatan" | "riwayat" | "cetak";
+type Tab = "catat" | "rekap" | "catatan" | "poin" | "riwayat" | "cetak";
 
 export function DailyDutyPage() {
   const [loading, setLoading] = useState(true);
@@ -52,8 +54,18 @@ export function DailyDutyPage() {
   const [riwayatStudentId, setRiwayatStudentId] = useState("");
   const [riwayatRecords, setRiwayatRecords] = useState<DutyRecord[]>([]);
 
+  // PIKET-STUDENT-LEDGER-RECAP-04A: Rekap Poin tab state
+  const [ledgerRecords, setLedgerRecords] = useState<DutyRecord[]>([]);
+  const [ledgerClassFilter, setLedgerClassFilter] = useState<string>("all");
+  const [ledgerStatusFilter, setLedgerStatusFilter] = useState<string>("all");
+  const [ledgerStudentQuery, setLedgerStudentQuery] = useState("");
+  const [ledgerDetailStudent, setLedgerDetailStudent] = useState<StudentDutyLedgerItem | null>(null);
+  const [ledgerDetailRecords, setLedgerDetailRecords] = useState<DutyRecord[]>([]);
+
   useEffect(() => { void init(); }, []);
   useEffect(() => { if (year) void loadData(); }, [date, year]);
+  // PIKET-STUDENT-LEDGER-RECAP-04A: load ledger records saat year berubah (yearly, bukan per-date)
+  useEffect(() => { if (year) void loadLedgerData(); }, [year]);
 
   async function init() {
     const [y, tp] = await Promise.all([getActiveAcademicYear(), getTeacherProfile()]);
@@ -75,6 +87,14 @@ export function DailyDutyPage() {
     setAttendanceDetail(detail);
     if (report) { setReportNote(report.note ?? ""); setReportFinalized(report.finalized); }
     else { setReportNote(""); setReportFinalized(false); }
+  }
+
+  // PIKET-STUDENT-LEDGER-RECAP-04A: Load semua DutyRecord tahunan untuk ledger.
+  // Read-only. Dipakai buildStudentDutyLedger.
+  async function loadLedgerData() {
+    if (!year) return;
+    const all = await listDutyRecordsByAcademicYear(year.id);
+    setLedgerRecords(all);
   }
 
   // PIKET-QUICK-INPUT-LIST-02B: Bangun daftar siswa dari semua roster.
@@ -196,6 +216,52 @@ export function DailyDutyPage() {
     setRiwayatRecords(recs);
   }
 
+  // PIKET-STUDENT-LEDGER-RECAP-04A: Buka detail riwayat siswa dari ledger.
+  function handleOpenLedgerDetail(item: StudentDutyLedgerItem) {
+    setLedgerDetailStudent(item);
+    setLedgerDetailRecords(filterDutyRecordsByStudent(ledgerRecords, item.studentId, item.classId));
+  }
+
+  function handleCloseLedgerDetail() {
+    setLedgerDetailStudent(null);
+    setLedgerDetailRecords([]);
+  }
+
+  // PIKET-STUDENT-LEDGER-RECAP-04A: Build ledger from yearly records (memo di atas early-return agar hook order konsisten)
+  const ledger = useMemo<StudentDutyLedgerItem[]>(() => buildStudentDutyLedger(ledgerRecords), [ledgerRecords]);
+
+  // Filter ledger: class chip + status chip + smart search by student name
+  const filteredLedger = useMemo<StudentDutyLedgerItem[]>(() => {
+    let items = ledger;
+    if (ledgerClassFilter !== "all") {
+      items = items.filter((i) => i.classId === ledgerClassFilter);
+    }
+    if (ledgerStatusFilter !== "all") {
+      items = items.filter((i) => i.statusLabel === ledgerStatusFilter);
+    }
+    if (ledgerStudentQuery.trim()) {
+      // Smart search via searchStudents helper. Build a StudentSearchable view of ledger items.
+      const searchable = items.map((i) => ({
+        id: i.studentId, name: i.studentName, number: i.studentNumber,
+        classId: i.classId, classLabel: i.classLabel,
+      }));
+      const matchedIds = new Set(
+        searchStudents(searchable, ledgerStudentQuery).map((s) => s.id)
+      );
+      items = items.filter((i) => matchedIds.has(i.studentId));
+    }
+    return items;
+  }, [ledger, ledgerClassFilter, ledgerStatusFilter, ledgerStudentQuery]);
+
+  // Status badge variant helper (UI mapping for ledger)
+  function statusVariantForLabel(label: string): "success" | "warning" | "neutral" | "error" | "errorStrong" {
+    if (label === "Aman") return "success";
+    if (label === "Pembinaan ringan") return "warning";
+    if (label === "Panggilan orang tua") return "neutral";
+    if (label === "Kesiswaan/BK") return "error";
+    return "errorStrong";
+  }
+
   if (loading) return <p className="text-sm text-slate-500">Memuat...</p>;
 
   const riwayatRoster = rosters.find((r) => r.classId === riwayatClassId);
@@ -206,6 +272,7 @@ export function DailyDutyPage() {
     { key: "catat", label: "Catat" },
     { key: "rekap", label: "Rekap" },
     { key: "catatan", label: "Catatan" },
+    { key: "poin", label: "Rekap Poin" },
     { key: "riwayat", label: "Riwayat" },
     { key: "cetak", label: "Cetak" },
   ];
@@ -464,6 +531,179 @@ export function DailyDutyPage() {
         </Card>
       )}
 
+      {/* TAB: Rekap Poin — PIKET-STUDENT-LEDGER-RECAP-04A */}
+      {tab === "poin" && (
+        <Card>
+          <CardHeader
+            title="Rekap Poin Siswa"
+            description={`${ledger.length} siswa · ${ledgerRecords.length} catatan total · TP ${year?.label ?? ""}`}
+          />
+
+          {/* Detail riwayat siswa (overlay state) */}
+          {ledgerDetailStudent ? (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <p className="font-bold text-sm">
+                    Riwayat {ledgerDetailStudent.studentName} — {ledgerDetailStudent.classLabel}
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    Total {ledgerDetailStudent.totalPoints} poin · {ledgerDetailStudent.totalRecords} kejadian · Status: {ledgerDetailStudent.statusLabel}
+                  </p>
+                </div>
+                <Button variant="secondary" className="text-xs" onClick={handleCloseLedgerDetail}>
+                  Tutup Riwayat
+                </Button>
+              </div>
+              {ledgerDetailRecords.length === 0 ? (
+                <EmptyState title="Belum ada riwayat" description="Siswa ini belum punya catatan piket." />
+              ) : (
+                <div className="space-y-2 max-h-96 overflow-y-auto">
+                  {ledgerDetailRecords.map((r) => (
+                    <div key={r.id} className="p-3 border rounded-lg">
+                      <p className="text-xs text-slate-500">{formatLongDateID(r.date)}</p>
+                      <p className="text-sm font-medium mt-0.5">
+                        {r.ruleLabel} · {r.points} poin
+                      </p>
+                      {r.note && <p className="text-xs text-slate-600 mt-1">Catatan: {r.note}</p>}
+                      {r.followUp && <p className="text-xs text-slate-600 mt-0.5">Tindak lanjut: {r.followUp}</p>}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {/* Search siswa */}
+              <div>
+                <label className="label">Cari siswa</label>
+                <input
+                  type="text"
+                  value={ledgerStudentQuery}
+                  onChange={(e) => setLedgerStudentQuery(e.target.value)}
+                  placeholder="Cari siswa... (nama / nomor / NIS)"
+                  className="input"
+                />
+              </div>
+
+              {/* Filter kelas (chips) */}
+              <div>
+                <label className="label">Filter kelas</label>
+                <div className="flex gap-2 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => setLedgerClassFilter("all")}
+                    className={`px-3 py-1.5 text-xs rounded-lg border transition-all ${
+                      ledgerClassFilter === "all"
+                        ? "border-brand-500 bg-brand-50 ring-2 ring-brand-200"
+                        : "border-slate-200"
+                    }`}
+                  >
+                    Semua Kelas
+                  </button>
+                  {rosters.map((r) => (
+                    <button
+                      key={r.classId}
+                      type="button"
+                      onClick={() => setLedgerClassFilter(r.classId)}
+                      className={`px-3 py-1.5 text-xs rounded-lg border transition-all ${
+                        ledgerClassFilter === r.classId
+                          ? "border-brand-500 bg-brand-50 ring-2 ring-brand-200"
+                          : "border-slate-200"
+                      }`}
+                    >
+                      {r.classLabel}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Filter status (chips) */}
+              <div>
+                <label className="label">Filter status</label>
+                <div className="flex gap-2 flex-wrap">
+                  {["all", "Aman", "Pembinaan ringan", "Panggilan orang tua", "Kesiswaan/BK", "Tindak lanjut khusus"].map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => setLedgerStatusFilter(s)}
+                      className={`px-3 py-1.5 text-xs rounded-lg border transition-all ${
+                        ledgerStatusFilter === s
+                          ? "border-brand-500 bg-brand-50 ring-2 ring-brand-200"
+                          : "border-slate-200"
+                      }`}
+                    >
+                      {s === "all" ? "Semua Status" : s}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* List rekap (mobile-first) */}
+              {filteredLedger.length === 0 ? (
+                <EmptyState
+                  title="Belum ada catatan"
+                  description={ledgerRecords.length === 0
+                    ? "Belum ada catatan piket tahun ini."
+                    : "Tidak ada siswa yang cocok dengan filter."}
+                />
+              ) : (
+                <div className="space-y-2">
+                  {filteredLedger.map((item) => {
+                    const variant = statusVariantForLabel(item.statusLabel);
+                    const badgeCls = {
+                      success: "border-emerald-300 bg-emerald-50 text-emerald-800",
+                      warning: "border-amber-300 bg-amber-50 text-amber-800",
+                      neutral: "border-orange-300 bg-orange-50 text-orange-800",
+                      error: "border-rose-300 bg-rose-50 text-rose-800",
+                      errorStrong: "border-rose-500 bg-rose-100 text-rose-900 font-bold",
+                    }[variant];
+                    return (
+                      <div key={`${item.studentId}__${item.classId}`} className="p-3 border rounded-lg">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <p className="font-medium text-sm">
+                              {item.studentName}
+                              {item.studentNumber ? <span className="text-xs text-slate-500 ml-2">No. {item.studentNumber}</span> : null}
+                            </p>
+                            <p className="text-xs text-slate-500">
+                              {item.classLabel} · {item.totalPoints} poin · {item.totalRecords} kejadian
+                              {item.lastRecordDate ? ` · terakhir ${formatLongDateID(item.lastRecordDate)}` : ""}
+                            </p>
+                            <span className={`inline-block mt-1.5 px-2 py-0.5 text-xs rounded border ${badgeCls}`}>
+                              {item.statusLabel}
+                            </span>
+                          </div>
+                          <Button
+                            variant="secondary"
+                            className="text-xs shrink-0"
+                            onClick={() => handleOpenLedgerDetail(item)}
+                          >
+                            Lihat Riwayat
+                          </Button>
+                        </div>
+                        {/* Breakdown by category (compact) */}
+                        {(item.attendanceCount > 0 || item.disciplineCount > 0 || item.healthCount > 0 || item.permissionCount > 0 || item.otherCount > 0) && (
+                          <p className="text-xs text-slate-600 mt-1.5">
+                            {[
+                              item.attendanceCount > 0 && `Kehadiran: ${item.attendanceCount}`,
+                              item.disciplineCount > 0 && `Disiplin: ${item.disciplineCount}`,
+                              item.healthCount > 0 && `Kesehatan: ${item.healthCount}`,
+                              item.permissionCount > 0 && `Izin: ${item.permissionCount}`,
+                              item.otherCount > 0 && `Lainnya: ${item.otherCount}`,
+                            ].filter(Boolean).join(" · ")}
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+        </Card>
+      )}
+
       {/* TAB: Riwayat Siswa */}
       {tab === "riwayat" && (
         <Card>
@@ -544,7 +784,30 @@ export function DailyDutyPage() {
                 </tbody>
               </table>
               {reportNote && (<><div className="document-section-title">C. CATATAN UMUM</div><p style={{ fontSize: "10pt", marginTop: "4pt" }}>{reportNote}</p></>)}
-              <div className="document-section-title">D. TANDA TANGAN</div>
+
+              {/* PIKET-STUDENT-LEDGER-RECAP-04A §12: Cetak rekap poin sederhana */}
+              <div className="document-section-title">D. REKAP POIN SISWA</div>
+              {ledger.length === 0 ? (
+                <p style={{ fontSize: "10pt", marginTop: "4pt" }}>Belum ada catatan piket tahun ini.</p>
+              ) : (
+                <table className="document-table">
+                  <thead><tr><th>No</th><th>Nama Siswa</th><th>Kelas</th><th>Kejadian</th><th>Total Poin</th><th>Status</th></tr></thead>
+                  <tbody>
+                    {ledger.map((item, i) => (
+                      <tr key={`${item.studentId}__${item.classId}`}>
+                        <td className="text-center">{i + 1}</td>
+                        <td>{item.studentName}</td>
+                        <td className="text-center">{item.classLabel}</td>
+                        <td className="text-center">{item.totalRecords}</td>
+                        <td className="text-center">{item.totalPoints}</td>
+                        <td>{item.statusLabel}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+
+              <div className="document-section-title">E. TANDA TANGAN</div>
               <div className="signature-grid"><div><p>Guru Piket</p><div className="sig-space"></div><p className="sig-name">{teacher?.name ?? "-"}</p></div></div>
             </div>
           </div>

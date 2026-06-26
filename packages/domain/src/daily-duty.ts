@@ -103,12 +103,36 @@ export function summarizeDutyRecords(records: DutyRecord[]): DutySummary {
   return { totalRecords: records.length, totalPoints, byCategory };
 }
 
+/**
+ * Status pembinaan siswa berdasarkan total poin.
+ *
+ * PIKET-STUDENT-LEDGER-RECAP-04A: label diperbarui sesuai spec:
+ *   0–24   = Aman
+ *   25–49  = Pembinaan ringan
+ *   50–74  = Panggilan orang tua
+ *   75–99  = Kesiswaan/BK
+ *   100+   = Tindak lanjut khusus
+ */
 export function getStudentDutyStatus(totalPoints: number): string {
   if (totalPoints <= 24) return "Aman";
-  if (totalPoints <= 49) return "Perlu pembinaan ringan";
-  if (totalPoints <= 74) return "Perlu perhatian wali kelas";
-  if (totalPoints <= 99) return "Panggilan orang tua";
-  return "Tindak lanjut kesiswaan/BK";
+  if (totalPoints <= 49) return "Pembinaan ringan";
+  if (totalPoints <= 74) return "Panggilan orang tua";
+  if (totalPoints <= 99) return "Kesiswaan/BK";
+  return "Tindak lanjut khusus";
+}
+
+/**
+ * PIKET-STUDENT-LEDGER-RECAP-04A: badge variant untuk status pembinaan.
+ * Dipakai UI untuk warna badge yang konsisten lintas halaman.
+ */
+export type DutyStatusVariant = "neutral" | "success" | "warning" | "error" | "errorStrong";
+
+export function getDutyStatusVariant(totalPoints: number): DutyStatusVariant {
+  if (totalPoints <= 24) return "success";        // Aman — hijau
+  if (totalPoints <= 49) return "warning";        // Pembinaan ringan — kuning
+  if (totalPoints <= 74) return "neutral";        // Panggilan orang tua — oranye/netral
+  if (totalPoints <= 99) return "error";          // Kesiswaan/BK — merah
+  return "errorStrong";                           // Tindak lanjut khusus — merah tebal
 }
 
 /* ------------------------------------------------------------------ */
@@ -318,4 +342,111 @@ export function validateDutyRecordInput(args: {
     return { ok: false, message: "Catatan wajib untuk jenis Lainnya." };
   }
   return { ok: true };
+}
+
+/* ------------------------------------------------------------------ */
+/*  PIKET-STUDENT-LEDGER-RECAP-04A: Student Duty Ledger                */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Rekap poin per siswa (ledger item).
+ * Dihitung dari DutyRecord aktif (deletedAt == null).
+ */
+export interface StudentDutyLedgerItem {
+  studentId: string;
+  studentName: string;
+  studentNumber?: number;
+  classId: string;
+  classLabel: string;
+
+  totalRecords: number;
+  totalPoints: number;
+
+  /** Jumlah record per kategori. */
+  attendanceCount: number;
+  disciplineCount: number;
+  healthCount: number;
+  permissionCount: number;
+  otherCount: number;
+
+  /** Tanggal record terbaru (YYYY-MM-DD). */
+  lastRecordDate?: string;
+
+  /** Label status pembinaan (dari getStudentDutyStatus). */
+  statusLabel: string;
+}
+
+/**
+ * Bangun ledger poin siswa dari daftar DutyRecord.
+ *
+ * Aturan:
+ *  - Hanya record aktif (deletedAt == null) yang dihitung.
+ *  - Group by studentId + classId (siswa pindah kelas → entry terpisah).
+ *  - Sum points, count total records, count per kategori.
+ *  - lastRecordDate = tanggal record terbaru per grup.
+ *  - Urut dari totalPoints terbesar → terkecil.
+ */
+export function buildStudentDutyLedger(records: DutyRecord[]): StudentDutyLedgerItem[] {
+  const activeRecords = records.filter((r) => !r.deletedAt);
+  const groups = new Map<string, StudentDutyLedgerItem>();
+
+  for (const r of activeRecords) {
+    const key = `${r.studentId}__${r.classId}`;
+    let entry = groups.get(key);
+    if (!entry) {
+      entry = {
+        studentId: r.studentId,
+        studentName: r.studentName,
+        studentNumber: r.studentNumber,
+        classId: r.classId,
+        classLabel: r.classLabel,
+        totalRecords: 0,
+        totalPoints: 0,
+        attendanceCount: 0,
+        disciplineCount: 0,
+        healthCount: 0,
+        permissionCount: 0,
+        otherCount: 0,
+        lastRecordDate: undefined,
+        statusLabel: "",
+      };
+      groups.set(key, entry);
+    }
+    entry.totalRecords++;
+    entry.totalPoints += r.points;
+    switch (r.category) {
+      case "attendance": entry.attendanceCount++; break;
+      case "discipline": entry.disciplineCount++; break;
+      case "health": entry.healthCount++; break;
+      case "permission": entry.permissionCount++; break;
+      case "other": entry.otherCount++; break;
+    }
+    if (!entry.lastRecordDate || r.date > entry.lastRecordDate) {
+      entry.lastRecordDate = r.date;
+    }
+  }
+
+  // Hitung statusLabel + urut
+  const items = Array.from(groups.values());
+  for (const item of items) {
+    item.statusLabel = getStudentDutyStatus(item.totalPoints);
+  }
+  items.sort((a, b) => b.totalPoints - a.totalPoints);
+  return items;
+}
+
+/**
+ * Filter DutyRecord berdasarkan studentId (dan optional classId).
+ * Hanya record aktif (deletedAt == null).
+ * Urut tanggal terbaru dulu.
+ */
+export function filterDutyRecordsByStudent(
+  records: DutyRecord[],
+  studentId: string,
+  classId?: string,
+): DutyRecord[] {
+  return records
+    .filter((r) => !r.deletedAt && r.studentId === studentId)
+    .filter((r) => (classId ? r.classId === classId : true))
+    .sort((a, b) => b.date.localeCompare(a.date));
 }

@@ -222,6 +222,24 @@ export async function listDutyRecordsByStudent(
     .sort((a, b) => (b.date ?? "").localeCompare(a.date ?? "")) as DutyRecord[];
 }
 
+/**
+ * PIKET-STUDENT-LEDGER-RECAP-04A: Ambil semua DutyRecord untuk academicYearId.
+ * Filter deletedAt null. Urut date desc. Read-only.
+ *
+ * Dipakai untuk build ledger poin siswa tahunan.
+ */
+export async function listDutyRecordsByAcademicYear(
+  academicYearId: string
+): Promise<DutyRecord[]> {
+  const all = await db.dailyDutyRecords
+    .where("academicYearId")
+    .equals(academicYearId)
+    .toArray();
+  return all
+    .filter((r) => !r.deletedAt)
+    .sort((a, b) => (b.date ?? "").localeCompare(a.date ?? "")) as DutyRecord[];
+}
+
 export function summarizeDuty(records: DutyRecord[]): DutySummary {
   return summarizeDutyRecords(records);
 }

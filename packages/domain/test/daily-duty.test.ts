@@ -67,23 +67,23 @@ describe("PIKET-HARIAN-MOBILE-01 — Domain helpers", () => {
   });
 
   it("getStudentDutyStatus: 25-49 = Perlu pembinaan ringan", () => {
-    expect(getStudentDutyStatus(25)).toBe("Perlu pembinaan ringan");
-    expect(getStudentDutyStatus(49)).toBe("Perlu pembinaan ringan");
+    expect(getStudentDutyStatus(25)).toBe("Pembinaan ringan");
+    expect(getStudentDutyStatus(49)).toBe("Pembinaan ringan");
   });
 
   it("getStudentDutyStatus: 50-74 = Perlu perhatian wali kelas", () => {
-    expect(getStudentDutyStatus(50)).toBe("Perlu perhatian wali kelas");
-    expect(getStudentDutyStatus(74)).toBe("Perlu perhatian wali kelas");
+    expect(getStudentDutyStatus(50)).toBe("Panggilan orang tua");
+    expect(getStudentDutyStatus(74)).toBe("Panggilan orang tua");
   });
 
   it("getStudentDutyStatus: 75-99 = Panggilan orang tua", () => {
-    expect(getStudentDutyStatus(75)).toBe("Panggilan orang tua");
-    expect(getStudentDutyStatus(99)).toBe("Panggilan orang tua");
+    expect(getStudentDutyStatus(75)).toBe("Kesiswaan/BK");
+    expect(getStudentDutyStatus(99)).toBe("Kesiswaan/BK");
   });
 
   it("getStudentDutyStatus: >=100 = Tindak lanjut kesiswaan/BK", () => {
-    expect(getStudentDutyStatus(100)).toBe("Tindak lanjut kesiswaan/BK");
-    expect(getStudentDutyStatus(500)).toBe("Tindak lanjut kesiswaan/BK");
+    expect(getStudentDutyStatus(100)).toBe("Tindak lanjut khusus");
+    expect(getStudentDutyStatus(500)).toBe("Tindak lanjut khusus");
   });
 });
 
@@ -664,5 +664,301 @@ describe("PIKET-QUICK-INPUT-LIST-02B — Helper primitives", () => {
     expect(normalized).toContain("muhammad stio");
     expect(normalized).toContain("18");
     expect(normalized).toContain("7b");
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/*  PIKET-STUDENT-LEDGER-RECAP-04A: Ledger + Status tests             */
+/* ------------------------------------------------------------------ */
+
+import {
+  buildStudentDutyLedger,
+  filterDutyRecordsByStudent,
+  getDutyStatusVariant,
+} from "../src/daily-duty";
+
+describe("PIKET-STUDENT-LEDGER-RECAP-04A — getStudentDutyStatus + getDutyStatusVariant", () => {
+  // Test 8 (spec): 0–24 = Aman
+  it("Test 8: getStudentDutyStatus 0–24 = Aman", () => {
+    expect(getStudentDutyStatus(0)).toBe("Aman");
+    expect(getStudentDutyStatus(24)).toBe("Aman");
+  });
+
+  // Test 9 (spec): 25–49 = Pembinaan ringan
+  it("Test 9: getStudentDutyStatus 25–49 = Pembinaan ringan", () => {
+    expect(getStudentDutyStatus(25)).toBe("Pembinaan ringan");
+    expect(getStudentDutyStatus(49)).toBe("Pembinaan ringan");
+  });
+
+  // Test 10 (spec): 50–74 = Panggilan orang tua
+  it("Test 10: getStudentDutyStatus 50–74 = Panggilan orang tua", () => {
+    expect(getStudentDutyStatus(50)).toBe("Panggilan orang tua");
+    expect(getStudentDutyStatus(74)).toBe("Panggilan orang tua");
+  });
+
+  // Test 11 (spec): 75–99 = Kesiswaan/BK
+  it("Test 11: getStudentDutyStatus 75–99 = Kesiswaan/BK", () => {
+    expect(getStudentDutyStatus(75)).toBe("Kesiswaan/BK");
+    expect(getStudentDutyStatus(99)).toBe("Kesiswaan/BK");
+  });
+
+  // Test 12 (spec): 100+ = Tindak lanjut khusus
+  it("Test 12: getStudentDutyStatus 100+ = Tindak lanjut khusus", () => {
+    expect(getStudentDutyStatus(100)).toBe("Tindak lanjut khusus");
+    expect(getStudentDutyStatus(500)).toBe("Tindak lanjut khusus");
+  });
+
+  // Bonus: getDutyStatusVariant
+  it("getDutyStatusVariant returns correct variant per threshold", () => {
+    expect(getDutyStatusVariant(0)).toBe("success");
+    expect(getDutyStatusVariant(24)).toBe("success");
+    expect(getDutyStatusVariant(25)).toBe("warning");
+    expect(getDutyStatusVariant(49)).toBe("warning");
+    expect(getDutyStatusVariant(50)).toBe("neutral");
+    expect(getDutyStatusVariant(74)).toBe("neutral");
+    expect(getDutyStatusVariant(75)).toBe("error");
+    expect(getDutyStatusVariant(99)).toBe("error");
+    expect(getDutyStatusVariant(100)).toBe("errorStrong");
+    expect(getDutyStatusVariant(500)).toBe("errorStrong");
+  });
+});
+
+describe("PIKET-STUDENT-LEDGER-RECAP-04A — buildStudentDutyLedger", () => {
+  // Helper: buat DutyRecord dengan override
+  function ledgerRecord(overrides: Partial<DutyRecord> = {}): DutyRecord {
+    return {
+      id: "r-" + Math.random().toString(36).slice(2, 8),
+      dutyReportId: "dr1",
+      academicYearId: "ay1",
+      date: "2026-06-26",
+      studentId: "s1",
+      studentName: "Andi",
+      studentNumber: 1,
+      classId: "7A",
+      classLabel: "7A",
+      category: "attendance",
+      type: "late",
+      ruleId: "rule1",
+      ruleLabel: "Terlambat",
+      points: 5,
+      note: undefined,
+      followUp: undefined,
+      recordedByTeacherId: "t1",
+      recordedByTeacherName: "Budi",
+      createdAt: "2026-06-26T00:00:00Z",
+      updatedAt: "2026-06-26T00:00:00Z",
+      deletedAt: null,
+      syncStatus: "local_only",
+      ...overrides,
+    };
+  }
+
+  // Test 1 (spec): group by studentId + classId
+  it("Test 1: buildStudentDutyLedger group by studentId + classId", () => {
+    const records = [
+      ledgerRecord({ studentId: "s1", classId: "7A", classLabel: "7A" }),
+      ledgerRecord({ studentId: "s1", classId: "7A", classLabel: "7A" }),
+      ledgerRecord({ studentId: "s2", classId: "7A", classLabel: "7A" }),
+      // Siswa yang sama pindah kelas → entry terpisah
+      ledgerRecord({ studentId: "s1", classId: "7B", classLabel: "7B" }),
+    ];
+    const ledger = buildStudentDutyLedger(records);
+    // 3 entry: s1+7A, s2+7A, s1+7B
+    expect(ledger).toHaveLength(3);
+    const s1_7A = ledger.find((i) => i.studentId === "s1" && i.classId === "7A");
+    expect(s1_7A?.totalRecords).toBe(2);
+  });
+
+  // Test 2 (spec): total poin dihitung benar
+  it("Test 2: total poin dihitung benar", () => {
+    const records = [
+      ledgerRecord({ studentId: "s1", points: 5 }),
+      ledgerRecord({ studentId: "s1", points: 10 }),
+      ledgerRecord({ studentId: "s1", points: 25 }),
+      ledgerRecord({ studentId: "s2", points: 15 }),
+    ];
+    const ledger = buildStudentDutyLedger(records);
+    const s1 = ledger.find((i) => i.studentId === "s1");
+    expect(s1?.totalPoints).toBe(40);
+    const s2 = ledger.find((i) => i.studentId === "s2");
+    expect(s2?.totalPoints).toBe(15);
+  });
+
+  // Test 3 (spec): total records dihitung benar
+  it("Test 3: total records dihitung benar", () => {
+    const records = [
+      ledgerRecord({ studentId: "s1" }),
+      ledgerRecord({ studentId: "s1" }),
+      ledgerRecord({ studentId: "s1" }),
+      ledgerRecord({ studentId: "s2" }),
+    ];
+    const ledger = buildStudentDutyLedger(records);
+    const s1 = ledger.find((i) => i.studentId === "s1");
+    expect(s1?.totalRecords).toBe(3);
+    const s2 = ledger.find((i) => i.studentId === "s2");
+    expect(s2?.totalRecords).toBe(1);
+  });
+
+  // Test 4 (spec): count kategori attendance/discipline/health/permission/other benar
+  it("Test 4: count kategori attendance/discipline/health/permission/other benar", () => {
+    const records = [
+      ledgerRecord({ studentId: "s1", category: "attendance" }),
+      ledgerRecord({ studentId: "s1", category: "attendance" }),
+      ledgerRecord({ studentId: "s1", category: "discipline" }),
+      ledgerRecord({ studentId: "s1", category: "health" }),
+      ledgerRecord({ studentId: "s1", category: "permission" }),
+      ledgerRecord({ studentId: "s1", category: "other" }),
+    ];
+    const ledger = buildStudentDutyLedger(records);
+    const s1 = ledger.find((i) => i.studentId === "s1");
+    expect(s1?.attendanceCount).toBe(2);
+    expect(s1?.disciplineCount).toBe(1);
+    expect(s1?.healthCount).toBe(1);
+    expect(s1?.permissionCount).toBe(1);
+    expect(s1?.otherCount).toBe(1);
+    expect(s1?.totalRecords).toBe(6);
+  });
+
+  // Test 5 (spec): deletedAt tidak dihitung
+  it("Test 5: deletedAt tidak dihitung", () => {
+    const records = [
+      ledgerRecord({ studentId: "s1", points: 5, deletedAt: null }),
+      ledgerRecord({ studentId: "s1", points: 10, deletedAt: "2026-06-27T00:00:00Z" }), // soft-deleted
+      ledgerRecord({ studentId: "s1", points: 15, deletedAt: null }),
+    ];
+    const ledger = buildStudentDutyLedger(records);
+    const s1 = ledger.find((i) => i.studentId === "s1");
+    expect(s1?.totalRecords).toBe(2);  // hanya 2 record aktif
+    expect(s1?.totalPoints).toBe(20);  // 5 + 15, bukan 30
+  });
+
+  // Test 6 (spec): lastRecordDate mengambil tanggal terbaru
+  it("Test 6: lastRecordDate mengambil tanggal terbaru", () => {
+    const records = [
+      ledgerRecord({ studentId: "s1", date: "2026-06-20" }),
+      ledgerRecord({ studentId: "s1", date: "2026-06-26" }),
+      ledgerRecord({ studentId: "s1", date: "2026-06-15" }),
+      ledgerRecord({ studentId: "s1", date: "2026-06-22" }),
+    ];
+    const ledger = buildStudentDutyLedger(records);
+    const s1 = ledger.find((i) => i.studentId === "s1");
+    expect(s1?.lastRecordDate).toBe("2026-06-26");
+  });
+
+  // Test 7 (spec): ledger urut dari totalPoints terbesar
+  it("Test 7: ledger urut dari totalPoints terbesar", () => {
+    const records = [
+      ledgerRecord({ studentId: "s1", points: 5 }),   // total 5
+      ledgerRecord({ studentId: "s2", points: 50 }),  // total 50
+      ledgerRecord({ studentId: "s3", points: 25 }),  // total 25
+      ledgerRecord({ studentId: "s4", points: 100 }), // total 100
+    ];
+    const ledger = buildStudentDutyLedger(records);
+    expect(ledger[0].studentId).toBe("s4"); // 100
+    expect(ledger[1].studentId).toBe("s2"); // 50
+    expect(ledger[2].studentId).toBe("s3"); // 25
+    expect(ledger[3].studentId).toBe("s1"); // 5
+    expect(ledger[0].totalPoints).toBeGreaterThanOrEqual(ledger[1].totalPoints);
+  });
+
+  // Bonus: statusLabel otomatis diisi dari getStudentDutyStatus
+  it("statusLabel otomatis diisi dari getStudentDutyStatus", () => {
+    const records = [
+      ledgerRecord({ studentId: "s1", points: 5 }),   // Aman
+      ledgerRecord({ studentId: "s2", points: 30 }),  // Pembinaan ringan
+      ledgerRecord({ studentId: "s3", points: 80 }),  // Kesiswaan/BK
+    ];
+    const ledger = buildStudentDutyLedger(records);
+    expect(ledger.find((i) => i.studentId === "s1")?.statusLabel).toBe("Aman");
+    expect(ledger.find((i) => i.studentId === "s2")?.statusLabel).toBe("Pembinaan ringan");
+    expect(ledger.find((i) => i.studentId === "s3")?.statusLabel).toBe("Kesiswaan/BK");
+  });
+
+  // Bonus: input kosong → ledger kosong
+  it("input kosong → ledger kosong", () => {
+    const ledger = buildStudentDutyLedger([]);
+    expect(ledger).toEqual([]);
+  });
+
+  // Bonus: studentNumber dipertahankan di ledger
+  it("studentNumber dipertahankan di ledger", () => {
+    const records = [
+      ledgerRecord({ studentId: "s1", studentNumber: 18 }),
+      ledgerRecord({ studentId: "s1", studentNumber: 18 }),
+    ];
+    const ledger = buildStudentDutyLedger(records);
+    const s1 = ledger.find((i) => i.studentId === "s1");
+    expect(s1?.studentNumber).toBe(18);
+  });
+});
+
+describe("PIKET-STUDENT-LEDGER-RECAP-04A — filterDutyRecordsByStudent", () => {
+  function ledgerRecord(overrides: Partial<DutyRecord> = {}): DutyRecord {
+    return {
+      id: "r-" + Math.random().toString(36).slice(2, 8),
+      dutyReportId: "dr1",
+      academicYearId: "ay1",
+      date: "2026-06-26",
+      studentId: "s1",
+      studentName: "Andi",
+      studentNumber: 1,
+      classId: "7A",
+      classLabel: "7A",
+      category: "attendance",
+      type: "late",
+      ruleId: "rule1",
+      ruleLabel: "Terlambat",
+      points: 5,
+      note: undefined,
+      followUp: undefined,
+      recordedByTeacherId: "t1",
+      recordedByTeacherName: "Budi",
+      createdAt: "2026-06-26T00:00:00Z",
+      updatedAt: "2026-06-26T00:00:00Z",
+      deletedAt: null,
+      syncStatus: "local_only",
+      ...overrides,
+    };
+  }
+
+  // Test 14 (spec): riwayat siswa urut tanggal terbaru
+  it("Test 14: Riwayat siswa urut tanggal terbaru dulu", () => {
+    const records = [
+      ledgerRecord({ studentId: "s1", date: "2026-06-20" }),
+      ledgerRecord({ studentId: "s1", date: "2026-06-26" }),
+      ledgerRecord({ studentId: "s1", date: "2026-06-15" }),
+      ledgerRecord({ studentId: "s2", date: "2026-06-25" }),
+    ];
+    const riwayat = filterDutyRecordsByStudent(records, "s1");
+    expect(riwayat).toHaveLength(3);
+    expect(riwayat[0].date).toBe("2026-06-26");
+    expect(riwayat[1].date).toBe("2026-06-20");
+    expect(riwayat[2].date).toBe("2026-06-15");
+  });
+
+  // Test: filter by classId optional
+  it("filter by classId optional (siswa pindah kelas)", () => {
+    const records = [
+      ledgerRecord({ studentId: "s1", classId: "7A", date: "2026-06-01" }),
+      ledgerRecord({ studentId: "s1", classId: "7B", date: "2026-06-20" }),
+      ledgerRecord({ studentId: "s1", classId: "7A", date: "2026-06-26" }),
+    ];
+    // Tanpa classId → semua record siswa
+    const all = filterDutyRecordsByStudent(records, "s1");
+    expect(all).toHaveLength(3);
+    // Dengan classId 7A → hanya 7A
+    const only7A = filterDutyRecordsByStudent(records, "s1", "7A");
+    expect(only7A).toHaveLength(2);
+    expect(only7A.every((r) => r.classId === "7A")).toBe(true);
+  });
+
+  // Test: deletedAt tidak ikut
+  it("deletedAt tidak ikut filter", () => {
+    const records = [
+      ledgerRecord({ studentId: "s1", deletedAt: null }),
+      ledgerRecord({ studentId: "s1", deletedAt: "2026-06-27T00:00:00Z" }),
+    ];
+    const riwayat = filterDutyRecordsByStudent(records, "s1");
+    expect(riwayat).toHaveLength(1);
   });
 });
