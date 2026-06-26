@@ -10,7 +10,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Card, CardHeader, Input, Select, Button, EmptyState, Badge } from "../../shared/ui";
+import { Card, CardHeader, Input, Select, Button, EmptyState, Badge, PrintExportButtons } from "../../shared/ui";
 import { getLessonSessionsByDate, getLessonSession, listLessonSessions } from "../../shared/db/lesson-session-repo";
 import { getAttendanceBySession, saveDefaultAttendance, updateAttendance } from "../../shared/db/attendance-repo";
 import { findClassRoster } from "../../shared/db/class-roster-repo";
@@ -216,6 +216,59 @@ export function QuickAttendancePage() {
           </Card>
         )}
       </>
+    )}
+
+    {/* PRINT-EXPORT-COMPLETE-01: Cetak Rekap Absensi (mode susulan) */}
+    {mode === "susulan" && assignmentId && allSessions.length > 0 && (
+      <Card>
+        <div className="flex justify-between items-center mb-3">
+          <h3 className="text-sm font-bold text-slate-700">Cetak Rekap Absensi</h3>
+          <PrintExportButtons
+            filename={`rekap-absensi-${assignment()?.classLabel ?? ""}-${assignment()?.subject ?? ""}`}
+            title="Rekap Absensi"
+            orientation="portrait"
+            targetId="print-attendance"
+          />
+        </div>
+      </Card>
+    )}
+
+    {/* Print-area untuk rekap absensi */}
+    {mode === "susulan" && assignmentId && allSessions.length > 0 && (
+      <div className="print-area hidden print:block" id="print-attendance">
+        <div className="document-page document-portrait">
+          <div className="document-title">REKAP ABSENSI</div>
+          <div className="document-subtitle">{year?.label ?? ""} — Semester {assignment()?.semester === 1 ? "Ganjil" : "Genap"}</div>
+          <table className="document-identity">
+            <tbody>
+              <tr><td>Kelas</td><td>{assignment()?.classLabel ?? "-"}</td><td>Mapel</td><td>{assignment()?.subject ?? "-"}</td></tr>
+              <tr><td>Guru</td><td>{assignment()?.teacherName ?? "-"}</td><td>Total Pertemuan</td><td>{allSessions.length}</td></tr>
+            </tbody>
+          </table>
+          <table className="document-table">
+            <thead>
+              <tr>
+                <th style={{ width: "5%" }}>No</th>
+                <th style={{ width: "15%" }}>Tanggal</th>
+                <th>Mapel</th>
+                <th>Kelas</th>
+                <th style={{ width: "10%" }}>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {allSessions.map((s, i) => (
+                <tr key={s.id}>
+                  <td className="text-center">{i + 1}</td>
+                  <td>{formatLongDateID(s.date)}</td>
+                  <td>{s.subject}</td>
+                  <td>{s.classLabel}</td>
+                  <td className="text-center">{doneIds.has(s.id) ? "Sudah diisi" : "Belum diisi"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
     )}
 
     {/* Editor — muncul setelah user pilih pertemuan */}
