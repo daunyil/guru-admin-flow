@@ -19,6 +19,44 @@ import {
   type ClassAttendanceSummary,
 } from "@guru-admin/domain";
 
+/**
+ * PIKET-HARIAN-MOBILE-01B: Ranking status untuk laporan Piket.
+ * absent > sick > excused > present
+ * Status lain (mis. "late" jika ada di attendanceRecords) diabaikan.
+ *
+ * Bila siswa punya multiple records di hari yang sama, ambil status terberat,
+ * BUKAN record terbaru.
+ */
+const STATUS_RANK: Record<string, number> = {
+  absent: 4,
+  sick: 3,
+  excused: 2,
+  present: 1,
+};
+
+/**
+ * PIKET-HARIAN-MOBILE-01B: Pilih record dengan status terberat per studentId.
+ * Bila ranking sama, ambil record terbaru (updatedAt) sebagai tiebreaker.
+ */
+function dedupByHeaviestStatus<T extends { studentId: string; status: string; updatedAt: string }>(
+  records: T[]
+): Map<string, T> {
+  const byStudent = new Map<string, T>();
+  for (const r of records) {
+    const existing = byStudent.get(r.studentId);
+    if (!existing) {
+      byStudent.set(r.studentId, r);
+      continue;
+    }
+    const rRank = STATUS_RANK[r.status] ?? 0;
+    const eRank = STATUS_RANK[existing.status] ?? 0;
+    if (rRank > eRank || (rRank === eRank && r.updatedAt > existing.updatedAt)) {
+      byStudent.set(r.studentId, r);
+    }
+  }
+  return byStudent;
+}
+
 
 /* ------------------------------------------------------------------ */
 /*  Duty Rules                                                         */
@@ -209,16 +247,9 @@ export async function getAttendanceSummaryForDate(args: {
       (r) => !r.deletedAt && r.date === args.date
     );
 
-    // PIKET-HARIAN-MOBILE-01A Fix 1: dedup by studentId — ambil record terakhir per siswa
-    // Sebelumnya: 2 record present untuk siswa yang sama dihitung 2x.
-    // Sekarang: group by studentId, ambil record dengan updatedAt terbaru.
-    const byStudent = new Map<string, typeof dayRecords[number]>();
-    for (const r of dayRecords) {
-      const existing = byStudent.get(r.studentId);
-      if (!existing || (r.updatedAt ?? "") > (existing.updatedAt ?? "")) {
-        byStudent.set(r.studentId, r);
-      }
-    }
+    // PIKET-HARIAN-MOBILE-01B: dedup by studentId — ambil status TERBERAT (bukan terbaru)
+    // Ranking: absent > sick > excused > present
+    const byStudent = dedupByHeaviestStatus(dayRecords);
 
     if (byStudent.size === 0) {
       summaries.push({
@@ -306,14 +337,9 @@ export async function syncAlpaFromAttendance(args: {
       (r) => !r.deletedAt && r.date === args.date
     );
 
-    // Dedup by studentId (ambil record terakhir)
-    const byStudent = new Map<string, typeof dayRecords[number]>();
-    for (const r of dayRecords) {
-      const existing = byStudent.get(r.studentId);
-      if (!existing || (r.updatedAt ?? "") > (existing.updatedAt ?? "")) {
-        byStudent.set(r.studentId, r);
-      }
-    }
+    // PIKET-HARIAN-MOBILE-01B: dedup by status terberat (bukan terbaru)
+    // Jika siswa pernah absent lalu present, status terberat = absent → sync alpa tetap buat record
+    const byStudent = dedupByHeaviestStatus(dayRecords);
 
     // Buat DutyRecord untuk siswa absent
     for (const [studentId, attRecord] of byStudent) {
