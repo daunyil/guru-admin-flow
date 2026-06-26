@@ -348,34 +348,51 @@ export function QuickJournalPage() {
                   {sessions.map((s) => {
                     const hasJournal = journals.some((j) => j.sessionId === s.id);
                     const isManual = s.teachingScheduleId === "manual" || s.teachingScheduleId === "susulan";
+                    const isActive = selectedSessionId === s.id;
                     return (
-                      <button
+                      <div
                         key={s.id}
-                        onClick={() => setSelectedSessionId(s.id)}
-                        className={`w-full text-left p-3 border rounded-md ${
-                          selectedSessionId === s.id ? "border-brand-400 bg-brand-50" : "border-slate-200"
-                        } ${s.status === "cancelled" ? "opacity-50" : ""}`}
+                        className={`p-3 border rounded-lg transition-all ${
+                          isActive
+                            ? "border-brand-500 bg-brand-50 ring-2 ring-brand-200"
+                            : s.status === "cancelled"
+                              ? "border-slate-200 opacity-50"
+                              : hasJournal
+                                ? "border-emerald-200 bg-emerald-50"
+                                : "border-slate-200"
+                        }`}
                       >
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <span className="font-medium text-sm">
-                              {isManual ? "Manual" : `${s.startTime}–${s.endTime} · Jam ${s.startPeriod}`}
-                            </span>
-                            <Badge variant="neutral">{s.classLabel}</Badge>
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-medium text-sm">
+                                {isManual ? "Manual" : `${s.startTime}–${s.endTime} · Jam ${s.startPeriod}`}
+                              </span>
+                              <Badge variant="neutral">{s.classLabel}</Badge>
+                            </div>
                           </div>
-                          <div className="flex gap-1">
-                            {s.status === "planned" ? (
-                              hasJournal ? (
-                                <Badge variant="success">✓ Jurnal</Badge>
-                              ) : (
-                                <Badge variant="warning">Belum jurnal</Badge>
-                              )
+                          <div className="flex items-center gap-2 shrink-0">
+                            {isActive ? (
+                              <Badge variant="success">Sedang diisi</Badge>
+                            ) : s.status === "planned" ? (
+                              <>
+                                <Badge variant={hasJournal ? "success" : "warning"}>
+                                  {hasJournal ? "✓ Jurnal" : "Belum jurnal"}
+                                </Badge>
+                                <Button
+                                  variant={hasJournal ? "secondary" : "primary"}
+                                  className="text-xs px-3 py-1.5"
+                                  onClick={() => setSelectedSessionId(s.id)}
+                                >
+                                  {hasJournal ? "Ubah" : "Isi Jurnal"}
+                                </Button>
+                              </>
                             ) : (
                               <Badge variant="error">Batal</Badge>
                             )}
                           </div>
                         </div>
-                      </button>
+                      </div>
                     );
                   })}
                 </div>
