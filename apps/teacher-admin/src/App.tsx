@@ -7,6 +7,7 @@
 import { HashRouter, Routes, Route } from "react-router-dom";
 import { AuthGate } from "./modules/auth/AuthGate";
 import { AppShell } from "./shared/layout/AppShell";
+import { ErrorBoundary } from "./shared/ui/ErrorBoundary";
 import { TodayPage } from "./routes/TodayPage";
 import { ProfilePage } from "./modules/profile/ProfilePage";
 import { BackupPage } from "./modules/backup/BackupPage";
@@ -36,6 +37,7 @@ import { EvaluationDocsPage } from "./modules/evaluation-docs/EvaluationDocsPage
 export function App() {
   return (
     <HashRouter>
+      <ErrorBoundary>
       <AuthGate>
         <AppShell>
           <Routes>
@@ -68,6 +70,7 @@ export function App() {
           </Routes>
         </AppShell>
       </AuthGate>
+      </ErrorBoundary>
     </HashRouter>
   );
 }

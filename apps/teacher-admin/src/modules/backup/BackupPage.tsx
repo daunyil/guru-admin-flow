@@ -141,7 +141,7 @@ export function BackupPage() {
       <Card>
         <CardHeader
           title="Export Backup"
-          description="Unduh seluruh data lokal ke satu file JSON. Termasuk nilai ringan v0.6."
+          description="Unduh seluruh data lokal ke satu file JSON. Termasuk semua data: profil, tahun, jadwal, sesi, absensi, jurnal, nilai, dokumen."
         />
         <Button onClick={handleExport} disabled={exporting}>
           <Download className="w-4 h-4" />
