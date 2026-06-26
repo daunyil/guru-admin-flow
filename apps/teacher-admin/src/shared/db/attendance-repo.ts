@@ -21,6 +21,7 @@ import {
   pushLessonSessionToCloud,
   pushTeachingAssignmentToCloud,
 } from "../supabase/daily-bridge";
+import { reportSyncError } from "../supabase/sync-store";
 
 /** Get AttendanceRecord[] untuk satu sesi. */
 export async function getAttendanceBySession(sessionId: string): Promise<AttendanceRecord[]> {
@@ -80,7 +81,7 @@ async function pushAttendanceWithCloudParents(records: AttendanceRecord[]): Prom
   const sessionId = records[0].sessionId;
   const session = await getLessonSession(sessionId);
   if (!session) {
-    console.warn(`[Supabase Bridge] Push attendance dibatalkan: session lokal ${sessionId} tidak ditemukan.`);
+    reportSyncError("attendance", "push", `Session lokal ${sessionId} tidak ditemukan.`);
     return;
   }
 
@@ -102,19 +103,19 @@ async function pushAttendanceWithCloudParents(records: AttendanceRecord[]): Prom
 
   const assignmentPush = await pushTeachingAssignmentToCloud(assignment);
   if (!assignmentPush.success) {
-    console.warn(`[Supabase Bridge] Push teaching_assignment gagal: ${assignmentPush.error}`);
+    reportSyncError("assignment", "push", assignmentPush.error);
     return;
   }
 
   const sessionPush = await pushLessonSessionToCloud(session, assignment.id);
   if (!sessionPush.success) {
-    console.warn(`[Supabase Bridge] Push lesson_session gagal: ${sessionPush.error}`);
+    reportSyncError("session", "push", sessionPush.error);
     return;
   }
 
   const attendancePush = await pushAttendanceToCloud(records);
   if (!attendancePush.success) {
-    console.warn(`[Supabase Bridge] Push attendance gagal: ${attendancePush.error}`);
+    reportSyncError("attendance", "push", attendancePush.error);
   }
 }
 
@@ -180,7 +181,7 @@ export async function saveDefaultAttendance(
     }
   });
   void pushAttendanceWithCloudParents(records).catch((e) => {
-    console.warn("[Supabase Bridge] Push attendance gagal:", e instanceof Error ? e.message : String(e));
+    reportSyncError("attendance", "push", e instanceof Error ? e.message : String(e));
   });
 }
 
@@ -210,7 +211,7 @@ export async function updateAttendance(
   const changed = updated.filter((r) => changesMap.has(r.studentId));
   if (changed.length > 0) {
     void pushAttendanceWithCloudParents(changed).catch((e) => {
-      console.warn("[Supabase Bridge] Push attendance (update) gagal:", e instanceof Error ? e.message : String(e));
+      reportSyncError("attendance", "push", e instanceof Error ? e.message : String(e));
     });
   }
 
