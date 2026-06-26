@@ -367,3 +367,53 @@ Stage Summary:
 - Test count: 648 (sebelumnya) + 13 (baru untuk 04B) = 661 PASS.
 - Commit terakhir di origin/main: 6f29988 (5 commit total untuk 04B + polish).
 - READY FOR SENIOR AUDIT — status CLOSED.
+
+---
+
+Task ID: PIKET-AUDIT-05C
+Agent: main (sprint owner — audit + fix batch)
+Task: Audit menyeluruh modul Guru Piket (kode + UX) dan perbaiki sekali. Setelah 5 sprint (01, 02A, 02B, 03 journal, 04A ledger, 04B surat), modul sudah UX READY per docs/PIKET_UX_AUDIT_05B.md. Audit ini fokus kode robustness + UX polish yang belum tertangkap.
+
+Work Log:
+- Fetch origin/main: dapat 5 commit baru Bapak (1719f48..f6e9703) — docs audit + hapus tab Riwayat lama + polish piket-letter. Fast-forward.
+- Baca DailyDutyPage.tsx (498 baris setelah hapus tab Riwayat), piket-letter.ts, daily-duty-repo.ts, daily-duty.ts, semua test files.
+- Catat 9 issue (5 kode + 4 UX), semua fix dalam satu batch.
+
+KODE FIXES:
+1. Error handling try/catch di 5 handler async (handleCatat, handleDeleteRecord, handleFinalize, handleUnlock, handleSyncAlpa, handleSaveNote). Sebelumnya bila IndexedDB throw (quota, locked), user tidak lihat apa-apa. Sekarang notify('error', msg).
+2. handleSaveNote guard teacher wajib. Sebelumnya: `teacher?.id ?? ''` bisa pass empty string ke findOrCreateDutyReport → buat DutyReport dengan teacher kosong. Sekarang: notify('error', 'Profil guru belum lengkap. Buka menu Profil.') + return early.
+3. buildStudentDutyLedger secondary sort by studentName (localeCompare 'id'). Sebelumnya: `items.sort((a, b) => b.totalPoints - a.totalPoints)` — ties di totalPoints bisa urut acak antar render (JS sort stabil untuk primitif tapi tidak dijamin untuk object identity). Sekarang: stabil alfabetis untuk siswa dengan poin sama.
+
+UX FIXES:
+4. Message banner dibedakan success/error/warning. Sebelumnya: semua pakai `info-banner-success` (hijau) walau pesan error seperti 'Laporan sudah difinalisasi'. Sekarang: state `message: { type, text } | null`. success=hijau, warning=kuning, error=merah.
+5. Message auto-dismiss setelah 4 detik. Sebelumnya: banner menetap sampai aksi berikutnya. Sekarang: useEffect setTimeout 4000ms + cleanup clearTimeout.
+6. Catat tab: empty state saat rosters kosong. Sebelumnya: tampilkan chip kosong + list siswa kosong tanpa konteks. Sekarang: EmptyState 'Belum ada data kelas/siswa' + hint 'Buka menu Kelas dan Mapel atau import roster siswa dulu' + tombol 'Buka Roster'.
+7. Poin tab: warning bila siswa Aman (<25 poin) dibuat surat. Sebelumnya: tombol surat selalu aktif walau siswa belum perlu surat. Sekarang: notify('warning', '...berstatus Aman... Surat biasanya untuk poin >= 25'). Tetap lanjut (guru boleh paksa bila ingin).
+8. Poin tab: summary stats per status di header. Sebelumnya: tidak ada overview cepat. Sekarang: grid 5 kolom (Aman/Pembinaan/Panggilan/BK/Khusus) dengan jumlah siswa per status, warna konsisten dengan badge (emerald/amber/orange/rose/rose-strong).
+9. Cetak tab: Mode Dokumen toggle + warning bila tidak ada data. Sebelumnya: `print-area hidden print:block` — hanya visible saat print. Sekarang: tombol 'Mode Dokumen' untuk preview on-screen (konsisten dengan modul Jurnal). Warning kuning bila records + attendanceDetail + ledger semua kosong. PrintDutyReport juga di-split jadi JSX readable (bukan satu baris lagi).
+
+TESTS:
++1 test baru di packages/domain/test/daily-duty.test.ts:
+- Test 7b (05C): ties di totalPoints diurutkan by studentName (stable).
+  3 siswa dengan 30 poin (Zaki, Andi, Budi) + 1 siswa 50 poin.
+  Hasil: 50p (Citra) di atas, lalu Andi, Budi, Zaki (alfabetis).
+
+Run gates:
+- typecheck PASS (3 workspaces: teacher-admin, domain, shared)
+- test PASS — 662 tests total: 605 domain + 23 shared + 34 teacher-admin (+1 baru untuk secondary sort)
+- build PASS (1,139 KB JS, 37 KB CSS — naik ~1 KB dari 1,138 sebelumnya, acceptable)
+
+Stage Summary:
+- Modul Piket sekarang lebih robust: semua handler async punya error handling, tidak ada lagi fallthrough empty string, urut ledger stabil.
+- UX lebih konsisten: banner pesan dibedakan warna, auto-dismiss, empty state jelas, summary stats, Mode Dokumen di Cetak.
+- 9 issue ditemukan, 9 diperbaiki dalam 1 batch (sesuai instruksi 'perbaiki sekali').
+- File changed: 3 files, +247/-73 lines.
+- Test count: 661 (sebelumnya) + 1 (baru) = 662 PASS.
+- Commit: 7f9b8a9 (pushed to origin/main).
+- READY FOR SENIOR AUDIT.
+
+Tidak dikerjakan (P3, bukan blocker):
+- Split DailyDutyPage jadi sub-komponen (DailyDutyInputCard, DailyDutyAttendanceRecap, DailyDutyLedgerCard, DailyDutyLetterPreview, DailyDutyPrintReport) — maintainability, bukan UX blocker.
+- Custom modal daripada confirm() — aesthetic, bukan blocker.
+- Keyboard shortcuts (Enter to submit catat) — nice-to-have.
+- Performance: getAttendanceDetailForDate N+1 query (pre-existing dari sprint 02A, out of scope).
