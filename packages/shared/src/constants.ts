@@ -4,7 +4,7 @@
  */
 
 export const APP_NAME = "Guru Admin Flow";
-export const APP_VERSION = "0.6.0";
+export const APP_VERSION = "1.0.0";
 
 /**
  * Versi skema data. Wajib dinaikkan setiap kali struktur data berubah
@@ -19,6 +19,8 @@ export const APP_VERSION = "0.6.0";
  * v0.6.6 (GENERATOR-COMPLETION-RC1) menaikkan versi karena menambah
  *   rppDocuments + remedialPrograms + enrichmentPrograms ke Dexie + Backup JSON.
  *   Backup lama (v5) tetap bisa di-restore karena field baru default=[].
+ * v1.0.0 adalah release lock aplikasi harian. Tidak ada perubahan schema;
+ *   DATA_SCHEMA_VERSION tetap 7.
  */
 export const DATA_SCHEMA_VERSION = 7;
 
@@ -44,7 +46,7 @@ export const DAY_LABELS_ID: Record<number, string> = {
   3: "Rabu",
   4: "Kamis",
   5: "Jumat",
-  6: "Sabtu",
+  6: "Jum'at",
   7: "Minggu",
 };
 
