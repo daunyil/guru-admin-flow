@@ -10,6 +10,7 @@
 
 import { type ReactNode, useEffect, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
+import { APP_VERSION } from "@guru-admin/shared";
 import { GraduationCap, Calendar, User, Database, Plus, ClipboardList, FileText, Clock, Users, CheckCircle, BookOpen, FileSpreadsheet, ListChecks, MoreHorizontal, BookMarked } from "./icons";
 
 interface NavItem {
@@ -122,7 +123,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             </div>
             <div>
               <p className="font-bold text-sm text-slate-900 leading-none">SIAKAD GURU</p>
-              <p className="text-[10px] text-slate-400 mt-0.5">v1.0 RC</p>
+              <p className="text-[10px] text-slate-400 mt-0.5">v{APP_VERSION}</p>
             </div>
           </div>
         </div>
