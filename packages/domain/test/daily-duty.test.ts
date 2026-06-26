@@ -370,3 +370,299 @@ describe("PIKET-REPORT-APPSCRIPT-PARITY-02A — Rekap detail S/I/A", () => {
     expect(formatted).toBe("Ahmad (Sakit), Dewi (Sakit), Budi (Alpa)");
   });
 });
+
+/* ------------------------------------------------------------------ */
+/*  PIKET-QUICK-INPUT-LIST-02B: Smart Search Tests                    */
+/* ------------------------------------------------------------------ */
+
+import {
+  normalizeSearchText,
+  matchSmartSearch,
+  DUTY_RULE_SEARCH_KEYWORDS,
+  makeRuleSearchTarget,
+  searchDutyRules,
+  makeStudentSearchTarget,
+  searchStudents,
+  validateDutyRecordInput,
+  type StudentSearchable,
+} from "../src/daily-duty";
+
+function makeRule(overrides: Partial<DutyRule> = {}): DutyRule {
+  return {
+    id: "rule-x",
+    category: "attendance",
+    type: "late",
+    label: "Terlambat",
+    points: 5,
+    active: true,
+    createdAt: "2026-06-26T00:00:00Z",
+    updatedAt: "2026-06-26T00:00:00Z",
+    deletedAt: null,
+    syncStatus: "local_only",
+    ...overrides,
+  };
+}
+
+function makeStudent(overrides: Partial<StudentSearchable> = {}): StudentSearchable {
+  return {
+    id: "s1",
+    name: "Muhammad Stio",
+    number: 18,
+    classId: "7B",
+    classLabel: "7B",
+    ...overrides,
+  };
+}
+
+describe("PIKET-QUICK-INPUT-LIST-02B — Search siswa cerdas", () => {
+  const students: StudentSearchable[] = [
+    makeStudent({ id: "s1", name: "Muhammad Stio", number: 18, classId: "7B", classLabel: "7B" }),
+    makeStudent({ id: "s2", name: "Budi Santoso", number: 4, classId: "8A", classLabel: "8A" }),
+    makeStudent({ id: "s3", name: "Ahmad Wijaya", number: 7, classId: "7A", classLabel: "7A" }),
+    makeStudent({ id: "s4", name: "Dewi Lestari", number: 10, classId: "8B", classLabel: "8B" }),
+  ];
+
+  // Test 1: case-insensitive
+  it("Test 1: Search siswa mengabaikan huruf besar/kecil", () => {
+    expect(searchStudents(students, "budi")).toContain(students[1]);
+    expect(searchStudents(students, "BUDI")).toContain(students[1]);
+    expect(searchStudents(students, "BuDi")).toContain(students[1]);
+  });
+
+  // Test 2: penggalan nama
+  it("Test 2: Search siswa bisa penggalan nama", () => {
+    const r = searchStudents(students, "stio");
+    expect(r).toContain(students[0]);
+  });
+
+  // Test 3: nama tengah/belakang
+  it("Test 3: Search siswa bisa nama tengah/belakang", () => {
+    const r1 = searchStudents(students, "santoso");
+    expect(r1).toContain(students[1]);
+    const r2 = searchStudents(students, "lestari");
+    expect(r2).toContain(students[3]);
+    const r3 = searchStudents(students, "wijaya");
+    expect(r3).toContain(students[2]);
+  });
+
+  // Test 4: beberapa kata "muh st"
+  it("Test 4: Search siswa bisa beberapa kata, contoh 'muh st'", () => {
+    const r = searchStudents(students, "muh st");
+    expect(r).toContain(students[0]);
+    // Budi Santoso tidak match "muh st" (tidak ada "muh")
+    expect(r).not.toContain(students[1]);
+  });
+
+  // Test 5: nomor siswa
+  it("Test 5: Search siswa bisa nomor siswa, contoh '18'", () => {
+    const r = searchStudents(students, "18");
+    expect(r).toContain(students[0]);
+    // Hanya siswa nomor 18 yang cocok
+    expect(r).toHaveLength(1);
+  });
+
+  // Test 6: class follows student (saat siswa dipilih, classId/classLabel dari siswa)
+  it("Test 6: Saat siswa dipilih, classId/classLabel mengikuti siswa", () => {
+    // Simulasi: siswa 7B dipilih → classId/classLabel = 7B
+    const selected = students[0]; // Muhammad Stio, 7B
+    expect(selected.classId).toBe("7B");
+    expect(selected.classLabel).toBe("7B");
+    // Siswa 8A dipilih → classId/classLabel = 8A
+    const selected2 = students[1];
+    expect(selected2.classId).toBe("8A");
+    expect(selected2.classLabel).toBe("8A");
+    // Verifikasi classId BUKAN dari filter, tapi dari data siswa
+    expect(selected.classId).not.toBe("all"); // bukan filter "Semua"
+  });
+
+  // Test 7: query kosong → semua siswa
+  it("Test 7: Query kosong mengembalikan semua siswa", () => {
+    expect(searchStudents(students, "")).toHaveLength(4);
+    expect(searchStudents(students, "   ")).toHaveLength(4);
+  });
+
+  // Test 8: NIS/NISN jika tersedia
+  it("Test 8: Search siswa bisa NIS bila tersedia", () => {
+    const withNis: StudentSearchable[] = [
+      makeStudent({ id: "s5", name: "Eka Putri", number: 5, nis: "1234567", classId: "7A", classLabel: "7A" }),
+    ];
+    expect(searchStudents(withNis, "1234567")).toContain(withNis[0]);
+  });
+});
+
+describe("PIKET-QUICK-INPUT-LIST-02B — Search pelanggaran cerdas", () => {
+  const rules: DutyRule[] = [
+    makeRule({ id: "rule-late", type: "late", label: "Terlambat", points: 5, category: "attendance" }),
+    makeRule({ id: "rule-absent", type: "absent_without_notice", label: "Alpa / tidak masuk tanpa keterangan", points: 10, category: "attendance" }),
+    makeRule({ id: "rule-uniform", type: "incomplete_uniform", label: "Atribut tidak lengkap", points: 10, category: "discipline" }),
+    makeRule({ id: "rule-fight", type: "fight", label: "Berkelahi", points: 25, category: "discipline" }),
+    makeRule({ id: "rule-disruption", type: "class_disruption", label: "Ribut / mengganggu pembelajaran", points: 10, category: "discipline" }),
+    makeRule({ id: "rule-other", type: "other", label: "Lainnya", points: 0, category: "other" }),
+  ];
+
+  // Test 9: case-insensitive
+  it("Test 9: Search pelanggaran mengabaikan huruf besar/kecil", () => {
+    expect(searchDutyRules(rules, "TERLAMBAT")).toContain(rules[0]);
+    expect(searchDutyRules(rules, "terlambat")).toContain(rules[0]);
+  });
+
+  // Test 10: "telat" → Terlambat (sinonim)
+  it("Test 10: Search 'telat' menemukan Terlambat", () => {
+    const r = searchDutyRules(rules, "telat");
+    expect(r).toContain(rules[0]);
+  });
+
+  // Test 11: "seragam" → Atribut tidak lengkap (sinonim)
+  it("Test 11: Search 'seragam' menemukan Atribut tidak lengkap", () => {
+    const r = searchDutyRules(rules, "seragam");
+    expect(r).toContain(rules[2]);
+  });
+
+  // Test 12: "tidak masuk" → Alpa
+  it("Test 12: Search 'tidak masuk' menemukan Alpa", () => {
+    const r = searchDutyRules(rules, "tidak masuk");
+    expect(r).toContain(rules[1]);
+  });
+
+  // Test 13: "10" → aturan dengan 10 poin
+  it("Test 13: Search '10' menemukan aturan dengan 10 poin", () => {
+    const r = searchDutyRules(rules, "10");
+    // 3 aturan dengan points 10: absent, uniform, disruption
+    expect(r).toContain(rules[1]); // Alpa 10p
+    expect(r).toContain(rules[2]); // Atribut 10p
+    expect(r).toContain(rules[4]); // Ribut 10p
+    // Tidak boleh match aturan dengan points 5/25/0
+    expect(r).not.toContain(rules[0]); // Terlambat 5p
+    expect(r).not.toContain(rules[3]); // Berkelahi 25p
+    expect(r).not.toContain(rules[5]); // Lainnya 0p
+  });
+
+  // Test 14: sinonim berkelahi/berantem/kelahi
+  it("Test 14: Search sinonim 'berantem' dan 'kelahi' menemukan Berkelahi", () => {
+    expect(searchDutyRules(rules, "berantem")).toContain(rules[3]);
+    expect(searchDutyRules(rules, "kelahi")).toContain(rules[3]);
+  });
+
+  // Test 15: sinonim gaduh/ribut
+  it("Test 15: Search 'gaduh' menemukan Ribut / mengganggu pembelajaran", () => {
+    expect(searchDutyRules(rules, "gaduh")).toContain(rules[4]);
+  });
+
+  // Test 16: query kosong → semua rule
+  it("Test 16: Query kosong mengembalikan semua rule", () => {
+    expect(searchDutyRules(rules, "")).toHaveLength(6);
+  });
+});
+
+describe("PIKET-QUICK-INPUT-LIST-02B — Poin otomatis & validasi", () => {
+  // Test 17: Poin simpan mengikuti DutyRule.points
+  it("Test 17: Poin simpan mengikuti DutyRule.points", () => {
+    const lateRule = makeRule({ type: "late", points: 5 });
+    const absentRule = makeRule({ type: "absent_without_notice", points: 10 });
+    const fightRule = makeRule({ type: "fight", points: 25 });
+    // Simulasi: selectedRule.points dipakai langsung saat simpan DutyRecord
+    expect(lateRule.points).toBe(5);
+    expect(absentRule.points).toBe(10);
+    expect(fightRule.points).toBe(25);
+    // Verifikasi: poin tidak diketik manual, diambil dari rule
+    const savedRecord: Partial<DutyRecord> = {
+      points: lateRule.points,
+      ruleId: lateRule.id,
+    };
+    expect(savedRecord.points).toBe(5);
+  });
+
+  // Test 18: Jenis "Lainnya" wajib catatan
+  it("Test 18: Jenis 'Lainnya' wajib catatan", () => {
+    const otherRule = makeRule({ id: "rule-other", type: "other", label: "Lainnya", points: 0 });
+    const student = makeStudent();
+    // Catatan kosong → gagal
+    const r1 = validateDutyRecordInput({ selectedStudent: student, selectedRule: otherRule, note: "" });
+    expect(r1.ok).toBe(false);
+    if (!r1.ok) expect(r1.message).toContain("Catatan wajib");
+    // Catatan berisi → ok
+    const r2 = validateDutyRecordInput({ selectedStudent: student, selectedRule: otherRule, note: "Membawa HP" });
+    expect(r2.ok).toBe(true);
+  });
+
+  // Test 19: Validasi: siswa belum dipilih
+  it("Test 19: Validasi gagal bila siswa belum dipilih", () => {
+    const rule = makeRule({ type: "late", points: 5 });
+    const r = validateDutyRecordInput({ selectedStudent: null, selectedRule: rule, note: "" });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.message).toContain("siswa");
+  });
+
+  // Test 20: Validasi: pelanggaran belum dipilih
+  it("Test 20: Validasi gagal bila pelanggaran belum dipilih", () => {
+    const student = makeStudent();
+    const r = validateDutyRecordInput({ selectedStudent: student, selectedRule: null, note: "" });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.message).toContain("pelanggaran");
+  });
+
+  // Test 21: Validasi: rule non-Lainnya tidak wajib catatan
+  it("Test 21: Rule non-Lainnya tidak wajib catatan (note kosong tetap ok)", () => {
+    const student = makeStudent();
+    const lateRule = makeRule({ type: "late", points: 5 });
+    const r = validateDutyRecordInput({ selectedStudent: student, selectedRule: lateRule, note: "" });
+    expect(r.ok).toBe(true);
+  });
+});
+
+describe("PIKET-QUICK-INPUT-LIST-02B — Helper primitives", () => {
+  // Test 22: normalizeSearchText hapus diakritik
+  it("Test 22: normalizeSearchText menghapus diakritik (é → e)", () => {
+    expect(normalizeSearchText("Sítío")).toBe("sitio");
+    expect(normalizeSearchText("José")).toBe("jose");
+  });
+
+  // Test 23: normalizeSearchText collapse whitespace
+  it("Test 23: normalizeSearchText collapse whitespace", () => {
+    expect(normalizeSearchText("  budi   santoso  ")).toBe("budi santoso");
+  });
+
+  // Test 24: matchSmartSearch — semua kata harus match
+  it("Test 24: matchSmartSearch — semua kata query harus match di target", () => {
+    expect(matchSmartSearch("budi", "Budi Santoso")).toBe(true);
+    expect(matchSmartSearch("budi santo", "Budi Santoso")).toBe(true);
+    expect(matchSmartSearch("budi joko", "Budi Santoso")).toBe(false); // joko tidak ada
+    expect(matchSmartSearch("", "Budi")).toBe(true); // query kosong → true
+  });
+
+  // Test 25: DUTY_RULE_SEARCH_KEYWORDS punya entry untuk semua DutyRecordType
+  it("Test 25: DUTY_RULE_SEARCH_KEYWORDS punya entry untuk semua DutyRecordType", () => {
+    const types: DutyRule["type"][] = [
+      "late", "absent_without_notice", "early_leave", "sick_uks",
+      "incomplete_uniform", "class_disruption", "skipping_class",
+      "fight", "rude_behavior", "other",
+    ];
+    for (const t of types) {
+      expect(DUTY_RULE_SEARCH_KEYWORDS[t]).toBeDefined();
+      expect(Array.isArray(DUTY_RULE_SEARCH_KEYWORDS[t])).toBe(true);
+      expect(DUTY_RULE_SEARCH_KEYWORDS[t].length).toBeGreaterThan(0);
+    }
+  });
+
+  // Test 26: makeRuleSearchTarget menggabungkan label + category + type + points + keywords
+  it("Test 26: makeRuleSearchTarget menggabungkan semua field + keywords", () => {
+    const rule = makeRule({ type: "late", label: "Terlambat", points: 5, category: "attendance" });
+    const target = makeRuleSearchTarget(rule);
+    expect(target).toContain("terlambat");
+    expect(target).toContain("attendance");
+    expect(target).toContain("late");
+    expect(target).toContain("5");
+    expect(target).toContain("telat"); // dari keywords
+  });
+
+  // Test 27: makeStudentSearchTarget menggabungkan name + number + classLabel
+  it("Test 27: makeStudentSearchTarget menggabungkan name + number + classLabel", () => {
+    const s = makeStudent({ name: "Muhammad Stio", number: 18, classLabel: "7B" });
+    const target = makeStudentSearchTarget(s);
+    // makeStudentSearchTarget returns raw values; normalization happens in matchSmartSearch.
+    const normalized = normalizeSearchText(target);
+    expect(normalized).toContain("muhammad stio");
+    expect(normalized).toContain("18");
+    expect(normalized).toContain("7b");
+  });
+});

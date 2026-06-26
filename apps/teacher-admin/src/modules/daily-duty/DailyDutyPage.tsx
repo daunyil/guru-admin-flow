@@ -4,7 +4,7 @@
  * Terisolasi dari app utama — tidak menulis ke attendanceRecords.
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card, CardHeader, Input, Select, Button, Badge, EmptyState, Textarea, PrintExportButtons } from "../../shared/ui";
 import { getActiveAcademicYear, getTeacherProfile } from "../../shared/db/profile-repo";
 import { listClassRosters } from "../../shared/db/class-roster-repo";
@@ -15,8 +15,11 @@ import {
   addDutyRecord, deleteDutyRecord, listDutyRecordsByDate, listDutyRecordsByStudent,
   getAttendanceDetailForDate, syncAlpaFromAttendance,
 } from "../../shared/db/daily-duty-repo";
-import type { DutyRule, DutyRecord, ClassAttendanceDetail } from "@guru-admin/domain";
-import { getStudentDutyStatus, summarizeDutyRecords, formatSIADetail } from "@guru-admin/domain";
+import type { DutyRule, DutyRecord, ClassAttendanceDetail, StudentSearchable } from "@guru-admin/domain";
+import {
+  getStudentDutyStatus, summarizeDutyRecords, formatSIADetail,
+  searchStudents, searchDutyRules, validateDutyRecordInput,
+} from "@guru-admin/domain";
 import type { AcademicYear, TeacherProfile, ClassRoster } from "@guru-admin/domain";
 
 type Tab = "catat" | "rekap" | "catatan" | "riwayat" | "cetak";
@@ -35,11 +38,17 @@ export function DailyDutyPage() {
   const [reportFinalized, setReportFinalized] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
-  const [selectedClassId, setSelectedClassId] = useState("");
-  const [selectedStudentId, setSelectedStudentId] = useState("");
-  const [selectedRuleId, setSelectedRuleId] = useState("");
+  // PIKET-QUICK-INPUT-LIST-02B: catat-tab state (list-based smart search)
+  const [catatClassFilter, setCatatClassFilter] = useState<string>("all"); // "all" | classId
+  const [studentQuery, setStudentQuery] = useState("");
+  const [ruleQuery, setRuleQuery] = useState("");
+  const [selectedStudent, setSelectedStudent] = useState<StudentSearchable | null>(null);
+  const [selectedRule, setSelectedRule] = useState<DutyRule | null>(null);
   const [catatan, setCatatan] = useState("");
   const [tindakLanjut, setTindakLanjut] = useState("");
+
+  // Riwayat tab (separate state — old Select-based flow)
+  const [riwayatClassId, setRiwayatClassId] = useState("");
   const [riwayatStudentId, setRiwayatStudentId] = useState("");
   const [riwayatRecords, setRiwayatRecords] = useState<DutyRecord[]>([]);
 
@@ -68,36 +77,65 @@ export function DailyDutyPage() {
     else { setReportNote(""); setReportFinalized(false); }
   }
 
+  // PIKET-QUICK-INPUT-LIST-02B: Bangun daftar siswa dari semua roster.
+  // classId/classLabel mengikuti data siswa (bukan filter dropdown).
+  const allStudents = useMemo<StudentSearchable[]>(() => {
+    const out: StudentSearchable[] = [];
+    for (const r of rosters) {
+      for (const s of r.students) {
+        out.push({
+          id: s.id, name: s.name, number: s.number, nis: s.nis,
+          classId: r.classId, classLabel: r.classLabel,
+        });
+      }
+    }
+    return out;
+  }, [rosters]);
+
+  // Filter siswa: kelas (chip) + smart search query.
+  const filteredStudents = useMemo<StudentSearchable[]>(() => {
+    const byClass = catatClassFilter === "all"
+      ? allStudents
+      : allStudents.filter((s) => s.classId === catatClassFilter);
+    return searchStudents(byClass, studentQuery);
+  }, [allStudents, catatClassFilter, studentQuery]);
+
+  // Filter pelanggaran: smart search query.
+  const filteredRules = useMemo<DutyRule[]>(() => {
+    return searchDutyRules(rules, ruleQuery);
+  }, [rules, ruleQuery]);
+
   async function handleCatat() {
-    if (!year || !teacher || !selectedClassId || !selectedStudentId || !selectedRuleId) {
-      setMessage("Lengkapi: Kelas, Siswa, dan Jenis Catatan."); return;
-    }
-    const rule = rules.find((r) => r.id === selectedRuleId);
-    if (!rule) return;
-    if (rule.type === "other" && !catatan.trim()) {
-      setMessage("Catatan wajib untuk jenis 'Lainnya'."); return;
-    }
-    const roster = rosters.find((r) => r.classId === selectedClassId);
-    const student = roster?.students.find((s) => s.id === selectedStudentId);
-    if (!student) return;
+    if (!year || !teacher) return;
+    // PIKET-QUICK-INPUT-LIST-02B: validasi terpusat di domain.
+    const v = validateDutyRecordInput({ selectedStudent, selectedRule, note: catatan });
+    if (!v.ok) { setMessage(v.message); return; }
 
     const report = await findOrCreateDutyReport({
       academicYearId: year.id, date, dutyTeacherId: teacher.id, dutyTeacherName: teacher.name,
     });
     if (report.finalized) { setMessage("Laporan sudah difinalisasi. Buka revisi dulu."); return; }
 
+    // classId/classLabel mengikuti siswa; points mengikuti rule.
     await addDutyRecord({
       dutyReportId: report.id, academicYearId: year.id, date,
-      studentId: student.id, studentName: student.name, studentNumber: student.number,
-      classId: selectedClassId, classLabel: roster?.classLabel ?? "",
-      category: rule.category, type: rule.type, ruleId: rule.id, ruleLabel: rule.label,
-      points: rule.points,
-      source: "manual", attendanceLinkType: null, // PIKET-HARIAN-MOBILE-01A Fix 4: terlambat = manual
+      studentId: selectedStudent!.id,
+      studentName: selectedStudent!.name,
+      studentNumber: selectedStudent!.number,
+      classId: selectedStudent!.classId,
+      classLabel: selectedStudent!.classLabel,
+      category: selectedRule!.category,
+      type: selectedRule!.type,
+      ruleId: selectedRule!.id,
+      ruleLabel: selectedRule!.label,
+      points: selectedRule!.points, // PIKET-QUICK-INPUT-LIST-02B §6: poin otomatis dari rule
+      source: "manual", attendanceLinkType: null,
       note: catatan || undefined, followUp: tindakLanjut || undefined,
       recordedByTeacherId: teacher.id, recordedByTeacherName: teacher.name,
     });
-    setMessage(`Catatan tersimpan: ${student.name} — ${rule.label} (${rule.points} poin).`);
-    setSelectedStudentId(""); setSelectedRuleId(""); setCatatan(""); setTindakLanjut("");
+    setMessage(`Catatan tersimpan: ${selectedStudent!.name} — ${selectedRule!.label} (${selectedRule!.points} poin).`);
+    // Reset pilihan siswa + pelanggaran + catatan. Filter kelas/search tetap.
+    setSelectedStudent(null); setSelectedRule(null); setCatatan(""); setTindakLanjut("");
     void loadData();
   }
 
@@ -160,7 +198,7 @@ export function DailyDutyPage() {
 
   if (loading) return <p className="text-sm text-slate-500">Memuat...</p>;
 
-  const selectedRoster = rosters.find((r) => r.classId === selectedClassId);
+  const riwayatRoster = rosters.find((r) => r.classId === riwayatClassId);
   const summary = summarizeDutyRecords(records);
   const riwayatSummary = summarizeDutyRecords(riwayatRecords);
 
@@ -195,30 +233,162 @@ export function DailyDutyPage() {
         </div>
       </Card>
 
-      {/* TAB: Catat Kejadian */}
+      {/* TAB: Catat Kejadian — PIKET-QUICK-INPUT-LIST-02B list-based smart search */}
       {tab === "catat" && (
         <Card>
-          <CardHeader title="Catat Kejadian Siswa" description="Pilih kelas → siswa → jenis catatan. Poin otomatis." />
-          {reportFinalized && <div className="p-2 bg-amber-50 rounded text-xs text-amber-800 mb-3">⚠ Laporan sudah difinalisasi. Buka revisi dulu.</div>}
-          <div className="space-y-3">
-            <Select label="Kelas" id="duty-class" value={selectedClassId} onChange={setSelectedClassId}
-              options={[{ value: "", label: "-- Pilih --" }, ...rosters.map((r) => ({ value: r.classId, label: r.classLabel }))]} />
-            {selectedRoster && (
-              <Select label="Siswa" id="duty-student" value={selectedStudentId} onChange={setSelectedStudentId}
-                options={[{ value: "", label: "-- Pilih --" }, ...selectedRoster.students.map((s) => ({ value: s.id, label: `${s.number}. ${s.name}` }))]} />
-            )}
+          <CardHeader
+            title="Catat Kejadian Siswa"
+            description="Cari siswa → kelas otomatis. Cari pelanggaran → poin otomatis."
+          />
+          {reportFinalized && (
+            <div className="p-2 bg-amber-50 rounded text-xs text-amber-800 mb-3">
+              ⚠ Laporan sudah difinalisasi. Buka revisi dulu.
+            </div>
+          )}
+
+          <div className="space-y-4">
+            {/* Filter kelas (chips) — hanya filter bantuan, BUKAN sumber data utama */}
             <div>
-              <label className="label">Jenis Catatan</label>
+              <label className="label">Filter kelas</label>
               <div className="flex gap-2 flex-wrap">
-                {rules.map((r) => (
-                  <button key={r.id} onClick={() => setSelectedRuleId(r.id)}
-                    className={`px-3 py-2 text-xs rounded-lg border transition-all ${selectedRuleId === r.id ? "border-brand-500 bg-brand-50 ring-2 ring-brand-200" : "border-slate-200"}`}>
-                    {r.label} ({r.points}p)
+                <button
+                  type="button"
+                  onClick={() => setCatatClassFilter("all")}
+                  className={`px-3 py-1.5 text-xs rounded-lg border transition-all ${
+                    catatClassFilter === "all"
+                      ? "border-brand-500 bg-brand-50 ring-2 ring-brand-200"
+                      : "border-slate-200"
+                  }`}
+                >
+                  Semua
+                </button>
+                {rosters.map((r) => (
+                  <button
+                    key={r.classId}
+                    type="button"
+                    onClick={() => setCatatClassFilter(r.classId)}
+                    className={`px-3 py-1.5 text-xs rounded-lg border transition-all ${
+                      catatClassFilter === r.classId
+                        ? "border-brand-500 bg-brand-50 ring-2 ring-brand-200"
+                        : "border-slate-200"
+                    }`}
+                  >
+                    {r.classLabel}
                   </button>
                 ))}
               </div>
             </div>
-            <Textarea label="Catatan (wajib untuk 'Lainnya')" id="duty-note" value={catatan} onChange={setCatatan} rows={2} />
+
+            {/* Search siswa */}
+            <div>
+              <label className="label">Cari siswa</label>
+              <input
+                type="text"
+                value={studentQuery}
+                onChange={(e) => setStudentQuery(e.target.value)}
+                placeholder="Cari siswa... (nama / nomor / NIS)"
+                className="input"
+              />
+              {filteredStudents.length === 0 ? (
+                <p className="text-xs text-slate-500 mt-2">
+                  Tidak ada siswa{studentQuery ? ` untuk "${studentQuery}"` : ""}.
+                </p>
+              ) : (
+                <ul className="mt-2 space-y-1 max-h-64 overflow-y-auto border border-slate-200 rounded-lg divide-y divide-slate-100">
+                  {filteredStudents.slice(0, 50).map((s) => (
+                    <li key={`${s.classId}-${s.id}`}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedStudent(s);
+                          // Reset pelanggaran bila siswa ganti (poin tergantung rule).
+                          setSelectedRule(null);
+                          setCatatan(""); setTindakLanjut("");
+                        }}
+                        className={`w-full text-left px-3 py-2 text-sm transition-colors ${
+                          selectedStudent?.id === s.id && selectedStudent?.classId === s.classId
+                            ? "bg-brand-50"
+                            : "hover:bg-slate-50"
+                        }`}
+                      >
+                        <span className="font-medium">{s.name}</span>
+                        <span className="text-xs text-slate-500 ml-2">
+                          {s.classLabel} · No. {s.number ?? "-"}
+                          {s.nis ? ` · NIS ${s.nis}` : ""}
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                  {filteredStudents.length > 50 && (
+                    <li className="px-3 py-2 text-xs text-slate-500 bg-slate-50">
+                      Menampilkan 50 dari {filteredStudents.length}. Persempit pencarian untuk hasil lebih spesifik.
+                    </li>
+                  )}
+                </ul>
+              )}
+            </div>
+
+            {/* Search pelanggaran */}
+            <div>
+              <label className="label">Cari pelanggaran</label>
+              <input
+                type="text"
+                value={ruleQuery}
+                onChange={(e) => setRuleQuery(e.target.value)}
+                placeholder="Cari pelanggaran... (nama / kategori / sinonim)"
+                className="input"
+              />
+              {filteredRules.length === 0 ? (
+                <p className="text-xs text-slate-500 mt-2">
+                  Tidak ada pelanggaran{ruleQuery ? ` untuk "${ruleQuery}"` : ""}.
+                </p>
+              ) : (
+                <ul className="mt-2 space-y-1 border border-slate-200 rounded-lg divide-y divide-slate-100">
+                  {filteredRules.map((r) => (
+                    <li key={r.id}>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedRule(r)}
+                        className={`w-full text-left px-3 py-2 text-sm transition-colors ${
+                          selectedRule?.id === r.id ? "bg-brand-50" : "hover:bg-slate-50"
+                        }`}
+                      >
+                        <span className="font-medium">{r.label}</span>
+                        <span className="text-xs text-slate-500 ml-2">
+                          {categoryLabel(r.category)} · {r.points} poin
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            {/* Ringkasan sebelum simpan */}
+            {(selectedStudent || selectedRule) && (
+              <div className="p-3 bg-slate-50 rounded-lg space-y-1">
+                {selectedStudent && (
+                  <p className="text-sm">
+                    <span className="font-medium">{selectedStudent.name}</span>
+                    <span className="text-xs text-slate-500"> — {selectedStudent.classLabel}</span>
+                  </p>
+                )}
+                {selectedRule && (
+                  <p className="text-sm">
+                    {selectedRule.label}
+                    <span className="text-xs text-slate-500 ml-1">· {selectedRule.points} poin</span>
+                  </p>
+                )}
+              </div>
+            )}
+
+            <Textarea
+              label={`Catatan tambahan${selectedRule?.type === "other" ? " (wajib untuk Lainnya)" : " (opsional)"}`}
+              id="duty-note"
+              value={catatan}
+              onChange={setCatatan}
+              rows={2}
+            />
             <Textarea label="Tindak Lanjut (opsional)" id="duty-followup" value={tindakLanjut} onChange={setTindakLanjut} rows={2} />
             <Button onClick={handleCatat} disabled={reportFinalized}>Simpan Catatan</Button>
           </div>
@@ -299,11 +469,11 @@ export function DailyDutyPage() {
         <Card>
           <CardHeader title="Riwayat Siswa" description="Pilih kelas → siswa → lihat total poin + riwayat." />
           <div className="space-y-3">
-            <Select label="Kelas" id="riwayat-class" value={selectedClassId} onChange={(v) => { setSelectedClassId(v); setRiwayatStudentId(""); setRiwayatRecords([]); }}
+            <Select label="Kelas" id="riwayat-class" value={riwayatClassId} onChange={(v) => { setRiwayatClassId(v); setRiwayatStudentId(""); setRiwayatRecords([]); }}
               options={[{ value: "", label: "-- Pilih --" }, ...rosters.map((r) => ({ value: r.classId, label: r.classLabel }))]} />
-            {selectedRoster && (
+            {riwayatRoster && (
               <Select label="Siswa" id="riwayat-student" value={riwayatStudentId} onChange={setRiwayatStudentId}
-                options={[{ value: "", label: "-- Pilih --" }, ...selectedRoster.students.map((s) => ({ value: s.id, label: `${s.number}. ${s.name}` }))]} />
+                options={[{ value: "", label: "-- Pilih --" }, ...riwayatRoster.students.map((s) => ({ value: s.id, label: `${s.number}. ${s.name}` }))]} />
             )}
             {riwayatStudentId && <Button variant="secondary" className="text-sm" onClick={handleRiwayatSearch}>Lihat Riwayat</Button>}
             {riwayatRecords.length > 0 && (
@@ -382,4 +552,16 @@ export function DailyDutyPage() {
       )}
     </div>
   );
+}
+
+// PIKET-QUICK-INPUT-LIST-02B: Helper untuk label kategori (UI-friendly Bahasa Indonesia).
+function categoryLabel(category: DutyRule["category"]): string {
+  switch (category) {
+    case "attendance": return "Kehadiran";
+    case "discipline": return "Kedisiplinan";
+    case "health": return "Kesehatan";
+    case "permission": return "Izin";
+    case "other": return "Lainnya";
+    default: return category;
+  }
 }

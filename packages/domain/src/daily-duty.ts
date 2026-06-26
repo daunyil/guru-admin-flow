@@ -170,3 +170,152 @@ export function formatSIADetail(detail: ClassAttendanceDetail): string {
   for (const name of detail.absentStudents) parts.push(`${name} (Alpa)`);
   return parts.length > 0 ? parts.join(", ") : "—";
 }
+
+/* ------------------------------------------------------------------ */
+/*  PIKET-QUICK-INPUT-LIST-02B: Smart Search Helpers                   */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Normalisasi teks untuk pencarian cerdas.
+ * - lowercase
+ * - NFD normalization (pisahkan huruf dari diakritik)
+ * - hapus diakritik (é → e, ñ → n, dll)
+ * - collapse whitespace
+ * - trim
+ */
+export function normalizeSearchText(value: string): string {
+  return String(value ?? "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * Smart match: query dianggap cocok bila SETIAP kata query muncul di target.
+ * - Case-insensitive (via normalizeSearchText)
+ * - Bisa penggalan nama
+ * - Bisa nama tengah/belakang
+ * - Bisa beberapa kata (semua kata harus ada)
+ * - Query kosong → match semua (true)
+ */
+export function matchSmartSearch(query: string, target: string): boolean {
+  const q = normalizeSearchText(query);
+  const t = normalizeSearchText(target);
+  if (!q) return true;
+  return q.split(" ").every((part) => t.includes(part));
+}
+
+/* ------------------------------------------------------------------ */
+/*  PIKET-QUICK-INPUT-LIST-02B: Duty Rule Smart Search                 */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Keyword sinonim per DutyRecordType untuk pencarian pelanggaran.
+ * Hanya untuk UI search — TIDAK mengubah schema database.
+ */
+export const DUTY_RULE_SEARCH_KEYWORDS: Record<DutyRecordType, string[]> = {
+  late: ["terlambat", "telat", "datang lambat", "lambat"],
+  absent_without_notice: ["alpa", "absen", "tidak hadir", "tidak masuk", "tanpa keterangan"],
+  early_leave: ["izin pulang", "pulang cepat", "keluar sekolah"],
+  sick_uks: ["sakit", "uks", "kurang sehat"],
+  incomplete_uniform: ["seragam", "atribut", "baju", "topi", "dasi", "sepatu"],
+  class_disruption: ["ribut", "gaduh", "mengganggu", "berisik"],
+  skipping_class: ["bolos", "keluar kelas", "kabur", "tidak ikut pelajaran"],
+  fight: ["berkelahi", "kelahi", "berantem", "pukul"],
+  rude_behavior: ["tidak sopan", "kasar", "melawan", "berkata kasar"],
+  other: ["lainnya", "catatan khusus"],
+};
+
+/**
+ * Bangun target pencarian untuk DutyRule: gabungan label + category + type + points + keywords.
+ */
+export function makeRuleSearchTarget(rule: DutyRule): string {
+  const keywords = DUTY_RULE_SEARCH_KEYWORDS[rule.type] ?? [];
+  return [
+    rule.label,
+    rule.category,
+    rule.type,
+    String(rule.points),
+    ...keywords,
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
+/**
+ * Filter daftar DutyRule berdasarkan query smart search.
+ * Bila query kosong, kembalikan semua rule.
+ */
+export function searchDutyRules(rules: DutyRule[], query: string): DutyRule[] {
+  if (!query.trim()) return rules;
+  return rules.filter((rule) => matchSmartSearch(query, makeRuleSearchTarget(rule)));
+}
+
+/* ------------------------------------------------------------------ */
+/*  PIKET-QUICK-INPUT-LIST-02B: Student Smart Search                   */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Tipe siswa yang dapat dicari. Hanya berisi field yang relevan untuk pencarian.
+ * Saat siswa dipilih, classId/classLabel mengikuti data siswa/roster.
+ */
+export interface StudentSearchable {
+  id: string;
+  name: string;
+  number?: number;
+  nis?: string;
+  nisn?: string;
+  classId: string;
+  classLabel: string;
+}
+
+/**
+ * Bangun target pencarian untuk siswa: gabungan name + number + nis + nisn + classLabel.
+ */
+export function makeStudentSearchTarget(student: StudentSearchable): string {
+  return [
+    student.name,
+    student.number != null ? String(student.number) : "",
+    student.nis ?? "",
+    student.nisn ?? "",
+    student.classLabel,
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
+/**
+ * Filter daftar siswa berdasarkan query smart search.
+ * Bila query kosong, kembalikan semua siswa.
+ */
+export function searchStudents<T extends StudentSearchable>(students: T[], query: string): T[] {
+  if (!query.trim()) return students;
+  return students.filter((s) => matchSmartSearch(query, makeStudentSearchTarget(s)));
+}
+
+/* ------------------------------------------------------------------ */
+/*  PIKET-QUICK-INPUT-LIST-02B: Validation Helpers                     */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Validasi input catatan Piket sebelum simpan.
+ * Return: { ok: true } atau { ok: false, message }.
+ */
+export function validateDutyRecordInput(args: {
+  selectedStudent: StudentSearchable | null | undefined;
+  selectedRule: DutyRule | null | undefined;
+  note: string;
+}): { ok: true } | { ok: false; message: string } {
+  if (!args.selectedStudent) {
+    return { ok: false, message: "Pilih siswa terlebih dahulu." };
+  }
+  if (!args.selectedRule) {
+    return { ok: false, message: "Pilih pelanggaran terlebih dahulu." };
+  }
+  if (args.selectedRule.type === "other" && !args.note.trim()) {
+    return { ok: false, message: "Catatan wajib untuk jenis Lainnya." };
+  }
+  return { ok: true };
+}
