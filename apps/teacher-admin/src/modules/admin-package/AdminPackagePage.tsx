@@ -42,6 +42,8 @@ import { listRemedialPrograms } from "../../shared/db/remedial-repo";
 import { listEnrichmentPrograms } from "../../shared/db/enrichment-repo";
 import { listSemesterReports } from "../../shared/db/semester-report-repo";
 import { db } from "../../shared/db/schema";
+// NAV-DAILY-GATE-01: gerbang kartu modul
+import { GATE_GROUPS } from "../../shared/layout/navigation";
 import type {
   AcademicYear,
   TeacherProfile,
@@ -532,11 +534,33 @@ export function AdminPackagePage() {
   return (
     <div className="space-y-4">
       <div className="page-header">
-        <h1 className="text-2xl font-bold text-slate-900">Paket Administrasi Guru</h1>
+        <h1 className="text-2xl font-bold text-slate-900">Laporan Tahunan</h1>
         <p className="text-sm text-slate-500 mt-1">
-          {year ? `TP ${year.label}` : "Belum ada tahun aktif"} · Pusat dokumen administrasi per Kelas dan Mapel.
+          {year ? `TP ${year.label}` : "Belum ada tahun aktif"} · Pusat dokumen administrasi, perencanaan, evaluasi, dan arsip guru.
         </p>
       </div>
+
+      {/* NAV-DAILY-GATE-01: Gerbang ke semua modul yang disembunyikan dari sidebar */}
+      <Card>
+        <CardHeader title="Modul" description="Akses cepat ke semua modul administrasi." />
+        <div className="space-y-3">
+          {GATE_GROUPS.map((group) => (
+            <div key={group.title}>
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">{group.title}</p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {group.cards.map((card) => (
+                  <Link key={card.id} to={card.to}>
+                    <div className="p-3 border border-slate-200 rounded-lg hover:border-brand-300 hover:bg-brand-50 transition-colors cursor-pointer">
+                      <p className="text-sm font-medium text-slate-800">{card.label}</p>
+                      <p className="text-xs text-slate-500 mt-0.5">{card.description}</p>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </Card>
 
       {/* Step 1: Pilih Kelas dan Mapel */}
       <Card>
