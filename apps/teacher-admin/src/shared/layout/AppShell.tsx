@@ -10,7 +10,7 @@
 
 import { type ReactNode, useEffect, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
-import { APP_VERSION } from "@guru-admin/shared";
+import { APP_VERSION, FEATURE_FLAGS } from "@guru-admin/shared";
 import { useSyncStore, refreshSyncStatus } from "../../shared/supabase/sync-store";
 import { GraduationCap, Calendar, User, Database, Plus, ClipboardList, FileText, Clock, Users, CheckCircle, BookOpen, FileSpreadsheet, ListChecks, MoreHorizontal, BookMarked } from "./icons";
 
@@ -41,6 +41,8 @@ const NAV_GROUPS: NavGroup[] = [
       { to: "/attendance", label: "Absen", icon: CheckCircle },
       { to: "/journal", label: "Jurnal", icon: BookOpen },
       { to: "/grades", label: "Nilai", icon: FileSpreadsheet },
+      // PIKET-HARIAN-MOBILE-01: conditional on FEATURE_FLAGS.dailyDuty
+      ...(FEATURE_FLAGS.dailyDuty ? [{ to: "/piket", label: "Piket Harian", icon: ClipboardList }] : []),
     ],
   },
   {

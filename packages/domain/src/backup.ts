@@ -21,6 +21,7 @@ import { rppDocumentSchema } from "./rpp-document";
 import { remedialProgramSchema } from "./remedial-program";
 import { enrichmentProgramSchema } from "./enrichment-program";
 import { documentSnapshotSchema } from "./snapshot-sync";
+import { dutyRuleSchema, dutyReportSchema, dutyRecordSchema } from "./daily-duty";
 import { DATA_SCHEMA_VERSION } from "@guru-admin/shared";
 
 export const backupFileSchema = z.object({
@@ -47,6 +48,10 @@ export const backupFileSchema = z.object({
     remedialPrograms: z.array(remedialProgramSchema).default([]),
     enrichmentPrograms: z.array(enrichmentProgramSchema).default([]),
     documentSnapshots: z.array(documentSnapshotSchema),
+    // PIKET-HARIAN-MOBILE-01: data Piket Harian (backward compat: default [])
+    dutyRules: z.array(dutyRuleSchema).default([]),
+    dutyReports: z.array(dutyReportSchema).default([]),
+    dutyRecords: z.array(dutyRecordSchema).default([]),
   }),
 });
 

@@ -464,3 +464,22 @@ export {
   type GenerateSemesterReportInput,
   type GenerateSemesterReportResult,
 } from "./semester-report-generator";
+
+/* PIKET-HARIAN-MOBILE-01 — Daily Duty (Piket Harian) module */
+export {
+  dutyRuleSchema,
+  dutyReportSchema,
+  dutyRecordSchema,
+  dutyRecordCategorySchema,
+  dutyRecordTypeSchema,
+  summarizeDutyRecords,
+  getStudentDutyStatus,
+  DEFAULT_DUTY_RULES,
+  type DutyRule,
+  type DutyReport,
+  type DutyRecord,
+  type DutyRecordCategory,
+  type DutyRecordType,
+  type DutySummary,
+  type ClassAttendanceSummary,
+} from "./daily-duty";

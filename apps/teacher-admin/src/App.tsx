@@ -33,6 +33,7 @@ import { CompletenessPage } from "./modules/completeness/CompletenessPage";
 import { AppsScriptImportPage } from "./modules/apps-script-import/AppsScriptImportPage";
 import { AutoDocumentPage } from "./modules/auto-document/AutoDocumentPage";
 import { EvaluationDocsPage } from "./modules/evaluation-docs/EvaluationDocsPage";
+import { DailyDutyPage } from "./modules/daily-duty/DailyDutyPage";
 
 export function App() {
   return (
@@ -66,6 +67,7 @@ export function App() {
             <Route path="/completeness" element={<CompletenessPage />} />
             <Route path="/auto-document" element={<AutoDocumentPage />} />
             <Route path="/evaluation-docs" element={<EvaluationDocsPage />} />
+            <Route path="/piket" element={<DailyDutyPage />} />
             <Route path="*" element={<TodayPage />} />
           </Routes>
         </AppShell>

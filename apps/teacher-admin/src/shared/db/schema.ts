@@ -26,6 +26,9 @@ import type {
   EnrichmentProgram,
   DocumentSnapshot,
   SyncQueueItem,
+  DutyRule,
+  DutyReport,
+  DutyRecord,
 } from "@guru-admin/domain";
 
 export class GuruAdminDB extends Dexie {
@@ -50,6 +53,11 @@ export class GuruAdminDB extends Dexie {
   enrichmentPrograms!: Table<EnrichmentProgram, string>;
   documentSnapshots!: Table<DocumentSnapshot, string>;
   syncQueue!: Table<SyncQueueItem, string>;
+
+  // PIKET-HARIAN-MOBILE-01: tabel Piket Harian (terisolasi)
+  dailyDutyRules!: Table<DutyRule, string>;
+  dailyDutyReports!: Table<DutyReport, string>;
+  dailyDutyRecords!: Table<DutyRecord, string>;
 
   constructor() {
     super("guru-admin-flow");
@@ -98,6 +106,13 @@ export class GuruAdminDB extends Dexie {
     // GRADEBOOK-V2: bump version for KD1-KD6 + PTS + PAS fields in GradeEntry.
     this.version(7).stores({
       gradeBooks: "id, academicYearId, teacherId, classId, subject, semester, status, [academicYearId+teacherId+classId+semester]",
+    });
+
+    // PIKET-HARIAN-MOBILE-01: tambah tabel Piket Harian (terisolasi dari app utama)
+    this.version(8).stores({
+      dailyDutyRules: "id, category, type, active",
+      dailyDutyReports: "id, academicYearId, date, dutyTeacherId, finalized",
+      dailyDutyRecords: "id, dutyReportId, academicYearId, date, studentId, classId, category, type",
     });
   }
 }
