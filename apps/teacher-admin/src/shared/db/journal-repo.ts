@@ -28,6 +28,7 @@ import {
   pushLessonSessionToCloud,
   pushTeachingAssignmentToCloud,
 } from "../supabase/daily-bridge";
+import { reportSyncError } from "../supabase/sync-store";
 
 /** Get TeachingJournal by sessionId (1:1 relationship). */
 export async function getJournalBySession(sessionId: string): Promise<TeachingJournal | undefined> {
@@ -74,7 +75,7 @@ async function pushJournalWithCloudParents(
 ): Promise<void> {
   const session = sessionHint ?? await getLessonSession(journal.sessionId);
   if (!session) {
-    console.warn(`[Supabase Bridge] Push journal dibatalkan: session lokal ${journal.sessionId} tidak ditemukan.`);
+    reportSyncError("journal", "push", `Session lokal ${journal.sessionId} tidak ditemukan.`);
     return;
   }
 
@@ -96,19 +97,19 @@ async function pushJournalWithCloudParents(
 
   const assignmentPush = await pushTeachingAssignmentToCloud(assignment);
   if (!assignmentPush.success) {
-    console.warn(`[Supabase Bridge] Push teaching_assignment gagal: ${assignmentPush.error}`);
+    reportSyncError("assignment", "push", assignmentPush.error);
     return;
   }
 
   const sessionPush = await pushLessonSessionToCloud(session, assignment.id);
   if (!sessionPush.success) {
-    console.warn(`[Supabase Bridge] Push lesson_session gagal: ${sessionPush.error}`);
+    reportSyncError("session", "push", sessionPush.error);
     return;
   }
 
   const journalPush = await pushJournalToCloud(journal);
   if (!journalPush.success) {
-    console.warn(`[Supabase Bridge] Push journal gagal: ${journalPush.error}`);
+    reportSyncError("journal", "push", journalPush.error);
   }
 }
 
@@ -131,7 +132,7 @@ export async function initJournalForSession(args: {
   });
   await saveEntity("teachingJournals", journal);
   void pushJournalWithCloudParents(journal, args.session).catch((e) => {
-    console.warn("[Supabase Bridge] Push journal (create) gagal:", e instanceof Error ? e.message : String(e));
+    reportSyncError("journal", "push", e instanceof Error ? e.message : String(e));
   });
   return journal;
 }
@@ -154,7 +155,7 @@ export async function updateJournal(
   const updated = applyJournalInput(existing, input);
   await saveEntity("teachingJournals", updated);
   void pushJournalWithCloudParents(updated).catch((e) => {
-    console.warn("[Supabase Bridge] Push journal (update) gagal:", e instanceof Error ? e.message : String(e));
+    reportSyncError("journal", "push", e instanceof Error ? e.message : String(e));
   });
   return updated;
 }
@@ -170,7 +171,7 @@ export async function resyncJournal(
   const resynced = resyncJournalAttendance(existing, attendanceRecords);
   await saveEntity("teachingJournals", resynced);
   void pushJournalWithCloudParents(resynced).catch((e) => {
-    console.warn("[Supabase Bridge] Push journal (resync) gagal:", e instanceof Error ? e.message : String(e));
+    reportSyncError("journal", "push", e instanceof Error ? e.message : String(e));
   });
   return resynced;
 }
@@ -189,7 +190,7 @@ export async function finalizeJournal(
   }
   await saveEntity("teachingJournals", result.journal);
   void pushJournalWithCloudParents(result.journal).catch((e) => {
-    console.warn("[Supabase Bridge] Push journal (finalize) gagal:", e instanceof Error ? e.message : String(e));
+    reportSyncError("journal", "push", e instanceof Error ? e.message : String(e));
   });
   return { success: true, journal: result.journal, errors: [] };
 }

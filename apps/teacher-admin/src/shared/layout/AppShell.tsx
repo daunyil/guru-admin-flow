@@ -11,6 +11,7 @@
 import { type ReactNode, useEffect, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { APP_VERSION } from "@guru-admin/shared";
+import { useSyncStore, refreshSyncStatus } from "../../shared/supabase/sync-store";
 import { GraduationCap, Calendar, User, Database, Plus, ClipboardList, FileText, Clock, Users, CheckCircle, BookOpen, FileSpreadsheet, ListChecks, MoreHorizontal, BookMarked } from "./icons";
 
 interface NavItem {
@@ -105,10 +106,15 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [showMore, setShowMore] = useState(false);
   const [now, setNow] = useState(new Date());
   const navigate = useNavigate();
+  const syncStatus = useSyncStore((s) => s.status);
+  const syncErrors = useSyncStore((s) => s.errors);
+  const [showSyncErrors, setShowSyncErrors] = useState(false);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(new Date()), 1000 * 30);
-    return () => window.clearInterval(timer);
+    void refreshSyncStatus();
+    const syncTimer = window.setInterval(() => void refreshSyncStatus(), 1000 * 60);
+    return () => { window.clearInterval(timer); window.clearInterval(syncTimer); };
   }, []);
 
   return (
@@ -169,6 +175,27 @@ export function AppShell({ children }: { children: ReactNode }) {
             <span className="font-mono text-slate-600">{formatClock(now)} WIB</span>
           </div>
           <div className="flex items-center gap-2">
+            {/* SUPABASE-CLOUD-READY-01: Sync status badge */}
+            <button
+              onClick={() => setShowSyncErrors(!showSyncErrors)}
+              className={`px-2 py-1 rounded-md text-xs font-medium transition-colors ${
+                syncStatus === "cloud-active"
+                  ? "bg-emerald-50 text-emerald-700"
+                  : syncStatus === "cloud-error"
+                    ? "bg-rose-50 text-rose-700"
+                    : syncStatus === "offline"
+                      ? "bg-amber-50 text-amber-700"
+                      : "bg-slate-100 text-slate-500"
+              }`}
+              title={
+                syncStatus === "cloud-active" ? "Tersinkron dengan cloud"
+                : syncStatus === "cloud-error" ? `${syncErrors.length} error sync`
+                : syncStatus === "offline" ? "Cloud belum dikonfigurasi / belum login"
+                : "Mode lokal (offline)"
+              }
+            >
+              {syncStatus === "cloud-active" ? "☁ Tersinkron" : syncStatus === "cloud-error" ? `⚠ ${syncErrors.length} error` : syncStatus === "offline" ? "☁ Offline" : "📱 Lokal"}
+            </button>
             <button
               onClick={() => navigate("/backup")}
               className="px-3 py-1.5 rounded-md text-sm text-slate-600 hover:bg-slate-100 transition-colors"
@@ -258,6 +285,33 @@ export function AppShell({ children }: { children: ReactNode }) {
           <span>Lainnya</span>
         </button>
       </nav>
+
+      {/* SUPABASE-CLOUD-READY-01: Sync error panel */}
+      {showSyncErrors && syncErrors.length > 0 && (
+        <div className="fixed bottom-4 right-4 z-40 max-w-sm no-print" onClick={() => setShowSyncErrors(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl border border-rose-200 p-4 space-y-3" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <p className="font-bold text-rose-700 text-sm">⚠ Error Sinkronisasi</p>
+              <button onClick={() => setShowSyncErrors(false)} className="text-slate-400 text-lg">×</button>
+            </div>
+            <div className="space-y-2 max-h-48 overflow-y-auto">
+              {syncErrors.map((err) => (
+                <div key={err.id} className="p-2 bg-rose-50 rounded text-xs">
+                  <p className="font-medium text-rose-800">{err.module} · {err.operation}</p>
+                  <p className="text-rose-600 mt-0.5">{err.message}</p>
+                  <p className="text-slate-400 mt-0.5">{new Date(err.timestamp).toLocaleTimeString("id-ID")}</p>
+                </div>
+              ))}
+            </div>
+            <button
+              onClick={() => useSyncStore.getState().clearAllErrors()}
+              className="w-full px-3 py-1.5 rounded-md bg-slate-100 text-slate-600 text-xs font-medium hover:bg-slate-200"
+            >
+              Hapus Semua Error
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Mobile "Lainnya" modal */}
       {showMore && (
