@@ -1,6 +1,6 @@
 # PIKET-UX-AUDIT-05B
 
-Status: FUNCTIONALLY READY
+Status: UX READY
 
 ## Ringkasan Verdict
 
@@ -9,12 +9,38 @@ Modul Piket sudah layak dipakai untuk alur harian guru piket:
 1. Catat kejadian siswa.
 2. Rekap kehadiran H/S/I/A.
 3. Rekap poin siswa.
-4. Lihat riwayat siswa.
+4. Lihat riwayat siswa dari Rekap Poin.
 5. Buat surat panggilan orang tua/wali.
 6. Buat surat pernyataan siswa.
 7. Cetak laporan dan surat.
 
 Tidak ada blocker UX mayor pada alur utama.
+
+## Perbaikan 05B
+
+### 1. Riwayat siswa disatukan ke Rekap Poin
+
+Tab Riwayat lama yang masih select-based dihapus dari navigasi utama. Riwayat siswa sekarang hanya lewat jalur:
+
+```text
+Rekap Poin → cari siswa/filter → Lihat Riwayat
+```
+
+Alasan UX:
+
+- Menghindari dua tempat berbeda untuk melihat riwayat siswa.
+- Guru piket lebih mudah memahami satu alur utama.
+- Surat tetap dibuat dari detail riwayat yang sama.
+
+### 2. Navigasi Piket disederhanakan
+
+Tab final:
+
+```text
+Catat | Rekap | Catatan | Rekap Poin | Cetak
+```
+
+Flow surat tetap berada di Rekap Poin karena surat membutuhkan ledger dan riwayat siswa.
 
 ## Flow Utama
 
@@ -49,7 +75,7 @@ Catatan UX:
 
 Verdict: PASS.
 
-### 3. Rekap Poin
+### 3. Rekap Poin dan Riwayat
 
 Flow sudah jelas:
 
@@ -61,6 +87,7 @@ Catatan UX:
 
 - Badge status membantu guru melihat prioritas pembinaan.
 - Tombol Lihat Riwayat cukup jelas.
+- Riwayat siswa tidak lagi tersebar di tab lain.
 - Rekomendasi surat muncul saat poin tinggi.
 
 Verdict: PASS.
@@ -87,11 +114,11 @@ Catatan UX:
 
 Verdict: PASS.
 
-## Risiko UX Minor
+## Risiko UX Minor Tersisa
 
 ### 1. Halaman Piket mulai padat
 
-DailyDutyPage sudah memuat banyak flow sekaligus. Ini belum mengganggu fungsi, tetapi nanti sebaiknya dipecah menjadi komponen kecil:
+DailyDutyPage masih memuat banyak flow sekaligus. Ini tidak mengganggu fungsi, tetapi nanti boleh dipecah menjadi komponen kecil:
 
 ```text
 DailyDutyInputCard
@@ -101,15 +128,9 @@ DailyDutyLetterPreview
 DailyDutyPrintReport
 ```
 
-Prioritas: P2 / non-blocking.
+Prioritas: P3 / maintainability, bukan blocker UX.
 
-### 2. Tab Riwayat lama masih select-based
-
-Tab Riwayat lama masih memilih kelas lalu siswa. Ini masih bisa dipakai, tetapi Rekap Poin sudah lebih nyaman. Untuk versi berikutnya, tab Riwayat bisa digabung atau diganti dengan riwayat dari Rekap Poin.
-
-Prioritas: P3 / non-blocking.
-
-### 3. Preview surat perlu dicek manual di printer nyata
+### 2. Preview surat perlu dicek manual di printer nyata
 
 Struktur print sudah ada, tetapi margin fisik printer sekolah bisa berbeda. Perlu uji manual di printer A4.
 
@@ -124,7 +145,8 @@ Prioritas: P2 / manual verification.
 - [x] Poin otomatis tampil.
 - [x] Rekap kehadiran sesuai format H/S/I/A.
 - [x] Rekap poin siswa tersedia.
-- [x] Riwayat siswa tersedia.
+- [x] Riwayat siswa tersedia dari Rekap Poin.
+- [x] Tab Riwayat lama tidak lagi membingungkan navigasi.
 - [x] Surat panggilan tersedia.
 - [x] Surat pernyataan tersedia.
 - [x] Preview surat tersedia.
@@ -132,13 +154,11 @@ Prioritas: P2 / manual verification.
 - [x] Cetak surat tersedia.
 - [x] Schema database tidak berubah besar.
 
-## Rekomendasi Final
-
-Modul Piket tidak perlu ditambah fitur baru dulu. Lakukan verifikasi manual ringan:
+## Manual Verify Ringan
 
 1. Tambah satu catatan siswa.
 2. Pastikan Rekap Poin langsung naik.
-3. Buka riwayat siswa.
+3. Buka riwayat siswa dari Rekap Poin.
 4. Buat Surat Panggilan.
 5. Buat Surat Pernyataan.
 6. Cetak/PDF surat.
