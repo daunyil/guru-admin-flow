@@ -11,7 +11,7 @@
  */
 
 import { useEffect, useState } from "react";
-import { Card, CardHeader, Input, Select, Button, Badge, Textarea, EmptyState, ContextCard } from "../../shared/ui";
+import { Card, CardHeader, Input, Select, Button, Badge, Textarea, EmptyState, ContextCard, PrintExportButtons } from "../../shared/ui";
 import { listClassRosters } from "../../shared/db/class-roster-repo";
 import { getActiveAcademicYear, getTeacherProfile } from "../../shared/db/profile-repo";
 import { listAssignmentsByTeacher } from "../../shared/db/teaching-assignment-repo";
@@ -596,6 +596,65 @@ export function GradesPage() {
               </div>
             )}
           </Card>
+
+          {/* PRINT-EXPORT-COMPLETE-01: Cetak Daftar Nilai */}
+          <Card>
+            <div className="flex justify-between items-center mb-3">
+              <h3 className="text-sm font-bold text-slate-700">Cetak Daftar Nilai</h3>
+              <PrintExportButtons
+                filename={`nilai-${assignment.classLabel}-${assignment.subject}`}
+                title="Daftar Nilai"
+                schoolName={teacher?.name ?? ""}
+                orientation="landscape"
+                targetId="print-grades"
+              />
+            </div>
+          </Card>
+
+          {/* Print-area untuk daftar nilai */}
+          <div className="print-area hidden print:block" id="print-grades">
+            <div className="document-page document-landscape">
+              <div className="document-title">DAFTAR NILAI</div>
+              <div className="document-subtitle">{year?.label ?? ""} — Semester {assignment.semester === 1 ? "Ganjil" : "Genap"}</div>
+              <table className="document-identity">
+                <tbody>
+                  <tr><td>Sekolah</td><td>{teacher?.name ?? "-"}</td><td>Mapel</td><td>{assignment.subject}</td></tr>
+                  <tr><td>Kelas</td><td>{assignment.classLabel}</td><td>KKTP</td><td>{kktp}</td></tr>
+                  <tr><td>Guru</td><td>{assignment.teacherName}</td><td>Semester</td><td>{assignment.semester === 1 ? "Ganjil" : "Genap"}</td></tr>
+                </tbody>
+              </table>
+              <table className="document-table">
+                <thead>
+                  <tr>
+                    <th style={{ width: "5%" }}>No</th>
+                    <th style={{ width: "25%" }}>Nama</th>
+                    <th>KD1</th><th>KD2</th><th>KD3</th><th>KD4</th><th>KD5</th><th>KD6</th>
+                    <th>PTS</th><th>PAS</th>
+                    <th style={{ width: "8%" }}>Akhir</th>
+                    <th style={{ width: "10%" }}>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {calculated.map((e, i) => (
+                    <tr key={e.studentId}>
+                      <td className="text-center">{i + 1}</td>
+                      <td>{e.studentName}</td>
+                      <td className="text-center">{e.kd1 ?? "-"}</td>
+                      <td className="text-center">{e.kd2 ?? "-"}</td>
+                      <td className="text-center">{e.kd3 ?? "-"}</td>
+                      <td className="text-center">{e.kd4 ?? "-"}</td>
+                      <td className="text-center">{e.kd5 ?? "-"}</td>
+                      <td className="text-center">{e.kd6 ?? "-"}</td>
+                      <td className="text-center">{e.pts ?? "-"}</td>
+                      <td className="text-center">{e.pas ?? "-"}</td>
+                      <td className="text-center font-bold">{e.finalScore ?? "-"}</td>
+                      <td className="text-center">{e.status === "complete" ? "Tuntas" : e.status === "remedial" ? "Remedial" : "Belum"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </>
       )}
     </div>
