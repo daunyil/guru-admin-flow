@@ -45,6 +45,9 @@ export function QuickAttendancePage() {
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [saved, setSaved] = useState<SaveInfo | null>(null);
+  // MV-POLISH-FIXPACK-02 P2: badge "Sudah diisi" di mode reguler dihitung dari records sesi hari itu,
+  // bukan dari allRecords (yang berasal dari load susulan berdasarkan assignment terpilih).
+  const [todayDoneIds, setTodayDoneIds] = useState<Set<string>>(new Set());
   const [searchParams] = useSearchParams();
   const editorRef = useRef<HTMLDivElement | null>(null);
 
@@ -67,7 +70,18 @@ export function QuickAttendancePage() {
     if (searchParams.get("mode") === "susulan") setMode("susulan");
     setLoading(false);
   }
-  async function loadTodaySessions() { if (teacher) setSessions(await getLessonSessionsByDate(teacher.id, date)); }
+  async function loadTodaySessions() {
+    if (!teacher) return;
+    const todaySessions = await getLessonSessionsByDate(teacher.id, date);
+    setSessions(todaySessions);
+    // MV-POLISH-FIXPACK-02 P2: load doneIds dari records sesi hari itu (bukan allRecords susulan)
+    const doneSet = new Set<string>();
+    for (const s of todaySessions) {
+      const records = await getAttendanceBySession(s.id);
+      if (records.length > 0) doneSet.add(s.id);
+    }
+    setTodayDoneIds(doneSet);
+  }
   function assignment() { return assignments.find((a) => a.id === assignmentId); }
   async function loadSusulan() {
     if (!year || !assignment()) { setAllSessions([]); setAllRecords([]); return; }
@@ -111,7 +125,7 @@ export function QuickAttendancePage() {
             <div className="space-y-2">
               {sessions.map((s) => {
                 const isActive = selectedSessionId === s.id;
-                const done = doneIds.has(s.id);
+                const done = todayDoneIds.has(s.id); // MV-POLISH-FIXPACK-02: dari sesi hari ini
                 return (
                   <div key={s.id} className={`p-3 border rounded-lg transition-all ${isActive ? "border-brand-500 bg-brand-50 ring-2 ring-brand-200" : done ? "border-emerald-200 bg-emerald-50" : "border-slate-200"}`}>
                     <div className="flex items-center justify-between gap-2">

@@ -85,7 +85,13 @@ export function parseISODate(iso: string): Date {
   // Buat Date dari "YYYY-MM-DDT00:00:00" di timezone lokal
   // Trik: gunakan parts eksplisit untuk hindari ambiguity
   const [y, m, d] = dateOnly.split("-").map(Number);
-  return new Date(y, m - 1, d, 0, 0, 0, 0);
+  // MV-POLISH-FIXPACK-02 P2: hard validation — tolak tanggal mustahil
+  // (mis. 2026-02-31, 2026-13-01, 2026-00-00)
+  const date = new Date(y, m - 1, d, 0, 0, 0, 0);
+  if (date.getFullYear() !== y || date.getMonth() !== m - 1 || date.getDate() !== d) {
+    throw new Error(`Tanggal mustahil: ${dateOnly}. Periksa kembali.`);
+  }
+  return date;
 }
 
 /**
