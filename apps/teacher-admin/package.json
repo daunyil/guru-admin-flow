@@ -1,9 +1,9 @@
 {
   "name": "@guru-admin/teacher-admin",
-  "version": "0.5.1",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Aplikasi administrasi guru — PWA local-first. Sprint 1: fondasi lokal.",
+  "description": "Aplikasi administrasi guru — PWA local-first v1.0 stable.",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
