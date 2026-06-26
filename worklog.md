@@ -325,3 +325,45 @@ Stage Summary:
 - Commit: 40bed73 (pushed to origin/main).
 - READY FOR SENIOR AUDIT.
 - Next: 04B Surat Panggilan / Surat Pernyataan — data sudah punya dasar kuat (ledger + riwayat siswa).
+
+---
+
+Task ID: PIKET-LETTER-GENERATOR-04B-VERIFY
+Agent: main (sprint owner — verifikasi CI)
+Task: Verifikasi 3 commit Bapak di repo (8efa2b7, 50edb50, bcdc5dd) + 2 commit polish tambahan (4fb96da, 6f29988). Total 5 commit di origin/main sejak PATCH-1. Bapak tidak bisa cek CI dari connector (workflow_runs: []), jadi dev jalankan gates: typecheck + test + build.
+
+Work Log:
+- Fetch origin/main: dapat 5 commit baru (ce58c94..6f29988).
+- Fast-forward local sprint0-push ke 6f29988 (clean, no conflict).
+- File baru:
+  - apps/teacher-admin/src/modules/daily-duty/piket-letter.ts (140 baris): buildPiketLetter, buildParentSummonsLetter, buildStudentStatementLetter, PiketLetterDocument, PiketLetterType, BuildPiketLetterInput, PiketLetterRecordRow, MAX_RECORD_ROWS=10, getActiveSortedRecords, buildRecordRows, buildAdditionalNote, buildStudentIdentity.
+  - apps/teacher-admin/src/modules/daily-duty/__tests__/piket-letter.test.ts (8 tests): surat panggilan, surat pernyataan, identitas siswa, janji memperbaiki sikap, urut tanggal terbaru, max 10 + additionalNote, tanda tangan guru+kepsek, tanda tangan siswa+ortu+guru.
+  - apps/teacher-admin/src/__tests__/piket-letter.test.ts (5 tests, polish): smoke tests tambahan.
+- DailyDutyPage.tsx refactor besar (+783/-545 baris):
+  - getSchoolProfile() di init.
+  - state school: SchoolProfile | undefined.
+  - state letterPreview: PiketLetterDocument | null.
+  - refreshDutyData() = Promise.all([loadData(), loadLedgerData()]) — refactor PATCH-1 jadi helper bersama (lebih bersih dari void loadData() + void loadLedgerData() terpisah).
+  - handleCatat / handleDeleteRecord / handleSyncAlpa: await refreshDutyData() (PATCH-1 masuk, versi Bapak).
+  - handleBuildLetter(letterType): pakai buildPiketLetter dengan ledgerDetailStudent + ledgerDetailRecords + school + teacher. Guard bila school.name kosong → pesan "Lengkapi profil sekolah terlebih dahulu."
+  - Tombol "Buat Surat Panggilan" + "Buat Surat Pernyataan" di detail Rekap Poin.
+  - Komponen LetterPreview({ letter, onClose }) — render title, identitas, body, recordRows, additionalNote, closing, signatureBlocks.
+- Verifikasi gates:
+  - typecheck PASS (3 workspaces: teacher-admin, domain, shared)
+  - test PASS — 661 tests total: 604 domain + 23 shared + 34 teacher-admin (+13 baru untuk 04B: 8 piket-letter module test + 5 piket-letter app test)
+  - build PASS (1,138 KB JS, 37 KB CSS)
+- Verifikasi integrasi cepat:
+  - SchoolProfile fields (name, address, district, regency, headmasterName, headmasterNip) cocok dengan yang dipakai buildPiketLetter.
+  - handleBuildLetter pakai ledgerDetailStudent + ledgerDetailRecords (dari PATCH-1 refresh).
+  - LetterPreview render semua field PiketLetterDocument.
+
+Stage Summary:
+- PIKET-LETTER-GENERATOR-04B = CLOSED ✅
+- Surat Panggilan Orang Tua/Wali + Surat Pernyataan Siswa tersedia di detail Rekap Poin.
+- Surat memuat: identitas siswa, kelas, nomor absen, jumlah kejadian, total poin, status pembinaan, tabel riwayat (max 10, urut terbaru), additionalNote jika >10, body paragraf, closing, signatureBlocks (sesuai jenis surat).
+- Data source: ledgerDetailStudent (totalPoints, totalRecords, statusLabel, studentName, classLabel, studentNumber) + ledgerDetailRecords (riwayat) + SchoolProfile (name, address, district, regency, headmasterName, headmasterNip) + TeacherProfile (name) + todayISODate.
+- PATCH-1 (refresh ledger) sudah masuk versi lebih bersih: refreshDutyData() = Promise.all([loadData(), loadLedgerData()]).
+- Schema database tidak berubah. Tidak ada tabel baru.
+- Test count: 648 (sebelumnya) + 13 (baru untuk 04B) = 661 PASS.
+- Commit terakhir di origin/main: 6f29988 (5 commit total untuk 04B + polish).
+- READY FOR SENIOR AUDIT — status CLOSED.
