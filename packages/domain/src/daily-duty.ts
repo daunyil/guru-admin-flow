@@ -431,7 +431,11 @@ export function buildStudentDutyLedger(records: DutyRecord[]): StudentDutyLedger
   for (const item of items) {
     item.statusLabel = getStudentDutyStatus(item.totalPoints);
   }
-  items.sort((a, b) => b.totalPoints - a.totalPoints);
+  // PIKET-AUDIT-05C: secondary sort by studentName agar urut stabil untuk ties.
+  items.sort((a, b) => {
+    if (b.totalPoints !== a.totalPoints) return b.totalPoints - a.totalPoints;
+    return a.studentName.localeCompare(b.studentName, "id");
+  });
   return items;
 }
 

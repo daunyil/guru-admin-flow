@@ -60,7 +60,19 @@ export function DailyDutyPage() {
   const [attendanceDetail, setAttendanceDetail] = useState<ClassAttendanceDetail[]>([]);
   const [reportNote, setReportNote] = useState("");
   const [reportFinalized, setReportFinalized] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
+  // PIKET-AUDIT-05C: message dibedakan success/error/warning + auto-dismiss
+  const [message, setMessage] = useState<{ type: "success" | "error" | "warning"; text: string } | null>(null);
+
+  function notify(type: "success" | "error" | "warning", text: string) {
+    setMessage({ type, text });
+  }
+
+  // PIKET-AUDIT-05C: auto-dismiss message setelah 4 detik
+  useEffect(() => {
+    if (!message) return;
+    const t = setTimeout(() => setMessage(null), 4000);
+    return () => clearTimeout(t);
+  }, [message]);
 
   const [catatClassFilter, setCatatClassFilter] = useState<string>("all");
   const [studentQuery, setStudentQuery] = useState("");
@@ -173,95 +185,120 @@ export function DailyDutyPage() {
   async function handleCatat() {
     if (!year || !teacher) return;
     const validation = validateDutyRecordInput({ selectedStudent, selectedRule, note: catatan });
-    if (!validation.ok) { setMessage(validation.message); return; }
+    if (!validation.ok) { notify("warning", validation.message); return; }
 
-    const report = await findOrCreateDutyReport({
-      academicYearId: year.id,
-      date,
-      dutyTeacherId: teacher.id,
-      dutyTeacherName: teacher.name,
-    });
-    if (report.finalized) { setMessage("Laporan sudah difinalisasi. Buka revisi dulu."); return; }
+    try {
+      const report = await findOrCreateDutyReport({
+        academicYearId: year.id,
+        date,
+        dutyTeacherId: teacher.id,
+        dutyTeacherName: teacher.name,
+      });
+      if (report.finalized) { notify("warning", "Laporan sudah difinalisasi. Buka revisi dulu."); return; }
 
-    await addDutyRecord({
-      dutyReportId: report.id,
-      academicYearId: year.id,
-      date,
-      studentId: selectedStudent!.id,
-      studentName: selectedStudent!.name,
-      studentNumber: selectedStudent!.number,
-      classId: selectedStudent!.classId,
-      classLabel: selectedStudent!.classLabel,
-      category: selectedRule!.category,
-      type: selectedRule!.type,
-      ruleId: selectedRule!.id,
-      ruleLabel: selectedRule!.label,
-      points: selectedRule!.points,
-      source: "manual",
-      attendanceLinkType: null,
-      note: catatan || undefined,
-      followUp: tindakLanjut || undefined,
-      recordedByTeacherId: teacher.id,
-      recordedByTeacherName: teacher.name,
-    });
-    setMessage(`Catatan tersimpan: ${selectedStudent!.name} — ${selectedRule!.label} (${selectedRule!.points} poin).`);
-    setSelectedStudent(null);
-    setSelectedRule(null);
-    setCatatan("");
-    setTindakLanjut("");
-    await refreshDutyData();
+      await addDutyRecord({
+        dutyReportId: report.id,
+        academicYearId: year.id,
+        date,
+        studentId: selectedStudent!.id,
+        studentName: selectedStudent!.name,
+        studentNumber: selectedStudent!.number,
+        classId: selectedStudent!.classId,
+        classLabel: selectedStudent!.classLabel,
+        category: selectedRule!.category,
+        type: selectedRule!.type,
+        ruleId: selectedRule!.id,
+        ruleLabel: selectedRule!.label,
+        points: selectedRule!.points,
+        source: "manual",
+        attendanceLinkType: null,
+        note: catatan || undefined,
+        followUp: tindakLanjut || undefined,
+        recordedByTeacherId: teacher.id,
+        recordedByTeacherName: teacher.name,
+      });
+      notify("success", `Catatan tersimpan: ${selectedStudent!.name} — ${selectedRule!.label} (${selectedRule!.points} poin).`);
+      setSelectedStudent(null);
+      setSelectedRule(null);
+      setCatatan("");
+      setTindakLanjut("");
+      await refreshDutyData();
+    } catch (e) {
+      notify("error", e instanceof Error ? e.message : "Gagal menyimpan catatan.");
+    }
   }
 
   async function handleDeleteRecord(id: string) {
     if (!confirm("Hapus catatan ini?")) return;
-    await deleteDutyRecord(id);
-    setMessage("Catatan dihapus.");
-    await refreshDutyData();
+    try {
+      await deleteDutyRecord(id);
+      notify("success", "Catatan dihapus.");
+      await refreshDutyData();
+    } catch (e) {
+      notify("error", e instanceof Error ? e.message : "Gagal menghapus catatan.");
+    }
   }
 
   async function handleFinalize() {
     if (!year) return;
-    const report = await getDutyReportByDate(year.id, date);
-    if (!report) return;
-    await finalizeDutyReport(report.id);
-    setReportFinalized(true);
-    setMessage("Laporan piket difinalisasi.");
+    try {
+      const report = await getDutyReportByDate(year.id, date);
+      if (!report) { notify("warning", "Belum ada laporan untuk difinalisasi."); return; }
+      await finalizeDutyReport(report.id);
+      setReportFinalized(true);
+      notify("success", "Laporan piket difinalisasi.");
+    } catch (e) {
+      notify("error", e instanceof Error ? e.message : "Gagal finalisasi laporan.");
+    }
   }
 
   async function handleUnlock() {
     if (!year) return;
-    const report = await getDutyReportByDate(year.id, date);
-    if (!report) return;
-    await unlockDutyReport(report.id);
-    setReportFinalized(false);
-    setMessage("Laporan dibuka untuk revisi.");
+    try {
+      const report = await getDutyReportByDate(year.id, date);
+      if (!report) { notify("warning", "Belum ada laporan untuk dibuka."); return; }
+      await unlockDutyReport(report.id);
+      setReportFinalized(false);
+      notify("success", "Laporan dibuka untuk revisi.");
+    } catch (e) {
+      notify("error", e instanceof Error ? e.message : "Gagal membuka revisi.");
+    }
   }
 
   async function handleSyncAlpa() {
     if (!year || !teacher) return;
-    if (reportFinalized) { setMessage("Laporan sudah difinalisasi. Buka revisi dulu."); return; }
+    if (reportFinalized) { notify("warning", "Laporan sudah difinalisasi. Buka revisi dulu."); return; }
     const ok = window.confirm("Sinkron Alpa dari Absen? Siswa dengan status Alpa di absen utama akan dibuat catatan piket (10 poin). Catatan yang sudah ada tidak akan dobel.");
     if (!ok) return;
-    const result = await syncAlpaFromAttendance({
-      academicYearId: year.id,
-      date,
-      dutyTeacherId: teacher.id,
-      dutyTeacherName: teacher.name,
-    });
-    setMessage(`Sinkron Alpa: ${result.created} baru, ${result.skipped} sudah ada (skip).`);
-    await refreshDutyData();
+    try {
+      const result = await syncAlpaFromAttendance({
+        academicYearId: year.id,
+        date,
+        dutyTeacherId: teacher.id,
+        dutyTeacherName: teacher.name,
+      });
+      notify("success", `Sinkron Alpa: ${result.created} baru, ${result.skipped} sudah ada (skip).`);
+      await refreshDutyData();
+    } catch (e) {
+      notify("error", e instanceof Error ? e.message : "Gagal sinkron Alpa dari absen.");
+    }
   }
 
   async function handleSaveNote() {
     if (!year) return;
-    const report = await findOrCreateDutyReport({
-      academicYearId: year.id,
-      date,
-      dutyTeacherId: teacher?.id ?? "",
-      dutyTeacherName: teacher?.name ?? "",
-    });
-    await updateDutyReportNote(report.id, reportNote);
-    setMessage("Catatan piket tersimpan.");
+    if (!teacher?.id) { notify("error", "Profil guru belum lengkap. Buka menu Profil."); return; }
+    try {
+      const report = await findOrCreateDutyReport({
+        academicYearId: year.id,
+        date,
+        dutyTeacherId: teacher.id,
+        dutyTeacherName: teacher.name,
+      });
+      await updateDutyReportNote(report.id, reportNote);
+      notify("success", "Catatan piket tersimpan.");
+    } catch (e) {
+      notify("error", e instanceof Error ? e.message : "Gagal menyimpan catatan umum.");
+    }
   }
 
   function handleOpenLedgerDetail(item: StudentDutyLedgerItem) {
@@ -278,12 +315,17 @@ export function DailyDutyPage() {
 
   function handleBuildLetter(letterType: PiketLetterType) {
     if (!ledgerDetailStudent || ledgerDetailRecords.length === 0) {
-      setMessage("Data siswa atau riwayat belum tersedia.");
+      notify("warning", "Data siswa atau riwayat belum tersedia.");
       return;
     }
     if (!school?.name) {
-      setMessage("Lengkapi profil sekolah terlebih dahulu.");
+      notify("error", "Lengkapi profil sekolah terlebih dahulu.");
       return;
+    }
+    // PIKET-AUDIT-05C: warning bila siswa Aman (<25 poin) — surat tidak direkomendasikan
+    if (ledgerDetailStudent.totalPoints < 25) {
+      notify("warning", `Siswa ini berstatus "Aman" (${ledgerDetailStudent.totalPoints} poin). Surat biasanya untuk siswa dengan poin >= 25.`);
+      // tetap lanjut — guru boleh membuat surat bila ingin
     }
     const letter = buildPiketLetter({
       letterType,
@@ -325,7 +367,11 @@ export function DailyDutyPage() {
         </p>
       </div>
 
-      {message && <div className="info-banner-success">{message}</div>}
+      {message && (
+        <div className={`info-banner-${message.type === "success" ? "success" : message.type === "warning" ? "warning" : "error"}`}>
+          {message.text}
+        </div>
+      )}
       <Card><Input label="Tanggal" id="duty-date" type="date" value={date} onChange={setDate} /></Card>
 
       <Card>
@@ -337,6 +383,13 @@ export function DailyDutyPage() {
       {tab === "catat" && (
         <Card>
           <CardHeader title="Catat Kejadian Siswa" description="Cari siswa → kelas otomatis. Cari pelanggaran → poin otomatis." />
+          {rosters.length === 0 ? (
+            <EmptyState
+              title="Belum ada data kelas/siswa"
+              description="Buka menu 'Kelas dan Mapel' atau import roster siswa dulu sebelum mencatat pelanggaran."
+              action={<Button variant="secondary" onClick={() => (window.location.hash = "#/roster")}>Buka Roster</Button>}
+            />
+          ) : (<>
           {reportFinalized && <div className="p-2 bg-amber-50 rounded text-xs text-amber-800 mb-3">⚠ Laporan sudah difinalisasi. Buka revisi dulu.</div>}
           <div className="space-y-4">
             <div>
@@ -380,6 +433,7 @@ export function DailyDutyPage() {
             <Textarea label="Tindak Lanjut (opsional)" id="duty-followup" value={tindakLanjut} onChange={setTindakLanjut} rows={2} />
             <Button onClick={handleCatat} disabled={reportFinalized}>Simpan Catatan</Button>
           </div>
+          </>)}
         </Card>
       )}
 
@@ -413,6 +467,16 @@ export function DailyDutyPage() {
       {tab === "poin" && (
         <Card>
           <CardHeader title="Rekap Poin Siswa" description={`${ledger.length} siswa · ${ledgerRecords.length} catatan total · TP ${year?.label ?? ""}`} />
+          {/* PIKET-AUDIT-05C: summary stats per status */}
+          {ledger.length > 0 && (
+            <div className="grid grid-cols-5 gap-2 text-center mb-3 text-xs">
+              <div className="p-2 bg-emerald-50 rounded"><p className="font-bold text-emerald-700">{ledger.filter((i) => i.statusLabel === "Aman").length}</p><p>Aman</p></div>
+              <div className="p-2 bg-amber-50 rounded"><p className="font-bold text-amber-700">{ledger.filter((i) => i.statusLabel === "Pembinaan ringan").length}</p><p>Pembinaan</p></div>
+              <div className="p-2 bg-orange-50 rounded"><p className="font-bold text-orange-700">{ledger.filter((i) => i.statusLabel === "Panggilan orang tua").length}</p><p>Panggilan</p></div>
+              <div className="p-2 bg-rose-50 rounded"><p className="font-bold text-rose-700">{ledger.filter((i) => i.statusLabel === "Kesiswaan/BK").length}</p><p>BK</p></div>
+              <div className="p-2 bg-rose-100 rounded"><p className="font-bold text-rose-900">{ledger.filter((i) => i.statusLabel === "Tindak lanjut khusus").length}</p><p>Khusus</p></div>
+            </div>
+          )}
           {ledgerDetailStudent ? (
             <div className="space-y-3">
               <div className="flex items-center justify-between gap-2">
@@ -471,7 +535,97 @@ function LetterPreview({ letter, onClose }: { letter: PiketLetterDocument; onClo
 }
 
 function PrintDutyReport({ date, yearLabel, teacherName, records, attendanceDetail, reportNote, ledger }: { date: string; yearLabel: string; teacherName: string; records: DutyRecord[]; attendanceDetail: ClassAttendanceDetail[]; reportNote: string; ledger: StudentDutyLedgerItem[] }) {
-  return <Card><div className="flex justify-between items-center mb-3"><h3 className="text-sm font-bold text-slate-700">Cetak Laporan Piket</h3><PrintExportButtons filename={`laporan-piket-${date}`} title="Laporan Piket Harian" orientation="portrait" targetId="print-duty" /></div><div className="print-area hidden print:block" id="print-duty"><div className="document-page document-portrait"><div className="document-title">LAPORAN PIKET HARIAN</div><div className="document-subtitle">{yearLabel} · {formatLongDateID(date)}</div><table className="document-identity"><tbody><tr><td>Tanggal</td><td>{formatLongDateID(date)}</td><td>Guru Piket</td><td>{teacherName}</td></tr><tr><td>Tahun Pelajaran</td><td>{yearLabel || "-"}</td><td>Catatan</td><td>{records.length} kejadian</td></tr></tbody></table><div className="document-section-title">A. REKAP KEHADIRAN</div><table className="document-table"><thead><tr><th>No</th><th>Kelas</th><th>H</th><th>S</th><th>I</th><th>A</th><th>Daftar Siswa S/I/A</th></tr></thead><tbody>{attendanceDetail.map((s, i) => <tr key={s.classId}><td className="text-center">{i + 1}</td><td>{s.classLabel}</td><td className="text-center">{s.source === "empty" ? "-" : s.present}</td><td className="text-center">{s.source === "empty" ? "-" : s.sick}</td><td className="text-center">{s.source === "empty" ? "-" : s.excused}</td><td className="text-center">{s.source === "empty" ? "-" : s.absent}</td><td>{s.source === "empty" ? "—" : formatSIADetail(s)}</td></tr>)}</tbody></table><div className="document-section-title">B. CATATAN KEJADIAN / PELANGGARAN</div><table className="document-table"><thead><tr><th>No</th><th>Nama</th><th>Kelas</th><th>Jenis</th><th>Poin</th><th>Catatan</th></tr></thead><tbody>{records.map((r, i) => <tr key={r.id}><td className="text-center">{i + 1}</td><td>{r.studentName}</td><td>{r.classLabel}</td><td>{r.ruleLabel}</td><td className="text-center">{r.points}</td><td>{r.note ?? "-"}</td></tr>)}</tbody></table>{reportNote && <><div className="document-section-title">C. CATATAN UMUM</div><p style={{ fontSize: "10pt", marginTop: "4pt" }}>{reportNote}</p></>}<div className="document-section-title">D. REKAP POIN SISWA</div>{ledger.length === 0 ? <p style={{ fontSize: "10pt", marginTop: "4pt" }}>Belum ada catatan piket tahun ini.</p> : <table className="document-table"><thead><tr><th>No</th><th>Nama Siswa</th><th>Kelas</th><th>Kejadian</th><th>Total Poin</th><th>Status</th></tr></thead><tbody>{ledger.map((item, i) => <tr key={`${item.studentId}__${item.classId}`}><td className="text-center">{i + 1}</td><td>{item.studentName}</td><td className="text-center">{item.classLabel}</td><td className="text-center">{item.totalRecords}</td><td className="text-center">{item.totalPoints}</td><td>{item.statusLabel}</td></tr>)}</tbody></table>}<div className="document-section-title">E. TANDA TANGAN</div><div className="signature-grid"><div><p>Guru Piket</p><div className="sig-space" /><p className="sig-name">{teacherName}</p></div></div></div></div></Card>;
+  // PIKET-AUDIT-05C: Mode Dokumen toggle + disable print bila tidak ada data
+  const [showDocument, setShowDocument] = useState(false);
+  const hasAnyData = records.length > 0 || attendanceDetail.length > 0 || ledger.length > 0;
+  return (
+    <Card>
+      <div className="flex justify-between items-center mb-3 flex-wrap gap-2">
+        <h3 className="text-sm font-bold text-slate-700">Cetak Laporan Piket</h3>
+        <div className="flex gap-2">
+          <Button variant="secondary" className="text-xs" onClick={() => setShowDocument(!showDocument)}>
+            {showDocument ? "Mode Kerja" : "Mode Dokumen"}
+          </Button>
+          <PrintExportButtons filename={`laporan-piket-${date}`} title="Laporan Piket Harian" orientation="portrait" targetId="print-duty" />
+        </div>
+      </div>
+      {!hasAnyData && (
+        <div className="p-2 bg-amber-50 rounded text-xs text-amber-800 mb-3">
+          ⚠ Belum ada data untuk tanggal ini. Laporan akan kosong.
+        </div>
+      )}
+      <div className={`print-area ${showDocument ? "block" : "hidden print:block"}`} id="print-duty">
+        <div className="document-page document-portrait">
+          <div className="document-title">LAPORAN PIKET HARIAN</div>
+          <div className="document-subtitle">{yearLabel} · {formatLongDateID(date)}</div>
+          <table className="document-identity">
+            <tbody>
+              <tr><td>Tanggal</td><td>{formatLongDateID(date)}</td><td>Guru Piket</td><td>{teacherName}</td></tr>
+              <tr><td>Tahun Pelajaran</td><td>{yearLabel || "-"}</td><td>Catatan</td><td>{records.length} kejadian</td></tr>
+            </tbody>
+          </table>
+          <div className="document-section-title">A. REKAP KEHADIRAN</div>
+          {attendanceDetail.length === 0 ? (
+            <p style={{ fontSize: "10pt", marginTop: "4pt" }}>Belum ada data kehadiran untuk tanggal ini.</p>
+          ) : (
+            <table className="document-table">
+              <thead><tr><th>No</th><th>Kelas</th><th>H</th><th>S</th><th>I</th><th>A</th><th>Daftar Siswa S/I/A</th></tr></thead>
+              <tbody>
+                {attendanceDetail.map((s, i) => (
+                  <tr key={s.classId}>
+                    <td className="text-center">{i + 1}</td><td>{s.classLabel}</td>
+                    <td className="text-center">{s.source === "empty" ? "-" : s.present}</td>
+                    <td className="text-center">{s.source === "empty" ? "-" : s.sick}</td>
+                    <td className="text-center">{s.source === "empty" ? "-" : s.excused}</td>
+                    <td className="text-center">{s.source === "empty" ? "-" : s.absent}</td>
+                    <td>{s.source === "empty" ? "—" : formatSIADetail(s)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+          <div className="document-section-title">B. CATATAN KEJADIAN / PELANGGARAN</div>
+          {records.length === 0 ? (
+            <p style={{ fontSize: "10pt", marginTop: "4pt" }}>Belum ada catatan pelanggaran untuk tanggal ini.</p>
+          ) : (
+            <table className="document-table">
+              <thead><tr><th>No</th><th>Nama</th><th>Kelas</th><th>Jenis</th><th>Poin</th><th>Catatan</th></tr></thead>
+              <tbody>
+                {records.map((r, i) => (
+                  <tr key={r.id}>
+                    <td className="text-center">{i + 1}</td><td>{r.studentName}</td><td>{r.classLabel}</td>
+                    <td>{r.ruleLabel}</td><td className="text-center">{r.points}</td><td>{r.note ?? "-"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+          {reportNote && (<><div className="document-section-title">C. CATATAN UMUM</div><p style={{ fontSize: "10pt", marginTop: "4pt" }}>{reportNote}</p></>)}
+          <div className="document-section-title">D. REKAP POIN SISWA</div>
+          {ledger.length === 0 ? (
+            <p style={{ fontSize: "10pt", marginTop: "4pt" }}>Belum ada catatan piket tahun ini.</p>
+          ) : (
+            <table className="document-table">
+              <thead><tr><th>No</th><th>Nama Siswa</th><th>Kelas</th><th>Kejadian</th><th>Total Poin</th><th>Status</th></tr></thead>
+              <tbody>
+                {ledger.map((item, i) => (
+                  <tr key={`${item.studentId}__${item.classId}`}>
+                    <td className="text-center">{i + 1}</td><td>{item.studentName}</td>
+                    <td className="text-center">{item.classLabel}</td>
+                    <td className="text-center">{item.totalRecords}</td>
+                    <td className="text-center">{item.totalPoints}</td>
+                    <td>{item.statusLabel}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+          <div className="document-section-title">E. TANDA TANGAN</div>
+          <div className="signature-grid"><div><p>Guru Piket</p><div className="sig-space" /><p className="sig-name">{teacherName}</p></div></div>
+        </div>
+      </div>
+    </Card>
+  );
 }
 
 function Chip({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {

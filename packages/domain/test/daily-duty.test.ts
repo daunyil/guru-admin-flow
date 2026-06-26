@@ -861,6 +861,22 @@ describe("PIKET-STUDENT-LEDGER-RECAP-04A — buildStudentDutyLedger", () => {
     expect(ledger[0].totalPoints).toBeGreaterThanOrEqual(ledger[1].totalPoints);
   });
 
+  // PIKET-AUDIT-05C: secondary sort by studentName untuk ties
+  it("Test 7b (05C): ties di totalPoints diurutkan by studentName (stable)", () => {
+    const records = [
+      ledgerRecord({ studentId: "s1", studentName: "Zaki", points: 30 }),
+      ledgerRecord({ studentId: "s2", studentName: "Andi", points: 30 }),
+      ledgerRecord({ studentId: "s3", studentName: "Budi", points: 30 }),
+      ledgerRecord({ studentId: "s4", studentName: "Citra", points: 50 }), // poin beda, tetap di atas
+    ];
+    const ledger = buildStudentDutyLedger(records);
+    expect(ledger[0].studentId).toBe("s4"); // 50 poin di atas
+    // 3 siswa dengan 30 poin: Andi, Budi, Zaki (urut alfabetis)
+    expect(ledger[1].studentName).toBe("Andi");
+    expect(ledger[2].studentName).toBe("Budi");
+    expect(ledger[3].studentName).toBe("Zaki");
+  });
+
   // Bonus: statusLabel otomatis diisi dari getStudentDutyStatus
   it("statusLabel otomatis diisi dari getStudentDutyStatus", () => {
     const records = [
