@@ -259,3 +259,69 @@ Stage Summary:
 - Test count: 559 (lama) + 26 (baru) = 585 PASS.
 - Commit: 5d1be5c (pushed to origin/main, rebased on 41c5721).
 - READY FOR SENIOR AUDIT.
+
+---
+
+Task ID: PIKET-STUDENT-LEDGER-RECAP-04A
+Agent: main (sprint owner)
+Task: Tambahkan Rekap Poin Siswa untuk modul Guru Piket. Guru bisa melihat total poin per siswa, filter kelas/status, search siswa cerdas, dan buka riwayat pelanggaran. Persiapan data untuk sprint Surat Panggilan 04B.
+
+Work Log:
+- Fetch origin main (sudah up-to-date dari sprint JOURNAL-REVIEW-NARRATIVE-03).
+- Baca DailyDutyPage.tsx (Tab structure, riwayat tab pattern), daily-duty.ts (getStudentDutyStatus lama), daily-duty-repo.ts.
+- Update getStudentDutyStatus labels di packages/domain/src/daily-duty.ts sesuai spec 04A:
+  - 0-24 = Aman (tetap)
+  - 25-49 = "Pembinaan ringan" (sebelumnya "Perlu pembinaan ringan")
+  - 50-74 = "Panggilan orang tua" (sebelumnya "Perlu perhatian wali kelas")
+  - 75-99 = "Kesiswaan/BK" (sebelumnya "Panggilan orang tua")
+  - 100+ = "Tindak lanjut khusus" (sebelumnya "Tindak lanjut kesiswaan/BK")
+- Tambah getDutyStatusVariant(totalPoints): return "success"|"warning"|"neutral"|"error"|"errorStrong" sesuai threshold.
+- Tambah StudentDutyLedgerItem interface: studentId, studentName, studentNumber?, classId, classLabel, totalRecords, totalPoints, attendanceCount, disciplineCount, healthCount, permissionCount, otherCount, lastRecordDate?, statusLabel.
+- Tambah buildStudentDutyLedger(records): pure function. Filter deletedAt==null, group by studentId+classId, sum points, count records per kategori, lastRecordDate = max date, statusLabel dari getStudentDutyStatus, urut totalPoints desc.
+- Tambah filterDutyRecordsByStudent(records, studentId, classId?): filter riwayat siswa, deletedAt==null, urut tanggal terbaru dulu, classId optional.
+- Export dari packages/domain/src/index.ts: getDutyStatusVariant, buildStudentDutyLedger, filterDutyRecordsByStudent, StudentDutyLedgerItem, DutyStatusVariant.
+- Update 5 test getStudentDutyStatus lama dengan label baru.
+- Tambah 19 test baru di packages/domain/test/daily-duty.test.ts dalam 3 describe block:
+  - getStudentDutyStatus + getDutyStatusVariant (6 tests): 5 threshold + variant bonus.
+  - buildStudentDutyLedger (10 tests): group by studentId+classId, total poin, total records, count kategori, deletedAt tidak dihitung, lastRecordDate, urut totalPoints desc, statusLabel otomatis, input kosong, studentNumber dipertahankan.
+  - filterDutyRecordsByStudent (3 tests): urut tanggal terbaru, filter classId optional, deletedAt tidak ikut.
+- Tambah listDutyRecordsByAcademicYear(academicYearId) di daily-duty-repo.ts: ambil semua DutyRecord untuk academicYearId, filter deletedAt null, urut date desc. Read-only.
+- Refactor DailyDutyPage.tsx:
+  - Tab type: tambah "poin". Urutan final: Catat, Rekap, Catatan, Rekap Poin, Riwayat, Cetak.
+  - State baru: ledgerRecords, ledgerClassFilter, ledgerStatusFilter, ledgerStudentQuery, ledgerDetailStudent, ledgerDetailRecords.
+  - loadLedgerData(): load DutyRecord tahunan saat year berubah. Dipanggil useEffect [year].
+  - ledger = useMemo(buildStudentDutyLedger(ledgerRecords)).
+  - filteredLedger = useMemo: filter class + status + smart search via searchStudents helper (dari sprint 02B).
+  - handleOpenLedgerDetail(item): set detail student + filterDutyRecordsByStudent untuk riwayat.
+  - handleCloseLedgerDetail(): clear state.
+  - statusVariantForLabel(label): UI mapping label -> badge variant.
+  - Tab "Rekap Poin" UI:
+    - Search siswa (input, smart search).
+    - Filter kelas chips: Semua Kelas + rosters.
+    - Filter status chips: Semua Status, Aman, Pembinaan ringan, Panggilan orang tua, Kesiswaan/BK, Tindak lanjut khusus.
+    - List mobile-first per siswa: nama + nomor, kelas + total poin + jumlah kejadian + tanggal terakhir, badge status (warna sesuai variant), breakdown by kategori, tombol "Lihat Riwayat".
+    - Detail riwayat (overlay state, bukan route baru): nama + kelas + total poin + status, list riwayat (tanggal, ruleLabel + poin, catatan, tindak lanjut), tombol "Tutup Riwayat".
+    - Empty state bila belum ada catatan / tidak ada yang cocok filter.
+  - Tab "Cetak" update: section baru "D. REKAP POIN SISWA" dengan kolom No, Nama, Kelas, Kejadian, Total Poin, Status. Tampilkan semua siswa di ledger. Section "TANDA TANGAN" bergeser jadi "E. TANDA TANGAN".
+- Run gates:
+  - typecheck PASS (3 workspaces)
+  - test PASS (604 tests, +19 baru untuk 04A)
+  - build PASS (1,131 KB JS, 37 KB CSS)
+- Commit 40bed73, push ke origin/main (c9f2fbe..40bed73).
+
+Stage Summary:
+- Tab Rekap Poin tersedia di Guru Piket (urutan: Catat, Rekap, Catatan, Rekap Poin, Riwayat, Cetak).
+- Guru bisa melihat total poin per siswa (ledger dihitung dari DutyRecord aktif tahunan).
+- Guru bisa mencari siswa dengan smart search (case-insensitive, penggalan nama, nomor, NIS — pakai helper searchStudents dari sprint 02B).
+- Guru bisa filter kelas (chips Semua Kelas + rosters).
+- Guru bisa filter status (chips 5 status pembinaan + Semua Status).
+- Guru bisa membuka riwayat pelanggaran siswa (overlay state, bukan route baru). Riwayat urut tanggal terbaru.
+- Status pembinaan mengikuti ambang poin sesuai spec 04A (Aman 0-24, Pembinaan ringan 25-49, Panggilan orang tua 50-74, Kesiswaan/BK 75-99, Tindak lanjut khusus 100+).
+- Cetak rekap poin sederhana tersedia di tab Cetak (section D. REKAP POIN SISWA).
+- Surat panggilan BELUM dibuat (sesuai sprint scope — ditunda ke 04B).
+- Schema database TIDAK berubah. Tidak ada tabel baru. Ledger dihitung dari DutyRecord yang sudah ada.
+- File changed: 5 files, +728/-15 lines.
+- Test count: 585 (lama) + 19 (baru) = 604 PASS.
+- Commit: 40bed73 (pushed to origin/main).
+- READY FOR SENIOR AUDIT.
+- Next: 04B Surat Panggilan / Surat Pernyataan — data sudah punya dasar kuat (ledger + riwayat siswa).
