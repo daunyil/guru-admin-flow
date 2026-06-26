@@ -17,6 +17,7 @@ import {
   type DutyRecord,
   type DutySummary,
   type ClassAttendanceSummary,
+  type ClassAttendanceDetail,
 } from "@guru-admin/domain";
 
 /**
@@ -376,4 +377,66 @@ export async function syncAlpaFromAttendance(args: {
   }
 
   return { created, skipped, total: created + skipped };
+}
+
+/* ------------------------------------------------------------------ */
+/*  Attendance Detail (PIKET-REPORT-APPSCRIPT-PARITY-02A)             */
+/* ------------------------------------------------------------------ */
+
+/**
+ * PIKET-REPORT-APPSCRIPT-PARITY-02A: Detail rekap kehadiran per kelas.
+ * Sama seperti getAttendanceSummaryForDate + nama siswa S/I/A.
+ * Nama siswa Hadir TIDAK disertakan.
+ *
+ * READ-ONLY: tidak menulis ke attendanceRecords.
+ */
+export async function getAttendanceDetailForDate(args: {
+  academicYearId: string;
+  date: string;
+}): Promise<ClassAttendanceDetail[]> {
+  const rosters = await listClassRosters(args.academicYearId);
+  const details: ClassAttendanceDetail[] = [];
+
+  for (const roster of rosters) {
+    if (!roster.students || roster.students.length === 0) continue;
+    const records = await db.attendanceRecords
+      .where("classId")
+      .equals(roster.classId)
+      .toArray();
+    const dayRecords = records.filter(
+      (r) => !r.deletedAt && r.date === args.date
+    );
+
+    const byStudent = dedupByHeaviestStatus(dayRecords);
+
+    if (byStudent.size === 0) {
+      details.push({
+        classId: roster.classId,
+        classLabel: roster.classLabel,
+        present: 0, sick: 0, excused: 0, absent: 0,
+        total: roster.students.length,
+        source: "empty",
+        sickStudents: [], excusedStudents: [], absentStudents: [],
+      });
+    } else {
+      const values = Array.from(byStudent.values());
+      const present = values.filter((r) => r.status === "present").length;
+      const sickStudents = values.filter((r) => r.status === "sick").map((r) => r.studentName);
+      const excusedStudents = values.filter((r) => r.status === "excused").map((r) => r.studentName);
+      const absentStudents = values.filter((r) => r.status === "absent").map((r) => r.studentName);
+      details.push({
+        classId: roster.classId,
+        classLabel: roster.classLabel,
+        present,
+        sick: sickStudents.length,
+        excused: excusedStudents.length,
+        absent: absentStudents.length,
+        total: roster.students.length,
+        source: "attendance",
+        sickStudents, excusedStudents, absentStudents,
+      });
+    }
+  }
+
+  return details;
 }

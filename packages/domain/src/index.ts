@@ -482,4 +482,6 @@ export {
   type DutyRecordType,
   type DutySummary,
   type ClassAttendanceSummary,
+  type ClassAttendanceDetail,
+  formatSIADetail,
 } from "./daily-duty";

@@ -142,3 +142,31 @@ export interface ClassAttendanceSummary {
   total: number;
   source: "attendance" | "empty";
 }
+
+/**
+ * PIKET-REPORT-APPSCRIPT-PARITY-02A: Detail rekap kehadiran per kelas.
+ * Sama seperti ClassAttendanceSummary + nama siswa S/I/A.
+ * Nama siswa Hadir TIDAK disertakan.
+ */
+export interface ClassAttendanceDetail {
+  classId: string;
+  classLabel: string;
+  present: number;
+  sick: number;
+  excused: number;
+  absent: number;
+  total: number;
+  source: "attendance" | "empty";
+  sickStudents: string[];
+  excusedStudents: string[];
+  absentStudents: string[];
+}
+
+/** Helper: format daftar siswa S/I/A untuk cetak (contoh: "Ahmad (Sakit), Budi (Alpa)") */
+export function formatSIADetail(detail: ClassAttendanceDetail): string {
+  const parts: string[] = [];
+  for (const name of detail.sickStudents) parts.push(`${name} (Sakit)`);
+  for (const name of detail.excusedStudents) parts.push(`${name} (Izin)`);
+  for (const name of detail.absentStudents) parts.push(`${name} (Alpa)`);
+  return parts.length > 0 ? parts.join(", ") : "—";
+}
