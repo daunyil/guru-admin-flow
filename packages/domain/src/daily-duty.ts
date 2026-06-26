@@ -69,6 +69,10 @@ export const dutyRecordSchema = baseEntitySchema.extend({
   type: dutyRecordTypeSchema,
   ruleId: z.string().nullable().optional(),
   ruleLabel: z.string().min(1),
+  /** PIKET-HARIAN-MOBILE-01A: sumber catatan. "manual" = guru piket input. "attendance" = sinkron dari absen. */
+  source: z.enum(["manual", "attendance"]).default("manual"),
+  /** PIKET-HARIAN-MOBILE-01A: tipe link ke absen. "absent_auto" = alpa dari absen utama. */
+  attendanceLinkType: z.enum(["absent_auto"]).nullable().optional(),
   points: z.number().int().nonnegative(),
   note: z.string().optional(),
   followUp: z.string().optional(),
