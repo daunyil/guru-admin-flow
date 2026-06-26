@@ -10,89 +10,13 @@
 
 import { type ReactNode, useEffect, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
-import { APP_VERSION, FEATURE_FLAGS } from "@guru-admin/shared";
+import { APP_VERSION } from "@guru-admin/shared";
 import { useSyncStore, refreshSyncStatus } from "../../shared/supabase/sync-store";
-import { GraduationCap, Calendar, User, Database, Plus, ClipboardList, FileText, Clock, Users, CheckCircle, BookOpen, FileSpreadsheet, ListChecks, MoreHorizontal, BookMarked } from "./icons";
+import { GraduationCap } from "./icons";
+// NAV-DAILY-GATE-01: navigasi diekstrak ke navigation.ts (testable)
+import { NAV_GROUPS, MOBILE_PRIMARY, type NavItem, type NavGroup } from "./navigation";
 
-interface NavItem {
-  to: string;
-  label: string;
-  icon: typeof GraduationCap;
-}
-
-interface NavGroup {
-  title: string;
-  items: NavItem[];
-}
-
-const NAV_GROUPS: NavGroup[] = [
-  {
-    title: "Pusat",
-    items: [
-      { to: "/", label: "Hari Ini", icon: Calendar },
-      // UX-REL-01: Paket Administrasi = pusat tunggal. Auto Document + Cek Kelengkapan
-      // digabung ke sini (route tetap ada untuk backward compat, tapi tidak di sidebar).
-      { to: "/admin-package", label: "Paket Administrasi", icon: BookMarked },
-    ],
-  },
-  {
-    title: "Harian",
-    items: [
-      { to: "/attendance", label: "Absen", icon: CheckCircle },
-      { to: "/journal", label: "Jurnal", icon: BookOpen },
-      { to: "/grades", label: "Nilai", icon: FileSpreadsheet },
-      // PIKET-HARIAN-MOBILE-01: conditional on FEATURE_FLAGS.dailyDuty
-      ...(FEATURE_FLAGS.dailyDuty ? [{ to: "/piket", label: "Piket Harian", icon: ClipboardList }] : []),
-    ],
-  },
-  {
-    title: "Evaluasi",
-    items: [
-      { to: "/evaluation-docs", label: "Perangkat Penilaian", icon: ClipboardList },
-      { to: "/remedial", label: "Remedial", icon: FileSpreadsheet },
-      { to: "/pengayaan", label: "Pengayaan", icon: FileSpreadsheet },
-    ],
-  },
-  {
-    title: "Perencanaan",
-    items: [
-      { to: "/assignments", label: "Kelas dan Mapel", icon: BookMarked },
-      { to: "/calendar", label: "Kalender Pendidikan", icon: Calendar },
-      { to: "/prota", label: "Prota Resmi", icon: ClipboardList },
-      { to: "/promes", label: "Promes", icon: FileText },
-      { to: "/schedule", label: "Jadwal", icon: Clock },
-    ],
-  },
-  {
-    title: "Dokumen",
-    items: [
-      { to: "/roster", label: "Siswa", icon: Users },
-      { to: "/atp", label: "Bank TP", icon: ListChecks },
-      { to: "/lkpd", label: "LKPD", icon: BookOpen },
-      { to: "/rpp", label: "RPP / Modul Ajar", icon: FileText },
-      { to: "/rpp-bulk", label: "Perbarui Identitas Dokumen", icon: FileText },
-      { to: "/semester-report", label: "Laporan Semester", icon: FileSpreadsheet },
-    ],
-  },
-  {
-    title: "Sistem",
-    items: [
-      { to: "/apps-script-import", label: "Import Apps Script", icon: Database },
-      { to: "/profile", label: "Profil", icon: User },
-      { to: "/new-year", label: "Tahun Baru", icon: Plus },
-      { to: "/backup", label: "Backup", icon: Database },
-    ],
-  },
-];
-
-const MOBILE_PRIMARY: NavItem[] = [
-  // UX-MOB-01: bottom nav HP — Hari Ini, Absen, Jurnal, Paket, Lainnya
-  // Paket Administrasi jadi menu utama HP (sebelumnya Nilai, kurang penting untuk harian)
-  { to: "/", label: "Hari Ini", icon: Calendar },
-  { to: "/attendance", label: "Absen", icon: CheckCircle },
-  { to: "/journal", label: "Jurnal", icon: BookOpen },
-  { to: "/admin-package", label: "Paket", icon: BookMarked },
-];
+export type { NavItem, NavGroup };
 
 // NAV_GROUPS dipakai langsung untuk desktop sidebar + mobile "Lainnya" modal
 
@@ -105,7 +29,6 @@ function formatDate(date: Date): string {
 }
 
 export function AppShell({ children }: { children: ReactNode }) {
-  const [showMore, setShowMore] = useState(false);
   const [now, setNow] = useState(new Date());
   const navigate = useNavigate();
   const syncStatus = useSyncStore((s) => s.status);
@@ -279,13 +202,6 @@ export function AppShell({ children }: { children: ReactNode }) {
             <span>{item.label}</span>
           </NavLink>
         ))}
-        <button
-          onClick={() => setShowMore(true)}
-          className="flex-1 flex flex-col items-center gap-0.5 py-2.5 text-[11px] font-semibold text-slate-400"
-        >
-          <MoreHorizontal className="w-5 h-5" />
-          <span>Lainnya</span>
-        </button>
       </nav>
 
       {/* SUPABASE-CLOUD-READY-01: Sync error panel */}
@@ -311,42 +227,6 @@ export function AppShell({ children }: { children: ReactNode }) {
             >
               Hapus Semua Error
             </button>
-          </div>
-        </div>
-      )}
-
-      {/* Mobile "Lainnya" modal */}
-      {showMore && (
-        <div className="md:hidden fixed inset-0 z-30" onClick={() => setShowMore(false)}>
-          <div className="absolute inset-0 bg-black/40" />
-          <div
-            className="absolute bottom-0 inset-x-0 bg-white rounded-t-[28px] p-4 pb-8 max-h-[80vh] overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="w-10 h-1 rounded-full bg-slate-200 mx-auto mb-4" />
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-black text-slate-900">Semua Menu</h3>
-              <button onClick={() => setShowMore(false)} className="text-slate-400 text-xl">×</button>
-            </div>
-            <div className="space-y-4">
-              {NAV_GROUPS.map((group) => (
-                <div key={group.title}>
-                  <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">{group.title}</p>
-                  <div className="grid grid-cols-3 gap-3">
-                    {group.items.map((item) => (
-                      <button
-                        key={item.to}
-                        onClick={() => { navigate(item.to); setShowMore(false); }}
-                        className="flex flex-col items-center gap-1 p-3 rounded-2xl hover:bg-slate-50 transition-colors"
-                      >
-                        <item.icon className="w-6 h-6 text-brand-600" />
-                        <span className="text-xs text-slate-700 font-semibold text-center leading-tight">{item.label}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
           </div>
         </div>
       )}
