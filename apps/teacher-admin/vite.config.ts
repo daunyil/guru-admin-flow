@@ -5,7 +5,7 @@ import autoprefixer from "autoprefixer";
 
 export default defineConfig({
   plugins: [react()],
-  base: "/teacher-admin/",
+  base: "/",
   server: {
     port: 5173,
     strictPort: false,
