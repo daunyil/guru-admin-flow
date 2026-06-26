@@ -4,7 +4,7 @@
  */
 
 import { useEffect, useMemo, useState } from "react";
-import { Card, CardHeader, Input, Select, Button, Badge, EmptyState, Textarea, PrintExportButtons } from "../../shared/ui";
+import { Card, CardHeader, Input, Button, Badge, EmptyState, Textarea, PrintExportButtons } from "../../shared/ui";
 import { getActiveAcademicYear, getSchoolProfile, getTeacherProfile } from "../../shared/db/profile-repo";
 import { listClassRosters } from "../../shared/db/class-roster-repo";
 import { formatLongDateID, todayISODate } from "@guru-admin/shared";
@@ -19,7 +19,6 @@ import {
   addDutyRecord,
   deleteDutyRecord,
   listDutyRecordsByDate,
-  listDutyRecordsByStudent,
   listDutyRecordsByAcademicYear,
   getAttendanceDetailForDate,
   syncAlpaFromAttendance,
@@ -39,7 +38,6 @@ import {
   buildStudentDutyLedger,
   filterDutyRecordsByStudent,
   formatSIADetail,
-  getStudentDutyStatus,
   searchDutyRules,
   searchStudents,
   summarizeDutyRecords,
@@ -47,7 +45,7 @@ import {
 } from "@guru-admin/domain";
 import { buildPiketLetter, type PiketLetterDocument, type PiketLetterType } from "./piket-letter";
 
-type Tab = "catat" | "rekap" | "catatan" | "poin" | "riwayat" | "cetak";
+type Tab = "catat" | "rekap" | "catatan" | "poin" | "cetak";
 
 export function DailyDutyPage() {
   const [loading, setLoading] = useState(true);
@@ -71,10 +69,6 @@ export function DailyDutyPage() {
   const [selectedRule, setSelectedRule] = useState<DutyRule | null>(null);
   const [catatan, setCatatan] = useState("");
   const [tindakLanjut, setTindakLanjut] = useState("");
-
-  const [riwayatClassId, setRiwayatClassId] = useState("");
-  const [riwayatStudentId, setRiwayatStudentId] = useState("");
-  const [riwayatRecords, setRiwayatRecords] = useState<DutyRecord[]>([]);
 
   const [ledgerRecords, setLedgerRecords] = useState<DutyRecord[]>([]);
   const [ledgerClassFilter, setLedgerClassFilter] = useState<string>("all");
@@ -156,7 +150,6 @@ export function DailyDutyPage() {
   }, [allStudents, catatClassFilter, studentQuery]);
 
   const filteredRules = useMemo<DutyRule[]>(() => searchDutyRules(rules, ruleQuery), [rules, ruleQuery]);
-
   const ledger = useMemo<StudentDutyLedgerItem[]>(() => buildStudentDutyLedger(ledgerRecords), [ledgerRecords]);
 
   const filteredLedger = useMemo<StudentDutyLedgerItem[]>(() => {
@@ -271,12 +264,6 @@ export function DailyDutyPage() {
     setMessage("Catatan piket tersimpan.");
   }
 
-  async function handleRiwayatSearch() {
-    if (!year || !riwayatStudentId) return;
-    const recs = await listDutyRecordsByStudent(year.id, riwayatStudentId);
-    setRiwayatRecords(recs);
-  }
-
   function handleOpenLedgerDetail(item: StudentDutyLedgerItem) {
     setLedgerDetailStudent(item);
     setLedgerDetailRecords(filterDutyRecordsByStudent(ledgerRecords, item.studentId, item.classId));
@@ -321,14 +308,11 @@ export function DailyDutyPage() {
   if (loading) return <p className="text-sm text-slate-500">Memuat...</p>;
 
   const summary = summarizeDutyRecords(records);
-  const riwayatRoster = rosters.find((r) => r.classId === riwayatClassId);
-  const riwayatSummary = summarizeDutyRecords(riwayatRecords);
   const tabs: Array<{ key: Tab; label: string }> = [
     { key: "catat", label: "Catat" },
     { key: "rekap", label: "Rekap" },
     { key: "catatan", label: "Catatan" },
     { key: "poin", label: "Rekap Poin" },
-    { key: "riwayat", label: "Riwayat" },
     { key: "cetak", label: "Cetak" },
   ];
 
@@ -460,18 +444,6 @@ export function DailyDutyPage() {
               )}
             </div>
           )}
-        </Card>
-      )}
-
-      {tab === "riwayat" && (
-        <Card>
-          <CardHeader title="Riwayat Siswa" description="Pilih kelas → siswa → lihat total poin + riwayat." />
-          <div className="space-y-3">
-            <Select label="Kelas" id="riwayat-class" value={riwayatClassId} onChange={(v) => { setRiwayatClassId(v); setRiwayatStudentId(""); setRiwayatRecords([]); }} options={[{ value: "", label: "-- Pilih --" }, ...rosters.map((r) => ({ value: r.classId, label: r.classLabel }))]} />
-            {riwayatRoster && <Select label="Siswa" id="riwayat-student" value={riwayatStudentId} onChange={setRiwayatStudentId} options={[{ value: "", label: "-- Pilih --" }, ...riwayatRoster.students.map((s) => ({ value: s.id, label: `${s.number}. ${s.name}` }))]} />}
-            {riwayatStudentId && <Button variant="secondary" className="text-sm" onClick={handleRiwayatSearch}>Lihat Riwayat</Button>}
-            {riwayatRecords.length > 0 && <div className="p-3 bg-slate-50 rounded-lg space-y-2"><div className="flex items-center justify-between"><span className="font-bold text-sm">{riwayatRecords[0]?.studentName}</span><Badge variant={riwayatSummary.totalPoints >= 75 ? "error" : riwayatSummary.totalPoints >= 25 ? "warning" : "success"}>Total: {riwayatSummary.totalPoints} poin</Badge></div><p className="text-xs text-slate-500">Status: <strong>{getStudentDutyStatus(riwayatSummary.totalPoints)}</strong></p><div className="space-y-1">{riwayatRecords.map((r) => <div key={r.id} className="text-xs flex justify-between border-b border-slate-200 py-1"><span>{formatLongDateID(r.date)} — {r.ruleLabel}</span><span className="font-medium">{r.points} poin</span></div>)}</div></div>}
-          </div>
         </Card>
       )}
 
