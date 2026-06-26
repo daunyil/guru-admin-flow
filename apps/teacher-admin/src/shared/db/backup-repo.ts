@@ -58,6 +58,9 @@ export async function exportBackup(): Promise<BackupFile> {
     remedialPrograms,
     enrichmentPrograms,
     documentSnapshots,
+    dutyRules,
+    dutyReports,
+    dutyRecords,
   ] = await Promise.all([
     listEntities<AcademicYear>("academicYears"),
     listEntities<SchoolProfile>("schoolProfile"),
@@ -79,6 +82,9 @@ export async function exportBackup(): Promise<BackupFile> {
     listEntities<RemedialProgram>("remedialPrograms"),
     listEntities<EnrichmentProgram>("enrichmentPrograms"),
     listEntities<DocumentSnapshot>("documentSnapshots"),
+    db.dailyDutyRules.toArray().then(r => r.filter(x => !x.deletedAt)),
+    db.dailyDutyReports.toArray().then(r => r.filter(x => !x.deletedAt)),
+    db.dailyDutyRecords.toArray().then(r => r.filter(x => !x.deletedAt)),
   ]);
 
   // Re-attach units ke ProtaProfile
@@ -111,6 +117,9 @@ export async function exportBackup(): Promise<BackupFile> {
       remedialPrograms,
       enrichmentPrograms,
       documentSnapshots,
+      dutyRules,
+      dutyReports,
+      dutyRecords,
     },
   };
 }
@@ -170,6 +179,9 @@ export async function restoreBackup(input: unknown): Promise<BackupSummary> {
       db.remedialPrograms,
       db.enrichmentPrograms,
       db.documentSnapshots,
+      db.dailyDutyRules,
+      db.dailyDutyReports,
+      db.dailyDutyRecords,
       db.syncQueue,
     ],
     async () => {
@@ -195,6 +207,9 @@ export async function restoreBackup(input: unknown): Promise<BackupSummary> {
         db.remedialPrograms.clear(),
         db.enrichmentPrograms.clear(),
         db.documentSnapshots.clear(),
+        db.dailyDutyRules.clear(),
+        db.dailyDutyReports.clear(),
+        db.dailyDutyRecords.clear(),
         db.syncQueue.clear(),
       ]);
 
@@ -238,6 +253,9 @@ export async function restoreBackup(input: unknown): Promise<BackupSummary> {
       await db.remedialPrograms.bulkPut(remedialPrograms);
       await db.enrichmentPrograms.bulkPut(enrichmentPrograms);
       await db.documentSnapshots.bulkPut(backup.data.documentSnapshots);
+      await db.dailyDutyRules.bulkPut(backup.data.dutyRules ?? []);
+      await db.dailyDutyReports.bulkPut(backup.data.dutyReports ?? []);
+      await db.dailyDutyRecords.bulkPut(backup.data.dutyRecords ?? []);
     }
   );
 
