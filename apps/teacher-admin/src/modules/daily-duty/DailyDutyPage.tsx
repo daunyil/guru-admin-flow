@@ -157,6 +157,7 @@ export function DailyDutyPage() {
     // Reset pilihan siswa + pelanggaran + catatan. Filter kelas/search tetap.
     setSelectedStudent(null); setSelectedRule(null); setCatatan(""); setTindakLanjut("");
     void loadData();
+    void loadLedgerData(); // PIKET-STUDENT-LEDGER-RECAP-04A-PATCH-1: refresh ledger setelah tambah catatan
   }
 
   async function handleDeleteRecord(id: string) {
@@ -164,6 +165,7 @@ export function DailyDutyPage() {
     await deleteDutyRecord(id);
     setMessage("Catatan dihapus.");
     void loadData();
+    void loadLedgerData(); // PIKET-STUDENT-LEDGER-RECAP-04A-PATCH-1: refresh ledger setelah hapus catatan
   }
 
   async function handleFinalize() {
@@ -198,6 +200,7 @@ export function DailyDutyPage() {
     });
     setMessage(`Sinkron Alpa: ${result.created} baru, ${result.skipped} sudah ada (skip).`);
     void loadData();
+    void loadLedgerData(); // PIKET-STUDENT-LEDGER-RECAP-04A-PATCH-1: refresh ledger setelah Sinkron Alpa
   }
 
   async function handleSaveNote() {
