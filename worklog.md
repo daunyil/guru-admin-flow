@@ -417,3 +417,31 @@ Tidak dikerjakan (P3, bukan blocker):
 - Custom modal daripada confirm() — aesthetic, bukan blocker.
 - Keyboard shortcuts (Enter to submit catat) — nice-to-have.
 - Performance: getAttendanceDetailForDate N+1 query (pre-existing dari sprint 02A, out of scope).
+
+---
+
+Task ID: PIKET-AUDIT-05D-MINOR
+Agent: main (sprint owner — patch minor dari senior audit 05C)
+Task: Patch kecil dari audit 05C. Klaim 'disable print bila kosong' belum sesuai implementasi — hasAnyData hanya untuk warning text, tombol PrintExportButtons tetap dirender aktif. Patch ini benar-benar menyembunyikan tombol cetak saat tidak ada data.
+
+Work Log:
+- Tambah prop `disabled?: boolean` (default false) ke PrintExportButtons.tsx.
+- Bila disabled=true → return null (sembunyikan kedua tombol Cetak + Download HTML). Memilih return null daripada tombol disabled=greyed-out karena: (a) lebih ringkas, (b) konsisten dengan UX 'tidak ada aksi tersedia', (c) mencegah window.print() jalan di background walau tombol disabled visually.
+- PrintDutyReport: pass `disabled={!hasAnyData}` ke PrintExportButtons.
+- Update warning text: 'Tombol cetak disembunyikan sampai ada catatan, rekap kehadiran, atau ledger poin.' (sebelumnya: 'Laporan akan kosong.').
+- Backward compat: default false, semua pemakai lama tetap berfungsi.
+- Sesuai instruksi Bapak: hanya ubah PrintExportButtons + 1 baris di DailyDutyPage. Tidak bongkar DailyDutyPage. Tidak ubah UX lain.
+- Run gates:
+  - typecheck PASS (3 workspaces)
+  - test PASS (662 tests — tidak ada test baru, tidak ada test rusak)
+  - build PASS (1,139 KB JS, 37 KB CSS)
+- Commit b87a636, push ke origin/main (25b9b0b..b87a636).
+
+Stage Summary:
+- Klaim 'disable print bila kosong' dari sprint 05C sekarang benar-benar sesuai implementasi.
+- Tombol Cetak + Download HTML disembunyikan bila records + attendanceDetail + ledger semua kosong.
+- Warning text diperbarui untuk menjelaskan mengapa tombol hilang.
+- File changed: 2 files, +14/-2 lines (PrintExportButtons.tsx +11, DailyDutyPage.tsx +2/-2).
+- Test count: 662 (tidak berubah — patch pure UI, tidak ada logic baru yang perlu test).
+- Commit: b87a636 (pushed to origin/main).
+- READY FOR SENIOR AUDIT — status CLOSED untuk 05D-MINOR.
