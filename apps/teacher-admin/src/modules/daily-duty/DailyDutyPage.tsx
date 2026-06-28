@@ -546,12 +546,13 @@ function PrintDutyReport({ date, yearLabel, teacherName, records, attendanceDeta
           <Button variant="secondary" className="text-xs" onClick={() => setShowDocument(!showDocument)}>
             {showDocument ? "Mode Kerja" : "Mode Dokumen"}
           </Button>
-          <PrintExportButtons filename={`laporan-piket-${date}`} title="Laporan Piket Harian" orientation="portrait" targetId="print-duty" />
+          {/* PIKET-AUDIT-05D-MINOR: tombol cetak disembunyikan bila tidak ada data */}
+          <PrintExportButtons filename={`laporan-piket-${date}`} title="Laporan Piket Harian" orientation="portrait" targetId="print-duty" disabled={!hasAnyData} />
         </div>
       </div>
       {!hasAnyData && (
         <div className="p-2 bg-amber-50 rounded text-xs text-amber-800 mb-3">
-          ⚠ Belum ada data untuk tanggal ini. Laporan akan kosong.
+          ⚠ Belum ada data untuk tanggal ini. Tombol cetak disembunyikan sampai ada catatan, rekap kehadiran, atau ledger poin.
         </div>
       )}
       <div className={`print-area ${showDocument ? "block" : "hidden print:block"}`} id="print-duty">
