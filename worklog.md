@@ -588,3 +588,36 @@ Stage Summary:
 - Test count: 662 (tidak berubah — patch pure UI/CSS).
 - Commit: ec5a0a9 (pushed to origin/main).
 - Status: READY FOR USER PRINT TEST.
+
+---
+
+Task ID: PROMES-ORIENTATION-TOGGLE-02A
+Agent: main (sprint owner — toggle format di Mode Kerja)
+Task: Patch kecil dari audit Bapak. Toggle Vertikal/Landscape sebelumnya hanya ada di toolbar Mode Dokumen. Bapak butuh toggle juga tampil di Mode Kerja (sebelum masuk Mode Dokumen) supaya user bisa pilih format lebih awal.
+
+Work Log:
+- Verifikasi state PromesPage saat ini: toggle Vertikal/Landscape SUDAH ADA di toolbar Mode Dokumen (dari sprint PROMES-DUAL-FORMAT-02 commit ec5a0a9). State formatDokumen, 2 komponen dokumen (PromesPortraitDocument + PromesLandscapeMatrixDocument), CSS .document-portrait + @page portrait — semua sudah ada.
+- Yang kurang: toggle di Mode Kerja. Bapak belum lihat toggle karena (a) commit ec5a0a9 baru di-push, (b) toggle memang hanya di Mode Dokumen.
+- Extract FormatToggle component (reusable): segmented control [Vertikal] [Landscape], label 'Format:' (hidden di mobile), style bg-slate-100 rounded-lg active=bg-white shadow-sm text-brand-700.
+- Mode Kerja: tambah FormatToggle di sebelah tombol 'Mode Dokumen'. User bisa pilih format SEBELUM buka Mode Dokumen.
+- Mode Dokumen toolbar: ganti inline segmented control dengan FormatToggle component. Konsisten style.
+- Run gates:
+  - typecheck PASS (3 workspaces)
+  - test PASS (662 tests — 605 domain + 23 shared + 34 teacher-admin, tidak ada test baru)
+  - build PASS (1,150 KB JS, 38 KB CSS)
+- Commit adc60ba, push ke origin/main (efeb26c..adc60ba).
+
+Stage Summary:
+- Toggle Format: [Vertikal] [Landscape] sekarang terlihat di Mode Kerja (dekat tombol Mode Dokumen) DAN di toolbar Mode Dokumen.
+- Default: Vertikal (portrait).
+- Klik Vertikal → preview portrait saat masuk Mode Dokumen.
+- Klik Landscape → preview landscape matrix saat masuk Mode Dokumen.
+- Tombol Cetak/Download HTML mengikuti format yang dipilih.
+- Posisi toggle sesuai instruksi Bapak:
+  - Mode Kerja: ... [Format: Vertikal|Landscape] [Mode Dokumen]
+  - Mode Dokumen: [Mode Kerja] [Format: Vertikal|Landscape] [Cetak] [Download HTML]
+- File changed: 1 file, +41/-17 lines.
+- Test count: 662 (tidak berubah — patch pure UI).
+- Commit: adc60ba (pushed to origin/main).
+- Status: READY FOR USER PRINT TEST.
+- Matrix landscape Promes sudah ada di sprint sebelumnya (PROMES-DUAL-FORMAT-02). Bila perlu penyesuaian matrix (kolom, logika kalender UTS/PAS), lanjut di sprint berikutnya.
