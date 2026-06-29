@@ -518,3 +518,73 @@ Stage Summary:
 - Commit: c569237 (pushed to origin/main).
 - READY FOR SENIOR AUDIT.
 - ADMIN-UX-SIMPLIFY ditunda sampai dokumen stabil (sesuai instruksi Bapak).
+
+---
+
+Task ID: PROMES-DUAL-FORMAT-02
+Agent: main (sprint owner — dual format Promes)
+Task: Audit Bapak menemukan Promes sebelumnya hardcoded landscape tanpa pilihan format. Bapak butuh 2 bentuk: vertikal ringkas (portrait) + matrix semester (landscape) seperti contoh Promes sekolah. Sprint ini tambah pilihan format + bangun matrix landscape. Tidak hapus format lama, tidak ubah domain.
+
+Work Log:
+- Fetch origin/main (sudah up-to-date dari DOCUMENT-OUTPUT-FIXPACK-01).
+- Audit PromesPage.tsx ResultView (showDocument hardcoded landscape, PrintExportButtons orientation='landscape' hardcoded, container document-page document-landscape fixed).
+- Audit index.css (@page landscape ada, @page portrait default ada, tapi .document-portrait eksplisit tidak ada).
+
+Fix 1 — State + Segmented Control (PromesPage.tsx):
+- Tambah state formatDokumen: 'portrait' | 'landscape' (default 'portrait').
+- Pass formatDokumen + onChangeFormat ke ResultView.
+- ResultView print-toolbar: tambah segmented control [Vertikal] [Landscape (Matrix)]. Style bg-slate-100 rounded-lg, active=bg-white shadow-sm text-brand-700.
+- PrintExportButtons orientation={formatDokumen} — sebelumnya hardcoded 'landscape', sekarang dinamis.
+
+Fix 2 — Dua Komponen Dokumen (PromesPage.tsx):
+- PromesPortraitDocument (format lama, sekarang komponen sendiri):
+  - Container: document-page document-portrait (bukan landscape).
+  - Tabel distribusi mingguan: Mg | Tanggal | Intra JP | KO JP | Materi | Keterangan (6 kolom, portrait, ringkas).
+  - Tabel rekap materi per unit.
+  - Catatan KO + warning bila belum lengkap.
+  - Signature block.
+- PromesLandscapeMatrixDocument (BARU — matrix semester):
+  - Container: document-page document-landscape.
+  - Tabel matrix: No | TP/Materi | JP | <6 kolom bulan>.
+  - Semester 1: bulan Jul-Des (7-12). Semester 2: bulan Jan-Jun (1-6).
+  - Header row 1: nama bulan pendek ID (Jan, Feb, ..., Des) via MONTH_SHORT_ID.
+  - Header row 2: jumlah minggu efektif per bulan (effectiveWeeksInMonth).
+  - Body: 1 row per unit/TP. Cell bulan berisi nomor minggu tempat unit diajar (mis. '3, 4'). Cell kosong bila tidak ada.
+  - Row cadangan (asesmen, remedial, pengayaan) bila cadanganJP > 0.
+  - Row KO bila ada (mode + total JP).
+  - Row TOTAL (intra + KO, minggu efektif).
+  - Legenda: jelaskan angka di cell = nomor minggu, mg=minggu, JP=Jam Pelajaran, KO=Kokurikuler.
+  - Signature block.
+- Helper shared:
+  - PromesDocIdentity: tabel identitas (sekolah, mapel, kelas, semester, JP).
+  - PromesDocSignature: signature grid (kepsek + guru).
+- Logic matrix:
+  - weeksForUnitInMonth(unitId, month): cari unit di distribution, map weeks ke bulan via weeks[i].startDate.slice(5,7), filter yang cocok.
+  - effectiveWeeksInMonth(month): count weeks di bulan itu yang isEffective.
+
+Fix 3 — CSS .document-portrait eksplisit (index.css):
+- Tambah .document-portrait { max-width: 21cm; width: 100%; } on-screen.
+- Tambah @page portrait { size: A4 portrait; margin: 1.5cm 2cm; } named page (simetri dengan @page landscape).
+- @media print: tambah .document-portrait { page: portrait; }.
+- Sebelumnya hanya .document-landscape yang punya named page eksplisit. Sekarang keduanya eksplisit, browser pasti baca orientation yang benar.
+
+Fix 4 — Import Types:
+- Tambah import PromesWeek, UnitDistribution, KORow, PromesSummary dari @guru-admin/domain.
+- Sebelumnya PromesDocWeekRow pakai inline import('...').PromesWeek — sekarang pakai type import yang proper.
+
+Run gates:
+- typecheck PASS (3 workspaces: teacher-admin, domain, shared)
+- test PASS — 662 tests (tidak ada test baru, patch pure UI/CSS. 605 domain + 23 shared + 34 teacher-admin)
+- build PASS (1,150 KB JS, 38 KB CSS — naik ~5 KB dari komponen matrix, acceptable)
+
+Stage Summary:
+- Promes sekarang punya 2 format dokumen yang bisa dipilih user via segmented control.
+- Vertikal (portrait A4): daftar minggu per baris, ringkas. Default. Format lama tetap ada.
+- Landscape (A4 landscape): matrix TP × bulan/minggu seperti contoh Promes sekolah. Kolom bulan Jul-Des (sem 1) atau Jan-Jun (sem 2), cell berisi nomor minggu.
+- PrintExportButtons orientation dinamis sesuai formatDokumen (sebelumnya hardcoded 'landscape').
+- CSS .document-portrait eksplisit + @page portrait named untuk simetri dengan landscape. Browser pasti baca orientation yang benar saat print.
+- Tidak hapus format lama. Tidak ubah domain generatePromes. Tidak redesign sidebar.
+- File changed: 2 files, +357/-92 lines.
+- Test count: 662 (tidak berubah — patch pure UI/CSS).
+- Commit: ec5a0a9 (pushed to origin/main).
+- Status: READY FOR USER PRINT TEST.
