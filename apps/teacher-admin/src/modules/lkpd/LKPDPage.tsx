@@ -142,6 +142,25 @@ export function LKPDPage() {
 
   if (loading) return <p className="text-sm text-slate-500">Memuat...</p>;
 
+  // DOCUMENT-OUTPUT-FIXPACK-01: empty state bila tahun/guru belum ada
+  if (!year || !teacher) {
+    return (
+      <div className="space-y-4">
+        <div className="page-header">
+          <h1 className="text-2xl font-bold text-slate-900">LKPD</h1>
+          <p className="text-sm text-slate-500 mt-1">Lembar Kerja Peserta Didik</p>
+        </div>
+        <Card>
+          <EmptyState
+            title="Belum ada tahun pelajaran aktif"
+            description="Buka menu Profil untuk mengaktifkan tahun pelajaran, atau buat tahun baru di menu Tahun Baru. LKPD butuh tahun aktif + profil guru untuk dibuat."
+            action={<Button variant="secondary" onClick={() => (window.location.hash = "#/profile")}>Buka Profil</Button>}
+          />
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       <div className="page-header">
@@ -166,9 +185,19 @@ export function LKPDPage() {
             + Buat LKPD
           </Button>
         </div>
-        {atpEntries.length === 0 && (
-          <p className="text-xs text-amber-700 mt-2">
-            Belum ada TP. Tambah TP dulu di menu &quot;Bank TP&quot;.
+        {atpEntries.length === 0 ? (
+          <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-md">
+            <p className="text-sm font-semibold text-amber-900">Belum ada TP (Tujuan Pembelajaran)</p>
+            <p className="text-xs text-amber-800 mt-1">
+              LKPD wajib terikat ke TP. Tambah TP dulu di menu <strong>Bank TP</strong> (import dari ATP atau input manual). Setelah TP ada, tombol "Buat LKPD" akan aktif.
+            </p>
+            <Button variant="secondary" className="text-xs mt-2" onClick={() => (window.location.hash = "#/atp")}>
+              Buka Bank TP
+            </Button>
+          </div>
+        ) : (
+          <p className="text-xs text-slate-500 mt-2">
+            {atpEntries.length} TP tersedia · {rosters.length} kelas terdaftar
           </p>
         )}
       </Card>
@@ -206,10 +235,10 @@ export function LKPDPage() {
                     <Badge variant="neutral">{l.subject}</Badge>
                   </div>
                   <p className="text-xs text-slate-500 mt-1">
-                    TP: {l.tp.length > 80 ? l.tp.slice(0, 80) + "..." : l.tp}
+                    TP: {(l.tp ?? "").length > 80 ? (l.tp ?? "").slice(0, 80) + "..." : (l.tp || "-")}
                   </p>
                   <p className="text-xs text-slate-400 mt-1">
-                    Dibuat {formatLongDateID(l.createdAt)}
+                    Dibuat {safeFormatDate(l.createdAt)}
                   </p>
                 </div>
                 <div className="flex flex-col gap-1 shrink-0">
@@ -479,11 +508,11 @@ function LKPDPreview({
           <table className="document-identity">
             <tbody>
               <tr>
-                <td>Mata Pelajaran</td><td>{lkpd.subject}</td>
-                <td>Kelas</td><td>{lkpd.classLabel ?? lkpd.grade}</td>
+                <td>Mata Pelajaran</td><td>{lkpd.subject || "-"}</td>
+                <td>Kelas</td><td>{lkpd.classLabel || lkpd.grade || "-"}</td>
               </tr>
               <tr>
-                <td>Guru</td><td>{teacherName}</td>
+                <td>Guru</td><td>{teacherName || "-"}</td>
                 <td>Tanggal</td><td>{formatLongDateID(todayISODate())}</td>
               </tr>
             </tbody>
@@ -492,15 +521,15 @@ function LKPDPreview({
             <tbody>
               <tr>
                 <td style={{ fontWeight: "bold", background: "#f5f5f5" }}>Judul</td>
-                <td>{lkpd.title}</td>
+                <td>{lkpd.title || "-"}</td>
               </tr>
               <tr>
                 <td style={{ fontWeight: "bold", background: "#f5f5f5" }}>Tujuan Pembelajaran</td>
-                <td>{lkpd.tp}</td>
+                <td>{lkpd.tp || "-"}</td>
               </tr>
               <tr>
                 <td style={{ fontWeight: "bold", background: "#f5f5f5" }}>Tujuan LKPD</td>
-                <td>{lkpd.objective}</td>
+                <td>{lkpd.objective || "-"}</td>
               </tr>
               <tr>
                 <td style={{ fontWeight: "bold", background: "#f5f5f5" }}>Alat dan Bahan</td>
@@ -508,7 +537,7 @@ function LKPDPreview({
               </tr>
               <tr>
                 <td style={{ fontWeight: "bold", background: "#f5f5f5" }}>Langkah Kegiatan</td>
-                <td><pre style={{ whiteSpace: "pre-wrap", fontFamily: "inherit", margin: 0 }}>{lkpd.steps}</pre></td>
+                <td><pre style={{ whiteSpace: "pre-wrap", fontFamily: "inherit", margin: 0 }}>{lkpd.steps || "-"}</pre></td>
               </tr>
               <tr>
                 <td style={{ fontWeight: "bold", background: "#f5f5f5" }}>Pertanyaan Pemandu</td>
@@ -534,4 +563,15 @@ function LKPDPreview({
       </div>
     </Card>
   );
+}
+
+// DOCUMENT-OUTPUT-FIXPACK-01: safe date formatting — tidak crash bila createdAt
+// malformed/missing (mis. data lama hasil migrasi atau backup restore bug).
+function safeFormatDate(iso: string | undefined | null): string {
+  if (!iso) return "-";
+  try {
+    return formatLongDateID(iso);
+  } catch {
+    return iso.slice(0, 10) ?? "-";
+  }
 }

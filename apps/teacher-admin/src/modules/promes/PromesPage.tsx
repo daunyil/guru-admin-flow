@@ -127,12 +127,14 @@ export function PromesPage() {
         {profiles.length === 0 ? (
           <EmptyState
             title="Belum ada Prota"
-            description="Buat Prota dulu di menu Prota sebelum generate Promes."
+            description="Buat Prota dulu di menu Prota sebelum generate Promes. Promes butuh daftar materi yang akan didistribusi per minggu."
+            action={<Button variant="secondary" onClick={() => (window.location.hash = "#/prota")}>Buka Prota</Button>}
           />
         ) : calendar.length === 0 ? (
           <EmptyState
             title="Belum ada event kalender"
-            description="Impor kalender dulu di menu Kalender sebelum generate Promes."
+            description="Impor kalender dulu di menu Kalender sebelum generate Promes. Promes butuh kalender untuk menghitung minggu efektif."
+            action={<Button variant="secondary" onClick={() => (window.location.hash = "#/calendar")}>Buka Kalender</Button>}
           />
         ) : (
           <div className="space-y-4">
