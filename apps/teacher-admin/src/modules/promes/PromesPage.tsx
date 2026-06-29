@@ -285,22 +285,7 @@ function ResultView({
         <div className="print-toolbar">
           <Button variant="secondary" onClick={onToggleMode}>Mode Kerja</Button>
           {/* PROMES-DUAL-FORMAT-02: segmented control format dokumen */}
-          <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-lg">
-            <button
-              type="button"
-              onClick={() => onChangeFormat("portrait")}
-              className={`px-3 py-1 text-xs rounded-md transition-colors ${formatDokumen === "portrait" ? "bg-white text-brand-700 font-semibold shadow-sm" : "text-slate-600 hover:text-slate-900"}`}
-            >
-              Vertikal
-            </button>
-            <button
-              type="button"
-              onClick={() => onChangeFormat("landscape")}
-              className={`px-3 py-1 text-xs rounded-md transition-colors ${formatDokumen === "landscape" ? "bg-white text-brand-700 font-semibold shadow-sm" : "text-slate-600 hover:text-slate-900"}`}
-            >
-              Landscape (Matrix)
-            </button>
-          </div>
+          <FormatToggle formatDokumen={formatDokumen} onChangeFormat={onChangeFormat} />
           <PrintExportButtons filename="promes" title="Program Semester" schoolName={schoolName} orientation={formatDokumen} />
         </div>
         {formatDokumen === "portrait" ? (
@@ -351,7 +336,11 @@ function ResultView({
             )}
             <span className="text-xs text-slate-500">{summary.effectiveWeeks} dari {summary.totalWeeks} minggu efektif</span>
           </div>
-          <Button variant="secondary" onClick={onToggleMode}>Mode Dokumen</Button>
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* PROMES-ORIENTATION-TOGGLE-02A: toggle format di Mode Kerja */}
+            <FormatToggle formatDokumen={formatDokumen} onChangeFormat={onChangeFormat} />
+            <Button variant="secondary" onClick={onToggleMode}>Mode Dokumen</Button>
+          </div>
         </div>
 
         {errors.length > 0 && (
@@ -453,6 +442,41 @@ function ResultView({
 /* ============================================================ */
 /*  PROMES-DUAL-FORMAT-02: 2 format dokumen (portrait + landscape)  */
 /* ============================================================ */
+
+/**
+ * PROMES-ORIENTATION-TOGGLE-02A: Segmented control untuk pilih format dokumen.
+ * Dipakai di Mode Kerja (sebelum masuk Mode Dokumen) DAN di toolbar Mode Dokumen.
+ * Default: portrait (Vertikal).
+ */
+function FormatToggle({
+  formatDokumen,
+  onChangeFormat,
+}: {
+  formatDokumen: "portrait" | "landscape";
+  onChangeFormat: (f: "portrait" | "landscape") => void;
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-xs text-slate-500 hidden sm:inline">Format:</span>
+      <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-lg">
+        <button
+          type="button"
+          onClick={() => onChangeFormat("portrait")}
+          className={`px-3 py-1 text-xs rounded-md transition-colors ${formatDokumen === "portrait" ? "bg-white text-brand-700 font-semibold shadow-sm" : "text-slate-600 hover:text-slate-900"}`}
+        >
+          Vertikal
+        </button>
+        <button
+          type="button"
+          onClick={() => onChangeFormat("landscape")}
+          className={`px-3 py-1 text-xs rounded-md transition-colors ${formatDokumen === "landscape" ? "bg-white text-brand-700 font-semibold shadow-sm" : "text-slate-600 hover:text-slate-900"}`}
+        >
+          Landscape
+        </button>
+      </div>
+    </div>
+  );
+}
 
 /** Shared identity table + signature block untuk kedua format. */
 function PromesDocIdentity({ schoolName, profile, semester, activeYearLabel, summary }: {
