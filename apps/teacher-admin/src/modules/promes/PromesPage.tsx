@@ -615,10 +615,47 @@ function PromesPortraitDocument({
 /** Nama bulan pendek Indonesia untuk header matrix landscape. */
 const MONTH_SHORT_ID = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
 
+/** PROMES-LANDSCAPE-MATRIX-02B: Tipe untuk group bulan + subkolom minggu. */
+type PromesMonthColumn = {
+  month: number;
+  label: string;
+  weeks: Array<{
+    weekNumber: number;
+    label: string; // "1", "2", "3", ... (urut per bulan)
+    startDate: string;
+  }>;
+};
+
+/**
+ * PROMES-LANDSCAPE-MATRIX-02B: Bangun group bulan → subkolom minggu.
+ * Setiap bulan berisi minggu-minggu yang startDate-nya di bulan itu,
+ * diurutkan by weekNumber. Label minggu = urutan per bulan (1, 2, 3, ...).
+ * Bulan tanpa minggu di-filter (tidak tampil kolom kosong).
+ */
+function buildPromesMonthGroups(weeks: PromesWeek[], semester: 1 | 2): PromesMonthColumn[] {
+  const monthNumbers = semester === 1 ? [7, 8, 9, 10, 11, 12] : [1, 2, 3, 4, 5, 6];
+
+  return monthNumbers.map((month) => {
+    const monthWeeks = weeks
+      .filter((week) => Number(week.startDate.slice(5, 7)) === month)
+      .sort((a, b) => a.weekNumber - b.weekNumber);
+
+    return {
+      month,
+      label: MONTH_SHORT_ID[month - 1],
+      weeks: monthWeeks.map((week, index) => ({
+        weekNumber: week.weekNumber,
+        label: String(index + 1),
+        startDate: week.startDate,
+      })),
+    };
+  }).filter((group) => group.weeks.length > 0);
+}
+
 /**
  * Format Landscape (Matrix) — TP × bulan/minggu seperti contoh Promes sekolah.
- * Setiap baris = 1 unit/TP. Kolom = bulan-bulan dalam semester.
- * Di cell bulan, tampilkan nomor minggu tempat unit diajar.
+ * PROMES-LANDSCAPE-MATRIX-02B: Versi rapi dengan header bulan + subkolom minggu,
+ * tanda ✓ di minggu materi diajarkan, baris kegiatan kalender, KO per minggu.
  */
 function PromesLandscapeMatrixDocument({
   weeks, distribution, koRows, summary, status, semester, activeYearLabel,
@@ -637,116 +674,162 @@ function PromesLandscapeMatrixDocument({
   teacherName: string;
   profile: ProtaProfile | null;
 }) {
-  // Tentukan bulan-bulan dalam semester. Semester 1: Jul-Des (7-12). Semester 2: Jan-Jun (1-6).
-  const semesterMonths = semester === 1 ? [7, 8, 9, 10, 11, 12] : [1, 2, 3, 4, 5, 6];
+  const monthGroups = buildPromesMonthGroups(weeks, semester);
+  const weekColumns = monthGroups.flatMap((m) => m.weeks);
 
-  // Untuk setiap unit, petakan bulan → daftar nomor minggu.
-  // weeks[i].startDate berisi tanggal minggu itu. Kita cek bulan dari startDate.
-  function weeksForUnitInMonth(unitId: string, month: number): number[] {
-    const unitDist = distribution.find((d) => d.unitId === unitId);
-    if (!unitDist) return [];
-    return unitDist.weeks
-      .map((wkNum) => {
-        const w = weeks.find((ww) => ww.weekNumber === wkNum);
-        if (!w) return null;
-        const wkMonth = Number(w.startDate.slice(5, 7)); // YYYY-MM-DD → MM
-        return wkMonth === month ? wkNum : null;
-      })
-      .filter((x): x is number => x !== null);
+  function isUnitInWeek(unit: UnitDistribution, weekNumber: number) {
+    return unit.weeks.includes(weekNumber);
   }
 
-  // Untuk header per-bulan, hitung jumlah minggu efektif di bulan itu.
-  function effectiveWeeksInMonth(month: number): number {
-    return weeks.filter((w) => Number(w.startDate.slice(5, 7)) === month && w.isEffective).length;
+  function getCalendarLabel(weekNumber: number) {
+    const week = weeks.find((w) => w.weekNumber === weekNumber);
+    if (!week) return "";
+
+    if (week.reservedForCadangan > 0) return "Cad.";
+    if (!week.isEffective) {
+      const label = week.blockReason ?? "Libur";
+      if (/pts|uts|tengah/i.test(label)) return "PTS";
+      if (/pas|psas|akhir/i.test(label)) return "PAS";
+      if (/remedial/i.test(label)) return "Rem.";
+      if (/p5/i.test(label)) return "P5";
+      if (/libur/i.test(label)) return "Libur";
+      return label.length > 8 ? label.slice(0, 8) : label;
+    }
+
+    return "";
   }
 
   return (
     <div className="print-area">
-      <div className="document-page document-landscape">
-        <div className="document-title">PROGRAM SEMESTER {semester === 1 ? "GANJIL" : "GENAP"}</div>
-        <div className="document-subtitle">Tahun Pelajaran {activeYearLabel}</div>
-        <PromesDocIdentity schoolName={schoolName} profile={profile} semester={semester} activeYearLabel={activeYearLabel} summary={summary} />
+      <div className="document-page document-landscape promes-landscape-page" id="promes-landscape-doc">
+        <div className="promes-title">PROGRAM SEMESTER {semester === 1 ? "GANJIL" : "GENAP"}</div>
 
-        <div className="document-section-title">MATRIKS DISTRIBUSI MATERI</div>
-        <table className="document-table">
+        <table className="promes-identity-table">
+          <tbody>
+            <tr>
+              <td>Tahun Pelajaran</td>
+              <td>{activeYearLabel || "-"}</td>
+              <td>Kelas/Semester</td>
+              <td>{profile?.grade ?? "-"} / {semester === 1 ? "Ganjil" : "Genap"}</td>
+            </tr>
+            <tr>
+              <td>Mata Pelajaran</td>
+              <td>{profile?.subject ?? "-"}</td>
+              <td>Alokasi Waktu</td>
+              <td>{summary.intraCapacityJP} JP Intra + {summary.koTotalJP} JP KO</td>
+            </tr>
+            <tr>
+              <td>Satuan Pendidikan</td>
+              <td colSpan={3}>{schoolName || "-"}</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <table className="promes-matrix-table">
           <thead>
             <tr>
-              <th style={{ width: "4%" }}>No</th>
-              <th style={{ width: "32%" }}>Tujuan Pembelajaran / Materi</th>
-              <th style={{ width: "5%" }}>JP</th>
-              {semesterMonths.map((m) => (
-                <th key={m} style={{ width: `${55 / semesterMonths.length}%` }}>{MONTH_SHORT_ID[m - 1]}</th>
+              <th rowSpan={2} className="col-no">No</th>
+              <th rowSpan={2} className="col-tp">Tujuan Pembelajaran</th>
+              <th rowSpan={2} className="col-materi">Materi Pembelajaran</th>
+              <th rowSpan={2} className="col-jp">JP</th>
+              {monthGroups.map((group) => (
+                <th key={group.month} colSpan={group.weeks.length} className="month-head">
+                  {group.label}
+                </th>
               ))}
             </tr>
             <tr>
-              <th colSpan={3} className="text-center" style={{ background: "#f0f0f0" }}>Jumlah Minggu Efektif per Bulan</th>
-              {semesterMonths.map((m) => (
-                <th key={m} className="text-center" style={{ background: "#f0f0f0" }}>{effectiveWeeksInMonth(m)} mg</th>
-              ))}
+              {monthGroups.flatMap((group) =>
+                group.weeks.map((week) => (
+                  <th key={`${group.month}-${week.weekNumber}`} className="week-head">
+                    {week.label}
+                  </th>
+                ))
+              )}
             </tr>
           </thead>
+
           <tbody>
-            {distribution.map((d, i) => (
-              <tr key={d.unitId}>
-                <td className="text-center">{i + 1}</td>
-                <td>{d.title}</td>
-                <td className="text-center">{d.totalJP}</td>
-                {semesterMonths.map((m) => {
-                  const wks = weeksForUnitInMonth(d.unitId, m);
-                  return (
-                    <td key={m} className="text-center">
-                      {wks.length > 0 ? wks.join(", ") : ""}
+            {distribution.length === 0 ? (
+              <tr>
+                <td colSpan={4 + weekColumns.length} className="empty-row">
+                  Belum ada materi/TP yang terdistribusi.
+                </td>
+              </tr>
+            ) : (
+              distribution.map((unit, index) => (
+                <tr key={unit.unitId}>
+                  <td className="text-center">{index + 1}</td>
+                  <td>{unit.title}</td>
+                  <td>{unit.title}</td>
+                  <td className="text-center">{unit.totalJP}</td>
+                  {weekColumns.map((week) => (
+                    <td key={`${unit.unitId}-${week.weekNumber}`} className="week-cell">
+                      {isUnitInWeek(unit, week.weekNumber) ? "✓" : ""}
                     </td>
-                  );
-                })}
-              </tr>
-            ))}
-            {/* Row cadangan */}
-            {summary.cadanganJP > 0 && (
-              <tr style={{ background: "#fafafa" }}>
-                <td className="text-center">{distribution.length + 1}</td>
-                <td><em>Cadangan (asesmen, remedial, pengayaan)</em></td>
-                <td className="text-center">{summary.cadanganJP}</td>
-                <td colSpan={semesterMonths.length} className="text-center">
-                  <em>sesuai kebutuhan</em>
-                </td>
-              </tr>
+                  ))}
+                </tr>
+              ))
             )}
-            {/* Row KO bila ada */}
-            {koRows.length > 0 && (
-              <tr style={{ background: "#f5f5f5" }}>
-                <td className="text-center">{distribution.length + (summary.cadanganJP > 0 ? 2 : 1)}</td>
-                <td><em>Kokurikuler ({KO_MODE_LABELS_ID[koRows[0]?.mode ?? "daily_block"]})</em></td>
-                <td className="text-center">{summary.koTotalJP}</td>
-                <td colSpan={semesterMonths.length} className="text-center">
-                  <em>{koRows.length} minggu × {koRows[0]?.jp ?? 0} JP</em>
-                </td>
-              </tr>
-            )}
-            {/* Total */}
-            <tr style={{ background: "#e8e8e8", fontWeight: "bold" }}>
-              <td colSpan={2} className="text-center">TOTAL</td>
-              <td className="text-center">{summary.intraCapacityJP + summary.koTotalJP}</td>
-              <td colSpan={semesterMonths.length} className="text-center">
-                {summary.effectiveWeeks} minggu efektif
+
+            <tr className="calendar-row">
+              <td className="text-center">{distribution.length + 1}</td>
+              <td colSpan={2}>
+                <strong>Kegiatan Kalender</strong>
+                <br />
+                <span>PTS/PAS/Remedial/Libur/P5 sesuai kalender</span>
               </td>
+              <td className="text-center">-</td>
+              {weekColumns.map((week) => (
+                <td key={`cal-${week.weekNumber}`} className="calendar-cell">
+                  {getCalendarLabel(week.weekNumber)}
+                </td>
+              ))}
+            </tr>
+
+            {koRows.length > 0 && (
+              <tr className="ko-row">
+                <td className="text-center">{distribution.length + 2}</td>
+                <td colSpan={2}>
+                  <strong>Kokurikuler</strong>
+                  <br />
+                  <span>{KO_MODE_LABELS_ID[koRows[0]?.mode ?? "daily_block"]}</span>
+                </td>
+                <td className="text-center">{summary.koTotalJP}</td>
+                {weekColumns.map((week) => (
+                  <td key={`ko-${week.weekNumber}`} className="week-cell">
+                    {weeks.find((w) => w.weekNumber === week.weekNumber)?.koJP ? "✓" : ""}
+                  </td>
+                ))}
+              </tr>
+            )}
+
+            <tr className="total-row">
+              <td colSpan={3} className="text-center">Jumlah Jam Efektif</td>
+              <td className="text-center">{summary.intraCapacityJP} JP</td>
+              {weekColumns.map((week) => {
+                const w = weeks.find((item) => item.weekNumber === week.weekNumber);
+                return (
+                  <td key={`eff-${week.weekNumber}`} className="week-cell">
+                    {w?.isEffective ? "✓" : ""}
+                  </td>
+                );
+              })}
             </tr>
           </tbody>
         </table>
 
         {status !== "valid" && (
-          <p style={{ fontSize: "10pt", color: "#a00", marginTop: "6pt" }}>
-            ⚠ Promes belum lengkap: {summary.undistributedJP} JP materi belum terdistribusi.
+          <p className="promes-warning">
+            Promes belum lengkap: {summary.undistributedJP} JP materi belum terdistribusi.
           </p>
         )}
 
-        {/* Legenda */}
-        <p style={{ fontSize: "9pt", marginTop: "8pt", color: "#555" }}>
-          <b>Legenda:</b> Angka di kolom bulan = nomor minggu tempat materi diajar. "mg" = minggu.
-          JP = Jam Pelajaran. KO = Kokurikuler (row terpisah, tidak mengurangi kapasitas materi).
-        </p>
-
-        <PromesDocSignature schoolRegency={schoolRegency} headmasterName={headmasterName} teacherName={teacherName} />
+        <PromesDocSignature
+          schoolRegency={schoolRegency}
+          headmasterName={headmasterName}
+          teacherName={teacherName}
+        />
       </div>
     </div>
   );
