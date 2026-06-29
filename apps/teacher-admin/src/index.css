@@ -124,6 +124,14 @@
     line-height: 1.5;
   }
 
+  .document-portrait {
+    /* PROMES-DUAL-FORMAT-02: portrait eksplisit untuk simetri dengan landscape.
+       Default .document-page sudah portrait (max-width: 21cm), tapi
+       .document-portrait memastikan named page dipakai saat print. */
+    max-width: 21cm;
+    width: 100%;
+  }
+
   .document-landscape {
     max-width: 29.7cm;
     width: 100%;
@@ -272,8 +280,14 @@
 
 /* DOCUMENT-OUTPUT-FIXPACK-01: @page rules di top-level (lebih kompatibel
    lintas browser). @page inherently print-only, tidak perlu @media print.
-   Named page "landscape" dipakai via .document-landscape { page: landscape; } */
+   Named page "landscape" dipakai via .document-landscape { page: landscape; }
+   PROMES-DUAL-FORMAT-02: tambah named page "portrait" untuk simetri. */
 @page {
+  size: A4 portrait;
+  margin: 1.5cm 2cm;
+}
+
+@page portrait {
   size: A4 portrait;
   margin: 1.5cm 2cm;
 }
@@ -351,6 +365,11 @@
   /* Landscape: pakai named page, bukan @page di dalam selector */
   .document-landscape {
     page: landscape;
+  }
+
+  /* PROMES-DUAL-FORMAT-02: portrait juga pakai named page eksplisit */
+  .document-portrait {
+    page: portrait;
   }
 
   /* Tables */
