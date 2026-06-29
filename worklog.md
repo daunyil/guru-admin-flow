@@ -621,3 +621,51 @@ Stage Summary:
 - Commit: adc60ba (pushed to origin/main).
 - Status: READY FOR USER PRINT TEST.
 - Matrix landscape Promes sudah ada di sprint sebelumnya (PROMES-DUAL-FORMAT-02). Bila perlu penyesuaian matrix (kolom, logika kalender UTS/PAS), lanjut di sprint berikutnya.
+
+---
+
+Task ID: PROMES-LANDSCAPE-MATRIX-02B
+Agent: main (sprint owner — matrix landscape rapi)
+Task: Ganti PromesLandscapeMatrixDocument dengan versi rapi dari Bapak. Versi sebelumnya hanya kolom bulan sederhana dengan nomor minggu di cell. Versi ini seperti contoh Promes sekolah: header bulan + subkolom minggu 1-5, tanda ✓ di minggu materi diajarkan, baris kegiatan kalender, KO per minggu.
+
+Work Log:
+- Ganti komponen PromesLandscapeMatrixDocument di PromesPage.tsx:
+  - Tambah type PromesMonthColumn + helper buildPromesMonthGroups().
+  - Header 2 row: row 1 = nama bulan (colSpan), row 2 = nomor minggu per bulan (1, 2, 3, 4, 5). Bulan tanpa minggu di-filter.
+  - Body: 1 row per unit/TP. Cell minggu = '✓' bila unit diajar minggu itu, kosong bila tidak.
+  - Row 'Kegiatan Kalender': tampilkan label PTS/PAS/Rem./P5/Libur/Cad. berdasarkan week.blockReason + reservedForCadangan. Regex deteksi pts/uts/tengah/pas/psas/akhir/remedial/p5/libur.
+  - Row KO (bila ada): '✓' di minggu yang punya koJP > 0.
+  - Row 'Jumlah Jam Efektif': '✓' di minggu isEffective.
+  - Tabel identitas terpisah (promes-identity-table).
+  - Container: document-page document-landscape promes-landscape-page.
+- Tambah CSS khusus (145 baris) di index.css:
+  - .promes-landscape-page: width 29.7cm, min-height 21cm, padding 0.75cm 0.85cm, font Arial 7.5pt.
+  - .promes-title: center, bold, 12pt, uppercase.
+  - .promes-identity-table: width 100%, font 8pt, td label bold bg #f2f2f2.
+  - .promes-matrix-table: table-layout fixed, font 7pt, border 1px solid.
+  - .month-head bg #d9e2f3, .week-head bg #f2f2f2 width 14pt.
+  - .col-no (18pt), .col-tp (18%), .col-materi (24%), .col-jp (24pt).
+  - .calendar-row bg #fff7ed, .ko-row bg #f7f7f7, .total-row bg #e8e8e8.
+  - @media print: .promes-landscape-page { page: landscape; }
+  - @media screen: .promes-landscape-page { overflow-x: auto; }
+- Run gates:
+  - typecheck PASS (3 workspaces)
+  - test PASS (662 tests — tidak ada test baru, patch pure UI/CSS)
+  - build PASS (1,151 KB JS, 40 KB CSS — naik ~2 KB dari CSS promes baru)
+- Copy build ke /home/z/my-project/public/teacher-admin/ untuk preview workspace.
+- Commit 8b1999e, push ke origin/main (6c28c8c..8b1999e).
+
+Stage Summary:
+- PromesLandscapeMatrixDocument sekarang punya header bulan + subkolom minggu (rowSpan 2).
+- Isi cell: '✓' di minggu materi diajar (bukan nomor minggu).
+- Baris 'Kegiatan Kalender' tampilkan PTS/PAS/Rem./P5/Libur/Cad. berdasarkan blockReason.
+- Row KO per minggu dengan '✓'.
+- Row 'Jumlah Jam Efektif' dengan '✓' di minggu isEffective.
+- CSS khusus promes-matrix-table: fixed layout, font 7pt, border rapi, tidak berantakan saat print A4 landscape.
+- Tidak ubah domain generatePromes. Tidak ubah portrait. Tidak ubah toggle.
+- File changed: 2 files, +310/-82 lines.
+- Test count: 662 (tidak berubah — patch pure UI/CSS).
+- Commit: 8b1999e (pushed to origin/main).
+- Build sudah di-copy ke preview folder. Bapak bisa refresh preview workspace untuk lihat hasil.
+- Status: READY FOR USER PRINT TEST.
+- Baris kegiatan kalender sudah siap menampung blockReason dari domain (PTS/PAS/Remedial) saat sudah ada.
