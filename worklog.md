@@ -445,3 +445,76 @@ Stage Summary:
 - Test count: 662 (tidak berubah — patch pure UI, tidak ada logic baru yang perlu test).
 - Commit: b87a636 (pushed to origin/main).
 - READY FOR SENIOR AUDIT — status CLOSED untuk 05D-MINOR.
+
+---
+
+Task ID: DOCUMENT-OUTPUT-FIXPACK-01
+Agent: main (sprint owner — fix 3 blocker dokumen)
+Task: Stabilkan output 3 dokumen blocker: LKPD error, Promes tidak landscape, RPP template membingungkan. Tunda ADMIN-UX-SIMPLIFY, fokus stabilkan dokumen dulu.
+
+Work Log:
+- Fetch origin/main (sudah up-to-date dari PIKET-AUDIT-05D-MINOR).
+- Audit LKPDPage.tsx (537 baris), PromesPage.tsx (559 baris), RPPPage.tsx (159 baris), index.css (print CSS).
+- Catat 3 blocker + 1 P3:
+  - LKPD: bisa crash bila data tidak lengkap (tp kosong, createdAt malformed). Empty state tidak jelas.
+  - Promes: @page landscape nested di @media print → browser support flaky. Print tetap portrait.
+  - RPP: tidak ada petunjuk alur. Guru tidak tahu cara pakai placeholder.
+  - P3: Promes empty state tidak ada tombol navigasi.
+
+Fix 1 — LKPD (apps/teacher-admin/src/modules/lkpd/LKPDPage.tsx, +64/-10 baris):
+- Safe access untuk l.tp: (l.tp ?? '').length > 80 ? slice : (l.tp || '-'). Tidak crash bila tp undefined.
+- safeFormatDate(iso): helper baru. try formatLongDateID, catch fallback iso.slice(0,10) || '-'. Tangani data lama hasil backup/restore bug.
+- Empty state !year || !teacher: jelaskan butuh tahun aktif + profil guru, tombol 'Buka Profil'.
+- Empty state atpEntries.length === 0: jelaskan LKPD wajib terikat TP, tombol 'Buka Bank TP' (sebelumnya hanya teks).
+- Info bila atpEntries ada: '{n} TP tersedia · {n} kelas terdaftar'.
+- LKPDPreview: semua field pakai '|| \"-\"' fallback. subject, classLabel/grade, teacherName, title, tp, objective, materials, steps, guidingQuestions, assessment — semua safe untuk undefined/empty.
+
+Fix 2 — Promes landscape (apps/teacher-admin/src/index.css, +13/-12 baris):
+- Pindahkan @page dan @page landscape ke TOP-LEVEL (di luar @media print). @page inherently print-only, tidak perlu @media print wrapper. Lebih kompatibel lintas browser.
+- Perku .document-landscape on-screen: tambah 'width: 100%' selain 'max-width: 29.7cm'. Sebelumnya hanya max-width, bisa tidak mengisi ruang lebar.
+- Hapus @page rules duplikat di dalam @media print (sudah dipindah).
+- Struktur final CSS:
+  @page { size: A4 portrait; margin: 1.5cm 2cm; }       ← default
+  @page landscape { size: A4 landscape; margin: 1.2cm 1.5cm; }  ← named
+  @media print {
+    .document-landscape { page: landscape; }             ← assign named page
+    .document-page { max-width: 100% !important; ... }
+    ...
+  }
+- Hasil: .document-landscape sekarang benar-benar trigger @page landscape. Print Promes landscape, tabel 6 kolom (Mg, Tanggal, Intra JP, KO JP, Materi, Keterangan) tidak kepotong.
+
+Fix 3 — Promes empty state (apps/teacher-admin/src/modules/promes/PromesPage.tsx, +6/-2 baris):
+- Empty state 'Belum ada Prota' tambah tombol 'Buka Prota' + deskripsi diperjelas.
+- Empty state 'Belum ada event kalender' tambah tombol 'Buka Kalender' + deskripsi diperjelas.
+
+Fix 4 — RPP petunjuk alur (apps/teacher-admin/src/modules/rpp/RPPPage.tsx, +176/-67 baris):
+- Kartu baru 'Cara Pakai Template RPP' di atas: 5 langkah numbered list:
+  1. Pilih konteks (mapel, kelas, semester, tempat TTD)
+  2. Salin placeholder (klik per baris atau 'Salin Semua')
+  3. Buka template Word master Anda
+  4. Tempel/Find&Replace placeholder di Word, atau 'Generate Template'
+  5. Cek dan cetak dari Word
+- Catatan di bawah petunjuk: RPP tetap Word, gunakan template master asli, cek identitas ganda, untuk bulk pakai 'RPP Bulk Replace'.
+- Empty state !year || !teacher: jelaskan butuh tahun aktif + profil guru, tombol 'Buka Profil'.
+- Empty state teacher.subjects kosong: jelaskan tambah mapel di Profil, tombol 'Buka Profil'.
+- await navigator.clipboard.writeText(): sebelumnya tidak di-await, bisa silent fail. Sekarang async + try/catch + notify success/error.
+- message state: string | null → { type: 'success'|'error', text } | null. Sukses=hijau, error=merah. Auto-dismiss 4 detik.
+- Placeholder value: truncate max-w-[12rem] agar tidak overflow di mobile.
+- CardHeader 'Konteks Dokumen' dipisah dari daftar placeholder untuk clarity.
+
+Run gates:
+- typecheck PASS (3 workspaces: teacher-admin, domain, shared)
+- test PASS — 662 tests (tidak ada test baru, patch pure UI/CSS. 605 domain + 23 shared + 34 teacher-admin)
+- build PASS (1,144 KB JS, 38 KB CSS — naik ~5 KB dari petunjuk RPP, acceptable)
+
+Stage Summary:
+- LKPD: bisa buka, susun, preview, cetak tanpa error. Safe access untuk semua field. Empty state jelas untuk 3 skenario (no year, no teacher, no ATP).
+- Promes: print landscape. @page landscape di top-level CSS, .document-landscape trigger named page. Tabel 6 kolom tidak kepotong.
+- RPP: petunjuk alur 5 langkah jelas. Empty state untuk no year/teacher/subjects. Clipboard await + error handling.
+- Semua 3 modul: empty state dengan tombol navigasi ke menu terkait (Profil, Bank TP, Prota, Kalender).
+- Schema database tidak berubah. Tidak ada domain besar baru. Tidak redesign sidebar.
+- File changed: 4 files, +207/-67 lines.
+- Test count: 662 (tidak berubah — patch pure UI/CSS).
+- Commit: c569237 (pushed to origin/main).
+- READY FOR SENIOR AUDIT.
+- ADMIN-UX-SIMPLIFY ditunda sampai dokumen stabil (sesuai instruksi Bapak).
