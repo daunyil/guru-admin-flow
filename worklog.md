@@ -807,3 +807,30 @@ Stage Summary:
 - File changed: 3 files, +18/-14 lines.
 - Commit: ce010d9 (pushed to origin/main).
 - Status: READY FOR REVIEW.
+
+---
+
+Task ID: ADMIN-PACKAGE-UX-MODED-01
+Agent: main (sprint owner — 3 tab mode Paket Admin)
+Task: Pisahkan mode kerja dan mode cetak di halaman Paket Administrasi Guru. 3 tab: Lengkapi Dokumen (default), Preview & Cetak Paket (sidebar + preview), Semua Modul (akses teknis).
+
+Work Log:
+- Tambah state activeTab: 'lengkapi' | 'preview' | 'modul' (default 'lengkapi').
+- Tambah state printDate, printTempat, printCatatan untuk Tab 2.
+- Rewrite return jadi 3 tab:
+  - Tab 1 Lengkapi: Step 1-4 (pilih, ringkasan, lanjutkan, checklist). Tombol "Cetak Checklist" diganti "Preview & Cetak" (pindah ke Tab 2).
+  - Tab 2 Preview: grid lg:grid-cols-[320px_1fr]. Sidebar (no-print) = pengaturan cetak (kelas/mapel, tanggal, tempat, kepsek, guru, catatan, tombol Cetak Paket + Download). Preview (print-area) = dokumen PAKET ADMINISTRASI GURU (identitas, ringkasan kelengkapan, checklist dokumen, catatan, tanda tangan).
+  - Tab 3 Semua Modul: GATE_GROUPS (dipindah dari Step 5 bawah).
+- Mobile: tab stack (3 button di Card). Tab 2: pengaturan di atas, preview di bawah.
+- Import tambahan: Input, Textarea, formatLongDateID, todayISODate.
+- Run gates: typecheck PASS, test PASS (675 tests), build PASS (1,160 KB JS, 42 KB CSS).
+- Copy build ke preview folder. Commit b547277, push ke origin/main.
+
+Stage Summary:
+- Default halaman = Tab 1 Lengkapi Dokumen (dashboard kerja, bukan preview).
+- Preview dokumen hanya muncul di Tab 2 (mode cetak, sidebar + preview).
+- Semua Modul di Tab 3 (akses teknis, tidak campur dengan kerja/cetak).
+- Cetak hanya mencetak preview (print-area), sidebar no-print.
+- File changed: 1 file, +218/-222 lines.
+- Commit: b547277 (pushed to origin/main).
+- Status: READY FOR REVIEW.
