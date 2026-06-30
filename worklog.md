@@ -786,3 +786,24 @@ Stage Summary:
 - Test count: 675 (tidak berubah).
 - Commit: e77106a (pushed to origin/main).
 - Status: READY FOR REVIEW.
+
+---
+
+Task ID: APP-AUDIT-FIXPACK-02A
+Agent: main (sprint owner — fix 2 P1 + Remedial tanggal pelaksanaan)
+Task: Fixpack dari audit ZIP Bapak. 2 P1 (Paket Admin checklist tersembunyi + Promes cadangan filter salah) + Remedial tanggal pelaksanaan.
+
+Work Log:
+- P1-1: AdminPackagePage — hapus 'hidden print:block' dari wrapper Step 2-4. Ganti dengan 'print-area' saja (tetap tampil di layar). Tambah 'no-print' ke page-header, Step 1, empty state, Step 5.
+- P1-2: PromesPage isPureCadanganWeek — hapus syarat 'week.isEffective === false'. Minggu cadangan di-reserve dari minggu efektif (isEffective=true), jadi syarat itu salah.
+- P2-3: RemedialPage — ganti 'Tanggal Mulai' + 'Tanggal Selesai' jadi 1 field 'Tanggal Pelaksanaan'. Dokumen cetak tampilkan program.startDate (bukan todayISODate()). Signature block pakai program.startDate ?? todayISODate().
+- Run gates: typecheck PASS, test PASS (675 tests), build PASS (1,154 KB JS, 42 KB CSS).
+- Copy build ke preview folder. Commit ce010d9, push ke origin/main.
+
+Stage Summary:
+- Paket Admin: Step 2-4 (Ringkasan, Lanjutkan, Checklist) tampil di layar. Cetak Checklist hanya cetak Step 2-4.
+- Promes portrait: cadangan murni di-filter dari tabel mingguan, tampil sebagai section tanpa tanggal.
+- Remedial: hanya 1 field Tanggal Pelaksanaan. Dokumen cetak tampilkan tanggal pelaksanaan, bukan tanggal cetak.
+- File changed: 3 files, +18/-14 lines.
+- Commit: ce010d9 (pushed to origin/main).
+- Status: READY FOR REVIEW.
