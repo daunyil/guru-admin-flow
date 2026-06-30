@@ -758,3 +758,31 @@ Stage Summary:
 - Test count: 662 (sebelumnya) + 13 (baru) = 675 PASS.
 - Commit: a7466a8 (pushed to origin/main).
 - Status: READY FOR PROMES CALENDAR TEST.
+
+---
+
+Task ID: RELEASE-FIXPACK-P1-P2-01
+Agent: main (sprint owner — fix P1 blocker + 9 P2 dari audit)
+Task: Fixpack dari audit app menyeluruh. 1 P1 (cetak surat piket kosong) + 9 P2 (error handling, CSS duplikat, navigation, aria-label, RPP rename). Tidak sentuh Promes calendar/cadangan (task terpisah).
+
+Work Log:
+- P1: DailyDutyPage LetterPreview — tambah className="print-area" pada wrapper div + no-print pada toolbar. Sebelumnya cetak surat piket = halaman kosong.
+- P2-1: AdminPackagePage — bungkus Step 2-4 dalam print-area hidden print:block. Cetak Checklist sekarang hanya cetak Step 2-4, bukan seluruh UI.
+- P2-2: QuickAttendancePage — save() bungkus try/catch + onError.
+- P2-3: QuickJournalPage — fix onError("") bug, cleanup setTimeout, tambah academicYearId ke useEffect deps.
+- P2-4: GradesPage — loadEntries try/catch, KKTP state string (tidak reset ke 75 saat kosong).
+- P2-5: LKPDPage — 3 handler (finalize/update/delete) bungkus try/catch, confirm() → window.confirm().
+- P2-6: index.css — hapus @page landscape duplikat (margin 1.2cm), pertahankan yang 0.45cm.
+- P2-7: navigation.ts — hapus duplikat "Nilai" dari GATE_GROUPS Group D.
+- P2-8: AppShell.tsx — tambah aria-label untuk 5 tombol icon-only.
+- P2-9: RPPPage — rename "RPP Template" → "Template / Helper RPP".
+- Run gates: typecheck PASS, test PASS (675 tests), build PASS (1,154 KB JS, 42 KB CSS).
+- Copy build ke preview folder. Commit e77106a, push ke origin/main.
+
+Stage Summary:
+- P1 blocker (cetak surat piket kosong) FIXED.
+- 9 P2 issues FIXED dalam 1 batch.
+- File changed: 10 files, +106/-68 lines.
+- Test count: 675 (tidak berubah).
+- Commit: e77106a (pushed to origin/main).
+- Status: READY FOR REVIEW.
