@@ -536,7 +536,7 @@ export function AdminPackagePage() {
 
   return (
     <div className="space-y-4">
-      <div className="page-header">
+      <div className="page-header no-print">
         <h1 className="text-2xl font-bold text-slate-900">Paket Administrasi Guru</h1>
         <p className="text-sm text-slate-500 mt-1">
           {year ? `TP ${year.label}` : "Belum ada tahun aktif"} · Cek, susun, dan cetak dokumen administrasi berdasarkan kelas dan mapel.
@@ -544,7 +544,7 @@ export function AdminPackagePage() {
       </div>
 
       {/* Step 1: pilih konteks dulu */}
-      <Card>
+      <Card className="no-print">
         <CardHeader
           title="1. Pilih Kelas dan Mapel"
           description="Pilih dulu agar app hanya menampilkan dokumen yang sesuai kelas, mapel, semester, dan guru."
@@ -586,7 +586,7 @@ export function AdminPackagePage() {
       </Card>
 
       {!assignment && (
-        <Card>
+        <Card className="no-print">
           <EmptyState
             title="Pilih kelas dan mapel dulu"
             description="Setelah dipilih, app akan menampilkan ringkasan paket administrasi, dokumen yang kurang, dan tombol cepat untuk melengkapinya."
@@ -596,10 +596,10 @@ export function AdminPackagePage() {
 
       {assignment && (
         <>
-          {/* RELEASE-FIXPACK-P1-P2-01: print-area untuk Cetak Checklist.
-              Step 2-4 dibungkus print-area, hanya visible saat print.
-              Step 1 (pilih) dan Step 5 (semua modul) tetap no-print. */}
-          <div className="print-area hidden print:block">
+          {/* APP-AUDIT-FIXPACK-02A: print-area untuk Cetak Checklist.
+              Step 2-4 dibungkus print-area, TETAP tampil di layar (tanpa hidden).
+              Step 1 (pilih) dan Step 5 (semua modul) diberi no-print. */}
+          <div className="print-area">
           {/* Step 2: ringkasan */}
           <Card>
             <CardHeader
@@ -766,7 +766,7 @@ export function AdminPackagePage() {
           </div>
 
           {/* Step 5: semua modul dipindah ke bawah */}
-          <Card>
+          <Card className="no-print">
             <CardHeader
               title="Semua Modul"
               description="Buka modul teknis jika perlu mengedit data langsung."

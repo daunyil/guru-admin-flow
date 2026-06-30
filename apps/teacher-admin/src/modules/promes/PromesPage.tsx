@@ -905,13 +905,17 @@ function PromesLandscapeMatrixDocument({
  * (reservedForCadangan > 0, tidak ada materi, tidak ada event kalender).
  * Minggu seperti ini TIDAK boleh dirender sebagai baris bertanggal.
  * Cadangan ditampilkan sebagai section terpisah "Cadangan Akhir Semester".
+ *
+ * APP-AUDIT-FIXPACK-02A: hapus syarat week.isEffective === false.
+ * Minggu cadangan di-reserve dari minggu efektif (isEffective=true), jadi
+ * syarat isEffective===false salah — cadangan tidak terfilter dan tetap
+ * muncul sebagai baris bertanggal.
  */
 function isPureCadanganWeek(week: PromesWeek): boolean {
   return (
     week.reservedForCadangan > 0 &&
     week.assignedUnits.length === 0 &&
-    !week.calendarKind &&
-    week.isEffective === false
+    !week.calendarKind
   );
 }
 

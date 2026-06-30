@@ -299,8 +299,8 @@ export function RemedialPage() {
                   onChange={(v) => setKktp(Number(v) || 75)}
                   hint="Siswa dengan nilai < KKTP masuk remedial."
                 />
-                <Input label="Tanggal Mulai" id="rem-start" type="date" value={startDate} onChange={setStartDate} />
-                <Input label="Tanggal Selesai" id="rem-end" type="date" value={endDate} onChange={setEndDate} />
+                <Input label="Tanggal Pelaksanaan" id="rem-start" type="date" value={startDate} onChange={setStartDate} />
+                {/* APP-AUDIT-FIXPACK-02A: endDate dihapus dari UI. Internal tetap kirim undefined. */}
               </div>
             )}
             {assignment && (
@@ -530,7 +530,7 @@ export function RemedialPage() {
                       </tr>
                       <tr>
                         <td>KKTP</td><td>{program.kktp}</td>
-                        <td>Tanggal</td><td>{formatLongDateID(todayISODate())}</td>
+                        <td>Tanggal Pelaksanaan</td><td>{program.startDate ? formatLongDateID(program.startDate) : "-"}</td>
                       </tr>
                     </tbody>
                   </table>
@@ -587,7 +587,7 @@ export function RemedialPage() {
                       <p>NIP. {school?.headmasterNip ?? "-"}</p>
                     </div>
                     <div>
-                      <p>{school?.regency ?? "..........."}, {formatLongDateID(todayISODate())}</p>
+                      <p>{school?.regency ?? "..........."}, {formatLongDateID(program.startDate ?? todayISODate())}</p>
                       <p>Guru Mata Pelajaran</p>
                       <div className="sig-space" />
                       <p className="sig-name">{program.teacherName ?? teacher?.name ?? "-"}</p>
