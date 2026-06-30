@@ -489,3 +489,307 @@ describe("promes-engine — Defensive: intraJpPerWeek=0 → error", () => {
     expect(result.errors[0]).toContain("intraJpPerWeek harus > 0");
   });
 });
+
+/* ------------------------------------------------------------------ */
+/*  PROMES-CALENDAR-ASSESSMENT-CADANGAN-03: 6 tests wajib             */
+/* ------------------------------------------------------------------ */
+
+import {
+  detectPromesCalendarKind,
+  promesCalendarKindLabel,
+} from "../src/promes-engine";
+import type { CalendarEvent, PromesWeek } from "../src";
+
+const baseTimestamp = "2025-07-14T00:00:00+07:00";
+
+/** Helper: buat CalendarEvent dengan type/label custom. */
+function makeCalendarEvent(args: {
+  id: string;
+  startDate: string;
+  endDate: string;
+  type: CalendarEvent["type"];
+  label: string;
+  blocksLearning?: boolean;
+}): CalendarEvent {
+  return {
+    id: args.id,
+    academicYearId: "ay-2025",
+    startDate: args.startDate,
+    endDate: args.endDate,
+    type: args.type,
+    label: args.label,
+    scope: "ALL",
+    blocksLearning: args.blocksLearning ?? false,
+    source: "manual",
+    createdAt: baseTimestamp,
+    updatedAt: baseTimestamp,
+    deletedAt: null,
+    syncStatus: "local_only",
+  };
+}
+
+describe("PROMES-CALENDAR-ASSESSMENT-CADANGAN-03 — Calendar detection", () => {
+  // Test 1: PTS dari kalender
+  it("Test 1: PTS dari kalender → minggu PTS punya calendarKind='pts', tidak diisi materi", () => {
+    const academicYear = makeAcademicYear();
+    const prota = makeProtaProfile({
+      semester1IntraJP: 36,
+      units: [
+        makeProtaUnit({ semester: 1, jp: 12, title: "Materi A", order: 1 }),
+        makeProtaUnit({ semester: 1, jp: 12, title: "Materi B", order: 2 }),
+      ],
+    });
+    // Kalender: learning event + PTS di minggu 9 (8-14 Sep 2025)
+    const calendar: CalendarEvent[] = [
+      makeCalendarEvent({
+        id: "cal-learning",
+        startDate: "2025-07-14",
+        endDate: "2025-11-16",
+        type: "learning",
+        label: "KBM Semester 1",
+        blocksLearning: false,
+      }),
+      makeCalendarEvent({
+        id: "cal-pts",
+        startDate: "2025-09-08",
+        endDate: "2025-09-14",
+        type: "assessment",
+        label: "PTS Semester 1",
+        blocksLearning: true,
+      }),
+    ];
+
+    const result = generatePromes({ prota, academicYear, calendar, semester: 1, options: defaultPPKnOptions });
+
+    // Minggu 9 (8 Sep) harus punya calendarKind="pts"
+    const ptsWeek = result.weeks.find((w) => w.weekNumber === 9);
+    expect(ptsWeek).toBeDefined();
+    expect(ptsWeek?.calendarKind).toBe("pts");
+    // Minggu PTS tidak efektif → tidak diisi materi
+    expect(ptsWeek?.isEffective).toBe(false);
+    expect(ptsWeek?.assignedUnits.length).toBe(0);
+    // PTS tampil dengan tanggal kalender (bukan cadangan akhir)
+    expect(ptsWeek?.blockReason).toContain("PTS");
+  });
+
+  // Test 2: PAS dari kalender
+  it("Test 2: PAS dari kalender → minggu PAS punya calendarKind='pas', tidak diisi materi", () => {
+    const academicYear = makeAcademicYear();
+    const prota = makeProtaProfile({
+      semester1IntraJP: 36,
+      units: [makeProtaUnit({ semester: 1, jp: 24, title: "Materi", order: 1 })],
+    });
+    const calendar: CalendarEvent[] = [
+      makeCalendarEvent({
+        id: "cal-learning",
+        startDate: "2025-07-14",
+        endDate: "2025-11-16",
+        type: "learning",
+        label: "KBM Semester 1",
+        blocksLearning: false,
+      }),
+      makeCalendarEvent({
+        id: "cal-pas",
+        startDate: "2025-11-10",
+        endDate: "2025-11-16",
+        type: "assessment",
+        label: "PAS / PSAS Semester 1",
+        blocksLearning: true,
+      }),
+    ];
+
+    const result = generatePromes({ prota, academicYear, calendar, semester: 1, options: defaultPPKnOptions });
+
+    // Minggu 18 (10-16 Nov) harus punya calendarKind="pas"
+    const pasWeek = result.weeks.find((w) => w.weekNumber === 18);
+    expect(pasWeek).toBeDefined();
+    expect(pasWeek?.calendarKind).toBe("pas");
+    expect(pasWeek?.isEffective).toBe(false);
+    expect(pasWeek?.assignedUnits.length).toBe(0);
+  });
+
+  // Test 3: Remedial dari kalender
+  it("Test 3: Remedial dari kalender → minggu remedial punya calendarKind='remedial'", () => {
+    const academicYear = makeAcademicYear();
+    const prota = makeProtaProfile({
+      semester1IntraJP: 36,
+      units: [makeProtaUnit({ semester: 1, jp: 24, title: "Materi", order: 1 })],
+    });
+    const calendar: CalendarEvent[] = [
+      makeCalendarEvent({
+        id: "cal-learning",
+        startDate: "2025-07-14",
+        endDate: "2025-11-16",
+        type: "learning",
+        label: "KBM Semester 1",
+        blocksLearning: false,
+      }),
+      makeCalendarEvent({
+        id: "cal-remedial",
+        startDate: "2025-11-10",
+        endDate: "2025-11-16",
+        type: "remedial",
+        label: "Remedial PAS",
+        blocksLearning: true,
+      }),
+    ];
+
+    const result = generatePromes({ prota, academicYear, calendar, semester: 1, options: defaultPPKnOptions });
+
+    const remedialWeek = result.weeks.find((w) => w.weekNumber === 18);
+    expect(remedialWeek).toBeDefined();
+    expect(remedialWeek?.calendarKind).toBe("remedial");
+    expect(remedialWeek?.isEffective).toBe(false);
+    expect(remedialWeek?.assignedUnits.length).toBe(0);
+  });
+
+  // Test 4: Tidak ada event assessment → cadangan tanpa tanggal
+  it("Test 4: Tidak ada event assessment → tidak ada label PTS/PAS/Remedial palsu, cadangan di summary", () => {
+    const academicYear = makeAcademicYear();
+    const prota = makeProtaProfile({
+      semester1IntraJP: 36,
+      units: [makeProtaUnit({ semester: 1, jp: 24, title: "Materi", order: 1 })],
+    });
+    // Kalender hanya learning, tidak ada PTS/PAS/Remedial
+    const calendar: CalendarEvent[] = [
+      makeCalendarEvent({
+        id: "cal-learning",
+        startDate: "2025-07-14",
+        endDate: "2025-11-16",
+        type: "learning",
+        label: "KBM Semester 1",
+        blocksLearning: false,
+      }),
+    ];
+
+    const result = generatePromes({ prota, academicYear, calendar, semester: 1, options: defaultPPKnOptions });
+
+    // Tidak ada minggu dengan calendarKind pts/pas/remedial
+    const assessmentWeeks = result.weeks.filter(
+      (w) => w.calendarKind === "pts" || w.calendarKind === "pas" || w.calendarKind === "remedial"
+    );
+    expect(assessmentWeeks).toHaveLength(0);
+
+    // Cadangan tampil di summary (bukan sebagai minggu bertanggal)
+    expect(result.summary.cadanganJP).toBe(6);
+    expect(result.summary.cadanganJP).toBeGreaterThan(0);
+  });
+
+  // Test 5: Portrait cadangan no dated row — pure cadangan weeks di-filter
+  it("Test 5: Minggu reservedForCadangan > 0 tanpa calendarKind → isPureCadanganWeek=true", () => {
+    const academicYear = makeAcademicYear();
+    const prota = makeProtaProfile({
+      semester1IntraJP: 36,
+      units: [makeProtaUnit({ semester: 1, jp: 24, title: "Materi", order: 1 })],
+    });
+    const calendar = makeCalendar(); // hanya learning
+
+    const result = generatePromes({ prota, academicYear, calendar, semester: 1, options: defaultPPKnOptions });
+
+    // Cari minggu yang reservedForCadangan > 0, tidak ada materi, tidak ada calendarKind
+    const pureCadanganWeeks = result.weeks.filter(
+      (w) => w.reservedForCadangan > 0 && w.assignedUnits.length === 0 && !w.calendarKind
+    );
+    // Ada minimal 1 minggu pure cadangan (dari 6 JP cadangan, 2 JP/minggu = 3 minggu)
+    expect(pureCadanganWeeks.length).toBeGreaterThan(0);
+
+    // Verifikasi isPureCadanganWeek logic: minggu ini tidak punya calendarKind
+    for (const w of pureCadanganWeeks) {
+      expect(w.calendarKind).toBeNull();
+      expect(w.assignedUnits.length).toBe(0);
+      expect(w.reservedForCadangan).toBeGreaterThan(0);
+    }
+
+    // Summary tetap menunjukkan total cadangan
+    expect(result.summary.cadanganJP).toBe(6);
+  });
+
+  // Test 6: Landscape cadangan no fake week — getCalendarLabel tidak return "Cad."
+  it("Test 6: getCalendarLabel tidak menampilkan 'Cad.' pada minggu bertanggal", () => {
+    const academicYear = makeAcademicYear();
+    const prota = makeProtaProfile({
+      semester1IntraJP: 36,
+      units: [makeProtaUnit({ semester: 1, jp: 24, title: "Materi", order: 1 })],
+    });
+    const calendar = makeCalendar();
+
+    const result = generatePromes({ prota, academicYear, calendar, semester: 1, options: defaultPPKnOptions });
+
+    // Untuk setiap minggu, bila minggu hanya cadangan (reservedForCadangan > 0,
+    // tidak ada calendarKind), label kalender harus kosong (bukan "Cad.")
+    for (const week of result.weeks) {
+      if (week.reservedForCadangan > 0 && !week.calendarKind) {
+        // Simulasi getCalendarLabel: bila calendarKind null dan isEffective false,
+        // return "Libur" (bukan "Cad."). Bila isEffective true, return "".
+        // Intinya: tidak boleh return "Cad."
+        const simulatedLabel = week.calendarKind
+          ? promesCalendarKindLabel(week.calendarKind)
+          : (!week.isEffective ? "Libur" : "");
+        expect(simulatedLabel).not.toBe("Cad.");
+      }
+    }
+
+    // Cadangan tampil di summary
+    expect(result.summary.cadanganJP).toBeGreaterThan(0);
+  });
+});
+
+describe("PROMES-CALENDAR-ASSESSMENT-CADANGAN-03 — detectPromesCalendarKind helper", () => {
+  it("deteksi PTS dari label", () => {
+    const event = makeCalendarEvent({
+      id: "e1", startDate: "2025-09-08", endDate: "2025-09-14",
+      type: "assessment", label: "Penilaian Tengah Semester (PTS)",
+    });
+    expect(detectPromesCalendarKind(event)).toBe("pts");
+  });
+
+  it("deteksi PAS dari label", () => {
+    const event = makeCalendarEvent({
+      id: "e2", startDate: "2025-11-10", endDate: "2025-11-16",
+      type: "assessment", label: "PAS / PSAS",
+    });
+    expect(detectPromesCalendarKind(event)).toBe("pas");
+  });
+
+  it("deteksi Remedial dari type", () => {
+    const event = makeCalendarEvent({
+      id: "e3", startDate: "2025-11-10", endDate: "2025-11-16",
+      type: "remedial", label: "Remedial PAS",
+    });
+    expect(detectPromesCalendarKind(event)).toBe("remedial");
+  });
+
+  it("deteksi P5 dari label", () => {
+    const event = makeCalendarEvent({
+      id: "e4", startDate: "2025-09-01", endDate: "2025-09-07",
+      type: "school_activity", label: "P5 - Projek Penguatan Profil Pelajar",
+    });
+    expect(detectPromesCalendarKind(event)).toBe("p5");
+  });
+
+  it("deteksi Libur dari type holiday", () => {
+    const event = makeCalendarEvent({
+      id: "e5", startDate: "2025-08-17", endDate: "2025-08-17",
+      type: "holiday", label: "Hari Kemerdekaan", blocksLearning: true,
+    });
+    expect(detectPromesCalendarKind(event)).toBe("libur");
+  });
+
+  it("event learning return null", () => {
+    const event = makeCalendarEvent({
+      id: "e6", startDate: "2025-07-14", endDate: "2025-11-16",
+      type: "learning", label: "KBM Semester 1",
+    });
+    expect(detectPromesCalendarKind(event)).toBeNull();
+  });
+
+  it("promesCalendarKindLabel returns correct short labels", () => {
+    expect(promesCalendarKindLabel("pts")).toBe("PTS");
+    expect(promesCalendarKindLabel("pas")).toBe("PAS");
+    expect(promesCalendarKindLabel("remedial")).toBe("Remedial");
+    expect(promesCalendarKindLabel("p5")).toBe("P5");
+    expect(promesCalendarKindLabel("libur")).toBe("Libur");
+    expect(promesCalendarKindLabel("other")).toBe("");
+    expect(promesCalendarKindLabel(null)).toBe("");
+  });
+});

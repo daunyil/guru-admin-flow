@@ -207,6 +207,8 @@ export {
 /* Sprint 2 — Promes engine + types */
 export {
   generatePromes,
+  detectPromesCalendarKind,
+  promesCalendarKindLabel,
 } from "./promes-engine";
 
 export {
@@ -218,6 +220,7 @@ export {
   type UnitDistribution,
   type PromesSummary,
   type GeneratePromesInput,
+  type PromesCalendarKind,
 } from "./promes-types";
 
 /* Sprint 3 — Teaching Schedule import (Smart Roster → aplikasi) */

@@ -16,6 +16,20 @@ import type { AcademicYear } from "./academic-year";
 export type KOMode = "daily_block" | "end_of_week" | "end_of_semester";
 
 /**
+ * PROMES-CALENDAR-ASSESSMENT-CADANGAN-03: Jenis event kalender yang
+ * relevan untuk tata letak Promes. Menentukan apakah minggu boleh diisi
+ * materi atau dikhususkan untuk assessment/kegiatan.
+ */
+export type PromesCalendarKind =
+  | "pts"
+  | "pas"
+  | "remedial"
+  | "p5"
+  | "libur"
+  | "other"
+  | null;
+
+/**
  * Opsi untuk generatePromes.
  * Lihat docs/SPRINT_2_DESIGN.md §5.2.
  */
@@ -54,6 +68,16 @@ export type PromesWeek = {
   endDate: string;          // ISO date (Minggu minggu itu)
   isEffective: boolean;     // true bila ada event "learning" dan tidak diblokir
   blockReason?: string;     // bila isEffective=false, alasan (holiday label, etc.)
+
+  /**
+   * PROMES-CALENDAR-ASSESSMENT-CADANGAN-03: Jenis event kalender yang
+   * overlap dengan minggu ini. Menentukan label di portrait/landscape.
+   * - "pts"/"pas"/"remedial" → minggu assessment, tidak diisi materi.
+   * - "p5"/"libur" → minggu non-efektif, tidak diisi materi.
+   * - "other" → event kalender lain (label ditampilkan apa adanya).
+   * - null → tidak ada event kalender khusus, minggu normal.
+   */
+  calendarKind?: PromesCalendarKind;
 
   // Intra (material) capacity
   intraCapacityJP: number;       // bila effective: intraJpPerWeek, bila tidak: 0

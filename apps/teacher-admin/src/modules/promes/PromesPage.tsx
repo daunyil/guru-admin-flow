@@ -13,7 +13,7 @@ import { Card, CardHeader, Input, Select, Button, EmptyState, Badge, PrintExport
 import { listProtaProfiles } from "../../shared/db/prota-repo";
 import { listCalendarEvents } from "../../shared/db/calendar-repo";
 import { getActiveAcademicYear, getSchoolProfile, getTeacherProfile } from "../../shared/db/profile-repo";
-import { generatePromes } from "@guru-admin/domain";
+import { generatePromes, promesCalendarKindLabel } from "@guru-admin/domain";
 import type { ProtaProfile, CalendarEvent, AcademicYear, PromesResult, PromesOptions, SchoolProfile, TeacherProfile, PromesWeek, UnitDistribution, KORow, PromesSummary } from "@guru-admin/domain";
 import {
   formatLongDateID,
@@ -571,7 +571,12 @@ function PromesPortraitDocument({
             </tr>
           </thead>
           <tbody>
-            {weeks.map((w) => <PromesDocWeekRow key={w.weekNumber} week={w} />)}
+            {weeks
+              // PROMES-CALENDAR-ASSESSMENT-CADANGAN-03: skip pure-cadangan weeks
+              // (reservedForCadangan > 0, no assignedUnits, no calendarKind).
+              // Cadangan ditampilkan sebagai section terpisah tanpa tanggal.
+              .filter((w) => !isPureCadanganWeek(w))
+              .map((w) => <PromesDocWeekRow key={w.weekNumber} week={w} />)}
           </tbody>
           <tfoot>
             <tr>
@@ -583,6 +588,15 @@ function PromesPortraitDocument({
             </tr>
           </tfoot>
         </table>
+
+        {/* PROMES-CALENDAR-ASSESSMENT-CADANGAN-03: Cadangan Akhir Semester tanpa tanggal */}
+        {summary.cadanganJP > 0 && (
+          <div className="p-2 mt-2 bg-slate-50 border border-slate-300 rounded text-xs">
+            <strong>Cadangan Akhir Semester: {summary.cadanganJP} JP</strong>
+            <br />
+            <span className="text-slate-600">Tanggal: tidak ditentukan (fleksibel sesuai kebutuhan pembelajaran, asesmen, remedial, atau penyesuaian kegiatan sekolah).</span>
+          </div>
+        )}
 
         <div className="document-section-title">REKAP MATERI</div>
         <table className="document-table">
@@ -726,19 +740,21 @@ function PromesLandscapeMatrixDocument({
     const week = weeks.find((w) => w.weekNumber === weekNumber);
     if (!week) return "";
 
-    if (week.reservedForCadangan > 0) return "Cad.";
+    // PROMES-CALENDAR-ASSESSMENT-CADANGAN-03: gunakan calendarKind dari engine
+    // (sudah dideteksi dari event kalender, bukan regex pada blockReason).
+    if (week.calendarKind) {
+      const kindLabel = promesCalendarKindLabel(week.calendarKind);
+      if (kindLabel) return kindLabel === "Remedial" ? "Rem." : kindLabel;
+      // "other" → tampilkan blockReason apa adanya (potong bila panjang)
+      const label = week.blockReason ?? "";
+      if (label) return label.length > 8 ? label.slice(0, 8) : label;
+    }
 
-    const label = week.blockReason ?? "";
-
-    if (/pts|uts|tengah/i.test(label)) return "PTS";
-    if (/pas|psas|akhir/i.test(label)) return "PAS";
-    if (/remedial/i.test(label)) return "Rem.";
-    if (/p5/i.test(label)) return "P5";
-    if (/libur/i.test(label)) return "Libur";
-
-    if (!week.isEffective && label) return label.length > 8 ? label.slice(0, 8) : label;
+    // Minggu non-efektif tanpa calendarKind → libur
     if (!week.isEffective) return "Libur";
 
+    // PROMES-CALENDAR-ASSESSMENT-CADANGAN-03: JANGAN tampilkan "Cad." pada
+    // minggu bertanggal. Cadangan ditampilkan sebagai catatan terpisah.
     return "";
   }
 
@@ -871,6 +887,7 @@ function PromesLandscapeMatrixDocument({
 
         <p className="promes-note">
           Keterangan: ✓ = minggu pelaksanaan. KO = Kokurikuler. Materi ditulis singkat agar muat 1 halaman.
+          {summary.cadanganJP > 0 && ` Cadangan Akhir Semester: ${summary.cadanganJP} JP (tanggal fleksibel, tidak ditentukan).`}
         </p>
 
         <PromesDocSignature
@@ -883,23 +900,68 @@ function PromesLandscapeMatrixDocument({
   );
 }
 
+/**
+ * PROMES-CALENDAR-ASSESSMENT-CADANGAN-03: Cek apakah minggu HANYA cadangan
+ * (reservedForCadangan > 0, tidak ada materi, tidak ada event kalender).
+ * Minggu seperti ini TIDAK boleh dirender sebagai baris bertanggal.
+ * Cadangan ditampilkan sebagai section terpisah "Cadangan Akhir Semester".
+ */
+function isPureCadanganWeek(week: PromesWeek): boolean {
+  return (
+    week.reservedForCadangan > 0 &&
+    week.assignedUnits.length === 0 &&
+    !week.calendarKind &&
+    week.isEffective === false
+  );
+}
+
 function PromesDocWeekRow({ week }: { week: PromesWeek }) {
   const dateStr = formatLongDateID(week.startDate).split(",")[1]?.trim() ?? week.startDate;
+
+  // PROMES-CALENDAR-ASSESSMENT-CADANGAN-03: label untuk event kalender
+  const calLabel = week.calendarKind
+    ? promesCalendarKindLabel(week.calendarKind) || week.blockReason || ""
+    : "";
+
+  // Materi / Kegiatan column
+  let materiCell: React.ReactNode;
+  if (week.assignedUnits.length > 0) {
+    materiCell = week.assignedUnits.map((u, i) => (
+      <span key={i}>{i > 0 && "; "}{u.title} ({u.jp} JP)</span>
+    ));
+  } else if (calLabel) {
+    // Minggu assessment/kegiatan kalender — tampilkan label event
+    materiCell = <strong>{calLabel}</strong>;
+  } else if (week.reservedForCadangan > 0) {
+    // Pure cadangan — seharusnya sudah di-filter, tapi fallback
+    materiCell = <em>(Cadangan — lihat catatan di bawah)</em>;
+  } else if (week.isEffective) {
+    materiCell = "(Kosong)";
+  } else {
+    materiCell = week.blockReason ?? "(Libur)";
+  }
+
+  // Keterangan column
+  let keteranganCell: string;
+  if (calLabel) {
+    keteranganCell = calLabel;
+  } else if (week.reservedForCadangan > 0 && week.assignedUnits.length === 0) {
+    keteranganCell = "Cadangan";
+  } else if (!week.isEffective) {
+    keteranganCell = "Libur";
+  } else {
+    keteranganCell = "";
+  }
+
   return (
-    <>
-      <tr style={{ background: week.isEffective ? "white" : "#f5f5f5" }}>
-        <td className="text-center">{week.weekNumber}</td>
-        <td>{dateStr}</td>
-        <td className="text-center">{week.isEffective ? week.intraCapacityJP : "-"}</td>
-        <td className="text-center">{week.isEffective ? week.koJP : "-"}</td>
-        <td>
-          {week.assignedUnits.length > 0 ? week.assignedUnits.map((u, i) => (
-            <span key={i}>{i > 0 && "; "}{u.title} ({u.jp} JP)</span>
-          )) : week.reservedForCadangan > 0 ? "(Cadangan)" : week.isEffective ? "(Kosong)" : week.blockReason ?? "(Libur)"}
-        </td>
-        <td>{week.reservedForCadangan > 0 ? `Cadangan ${week.reservedForCadangan} JP` : !week.isEffective ? "Libur" : ""}</td>
-      </tr>
-    </>
+    <tr style={{ background: week.isEffective ? "white" : "#f5f5f5" }}>
+      <td className="text-center">{week.weekNumber}</td>
+      <td>{dateStr}</td>
+      <td className="text-center">{week.isEffective ? week.intraCapacityJP : "-"}</td>
+      <td className="text-center">{week.isEffective ? week.koJP : "-"}</td>
+      <td>{materiCell}</td>
+      <td>{keteranganCell}</td>
+    </tr>
   );
 }
 

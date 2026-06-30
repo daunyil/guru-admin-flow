@@ -21,9 +21,60 @@ import type {
   UnitDistribution,
   PromesSummary,
   KOMode,
+  PromesCalendarKind,
 } from "./promes-types";
 import type { ProtaUnit } from "./prota";
+import type { CalendarEvent } from "./calendar-event";
 import { parseISODate, toISODate, getDayOfWeek, dateRangesOverlap } from "@guru-admin/shared";
+
+/**
+ * PROMES-CALENDAR-ASSESSMENT-CADANGAN-03: Deteksi jenis event kalender
+ * dari label dan type. Mengembalikan null bila tidak relevan untuk Promes.
+ *
+ * Urutan deteksi: PTS → PAS → Remedial → P5 → Libur → other.
+ * Event "learning" tidak perlu dideteksi (return null).
+ */
+export function detectPromesCalendarKind(event: CalendarEvent): PromesCalendarKind {
+  // Event "learning" adalah minggu normal, bukan event khusus.
+  if (event.type === "learning") return null;
+
+  const text = (event.label ?? "").toLowerCase();
+
+  if (/pts|uts|tengah\s*semester/.test(text)) return "pts";
+  // PROMES-CALENDAR-ASSESSMENT-CADANGAN-03: remedial sebelum pas karena
+  // "Remedial PAS" mengandung "pas" — harus dideteksi sebagai remedial dulu.
+  if (/remedial/.test(text)) return "remedial";
+  if (/pas|psas|akhir\s*semester/.test(text)) return "pas";
+  if (/p5|projek|project/.test(text)) return "p5";
+  if (/libur|cuti/.test(text)) return "libur";
+
+  // Deteksi via type field bila label tidak cocok
+  if (event.type === "assessment") {
+    // Assessment tapi label tidak spesifik PTS/PAS. Asumsi PTS bila pertengahan,
+    // PAS bila akhir. Untuk aman, tandai "other" agar tidak salah label.
+    return "other";
+  }
+  if (event.type === "remedial") return "remedial";
+  if (event.type === "holiday") return "libur";
+  if (event.type === "school_activity") return "other";
+
+  return "other";
+}
+
+/**
+ * Label singkat untuk jenis kalender (portrait/landscape rendering).
+ */
+export function promesCalendarKindLabel(kind: PromesCalendarKind): string {
+  switch (kind) {
+    case "pts": return "PTS";
+    case "pas": return "PAS";
+    case "remedial": return "Remedial";
+    case "p5": return "P5";
+    case "libur": return "Libur";
+    case "other": return "";
+    case null: return "";
+  }
+}
 
 /**
  * Generate Promes dari Prota + Kalender + options.
@@ -85,7 +136,10 @@ export function generatePromes(input: GeneratePromesInput): PromesResult {
     return emptyResult(warnings, errors);
   }
 
-  // LANGKAH 3: Tentukan isEffective per minggu
+  // LANGKAH 3: Tentukan isEffective + calendarKind per minggu
+  // PROMES-CALENDAR-ASSESSMENT-CADANGAN-03: deteksi event kalender
+  // (PTS/PAS/Remedial/P5/Libur) dan tandai minggu tersebut. Materi tidak
+  // boleh masuk ke minggu yang dipakai assessment/kegiatan kalender.
   for (const week of weeks) {
     const learningEvent = semesterCalendar.find(
       (e) => e.type === "learning" && dateRangesOverlap(week.startDate, week.endDate, e.startDate, e.endDate)
@@ -93,8 +147,30 @@ export function generatePromes(input: GeneratePromesInput): PromesResult {
     const blockingEvent = semesterCalendar.find(
       (e) => e.blocksLearning && dateRangesOverlap(week.startDate, week.endDate, e.startDate, e.endDate)
     );
-    week.isEffective = !!learningEvent && !blockingEvent;
-    week.blockReason = blockingEvent?.label;
+
+    // PROMES-CALENDAR-ASSESSMENT-CADANGAN-03: cari event kalender khusus
+    // (assessment/remedial/p5/holiday) yang overlap minggu ini.
+    const calendarEvent = semesterCalendar.find(
+      (e) => {
+        if (e.type === "learning") return false;
+        return dateRangesOverlap(week.startDate, week.endDate, e.startDate, e.endDate);
+      }
+    );
+    const kind = calendarEvent ? detectPromesCalendarKind(calendarEvent) : null;
+    week.calendarKind = kind;
+
+    // Minggu efektif HANYA bila ada learning event, tidak diblokir, DAN
+    // tidak ada event kalender khusus (pts/pas/remedial/p5/libur).
+    // "other" event tidak otomatis memblokir (bisa jadi kegiatan ringan).
+    const isCalendarBlocked = kind === "pts" || kind === "pas" || kind === "remedial" || kind === "p5" || kind === "libur";
+    week.isEffective = !!learningEvent && !blockingEvent && !isCalendarBlocked;
+
+    // blockReason: prioritas calendarKind label, fallback blockingEvent label
+    if (isCalendarBlocked && kind) {
+      week.blockReason = calendarEvent?.label ?? promesCalendarKindLabel(kind);
+    } else {
+      week.blockReason = blockingEvent?.label;
+    }
   }
 
   // LANGKAH 4: Hitung kapasitas INTRA per minggu (BUKAN total 3 JP)
@@ -291,6 +367,7 @@ function enumerateWeeks(semesterStartISO: string, semesterEndISO: string): Prome
       startDate: toISODate(weekStart),
       endDate: toISODate(weekEnd),
       isEffective: false,
+      calendarKind: null,
       intraCapacityJP: 0,
       reservedForCadangan: 0,
       availableForMaterial: 0,
