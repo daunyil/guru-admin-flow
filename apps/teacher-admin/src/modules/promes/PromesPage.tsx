@@ -196,6 +196,13 @@ export function PromesPage() {
               KO tampil sebagai row terpisah, BUKAN mengurangi kapasitas materi. Cadangan dari INTRA, bukan total 3 JP.
             </div>
 
+            {/* PROMES-LANDSCAPE-ONEPAGE-POLISH-02: aturan materi singkat untuk cetak 1 halaman */}
+            <div className="p-3 rounded-md bg-sky-50 border border-sky-200 text-xs text-sky-800">
+              <strong>Aturan materi Promes:</strong> untuk cetak landscape 1 halaman, isi materi sebaiknya singkat,
+              maksimal 3–7 kata. Contoh: <em>Keanekaragaman dalam Bhinneka Tunggal Ika</em>.
+              TP lengkap tetap disimpan di ATP/Prota.
+            </div>
+
             <div className="flex gap-2">
               <Button onClick={handleGenerate} disabled={generating}>
                 {generating ? "Menyusun..." : "Susun Promes"}
@@ -615,51 +622,85 @@ function PromesPortraitDocument({
 /** Nama bulan pendek Indonesia untuk header matrix landscape. */
 const MONTH_SHORT_ID = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
 
-/** PROMES-LANDSCAPE-MATRIX-02B: Tipe untuk group bulan + subkolom minggu. */
+/** PROMES-LANDSCAPE-ONEPAGE-POLISH-02: Tipe untuk group bulan + subkolom minggu. */
 type PromesMonthColumn = {
   month: number;
   label: string;
   weeks: Array<{
     weekNumber: number;
-    label: string; // "1", "2", "3", ... (urut per bulan)
+    label: string;
     startDate: string;
   }>;
 };
 
 /**
- * PROMES-LANDSCAPE-MATRIX-02B: Bangun group bulan → subkolom minggu.
- * Setiap bulan berisi minggu-minggu yang startDate-nya di bulan itu,
- * diurutkan by weekNumber. Label minggu = urutan per bulan (1, 2, 3, ...).
- * Bulan tanpa minggu di-filter (tidak tampil kolom kosong).
+ * PROMES-LANDSCAPE-ONEPAGE-POLISH-02: Bangun group bulan → subkolom minggu.
  */
 function buildPromesMonthGroups(weeks: PromesWeek[], semester: 1 | 2): PromesMonthColumn[] {
   const monthNumbers = semester === 1 ? [7, 8, 9, 10, 11, 12] : [1, 2, 3, 4, 5, 6];
 
-  return monthNumbers.map((month) => {
-    const monthWeeks = weeks
-      .filter((week) => Number(week.startDate.slice(5, 7)) === month)
-      .sort((a, b) => a.weekNumber - b.weekNumber);
+  return monthNumbers
+    .map((month) => {
+      const monthWeeks = weeks
+        .filter((week) => Number(week.startDate.slice(5, 7)) === month)
+        .sort((a, b) => a.weekNumber - b.weekNumber);
 
-    return {
-      month,
-      label: MONTH_SHORT_ID[month - 1],
-      weeks: monthWeeks.map((week, index) => ({
-        weekNumber: week.weekNumber,
-        label: String(index + 1),
-        startDate: week.startDate,
-      })),
-    };
-  }).filter((group) => group.weeks.length > 0);
+      return {
+        month,
+        label: MONTH_SHORT_ID[month - 1],
+        weeks: monthWeeks.map((week, index) => ({
+          weekNumber: week.weekNumber,
+          label: String(index + 1),
+          startDate: week.startDate,
+        })),
+      };
+    })
+    .filter((group) => group.weeks.length > 0);
+}
+
+/**
+ * PROMES-LANDSCAPE-ONEPAGE-POLISH-02: Compact materi untuk cetak 1 halaman.
+ * - Hapus prefix "TP 1.2:" dll.
+ * - Bila format "TP lengkap — Materi Singkat", ambil bagian setelah tanda pisah.
+ * - Maksimal maxWords kata, sisanya dipotong dengan ellipsis.
+ */
+function compactPromesMaterial(text: string, maxWords = 7): string {
+  const cleaned = (text || "-")
+    .replace(/\s+/g, " ")
+    .replace(/^tp\s*\d+(\.\d+)?\s*[:.\-–—]?\s*/i, "")
+    .trim();
+
+  if (!cleaned || cleaned === "-") return "-";
+
+  // Jika guru memakai format: "TP lengkap — Materi Singkat"
+  // maka cetak Promes mengambil bagian setelah tanda pisah.
+  const parts = cleaned.split(/\s[–—-]\s/).map((p) => p.trim()).filter(Boolean);
+  const candidate = parts.length > 1 ? parts[parts.length - 1] : cleaned;
+
+  const words = candidate.split(" ").filter(Boolean);
+  if (words.length <= maxWords) return candidate;
+
+  return `${words.slice(0, maxWords).join(" ")}…`;
 }
 
 /**
  * Format Landscape (Matrix) — TP × bulan/minggu seperti contoh Promes sekolah.
- * PROMES-LANDSCAPE-MATRIX-02B: Versi rapi dengan header bulan + subkolom minggu,
- * tanda ✓ di minggu materi diajarkan, baris kegiatan kalender, KO per minggu.
+ * PROMES-LANDSCAPE-ONEPAGE-POLISH-02: Versi compact untuk 1 halaman A4 landscape.
+ * Materi dipendekkan via compactPromesMaterial. Layout compact, font kecil.
  */
 function PromesLandscapeMatrixDocument({
-  weeks, distribution, koRows, summary, status, semester, activeYearLabel,
-  schoolName, schoolRegency, headmasterName, teacherName, profile,
+  weeks,
+  distribution,
+  koRows,
+  summary,
+  status,
+  semester,
+  activeYearLabel,
+  schoolName,
+  schoolRegency,
+  headmasterName,
+  teacherName,
+  profile,
 }: {
   weeks: PromesWeek[];
   distribution: UnitDistribution[];
@@ -686,41 +727,45 @@ function PromesLandscapeMatrixDocument({
     if (!week) return "";
 
     if (week.reservedForCadangan > 0) return "Cad.";
-    if (!week.isEffective) {
-      const label = week.blockReason ?? "Libur";
-      if (/pts|uts|tengah/i.test(label)) return "PTS";
-      if (/pas|psas|akhir/i.test(label)) return "PAS";
-      if (/remedial/i.test(label)) return "Rem.";
-      if (/p5/i.test(label)) return "P5";
-      if (/libur/i.test(label)) return "Libur";
-      return label.length > 8 ? label.slice(0, 8) : label;
-    }
+
+    const label = week.blockReason ?? "";
+
+    if (/pts|uts|tengah/i.test(label)) return "PTS";
+    if (/pas|psas|akhir/i.test(label)) return "PAS";
+    if (/remedial/i.test(label)) return "Rem.";
+    if (/p5/i.test(label)) return "P5";
+    if (/libur/i.test(label)) return "Libur";
+
+    if (!week.isEffective && label) return label.length > 8 ? label.slice(0, 8) : label;
+    if (!week.isEffective) return "Libur";
 
     return "";
   }
 
   return (
     <div className="print-area">
-      <div className="document-page document-landscape promes-landscape-page" id="promes-landscape-doc">
+      <div className="document-page document-landscape promes-landscape-page promes-one-page" id="promes-landscape-doc">
         <div className="promes-title">PROGRAM SEMESTER {semester === 1 ? "GANJIL" : "GENAP"}</div>
 
         <table className="promes-identity-table">
           <tbody>
             <tr>
-              <td>Tahun Pelajaran</td>
-              <td>{activeYearLabel || "-"}</td>
-              <td>Kelas/Semester</td>
+              <td>Satuan Pendidikan</td>
+              <td>{schoolName || "-"}</td>
+              <td>Kelas / Semester</td>
               <td>{profile?.grade ?? "-"} / {semester === 1 ? "Ganjil" : "Genap"}</td>
             </tr>
             <tr>
               <td>Mata Pelajaran</td>
               <td>{profile?.subject ?? "-"}</td>
-              <td>Alokasi Waktu</td>
-              <td>{summary.intraCapacityJP} JP Intra + {summary.koTotalJP} JP KO</td>
+              <td>Tahun Pelajaran</td>
+              <td>{activeYearLabel || "-"}</td>
             </tr>
             <tr>
-              <td>Satuan Pendidikan</td>
-              <td colSpan={3}>{schoolName || "-"}</td>
+              <td>Alokasi Waktu</td>
+              <td>{summary.intraCapacityJP} JP Intrakurikuler</td>
+              <td>Kokurikuler</td>
+              <td>{summary.koTotalJP} JP</td>
             </tr>
           </tbody>
         </table>
@@ -729,8 +774,7 @@ function PromesLandscapeMatrixDocument({
           <thead>
             <tr>
               <th rowSpan={2} className="col-no">No</th>
-              <th rowSpan={2} className="col-tp">Tujuan Pembelajaran</th>
-              <th rowSpan={2} className="col-materi">Materi Pembelajaran</th>
+              <th rowSpan={2} className="col-materi-wide">Materi / TP Ringkas</th>
               <th rowSpan={2} className="col-jp">JP</th>
               {monthGroups.map((group) => (
                 <th key={group.month} colSpan={group.weeks.length} className="month-head">
@@ -739,20 +783,18 @@ function PromesLandscapeMatrixDocument({
               ))}
             </tr>
             <tr>
-              {monthGroups.flatMap((group) =>
-                group.weeks.map((week) => (
-                  <th key={`${group.month}-${week.weekNumber}`} className="week-head">
-                    {week.label}
-                  </th>
-                ))
-              )}
+              {weekColumns.map((week) => (
+                <th key={`week-head-${week.weekNumber}`} className="week-head">
+                  {week.label}
+                </th>
+              ))}
             </tr>
           </thead>
 
           <tbody>
             {distribution.length === 0 ? (
               <tr>
-                <td colSpan={4 + weekColumns.length} className="empty-row">
+                <td colSpan={3 + weekColumns.length} className="empty-row">
                   Belum ada materi/TP yang terdistribusi.
                 </td>
               </tr>
@@ -760,8 +802,7 @@ function PromesLandscapeMatrixDocument({
               distribution.map((unit, index) => (
                 <tr key={unit.unitId}>
                   <td className="text-center">{index + 1}</td>
-                  <td>{unit.title}</td>
-                  <td>{unit.title}</td>
+                  <td className="materi-cell">{compactPromesMaterial(unit.title, 7)}</td>
                   <td className="text-center">{unit.totalJP}</td>
                   {weekColumns.map((week) => (
                     <td key={`${unit.unitId}-${week.weekNumber}`} className="week-cell">
@@ -774,10 +815,10 @@ function PromesLandscapeMatrixDocument({
 
             <tr className="calendar-row">
               <td className="text-center">{distribution.length + 1}</td>
-              <td colSpan={2}>
+              <td>
                 <strong>Kegiatan Kalender</strong>
                 <br />
-                <span>PTS/PAS/Remedial/Libur/P5 sesuai kalender</span>
+                <span>PTS/PAS/Remedial/Libur/P5</span>
               </td>
               <td className="text-center">-</td>
               {weekColumns.map((week) => (
@@ -790,28 +831,31 @@ function PromesLandscapeMatrixDocument({
             {koRows.length > 0 && (
               <tr className="ko-row">
                 <td className="text-center">{distribution.length + 2}</td>
-                <td colSpan={2}>
+                <td>
                   <strong>Kokurikuler</strong>
                   <br />
                   <span>{KO_MODE_LABELS_ID[koRows[0]?.mode ?? "daily_block"]}</span>
                 </td>
                 <td className="text-center">{summary.koTotalJP}</td>
-                {weekColumns.map((week) => (
-                  <td key={`ko-${week.weekNumber}`} className="week-cell">
-                    {weeks.find((w) => w.weekNumber === week.weekNumber)?.koJP ? "✓" : ""}
-                  </td>
-                ))}
+                {weekColumns.map((week) => {
+                  const found = weeks.find((w) => w.weekNumber === week.weekNumber);
+                  return (
+                    <td key={`ko-${week.weekNumber}`} className="week-cell">
+                      {found?.koJP ? "✓" : ""}
+                    </td>
+                  );
+                })}
               </tr>
             )}
 
             <tr className="total-row">
-              <td colSpan={3} className="text-center">Jumlah Jam Efektif</td>
-              <td className="text-center">{summary.intraCapacityJP} JP</td>
+              <td colSpan={2} className="text-center">Jumlah JP Intrakurikuler</td>
+              <td className="text-center">{summary.intraCapacityJP}</td>
               {weekColumns.map((week) => {
-                const w = weeks.find((item) => item.weekNumber === week.weekNumber);
+                const found = weeks.find((w) => w.weekNumber === week.weekNumber);
                 return (
                   <td key={`eff-${week.weekNumber}`} className="week-cell">
-                    {w?.isEffective ? "✓" : ""}
+                    {found?.isEffective ? "✓" : ""}
                   </td>
                 );
               })}
@@ -824,6 +868,10 @@ function PromesLandscapeMatrixDocument({
             Promes belum lengkap: {summary.undistributedJP} JP materi belum terdistribusi.
           </p>
         )}
+
+        <p className="promes-note">
+          Keterangan: ✓ = minggu pelaksanaan. KO = Kokurikuler. Materi ditulis singkat agar muat 1 halaman.
+        </p>
 
         <PromesDocSignature
           schoolRegency={schoolRegency}

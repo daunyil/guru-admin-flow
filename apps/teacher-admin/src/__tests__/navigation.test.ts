@@ -9,7 +9,7 @@ describe("NAV-DAILY-GATE-01 — Kontrak menu utama", () => {
   it("Sidebar menampilkan Jurnal", () => { expect(getPrimaryNavLabels()).toContain("Jurnal"); });
   it("Sidebar menampilkan Nilai", () => { expect(getPrimaryNavLabels()).toContain("Nilai"); });
   it("Sidebar menampilkan Guru Piket", () => { expect(getPrimaryNavLabels()).toContain("Guru Piket"); });
-  it("Sidebar menampilkan Laporan Tahunan", () => { expect(getPrimaryNavLabels()).toContain("Laporan Tahunan"); });
+  it("Sidebar menampilkan Paket Admin", () => { expect(getPrimaryNavLabels()).toContain("Paket Admin"); });
   it("Sidebar TIDAK menampilkan modul besar langsung", () => {
     const labels = getPrimaryNavLabels();
     expect(labels).not.toContain("Prota Resmi");
@@ -19,13 +19,13 @@ describe("NAV-DAILY-GATE-01 — Kontrak menu utama", () => {
     expect(labels).not.toContain("Remedial");
   });
   it("Menu utama tepat 5 item", () => {
-    expect(getPrimaryNavLabels()).toEqual(["Absen", "Jurnal", "Nilai", "Guru Piket", "Laporan Tahunan"]);
+    expect(getPrimaryNavLabels()).toEqual(["Absen", "Jurnal", "Nilai", "Guru Piket", "Paket Admin"]);
   });
   it("Mobile nav maksimal 5 item", () => { expect(getMobileNavLabels().length).toBeLessThanOrEqual(5); });
   it("Mobile nav tidak ada Lainnya", () => { expect(getMobileNavLabels()).not.toContain("Lainnya"); });
 });
 
-describe("NAV-DAILY-GATE-01 — Gerbang Laporan Tahunan", () => {
+describe("NAV-DAILY-GATE-01 — Gerbang Paket Admin", () => {
   it("GATE_GROUPS punya 5 kelompok", () => {
     expect(GATE_GROUPS).toHaveLength(5);
     expect(GATE_GROUPS[0].title).toContain("A.");

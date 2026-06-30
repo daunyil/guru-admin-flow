@@ -516,6 +516,9 @@ export function AdminPackagePage() {
     items: docs.filter((d) => d.category === cat),
   })).filter((g) => g.items.length > 0);
 
+  // ADMIN-PACKAGE-UX-01: dokumen yang belum lengkap untuk section "Lanjutkan"
+  const nextDocs = docs.filter((d) => d.status !== "lengkap").slice(0, 4);
+
   function handleExportChecklist() {
     if (!assignment || !year) return;
     const html = generateChecklistHTML(docs, assignment, year, completenessScore, lengkapCount, totalDocs);
@@ -534,39 +537,17 @@ export function AdminPackagePage() {
   return (
     <div className="space-y-4">
       <div className="page-header">
-        <h1 className="text-2xl font-bold text-slate-900">Laporan Tahunan</h1>
+        <h1 className="text-2xl font-bold text-slate-900">Paket Administrasi Guru</h1>
         <p className="text-sm text-slate-500 mt-1">
-          {year ? `TP ${year.label}` : "Belum ada tahun aktif"} · Pusat dokumen administrasi, perencanaan, evaluasi, dan arsip guru.
+          {year ? `TP ${year.label}` : "Belum ada tahun aktif"} · Cek, susun, dan cetak dokumen administrasi berdasarkan kelas dan mapel.
         </p>
       </div>
 
-      {/* NAV-DAILY-GATE-01: Gerbang ke semua modul yang disembunyikan dari sidebar */}
-      <Card>
-        <CardHeader title="Modul" description="Akses cepat ke semua modul administrasi." />
-        <div className="space-y-3">
-          {GATE_GROUPS.map((group) => (
-            <div key={group.title}>
-              <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">{group.title}</p>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                {group.cards.map((card) => (
-                  <Link key={card.id} to={card.to}>
-                    <div className="p-3 border border-slate-200 rounded-lg hover:border-brand-300 hover:bg-brand-50 transition-colors cursor-pointer">
-                      <p className="text-sm font-medium text-slate-800">{card.label}</p>
-                      <p className="text-xs text-slate-500 mt-0.5">{card.description}</p>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-      </Card>
-
-      {/* Step 1: Pilih Kelas dan Mapel */}
+      {/* Step 1: pilih konteks dulu */}
       <Card>
         <CardHeader
           title="1. Pilih Kelas dan Mapel"
-          description="App cek kelengkapan 14 dokumen administrasi untuk assignment ini."
+          description="Pilih dulu agar app hanya menampilkan dokumen yang sesuai kelas, mapel, semester, dan guru."
         />
         {assignments.length === 0 ? (
           <EmptyState
@@ -604,55 +585,63 @@ export function AdminPackagePage() {
         )}
       </Card>
 
-      {/* Step 2: Checklist dokumen */}
+      {!assignment && (
+        <Card>
+          <EmptyState
+            title="Pilih kelas dan mapel dulu"
+            description="Setelah dipilih, app akan menampilkan ringkasan paket administrasi, dokumen yang kurang, dan tombol cepat untuk melengkapinya."
+          />
+        </Card>
+      )}
+
       {assignment && (
         <>
-          {/* Progress + Deadline Card */}
+          {/* Step 2: ringkasan */}
           <Card>
             <CardHeader
-              title="2. Kelengkapan Dokumen"
+              title="2. Ringkasan Paket"
               description={`${lengkapCount} / ${totalDocs} dokumen lengkap · ${belumCount} belum · ${kosongCount} kosong`}
             />
-            <div className="space-y-3">
-              <div>
-                <div className="flex justify-between text-xs text-slate-600 mb-1">
-                  <span>Skor Kelengkapan</span>
-                  <span className="font-bold text-slate-900">{completenessScore}%</span>
+            <div className="grid md:grid-cols-[1fr_auto] gap-4 items-center">
+              <div className="space-y-3">
+                <div>
+                  <div className="flex justify-between text-xs text-slate-600 mb-1">
+                    <span>Skor Kelengkapan</span>
+                    <span className="font-bold text-slate-900">{completenessScore}%</span>
+                  </div>
+                  <div className="w-full bg-slate-200 rounded-full h-3 overflow-hidden">
+                    <div
+                      className={`h-3 rounded-full transition-all ${
+                        completenessScore >= 80 ? "bg-emerald-500" : completenessScore >= 50 ? "bg-amber-500" : "bg-rose-500"
+                      }`}
+                      style={{ width: `${completenessScore}%` }}
+                    />
+                  </div>
                 </div>
-                <div className="w-full bg-slate-200 rounded-full h-3 overflow-hidden">
-                  <div
-                    className={`h-3 rounded-full transition-all ${
-                      completenessScore >= 80 ? "bg-emerald-500" : completenessScore >= 50 ? "bg-amber-500" : "bg-rose-500"
-                    }`}
-                    style={{ width: `${completenessScore}%` }}
-                  />
-                </div>
+                {daysToDeadline !== null && (
+                  <div className={`p-2 rounded text-xs flex items-center gap-2 ${
+                    daysToDeadline < 0
+                      ? "bg-rose-50 text-rose-800"
+                      : daysToDeadline <= 14
+                        ? "bg-amber-50 text-amber-800"
+                        : "bg-slate-50 text-slate-700"
+                  }`}>
+                    <span className="font-semibold">
+                      {daysToDeadline < 0
+                        ? `Akhir semester ${semesterEnd} sudah lewat ${Math.abs(daysToDeadline)} hari`
+                        : daysToDeadline === 0
+                          ? "Hari ini adalah akhir semester"
+                          : `Akhir semester ${semesterEnd} — sisa ${daysToDeadline} hari`}
+                    </span>
+                  </div>
+                )}
               </div>
-
-              {daysToDeadline !== null && (
-                <div className={`p-2 rounded text-xs flex items-center gap-2 ${
-                  daysToDeadline < 0
-                    ? "bg-rose-50 text-rose-800"
-                    : daysToDeadline <= 14
-                      ? "bg-amber-50 text-amber-800"
-                      : "bg-slate-50 text-slate-700"
-                }`}>
-                  <span className="font-semibold">
-                    {daysToDeadline < 0
-                      ? `Akhir semester ${semesterEnd} sudah lewat ${Math.abs(daysToDeadline)} hari`
-                      : daysToDeadline === 0
-                        ? "Hari ini adalah akhir semester"
-                        : `Akhir semester ${semesterEnd} — sisa ${daysToDeadline} hari`}
-                  </span>
-                </div>
-              )}
-
-              <div className="flex gap-2 flex-wrap">
+              <div className="flex md:flex-col gap-2 flex-wrap">
                 <Button variant="secondary" className="text-sm" onClick={handleExportChecklist}>
-                  Download Checklist HTML
+                  Download Checklist
                 </Button>
                 <Button variant="secondary" className="text-sm" onClick={() => window.print()}>
-                  Cetak Halaman Ini
+                  Cetak Checklist
                 </Button>
               </div>
             </div>
@@ -664,87 +653,134 @@ export function AdminPackagePage() {
             </div>
           )}
 
-          {docsByCategory.map((group) => (
-            <Card key={group.category}>
-              <CardHeader
-                title={group.label}
-                description={`${group.items.filter((d) => d.status === "lengkap").length} / ${group.items.length} lengkap`}
-              />
-              <div className="space-y-2">
-                {group.items.map((doc) => (
-                  <div
-                    key={doc.id}
-                    className={`p-3 border rounded-md ${
-                      expandedItemId === doc.id ? "border-brand-300 bg-brand-50" : "border-slate-200"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-3 min-w-0 flex-1">
-                        <span
-                          className={`w-3 h-3 rounded-full shrink-0 ${
-                            doc.status === "lengkap" ? "bg-emerald-500" : doc.status === "belum" ? "bg-amber-500" : "bg-rose-500"
-                          }`}
-                        />
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <p className="font-medium text-sm">{doc.name}</p>
-                            {doc.autoGeneratable && <Badge variant="neutral">Otomatis</Badge>}
-                          </div>
-                          <p className="text-xs text-slate-500">{doc.detail}</p>
+          {/* Step 3: yang harus diselesaikan dulu */}
+          <Card>
+            <CardHeader
+              title="3. Lanjutkan yang Belum Selesai"
+              description="Prioritas dokumen yang perlu dibuka agar paket administrasi cepat lengkap."
+            />
+            {nextDocs.length === 0 ? (
+              <div className="p-4 rounded-lg bg-emerald-50 border border-emerald-200 text-sm text-emerald-800">
+                Semua dokumen pada paket ini sudah lengkap.
+              </div>
+            ) : (
+              <div className="grid sm:grid-cols-2 gap-3">
+                {nextDocs.map((doc) => (
+                  <Link key={doc.id} to={doc.link}>
+                    <div className="p-4 rounded-xl border border-slate-200 bg-white hover:border-brand-300 hover:bg-brand-50 transition-colors">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="font-semibold text-sm text-slate-900">{doc.name}</p>
+                          <p className="text-xs text-slate-500 mt-1">{doc.detail}</p>
                         </div>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <Badge
-                          variant={
-                            doc.status === "lengkap" ? "success" : doc.status === "belum" ? "warning" : "error"
-                          }
-                        >
-                          {doc.status === "lengkap" ? "Lengkap" : doc.status === "belum" ? "Belum" : "Kosong"}
+                        <Badge variant={doc.status === "belum" ? "warning" : "error"}>
+                          {doc.status === "belum" ? "Belum" : "Kosong"}
                         </Badge>
-                        {doc.expandDetails && (
-                          <Button
-                            variant="secondary"
-                            className="text-xs px-2 py-1"
-                            onClick={() => setExpandedItemId(expandedItemId === doc.id ? null : doc.id)}
-                          >
-                            {expandedItemId === doc.id ? "Tutup" : "Detail"}
-                          </Button>
-                        )}
-                        <Link to={doc.link}>
-                          <Button variant="secondary" className="text-xs px-2 py-1">
-                            {doc.actionLabel ?? "Buka"}
-                          </Button>
-                        </Link>
                       </div>
+                      <p className="text-xs font-semibold text-brand-700 mt-3">
+                        {doc.actionLabel ?? "Buka"} →
+                      </p>
                     </div>
-                    {expandedItemId === doc.id && doc.expandDetails && (
-                      <div className="mt-3 pt-3 border-t border-slate-200">
-                        <p className="text-xs font-semibold text-slate-600 mb-1">Detail:</p>
-                        <ul className="text-xs text-slate-700 space-y-1 ml-4 list-disc">
-                          {doc.expandDetails.map((d, i) => (
-                            <li key={i}>{d}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                  </div>
+                  </Link>
                 ))}
               </div>
-            </Card>
-          ))}
+            )}
+          </Card>
 
+          {/* Step 4: checklist dokumen */}
+          <div className="space-y-4">
+            {docsByCategory.map((group) => (
+              <Card key={group.category}>
+                <CardHeader
+                  title={group.label}
+                  description={`${group.items.filter((d) => d.status === "lengkap").length} / ${group.items.length} lengkap`}
+                />
+                <div className="space-y-2">
+                  {group.items.map((doc) => (
+                    <div
+                      key={doc.id}
+                      className={`p-3 border rounded-md ${
+                        expandedItemId === doc.id ? "border-brand-300 bg-brand-50" : "border-slate-200"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-3 min-w-0 flex-1">
+                          <span
+                            className={`w-3 h-3 rounded-full shrink-0 ${
+                              doc.status === "lengkap" ? "bg-emerald-500" : doc.status === "belum" ? "bg-amber-500" : "bg-rose-500"
+                            }`}
+                          />
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <p className="font-medium text-sm">{doc.name}</p>
+                              {doc.autoGeneratable && <Badge variant="neutral">Otomatis</Badge>}
+                            </div>
+                            <p className="text-xs text-slate-500">{doc.detail}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <Badge
+                            variant={
+                              doc.status === "lengkap" ? "success" : doc.status === "belum" ? "warning" : "error"
+                            }
+                          >
+                            {doc.status === "lengkap" ? "Lengkap" : doc.status === "belum" ? "Belum" : "Kosong"}
+                          </Badge>
+                          {doc.expandDetails && (
+                            <Button
+                              variant="secondary"
+                              className="text-xs px-2 py-1"
+                              onClick={() => setExpandedItemId(expandedItemId === doc.id ? null : doc.id)}
+                            >
+                              {expandedItemId === doc.id ? "Tutup" : "Detail"}
+                            </Button>
+                          )}
+                          <Link to={doc.link}>
+                            <Button variant="secondary" className="text-xs px-2 py-1">
+                              {doc.actionLabel ?? "Buka"}
+                            </Button>
+                          </Link>
+                        </div>
+                      </div>
+                      {expandedItemId === doc.id && doc.expandDetails && (
+                        <div className="mt-3 pt-3 border-t border-slate-200">
+                          <p className="text-xs font-semibold text-slate-600 mb-1">Detail:</p>
+                          <ul className="text-xs text-slate-700 space-y-1 ml-4 list-disc">
+                            {doc.expandDetails.map((d, i) => (
+                              <li key={i}>{d}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            ))}
+          </div>
+
+          {/* Step 5: semua modul dipindah ke bawah */}
           <Card>
-            <CardHeader title="3. Aksi Cepat" description="Buka dokumen lain yang belum lengkap." />
-            <p className="text-xs text-slate-500 mb-3">
-              Dokumen yang dibuat dari app akan mengambil identitas otomatis. Dokumen lama dari Word dapat diperbarui melalui menu Perbarui Identitas Dokumen.
-            </p>
-            <div className="flex gap-2 flex-wrap">
-              <Link to="/rpp-bulk"><Button variant="secondary" className="text-sm">Perbarui Identitas Dokumen</Button></Link>
-              <Link to="/remedial"><Button variant="secondary" className="text-sm">Program Remedial</Button></Link>
-              <Link to="/pengayaan"><Button variant="secondary" className="text-sm">Program Pengayaan</Button></Link>
-              <Link to="/lkpd"><Button variant="secondary" className="text-sm">Buat LKPD</Button></Link>
-              <Link to="/semester-report"><Button variant="secondary" className="text-sm">Susun Laporan</Button></Link>
-              <Link to="/backup"><Button variant="secondary" className="text-sm">Backup Semua</Button></Link>
+            <CardHeader
+              title="Semua Modul"
+              description="Buka modul teknis jika perlu mengedit data langsung."
+            />
+            <div className="space-y-3">
+              {GATE_GROUPS.map((group) => (
+                <div key={group.title}>
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">{group.title}</p>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {group.cards.map((card) => (
+                      <Link key={card.id} to={card.to}>
+                        <div className="p-3 border border-slate-200 rounded-lg hover:border-brand-300 hover:bg-brand-50 transition-colors cursor-pointer">
+                          <p className="text-sm font-medium text-slate-800">{card.label}</p>
+                          <p className="text-xs text-slate-500 mt-0.5">{card.description}</p>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              ))}
             </div>
           </Card>
         </>

@@ -1,16 +1,18 @@
 /**
  * NAV-DAILY-GATE-01: Konfigurasi navigasi yang diekstrak supaya testable.
  *
- * Menu utama hanya 5 item kerja harian:
- *   Absen, Jurnal, Nilai, Guru Piket, Laporan Tahunan
- *
+ * Menu utama hanya item kerja harian + pusat administrasi.
  * Semua modul lain (Prota, Promes, RPP, LKPD, dll) disembunyikan dari sidebar
- * dan hanya bisa diakses dari halaman Laporan Tahunan.
+ * dan bisa diakses dari halaman Paket Administrasi Guru.
  */
 
 import { FEATURE_FLAGS } from "@guru-admin/shared";
 import {
-  CheckCircle, BookOpen, FileSpreadsheet, ClipboardList, BookMarked,
+  CheckCircle,
+  BookOpen,
+  FileSpreadsheet,
+  ClipboardList,
+  BookMarked,
 } from "./icons";
 
 export interface NavItem {
@@ -24,7 +26,7 @@ export interface NavGroup {
   items: NavItem[];
 }
 
-/** Sidebar desktop — hanya 2 grup: Harian + Laporan */
+/** Sidebar desktop — menu ringkas berbasis kerja guru. */
 export const NAV_GROUPS: NavGroup[] = [
   {
     title: "Harian",
@@ -38,14 +40,14 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    title: "Laporan",
+    title: "Administrasi",
     items: [
-      { to: "/admin-package", label: "Laporan Tahunan", icon: BookMarked },
+      { to: "/admin-package", label: "Paket Admin", icon: BookMarked },
     ],
   },
 ];
 
-/** Mobile bottom nav — maksimal 5 item, tidak ada "Lainnya" */
+/** Mobile bottom nav — maksimal 5 item. */
 export const MOBILE_PRIMARY: NavItem[] = [
   { to: "/attendance", label: "Absen", icon: CheckCircle },
   { to: "/journal", label: "Jurnal", icon: BookOpen },
@@ -53,22 +55,19 @@ export const MOBILE_PRIMARY: NavItem[] = [
   ...(FEATURE_FLAGS.dailyDuty
     ? [{ to: "/piket", label: "Piket", icon: ClipboardList }]
     : []),
-  { to: "/admin-package", label: "Laporan", icon: BookMarked },
+  { to: "/admin-package", label: "Paket", icon: BookMarked },
 ];
 
-/** Helper untuk test: daftar label menu utama */
 export function getPrimaryNavLabels(): string[] {
   return [...NAV_GROUPS[0].items, ...NAV_GROUPS[1].items].map((i) => i.label);
 }
 
-/** Helper untuk test: daftar label mobile nav */
 export function getMobileNavLabels(): string[] {
   return MOBILE_PRIMARY.map((i) => i.label);
 }
 
 /**
- * NAV-DAILY-GATE-01: Kartu gerbang di Laporan Tahunan.
- * Semua modul yang disembunyikan dari sidebar, tampilkan sebagai kartu di sini.
+ * Kartu gerbang di Paket Administrasi Guru.
  */
 export interface GateCard {
   id: string;

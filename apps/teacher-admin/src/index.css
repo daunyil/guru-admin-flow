@@ -426,51 +426,56 @@
   }
 }
 
-/* ============================================================ */
-/*  PROMES-LANDSCAPE-MATRIX-02B: CSS khusus Promes landscape      */
-/*  Target: A4 landscape, tabel matrix rapi, tidak berantakan.   */
-/* ============================================================ */
-
-@media print {
-  .promes-landscape-page {
-    page: landscape;
-  }
+/* PROMES-LANDSCAPE-ONEPAGE-POLISH-02 */
+@page landscape {
+  size: A4 landscape;
+  margin: 0.45cm;
 }
 
 .promes-landscape-page {
   width: 29.7cm;
   max-width: 29.7cm;
   min-height: 21cm;
-  padding: 0.75cm 0.85cm;
+  padding: 0.55cm 0.65cm;
   font-family: Arial, Helvetica, sans-serif;
-  font-size: 7.5pt;
-  line-height: 1.15;
+  font-size: 6.8pt;
+  line-height: 1.08;
+}
+
+.promes-one-page {
+  page-break-after: avoid;
+  page-break-before: avoid;
+  page-break-inside: avoid;
+  break-after: avoid;
+  break-before: avoid;
+  break-inside: avoid;
+  overflow: hidden;
 }
 
 .promes-title {
   text-align: center;
   font-weight: 700;
-  font-size: 12pt;
+  font-size: 11pt;
   text-transform: uppercase;
-  margin-bottom: 6pt;
+  margin-bottom: 4pt;
 }
 
 .promes-identity-table {
   width: 100%;
   border-collapse: collapse;
-  margin-bottom: 6pt;
-  font-size: 8pt;
+  margin-bottom: 4pt;
+  font-size: 7pt;
 }
 
 .promes-identity-table td {
   border: 1px solid #000;
-  padding: 3pt 5pt;
+  padding: 2pt 4pt;
   vertical-align: top;
 }
 
 .promes-identity-table td:nth-child(1),
 .promes-identity-table td:nth-child(3) {
-  width: 13%;
+  width: 12%;
   font-weight: 700;
   background: #f2f2f2;
 }
@@ -479,15 +484,14 @@
   width: 100%;
   border-collapse: collapse;
   table-layout: fixed;
-  font-size: 7pt;
+  font-size: 6.2pt;
 }
 
 .promes-matrix-table th,
 .promes-matrix-table td {
   border: 1px solid #000;
-  padding: 2pt 2.5pt;
-  vertical-align: top;
-  word-break: normal;
+  padding: 1.2pt 1.5pt;
+  vertical-align: middle;
   overflow-wrap: anywhere;
 }
 
@@ -499,29 +503,30 @@
 
 .promes-matrix-table .month-head {
   background: #d9e2f3;
-  font-size: 7pt;
+  font-size: 6.2pt;
 }
 
 .promes-matrix-table .week-head {
   background: #f2f2f2;
-  font-size: 6.5pt;
-  width: 14pt;
+  font-size: 5.8pt;
+  width: 10pt;
 }
 
 .promes-matrix-table .col-no {
-  width: 18pt;
+  width: 14pt;
 }
 
-.promes-matrix-table .col-tp {
-  width: 18%;
-}
-
-.promes-matrix-table .col-materi {
-  width: 24%;
+.promes-matrix-table .col-materi-wide {
+  width: 36%;
 }
 
 .promes-matrix-table .col-jp {
-  width: 24pt;
+  width: 18pt;
+}
+
+.promes-matrix-table .materi-cell {
+  font-weight: 600;
+  line-height: 1.04;
 }
 
 .promes-matrix-table .week-cell,
@@ -529,7 +534,8 @@
   text-align: center;
   vertical-align: middle;
   font-weight: 700;
-  padding: 1pt;
+  padding: 0.8pt;
+  font-size: 5.8pt;
 }
 
 .promes-matrix-table .calendar-row {
@@ -538,7 +544,7 @@
 
 .promes-matrix-table .calendar-row span,
 .promes-matrix-table .ko-row span {
-  font-size: 6.5pt;
+  font-size: 5.8pt;
   font-weight: 400;
 }
 
@@ -553,20 +559,109 @@
 
 .promes-matrix-table .empty-row {
   text-align: center;
-  padding: 10pt;
+  padding: 6pt;
   color: #666;
   font-style: italic;
 }
 
 .promes-warning {
-  margin-top: 6pt;
-  font-size: 8pt;
+  margin-top: 3pt;
+  font-size: 6.5pt;
   color: #a00;
   font-weight: 700;
+}
+
+.promes-note {
+  margin-top: 3pt;
+  font-size: 6pt;
+  color: #444;
+}
+
+.promes-landscape-page .signature-grid {
+  margin-top: 10pt;
+  font-size: 6.8pt;
+}
+
+.promes-landscape-page .signature-grid .sig-space {
+  height: 28pt;
 }
 
 @media screen {
   .promes-landscape-page {
     overflow-x: auto;
+  }
+}
+
+@media print {
+  .document-landscape,
+  .promes-landscape-page {
+    page: landscape;
+  }
+
+  .promes-landscape-page {
+    padding: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-height: auto !important;
+    font-size: 6.2pt !important;
+    line-height: 1.05 !important;
+    overflow: hidden !important;
+  }
+
+  .promes-one-page {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    page-break-after: avoid !important;
+    break-after: avoid !important;
+  }
+
+  .promes-title {
+    font-size: 10pt !important;
+    margin-bottom: 3pt !important;
+  }
+
+  .promes-identity-table {
+    font-size: 6.5pt !important;
+    margin-bottom: 3pt !important;
+  }
+
+  .promes-identity-table td {
+    padding: 1.5pt 3pt !important;
+  }
+
+  .promes-matrix-table {
+    font-size: 5.8pt !important;
+  }
+
+  .promes-matrix-table th,
+  .promes-matrix-table td {
+    padding: 0.8pt 1pt !important;
+  }
+
+  .promes-matrix-table .materi-cell {
+    font-size: 5.6pt !important;
+    line-height: 1.02 !important;
+  }
+
+  .promes-matrix-table .week-head,
+  .promes-matrix-table .week-cell,
+  .promes-matrix-table .calendar-cell {
+    font-size: 5.3pt !important;
+    padding: 0.5pt !important;
+  }
+
+  .promes-note,
+  .promes-warning {
+    margin-top: 2pt !important;
+    font-size: 5.8pt !important;
+  }
+
+  .promes-landscape-page .signature-grid {
+    margin-top: 6pt !important;
+    font-size: 6pt !important;
+  }
+
+  .promes-landscape-page .signature-grid .sig-space {
+    height: 20pt !important;
   }
 }
