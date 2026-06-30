@@ -725,3 +725,36 @@ Gates:
 
 Commit: 7f7f6f9 (pushed to origin/main).
 Status: READY FOR USER PRINT TEST.
+
+---
+
+Task ID: PROMES-CALENDAR-ASSESSMENT-CADANGAN-03
+Agent: main (sprint owner — assessment ikut kalender + cadangan tanpa tanggal)
+Task: PTS/PAS/Remedial mengikuti Kalender Pendidikan. Jika tidak ada di kalender, sisa jam menjadi Cadangan Akhir Semester tanpa tanggal. Materi tidak boleh masuk ke minggu assessment/kegiatan kalender.
+
+Work Log:
+- Domain (promes-types.ts): Tambah PromesCalendarKind type + calendarKind field ke PromesWeek.
+- Domain (promes-engine.ts):
+  - detectPromesCalendarKind(event): deteksi dari label+type. Urutan: pts → remedial (sebelum pas, karena 'Remedial PAS' mengandung 'pas') → pas → p5 → libur → other. Event 'learning' return null.
+  - promesCalendarKindLabel(kind): label singkat (PTS/PAS/Remedial/P5/Libur).
+  - LANGKAH 3 update: cari event kalender khusus (non-learning) yang overlap minggu. Set calendarKind. Bila kind=pts/pas/remedial/p5/libur → isEffective=false (blok materi).
+  - enumerateWeeks: init calendarKind: null.
+- Domain (index.ts): Export detectPromesCalendarKind, promesCalendarKindLabel, PromesCalendarKind.
+- UI (PromesPage.tsx):
+  - Portrait: filter pure-cadangan weeks dari tabel mingguan. Tambah section 'Cadangan Akhir Semester: X JP' tanpa tanggal. PromesDocWeekRow pakai calendarKind untuk label event.
+  - isPureCadanganWeek helper: reservedForCadangan>0, no assignedUnits, no calendarKind, isEffective=false.
+  - Landscape: getCalendarLabel pakai week.calendarKind (bukan regex). Tidak return 'Cad.' pada minggu bertanggal. promes-note tambah info cadangan.
+- Tests (+13): 6 spec tests (PTS/PAS/Remedial dari kalender, no event → cadangan, pure cadangan filter, no fake 'Cad.' label) + 7 helper tests (detectPromesCalendarKind + promesCalendarKindLabel).
+- Run gates: typecheck PASS, test PASS (675 tests, +13 baru), build PASS (1,154 KB JS, 42 KB CSS).
+- Copy build ke preview folder. Commit a7466a8, push ke origin/main.
+
+Stage Summary:
+- PTS/PAS/Remedial mengikuti Kalender Pendidikan (deteksi dari event type+label).
+- Materi tidak masuk ke minggu assessment/kegiatan kalender.
+- Cadangan umum tidak lagi diberi tanggal (section terpisah 'Cadangan Akhir Semester').
+- Portrait menampilkan cadangan akhir tanpa tanggal.
+- Landscape tidak menandai cadangan pada minggu palsu.
+- File changed: 5 files, +499/-29 lines.
+- Test count: 662 (sebelumnya) + 13 (baru) = 675 PASS.
+- Commit: a7466a8 (pushed to origin/main).
+- Status: READY FOR PROMES CALENDAR TEST.
