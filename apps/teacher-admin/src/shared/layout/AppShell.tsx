@@ -125,6 +125,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               onClick={() => navigate("/backup")}
               className="px-3 py-1.5 rounded-md text-sm text-slate-600 hover:bg-slate-100 transition-colors"
               title="Backup"
+              aria-label="Buka Backup"
             >
               💾 Backup
             </button>
@@ -132,6 +133,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               onClick={() => navigate("/profile")}
               className="px-3 py-1.5 rounded-md text-sm text-slate-600 hover:bg-slate-100 transition-colors"
               title="Profil"
+              aria-label="Buka Profil"
             >
               👤 Profil
             </button>
@@ -157,6 +159,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 onClick={() => navigate("/assignments")}
                 className="w-10 h-10 rounded-xl bg-white/15 border border-white/20 text-white text-base active:scale-95"
                 title="Kelas dan Mapel"
+                aria-label="Buka Kelas dan Mapel"
               >
                 📚
               </button>
@@ -164,6 +167,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 onClick={() => navigate("/profile")}
                 className="w-10 h-10 rounded-xl bg-white/15 border border-white/20 text-white text-base active:scale-95"
                 title="Profil"
+                aria-label="Buka Profil"
               >
                 👤
               </button>
@@ -171,6 +175,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 onClick={() => navigate("/backup")}
                 className="w-10 h-10 rounded-xl bg-white/15 border border-white/20 text-white text-base active:scale-95"
                 title="Backup"
+                aria-label="Buka Backup"
               >
                 💾
               </button>

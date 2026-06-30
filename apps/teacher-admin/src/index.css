@@ -292,10 +292,8 @@
   margin: 1.5cm 2cm;
 }
 
-@page landscape {
-  size: A4 landscape;
-  margin: 1.2cm 1.5cm;
-}
+/* RELEASE-FIXPACK-P1-P2-01: @page landscape dipindah ke blok PROMES-LANDSCAPE-ONEPAGE-POLISH-02
+   di bawah untuk konsolidasi (margin 0.45cm untuk compact 1 halaman). */
 
 @media print {
   /* UX-PRINT-01/03: print CSS rapi seperti administrasi guru nyata */

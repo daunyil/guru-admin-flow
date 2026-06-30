@@ -44,7 +44,9 @@ export function GradesPage() {
   const [assignments, setAssignments] = useState<TeachingAssignment[]>([]);
   const [rosters, setRosters] = useState<ClassRoster[]>([]);
   const [selectedAssignmentId, setSelectedAssignmentId] = useState("");
-  const [kktp, setKktp] = useState(75);
+  // RELEASE-FIXPACK-P1-P2-01: kktp sebagai string untuk izinkan input kosong sementara.
+  // Parse ke number saat simpan/hitung. Default "75" bukan 75.
+  const [kktp, setKktp] = useState("75");
   const [entries, setEntries] = useState<GradeEntry[]>([]);
   const [gradeBook, setGradeBook] = useState<GradeBook | null>(null);
   const [dirty, setDirty] = useState(false);
@@ -91,34 +93,39 @@ export function GradesPage() {
     const roster = rosters.find((r) => r.classId === assignment.classId);
     if (!roster) { setEntries([]); setGradeBook(null); return; }
 
-    const existing = await findGradeBook({
-      academicYearId: assignment.academicYearId,
-      teacherId: assignment.teacherId,
-      classId: assignment.classId,
-      semester: assignment.semester,
-      subject: assignment.subject,
-    });
+    try {
+      const existing = await findGradeBook({
+        academicYearId: assignment.academicYearId,
+        teacherId: assignment.teacherId,
+        classId: assignment.classId,
+        semester: assignment.semester,
+        subject: assignment.subject,
+      });
 
-    if (existing) {
-      setGradeBook(existing);
-      setKktp(existing.passingScore);
-      setEntries(existing.entries.slice().sort((a, b) => (a.studentNumber ?? 0) - (b.studentNumber ?? 0)));
-    } else {
-      setGradeBook(null);
-      const newEntries: GradeEntry[] = roster.students.map((s) => ({
-        studentId: s.id,
-        studentName: s.name,
-        studentNumber: s.number,
-        kd1: null, kd2: null, kd3: null, kd4: null, kd5: null, kd6: null,
-        pts: null, pas: null,
-        finalScore: null, averageKd: null,
-        dailyScore: null, assignmentScore: null, summativeScore: null,
-        remedialScore: null, averageScore: null,
-        status: "incomplete" as const,
-      }));
-      setEntries(newEntries);
+      if (existing) {
+        setGradeBook(existing);
+        setKktp(String(existing.passingScore));
+        setEntries(existing.entries.slice().sort((a, b) => (a.studentNumber ?? 0) - (b.studentNumber ?? 0)));
+      } else {
+        setGradeBook(null);
+        const newEntries: GradeEntry[] = roster.students.map((s) => ({
+          studentId: s.id,
+          studentName: s.name,
+          studentNumber: s.number,
+          kd1: null, kd2: null, kd3: null, kd4: null, kd5: null, kd6: null,
+          pts: null, pas: null,
+          finalScore: null, averageKd: null,
+          dailyScore: null, assignmentScore: null, summativeScore: null,
+          remedialScore: null, averageScore: null,
+          status: "incomplete" as const,
+        }));
+        setEntries(newEntries);
+      }
+      setDirty(false);
+    } catch (e) {
+      // RELEASE-FIXPACK-P1-P2-01: jangan biarkan UI stuck bila DB gagal
+      setMessage(e instanceof Error ? e.message : "Gagal memuat data nilai. Coba lagi.");
     }
-    setDirty(false);
   }
 
   useEffect(() => {
@@ -288,7 +295,7 @@ export function GradesPage() {
 
     try {
       if (gradeBook) {
-        const updated = await updateGradeBook(gradeBook.id, { passingScore: kktp, entries });
+        const updated = await updateGradeBook(gradeBook.id, { passingScore: Number(kktp) || 75, entries });
         if (updated) {
           setGradeBook(updated);
           setEntries(updated.entries.slice().sort((a, b) => (a.studentNumber ?? 0) - (b.studentNumber ?? 0)));
@@ -303,7 +310,7 @@ export function GradesPage() {
           classLabel: assignment.classLabel,
           subject: assignment.subject,
           semester: assignment.semester,
-          passingScore: kktp,
+          passingScore: Number(kktp) || 75,
           entries,
           status: "draft",
         });
@@ -319,7 +326,7 @@ export function GradesPage() {
 
   if (loading) return <p className="text-sm text-slate-500">Memuat...</p>;
 
-  const calculated = calculateGradeBookEntries(entries, kktp);
+  const calculated = calculateGradeBookEntries(entries, Number(kktp) || 75);
   const remedialCount = calculated.filter((e) => e.status === "remedial").length;
   const enrichmentCount = calculated.filter((e) => (e.finalScore ?? 0) >= 90).length;
   const assignment = selectedAssignment();
@@ -354,7 +361,7 @@ export function GradesPage() {
           {/* KKTP + quick actions */}
           <Card>
             <div className="flex gap-3 items-end flex-wrap">
-              <Input label="KKTP" id="g-kktp" type="number" value={String(kktp)} onChange={(v) => { setKktp(Number(v) || 75); setDirty(true); }} />
+              <Input label="KKTP" id="g-kktp" type="number" value={kktp} onChange={(v) => { setKktp(v); setDirty(true); }} />
               <Button variant="secondary" className="text-sm" onClick={handleFillAll80}>Isi Semua 80</Button>
               <Button variant="secondary" className="text-sm" onClick={handleRandomControlled}>Acak Terkontrol</Button>
               <Button onClick={handleSave} disabled={!dirty} className="text-sm">{dirty ? "Simpan" : "Tersimpan"}</Button>
@@ -619,7 +626,7 @@ export function GradesPage() {
               <table className="document-identity">
                 <tbody>
                   <tr><td>Sekolah</td><td>{teacher?.name ?? "-"}</td><td>Mapel</td><td>{assignment.subject}</td></tr>
-                  <tr><td>Kelas</td><td>{assignment.classLabel}</td><td>KKTP</td><td>{kktp}</td></tr>
+                  <tr><td>Kelas</td><td>{assignment.classLabel}</td><td>KKTP</td><td>{kktp || "-"}</td></tr>
                   <tr><td>Guru</td><td>{assignment.teacherName}</td><td>Semester</td><td>{assignment.semester === 1 ? "Ganjil" : "Genap"}</td></tr>
                 </tbody>
               </table>

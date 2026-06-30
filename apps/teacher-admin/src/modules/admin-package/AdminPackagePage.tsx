@@ -596,6 +596,10 @@ export function AdminPackagePage() {
 
       {assignment && (
         <>
+          {/* RELEASE-FIXPACK-P1-P2-01: print-area untuk Cetak Checklist.
+              Step 2-4 dibungkus print-area, hanya visible saat print.
+              Step 1 (pilih) dan Step 5 (semua modul) tetap no-print. */}
+          <div className="print-area hidden print:block">
           {/* Step 2: ringkasan */}
           <Card>
             <CardHeader
@@ -757,6 +761,8 @@ export function AdminPackagePage() {
                 </div>
               </Card>
             ))}
+          </div>
+
           </div>
 
           {/* Step 5: semua modul dipindah ke bawah */}

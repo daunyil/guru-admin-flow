@@ -116,7 +116,7 @@ export const GATE_GROUPS: GateGroup[] = [
       { id: "evaluation-docs", label: "Perangkat Penilaian", to: "/evaluation-docs", description: "Kisi-kisi, kartu soal, naskah" },
       { id: "remedial", label: "Remedial", to: "/remedial", description: "Program remedial" },
       { id: "pengayaan", label: "Pengayaan", to: "/pengayaan", description: "Program pengayaan" },
-      { id: "grades", label: "Nilai", to: "/grades", description: "Daftar nilai KD1-KD6" },
+      // RELEASE-FIXPACK-P1-P2-01: "Nilai" dihapus dari Group D karena sudah ada di sidebar Harian.
       { id: "semester-report", label: "Laporan Semester", to: "/semester-report", description: "Laporan akhir semester" },
     ],
   },

@@ -113,12 +113,16 @@ export function LKPDPage() {
       "Untuk mengubah, gunakan tombol 'Buka Revisi' terlebih dahulu."
     );
     if (!ok) return;
-    const result = await finalizeLKPD(id);
-    if (result.success) {
-      setMessage({ type: "success", text: "LKPD difinalkan." });
-      void reload();
-    } else {
-      setMessage({ type: "error", text: result.errors.join(", ") });
+    try {
+      const result = await finalizeLKPD(id);
+      if (result.success) {
+        setMessage({ type: "success", text: "LKPD difinalkan." });
+        void reload();
+      } else {
+        setMessage({ type: "error", text: result.errors.join(", ") });
+      }
+    } catch (e) {
+      setMessage({ type: "error", text: e instanceof Error ? e.message : "Gagal finalisasi LKPD." });
     }
   }
 
@@ -128,16 +132,24 @@ export function LKPDPage() {
       `Buka revisi untuk "${lkpd.title}"? Status akan kembali ke Draf dan LKPD bisa diedit lagi.`
     );
     if (!ok) return;
-    await updateLKPD(lkpd.id, { status: "draft" as const, finalizedAt: null });
-    setMessage({ type: "success", text: "LKPD dibuka untuk revisi (status: Draf)." });
-    void reload();
+    try {
+      await updateLKPD(lkpd.id, { status: "draft" as const, finalizedAt: null });
+      setMessage({ type: "success", text: "LKPD dibuka untuk revisi (status: Draf)." });
+      void reload();
+    } catch (e) {
+      setMessage({ type: "error", text: e instanceof Error ? e.message : "Gagal membuka revisi LKPD." });
+    }
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("Hapus LKPD ini?")) return;
-    await deleteLKPD(id);
-    setMessage({ type: "success", text: "LKPD dihapus." });
-    void reload();
+    if (!window.confirm("Hapus LKPD ini?")) return;
+    try {
+      await deleteLKPD(id);
+      setMessage({ type: "success", text: "LKPD dihapus." });
+      void reload();
+    } catch (e) {
+      setMessage({ type: "error", text: e instanceof Error ? e.message : "Gagal menghapus LKPD." });
+    }
   }
 
   if (loading) return <p className="text-sm text-slate-500">Memuat...</p>;

@@ -150,8 +150,10 @@ export function QuickJournalPage() {
   }, []);
 
   useEffect(() => {
-    if (message?.type === "error") setTimeout(() => setMessage(null), 5000);
-    if (message?.type === "success") setTimeout(() => setMessage(null), 3000);
+    if (!message) return;
+    // RELEASE-FIXPACK-P1-P2-01: cleanup setTimeout untuk hindari race condition
+    const t = setTimeout(() => setMessage(null), message.type === "error" ? 5000 : 3000);
+    return () => clearTimeout(t);
   }, [message]);
 
   function selectedAssignment(): TeachingAssignment | undefined {
@@ -655,7 +657,8 @@ function QuickJournalEditor({
       }
       setLoading(false);
     })();
-  }, [sessionId]);
+  // RELEASE-FIXPACK-P1-P2-01: tambah academicYearId ke deps untuk hindari stale closure
+  }, [sessionId, academicYearId]);
 
   // JOURNAL-REVIEW-NARRATIVE-03 §6: build narrative on-the-fly for preview/print
   const narrative = useMemo(
@@ -701,7 +704,9 @@ function QuickJournalEditor({
     if (!journal) return;
     // Spec §4: validasi final wajib review dibuka
     if (!finalizeCheck.ok) {
-      onError(finalizeCheck.ok ? "" : finalizeCheck.message);
+      // RELEASE-FIXPACK-P1-P2-01: jangan panggil onError dengan string kosong.
+      // Hanya panggil onError bila ada pesan error yang jelas.
+      onError(finalizeCheck.message);
       return;
     }
     try {

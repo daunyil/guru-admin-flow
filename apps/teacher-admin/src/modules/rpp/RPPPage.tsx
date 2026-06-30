@@ -116,13 +116,13 @@ ${placeholders[7].key}, ........................`;
     return (
       <div className="space-y-4">
         <div className="page-header">
-          <h1 className="text-2xl font-bold text-slate-900">RPP Template</h1>
+          <h1 className="text-2xl font-bold text-slate-900">Template / Helper RPP</h1>
           <p className="text-sm text-slate-500 mt-1">Buat placeholder untuk Word.</p>
         </div>
         <Card>
           <EmptyState
             title="Belum siap pakai template RPP"
-            description="RPP Template butuh tahun pelajaran aktif + profil guru lengkap. Buka menu Profil untuk mengisi data dasar terlebih dahulu."
+            description="Template RPP butuh tahun pelajaran aktif + profil guru lengkap. Buka menu Profil untuk mengisi data dasar terlebih dahulu."
             action={<Button variant="secondary" onClick={() => (window.location.hash = "#/profile")}>Buka Profil</Button>}
           />
         </Card>
@@ -135,8 +135,8 @@ ${placeholders[7].key}, ........................`;
   return (
     <div className="space-y-4">
       <div className="page-header">
-        <h1 className="text-2xl font-bold text-slate-900">RPP Template</h1>
-        <p className="text-sm text-slate-500 mt-1">Buat placeholder untuk Word. RPP tetap Word, app hanya bantu identitas.</p>
+        <h1 className="text-2xl font-bold text-slate-900">Template / Helper RPP</h1>
+        <p className="text-sm text-slate-500 mt-1">Buat placeholder identitas untuk Word. RPP tetap dibuat di Word, app hanya membantu identitas.</p>
       </div>
 
       {message && (

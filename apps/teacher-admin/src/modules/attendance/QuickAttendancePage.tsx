@@ -325,14 +325,19 @@ function AttendanceEditor({ sessionId, date, year, onSaved, onError }: { session
 
   async function save() {
     if (!session) return;
-    const next = isNew
-      ? records.map((r) => changes.has(r.studentId) ? { ...r, status: changes.get(r.studentId) as AttendanceRecord["status"], updatedAt: nowTimestamp() } : r)
-      : (changes.size
-        ? await updateAttendance(session.id, Array.from(changes.entries()).map(([studentId, status]) => ({ studentId, status: status as AttendanceRecord["status"] })))
-        : records);
-    if (isNew) { await saveDefaultAttendance(next); setIsNew(false); }
-    setRecords(next); setChanges(new Map());
-    await onSaved({ sessionId: session.id, subject: session.subject, classLabel: session.classLabel, date: session.date, summary: summarizeAttendance(next) });
+    try {
+      const next = isNew
+        ? records.map((r) => changes.has(r.studentId) ? { ...r, status: changes.get(r.studentId) as AttendanceRecord["status"], updatedAt: nowTimestamp() } : r)
+        : (changes.size
+          ? await updateAttendance(session.id, Array.from(changes.entries()).map(([studentId, status]) => ({ studentId, status: status as AttendanceRecord["status"] })))
+          : records);
+      if (isNew) { await saveDefaultAttendance(next); setIsNew(false); }
+      setRecords(next); setChanges(new Map());
+      await onSaved({ sessionId: session.id, subject: session.subject, classLabel: session.classLabel, date: session.date, summary: summarizeAttendance(next) });
+    } catch (e) {
+      // RELEASE-FIXPACK-P1-P2-01: jangan biarkan UI stuck bila DB gagal
+      onError(e instanceof Error ? e.message : "Gagal menyimpan absensi. Coba lagi.");
+    }
   }
 
   if (loading) return <Card><p className="text-sm text-slate-500">Memuat absensi...</p></Card>;
