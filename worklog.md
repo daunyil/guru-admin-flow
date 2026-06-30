@@ -669,3 +669,59 @@ Stage Summary:
 - Build sudah di-copy ke preview folder. Bapak bisa refresh preview workspace untuk lihat hasil.
 - Status: READY FOR USER PRINT TEST.
 - Baris kegiatan kalender sudah siap menampung blockReason dari domain (PTS/PAS/Remedial) saat sudah ada.
+
+---
+
+Task ID: ADMIN-PACKAGE-UX-01 + PROMES-LANDSCAPE-ONEPAGE-POLISH-02
+Agent: main (sprint owner — UX Paket Admin + Promes 1 halaman)
+Task: 2 patch gabungan dari instruksi Bapak. (1) Rapikan UX menu "Laporan Tahunan" → "Paket Administrasi Guru" karena membingungkan. (2) Polish dokumen cetak Promes Landscape agar rapi, compact, target 1 halaman A4 landscape, materi singkat.
+
+Work Log:
+- Baca instruksi lengkap dari upload (1120 baris, 5 bagian A-E).
+- BAGIAN A — navigation.ts: Replace seluruh file. Group 'Laporan' → 'Administrasi', label 'Laporan Tahunan' → 'Paket Admin', mobile 'Laporan' → 'Paket'. GATE_GROUPS tetap.
+- BAGIAN B — AdminPackagePage.tsx: Refactor return jadi 5 step. nextDocs = docs.filter(status !== 'lengkap').slice(0, 4). Step 1 Pilih → Step 2 Ringkasan → Step 3 Lanjutkan (nextDocs kartu prioritas) → Step 4 Checklist (docsByCategory) → Step 5 Semua Modul (GATE_GROUPS di bawah, bukan di atas). Header 'Paket Administrasi Guru'. Empty state bila belum pilih assignment.
+- BAGIAN C1 — compactPromesMaterial helper: hapus prefix 'TP 1.2:', split 'TP lengkap — Materi Singkat' ambil bagian setelah tanda pisah, maksimal 7 kata + ellipsis.
+- BAGIAN C2 — Info box aturan materi singkat (bg-sky-50) di form Promes setelah banner aturan Promes yang ada.
+- BAGIAN C3 — Replace PromesLandscapeMatrixDocument: container promes-one-page (page-break-inside avoid), tabel identitas 3 row 4 kolom, tabel matrix 3 kolom fixed (No, Materi/TP Ringkas col-materi-wide 36%, JP) + bulan subkolom minggu, materi pakai compactPromesMaterial, row Kegiatan Kalender + KO + Jumlah JP, promes-note keterangan.
+- BAGIAN D — index.css: Replace blok CSS promes lama (PROMES-LANDSCAPE-MATRIX-02B) dengan versi compact (PROMES-LANDSCAPE-ONEPAGE-POLISH-02). @page landscape margin 0.45cm, font 6.8pt (sebelumnya 7.5pt), .promes-one-page page-break avoid, .col-materi-wide 36%, @media print override lebih compact (font 6.2pt, padding 0.8pt).
+- Update navigation.test.ts: 'Laporan Tahunan' → 'Paket Admin', array menu utama, describe title 'Gerbang Paket Admin'.
+- Run gates:
+  - typecheck PASS (3 workspaces)
+  - test PASS (662 tests — navigation test update label pass, tidak ada test baru)
+  - build PASS (1,152 KB JS, 42 KB CSS — naik ~4 KB dari CSS compact + helper)
+- Copy build ke /home/z/my-project/public/teacher-admin/ untuk preview workspace.
+- Commit 7f7f6f9, push ke origin/main (6eea425..7f7f6f9).
+
+Stage Summary:
+UX Paket Admin:
+- Sidebar desktop: 'Administrasi > Paket Admin'.
+- Mobile bottom nav: 'Paket'.
+- Halaman /admin-package berjudul 'Paket Administrasi Guru'.
+- Kelas dan Mapel tampil lebih dulu (Step 1).
+- Empty state jelas bila belum pilih assignment.
+- Setelah pilih: Ringkasan Paket → Lanjutkan yang Belum Selesai → Checklist dokumen → Semua Modul di bawah.
+- Kartu modul teknis tidak lagi di atas.
+
+Promes Landscape:
+- Toggle Landscape tetap ada (dari sprint sebelumnya).
+- Mode Dokumen Landscape tampil rapi compact.
+- Header tidak terlalu besar (font 11pt, sebelumnya 12pt).
+- Identitas ringkas (3 row, 7pt).
+- Tabel matrix: bulan + subkolom minggu, materi singkat (compactPromesMaterial 7 kata).
+- Baris kegiatan kalender (PTS/PAS/Rem./P5/Libur/Cad.).
+- Baris KO per minggu.
+- Target cetak 1 halaman A4 landscape (.promes-one-page page-break avoid).
+- Tanda tangan tetap terlihat di halaman yang sama.
+
+Materi singkat:
+- TP lengkap tetap di ATP/Prota.
+- Promes landscape hanya cetak materi singkat (3–7 kata).
+- Format 'TP lengkap — Materi Singkat' → ambil bagian setelah tanda pisah.
+
+Gates:
+- typecheck PASS
+- test PASS (662 tests)
+- build PASS
+
+Commit: 7f7f6f9 (pushed to origin/main).
+Status: READY FOR USER PRINT TEST.
