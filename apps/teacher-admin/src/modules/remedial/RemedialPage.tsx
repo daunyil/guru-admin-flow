@@ -559,15 +559,15 @@ export function RemedialPage() {
                       </p>
                     </div>
                   ) : (
-                    <table className="document-table">
+                    <table className="document-table" style={{ fontSize: "9pt" }}>
                       <thead>
                         <tr>
-                          <th style={{ width: "5%" }}>No</th>
+                          <th style={{ width: "4%" }}>No</th>
                           <th>Nama Siswa</th>
-                          <th style={{ width: "10%" }}>Nilai</th>
-                          <th style={{ width: "12%" }}>Nilai Remedial</th>
-                          <th style={{ width: "20%" }}>Bentuk</th>
-                          <th style={{ width: "15%" }}>Jadwal</th>
+                          <th style={{ width: "9%" }}>Nilai</th>
+                          <th style={{ width: "11%" }}>Nilai Remedial</th>
+                          <th style={{ width: "18%" }}>Bentuk</th>
+                          <th style={{ width: "14%" }}>Jadwal</th>
                         </tr>
                       </thead>
                       <tbody>

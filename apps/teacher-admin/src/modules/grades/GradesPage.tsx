@@ -630,15 +630,15 @@ export function GradesPage() {
                   <tr><td>Guru</td><td>{assignment.teacherName}</td><td>Semester</td><td>{assignment.semester === 1 ? "Ganjil" : "Genap"}</td></tr>
                 </tbody>
               </table>
-              <table className="document-table">
+              <table className="document-table" style={{ fontSize: "9pt" }}>
                 <thead>
                   <tr>
-                    <th style={{ width: "5%" }}>No</th>
-                    <th style={{ width: "25%" }}>Nama</th>
+                    <th style={{ width: "4%" }}>No</th>
+                    <th style={{ width: "20%" }}>Nama</th>
                     <th>KD1</th><th>KD2</th><th>KD3</th><th>KD4</th><th>KD5</th><th>KD6</th>
                     <th>PTS</th><th>PAS</th>
-                    <th style={{ width: "8%" }}>Akhir</th>
-                    <th style={{ width: "10%" }}>Status</th>
+                    <th style={{ width: "7%" }}>Akhir</th>
+                    <th style={{ width: "9%" }}>Status</th>
                   </tr>
                 </thead>
                 <tbody>

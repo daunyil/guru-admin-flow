@@ -178,9 +178,11 @@
   .document-table th,
   .document-table td {
     border: 1px solid #000;
-    padding: 4pt 6pt;
+    padding: 3pt 5pt;
     text-align: left;
     vertical-align: top;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
   }
   .document-table th {
     background: #e0e0e0;
@@ -519,12 +521,26 @@
 }
 
 .promes-matrix-table .col-jp {
-  width: 18pt;
+  width: 36pt;
 }
 
 .promes-matrix-table .materi-cell {
   font-weight: 600;
   line-height: 1.04;
+}
+
+/* PROMES-KURIKULUM-MERDEKA-01: baris BAB/Alur pengelompok */
+.promes-matrix-table .bab-row {
+  page-break-inside: avoid;
+}
+
+.promes-matrix-table .bab-cell {
+  font-weight: 700;
+  font-size: 6.5pt;
+  background: #d6e4f0;
+  text-transform: uppercase;
+  letter-spacing: 0.3pt;
+  padding: 2pt 4pt;
 }
 
 .promes-matrix-table .week-cell,

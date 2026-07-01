@@ -525,7 +525,7 @@ export function EnrichmentPage() {
                       </p>
                     </div>
                   ) : (
-                    <table className="document-table">
+                    <table className="document-table" style={{ fontSize: "9pt" }}>
                       <thead>
                         <tr>
                           <th style={{ width: "5%" }}>No</th>

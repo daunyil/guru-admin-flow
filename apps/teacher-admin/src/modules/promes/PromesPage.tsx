@@ -314,7 +314,6 @@ function ResultView({
           <PromesLandscapeMatrixDocument
             weeks={weeks}
             distribution={distribution}
-            koRows={koRows}
             summary={summary}
             status={status}
             semester={semester}
@@ -705,7 +704,6 @@ function compactPromesMaterial(text: string, maxWords = 7): string {
 function PromesLandscapeMatrixDocument({
   weeks,
   distribution,
-  koRows,
   summary,
   status,
   semester,
@@ -718,7 +716,6 @@ function PromesLandscapeMatrixDocument({
 }: {
   weeks: PromesWeek[];
   distribution: UnitDistribution[];
-  koRows: KORow[];
   summary: PromesSummary;
   status: "valid" | "needs_fix";
   semester: 1 | 2;
@@ -789,9 +786,9 @@ function PromesLandscapeMatrixDocument({
         <table className="promes-matrix-table">
           <thead>
             <tr>
-              <th rowSpan={2} className="col-no">No</th>
-              <th rowSpan={2} className="col-materi-wide">Materi / TP Ringkas</th>
-              <th rowSpan={2} className="col-jp">JP</th>
+              <th rowSpan={2} className="col-no">No.</th>
+              <th rowSpan={2} className="col-materi-wide">Alur dan Tujuan Pembelajaran</th>
+              <th rowSpan={2} className="col-jp">Alokasi Waktu</th>
               {monthGroups.map((group) => (
                 <th key={group.month} colSpan={group.weeks.length} className="month-head">
                   {group.label}
@@ -815,26 +812,62 @@ function PromesLandscapeMatrixDocument({
                 </td>
               </tr>
             ) : (
-              distribution.map((unit, index) => (
-                <tr key={unit.unitId}>
-                  <td className="text-center">{index + 1}</td>
-                  <td className="materi-cell">{compactPromesMaterial(unit.title, 7)}</td>
-                  <td className="text-center">{unit.totalJP}</td>
-                  {weekColumns.map((week) => (
-                    <td key={`${unit.unitId}-${week.weekNumber}`} className="week-cell">
-                      {isUnitInWeek(unit, week.weekNumber) ? "✓" : ""}
-                    </td>
-                  ))}
-                </tr>
-              ))
+              (() => {
+                // PROMES-KURIKULUM-MERDEKA-01: Kelompokkan unit per BAB/Alur
+                // Berdasarkan contoh Prosem Kurikulum Merdeka: baris BAB pengelompok
+                // di antara baris TP. Karena data Prota tidak punya field "bab",
+                // kita kelompokkan berdasarkan prefix title atau setiap 3-4 TP.
+                const rows: React.ReactNode[] = [];
+                let currentGroup = "";
+                let groupIdx = 0;
+
+                distribution.forEach((unit, index) => {
+                  // Coba deteksi BAB dari title (mis. "BAB 1:", "Alur 1:", dll)
+                  const babMatch = unit.title.match(/^(BAB\s*\d+|Alur\s*\d+|Bab\s*\d+)/i);
+                  const groupName = babMatch ? babMatch[0] : "";
+
+                  // Jika tidak ada BAB di title, kelompokkan setiap 4 TP
+                  let groupNameFallback = "";
+                  if (!groupName) {
+                    const groupSize = 4;
+                    const groupNum = Math.floor(index / groupSize) + 1;
+                    groupNameFallback = `Alur Pembelajaran ${groupNum}`;
+                  }
+
+                  const gName = groupName || groupNameFallback;
+                  if (gName !== currentGroup) {
+                    currentGroup = gName;
+                    groupIdx++;
+                    rows.push(
+                      <tr key={`group-${groupIdx}`} className="bab-row">
+                        <td colSpan={3 + weekColumns.length} className="bab-cell">
+                          {gName}
+                        </td>
+                      </tr>
+                    );
+                  }
+
+                  rows.push(
+                    <tr key={unit.unitId}>
+                      <td className="text-center">{index + 1}</td>
+                      <td className="materi-cell">{compactPromesMaterial(unit.title, 7)}</td>
+                      <td className="text-center">{unit.totalJP} JP</td>
+                      {weekColumns.map((week) => (
+                        <td key={`${unit.unitId}-${week.weekNumber}`} className="week-cell">
+                          {isUnitInWeek(unit, week.weekNumber) ? "✓" : ""}
+                        </td>
+                      ))}
+                    </tr>
+                  );
+                });
+                return rows;
+              })()
             )}
 
             <tr className="calendar-row">
-              <td className="text-center">{distribution.length + 1}</td>
+              <td className="text-center">-</td>
               <td>
                 <strong>Kegiatan Kalender</strong>
-                <br />
-                <span>PTS/PAS/Remedial/Libur/P5</span>
               </td>
               <td className="text-center">-</td>
               {weekColumns.map((week) => (
@@ -844,29 +877,9 @@ function PromesLandscapeMatrixDocument({
               ))}
             </tr>
 
-            {koRows.length > 0 && (
-              <tr className="ko-row">
-                <td className="text-center">{distribution.length + 2}</td>
-                <td>
-                  <strong>Kokurikuler</strong>
-                  <br />
-                  <span>{KO_MODE_LABELS_ID[koRows[0]?.mode ?? "daily_block"]}</span>
-                </td>
-                <td className="text-center">{summary.koTotalJP}</td>
-                {weekColumns.map((week) => {
-                  const found = weeks.find((w) => w.weekNumber === week.weekNumber);
-                  return (
-                    <td key={`ko-${week.weekNumber}`} className="week-cell">
-                      {found?.koJP ? "✓" : ""}
-                    </td>
-                  );
-                })}
-              </tr>
-            )}
-
             <tr className="total-row">
-              <td colSpan={2} className="text-center">Jumlah JP Intrakurikuler</td>
-              <td className="text-center">{summary.intraCapacityJP}</td>
+              <td colSpan={2} className="text-center">Jumlah JP</td>
+              <td className="text-center">{summary.intraCapacityJP + summary.koTotalJP} JP</td>
               {weekColumns.map((week) => {
                 const found = weeks.find((w) => w.weekNumber === week.weekNumber);
                 return (
