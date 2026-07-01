@@ -751,3 +751,258 @@
     padding: 1pt 2pt !important;
   }
 }
+
+/* PROMES-KO-VERTICAL-EVENTS-01: kolom warna + tulisan vertikal seperti contoh dokumen */
+.promes-identity-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24pt;
+  align-items: start;
+}
+
+.promes-identity-split > div:last-child {
+  text-align: left;
+  justify-self: end;
+  min-width: 30%;
+}
+
+.promes-vertical-event-table {
+  print-color-adjust: exact;
+  -webkit-print-color-adjust: exact;
+}
+
+.promes-vertical-event-table th,
+.promes-vertical-event-table td {
+  print-color-adjust: exact;
+  -webkit-print-color-adjust: exact;
+}
+
+.promes-vertical-event-table .col-tp-merdeka {
+  width: 15%;
+}
+
+.promes-vertical-event-table .col-materi-merdeka {
+  width: 13%;
+}
+
+.promes-vertical-event-table .col-jp-merdeka {
+  width: 24pt;
+}
+
+.promes-vertical-event-table .month-head,
+.promes-vertical-event-table .week-head {
+  background: #9dc3e6 !important;
+  color: #000;
+}
+
+.promes-vertical-event-table .week-head {
+  width: 13pt;
+  font-size: 6.2pt;
+  line-height: 1;
+}
+
+.promes-vertical-event-table .promes-learning-row {
+  height: 15pt;
+  min-height: 15pt;
+}
+
+.promes-vertical-event-table .promes-summary-row {
+  height: 17pt;
+  min-height: 17pt;
+}
+
+.promes-vertical-event-table .tp-cell,
+.promes-vertical-event-table .materi-cell,
+.promes-vertical-event-table .jp-cell {
+  background: #9dc3e6;
+  vertical-align: top;
+  line-height: 1.03;
+  padding: 1pt 1.2pt;
+}
+
+.promes-vertical-event-table .tp-cell {
+  font-size: 5.8pt;
+  font-weight: 500;
+}
+
+.promes-vertical-event-table .materi-cell {
+  font-size: 5.8pt;
+}
+
+.promes-vertical-event-table .jp-cell {
+  font-size: 5.7pt;
+  vertical-align: top;
+}
+
+.promes-vertical-event-table .promes-group-start .tp-cell,
+.promes-vertical-event-table .promes-group-start .materi-cell,
+.promes-vertical-event-table .promes-group-start .jp-cell {
+  border-top-width: 1.4px;
+}
+
+.promes-vertical-event-table .week-cell {
+  height: 15pt;
+  width: 13pt;
+  min-width: 13pt;
+  max-width: 13pt;
+  padding: 0;
+  text-align: center;
+  vertical-align: middle;
+  font-size: 6.2pt;
+  line-height: 1;
+  overflow: hidden;
+}
+
+.promes-vertical-event-table .promes-event-cell {
+  padding: 0 !important;
+  vertical-align: middle;
+  text-align: center;
+  overflow: hidden;
+}
+
+.promes-vertical-label {
+  display: inline-block;
+  writing-mode: vertical-rl;
+  text-orientation: upright;
+  line-height: 1;
+  letter-spacing: 0.5pt;
+  font-size: 6pt;
+  font-weight: 500;
+  max-height: 100%;
+  overflow: hidden;
+}
+
+.promes-event-learning,
+.promes-vertical-event-table .promes-event-learning {
+  background: #ffff00 !important;
+  color: #000 !important;
+}
+
+.promes-event-assessment,
+.promes-vertical-event-table .promes-event-assessment {
+  background: #92d050 !important;
+  color: #000 !important;
+}
+
+.promes-event-scopeAssessment,
+.promes-vertical-event-table .promes-event-scopeAssessment {
+  background: #806000 !important;
+  color: #fff !important;
+}
+
+.promes-event-kokurikuler,
+.promes-vertical-event-table .promes-event-kokurikuler {
+  background: #f8cbad !important;
+  color: #000 !important;
+}
+
+.promes-event-remedial,
+.promes-vertical-event-table .promes-event-remedial {
+  background: #a6a6a6 !important;
+  color: #000 !important;
+}
+
+.promes-event-holiday,
+.promes-vertical-event-table .promes-event-holiday {
+  background: #ff0000 !important;
+  color: #fff !important;
+}
+
+.promes-event-other,
+.promes-vertical-event-table .promes-event-other {
+  background: #b4c6e7 !important;
+  color: #000 !important;
+}
+
+.promes-legend-block {
+  margin-top: 5pt;
+  font-size: 6.3pt;
+  page-break-inside: avoid;
+}
+
+.promes-legend-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 2pt 8pt;
+  margin-top: 3pt;
+}
+
+.promes-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 4pt;
+  min-height: 10pt;
+}
+
+.promes-legend-swatch {
+  display: inline-block;
+  width: 26pt;
+  height: 9pt;
+  border: 0.75pt solid #999;
+  flex: 0 0 auto;
+  print-color-adjust: exact;
+  -webkit-print-color-adjust: exact;
+}
+
+@media print {
+  .promes-identity-split {
+    gap: 18pt !important;
+  }
+
+  .promes-vertical-event-table .col-tp-merdeka {
+    width: 15% !important;
+  }
+
+  .promes-vertical-event-table .col-materi-merdeka {
+    width: 13% !important;
+  }
+
+  .promes-vertical-event-table .col-jp-merdeka {
+    width: 22pt !important;
+  }
+
+  .promes-vertical-event-table .promes-learning-row {
+    height: 13pt !important;
+    min-height: 13pt !important;
+  }
+
+  .promes-vertical-event-table .promes-summary-row {
+    height: 15pt !important;
+    min-height: 15pt !important;
+  }
+
+  .promes-vertical-event-table .tp-cell,
+  .promes-vertical-event-table .materi-cell,
+  .promes-vertical-event-table .jp-cell {
+    padding: 0.7pt 1pt !important;
+    font-size: 5.2pt !important;
+    line-height: 1 !important;
+  }
+
+  .promes-vertical-event-table .week-cell {
+    width: 12pt !important;
+    min-width: 12pt !important;
+    max-width: 12pt !important;
+    height: 13pt !important;
+    font-size: 5.4pt !important;
+  }
+
+  .promes-vertical-label {
+    font-size: 5.2pt !important;
+    letter-spacing: 0.3pt !important;
+  }
+
+  .promes-legend-block {
+    margin-top: 4pt !important;
+    font-size: 5.8pt !important;
+  }
+
+  .promes-legend-grid {
+    gap: 1.5pt 6pt !important;
+  }
+
+  .promes-legend-swatch {
+    width: 22pt !important;
+    height: 8pt !important;
+  }
+}

@@ -21,9 +21,13 @@ import {
   DEFAULT_INTRA_JP_PER_WEEK_PPKN,
   DEFAULT_KO_JP_PER_WEEK_PPKN,
   DEFAULT_CADANGAN_JP,
-  KO_MODES,
   KO_MODE_LABELS_ID,
 } from "@guru-admin/shared";
+
+const KO_PROMES_MODE_OPTIONS: Array<{ value: NonNullable<PromesOptions["koMode"]>; label: string }> = [
+  { value: "end_of_week", label: "Kokurikuler per minggu" },
+  { value: "end_of_semester", label: "Kokurikuler blok akhir semester" },
+];
 
 export function PromesPage() {
   const [loading, setLoading] = useState(true);
@@ -39,14 +43,14 @@ export function PromesPage() {
     koJpPerWeek: DEFAULT_KO_JP_PER_WEEK_PPKN,
     cadanganJP: DEFAULT_CADANGAN_JP,
     reserveFromEnd: true,
-    koMode: "daily_block",
+    koMode: "end_of_week",
   });
   const [result, setResult] = useState<PromesResult | null>(null);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showDocument, setShowDocument] = useState(false);
   // PROMES-DUAL-FORMAT-02: pilihan format dokumen (portrait ringkas vs landscape matrix)
-  const [formatDokumen, setFormatDokumen] = useState<"portrait" | "landscape">("portrait");
+  const [formatDokumen, setFormatDokumen] = useState<"portrait" | "landscape">("landscape");
 
   useEffect(() => {
     void (async () => {
@@ -185,9 +189,10 @@ export function PromesPage() {
               <Select
                 label="Mode KO"
                 id="pp-komode"
-                value={options.koMode ?? "daily_block"}
+                value={options.koMode ?? "end_of_week"}
                 onChange={(v) => setOptions({ ...options, koMode: v as PromesOptions["koMode"] })}
-                options={KO_MODES.map((m) => ({ value: m, label: KO_MODE_LABELS_ID[m] }))}
+                options={KO_PROMES_MODE_OPTIONS}
+                hint="Pilih KO per minggu atau diblok di akhir semester"
               />
             </div>
 
@@ -284,6 +289,7 @@ function ResultView({
   semester: 1 | 2;
 }) {
   const { summary, status, errors, warnings, weeks, distribution, koRows } = result;
+  const activeKOMode = koRows[0]?.mode ?? "end_of_week";
 
   // ====== MODE DOKUMEN ======
   if (showDocument) {
@@ -314,6 +320,7 @@ function ResultView({
           <PromesLandscapeMatrixDocument
             weeks={weeks}
             distribution={distribution}
+            koRows={koRows}
             summary={summary}
             status={status}
             semester={semester}
@@ -404,7 +411,7 @@ function ResultView({
               </tr>
             </thead>
             <tbody>
-              {weeks.map((w) => <WeekRows key={w.weekNumber} week={w} />)}
+              {weeks.map((w) => <WeekRows key={w.weekNumber} week={w} koMode={activeKOMode} />)}
             </tbody>
           </table>
         </div>
@@ -436,7 +443,7 @@ function ResultView({
         <Card>
           <CardHeader title="Row Kokurikuler (Catatan, Bukan Materi)" />
           <p className="text-xs text-slate-500 mb-2">
-            {koRows.length} row KO × {koRows[0]?.jp} JP = {summary.koTotalJP} JP · Mode: {KO_MODE_LABELS_ID[koRows[0]?.mode ?? "daily_block"]}
+            {koRows.length} row KO × {koRows[0]?.jp} JP = {summary.koTotalJP} JP · Mode: {KO_MODE_LABELS_ID[activeKOMode]}
           </p>
           <p className="text-xs text-slate-400 italic">Solver KO urusan Smart Roster / Waka Kurikulum.</p>
         </Card>
@@ -696,14 +703,130 @@ function compactPromesMaterial(text: string, maxWords = 7): string {
   return `${words.slice(0, maxWords).join(" ")}…`;
 }
 
+type PromesLandscapeEventKind = "learning" | "assessment" | "scopeAssessment" | "remedial" | "kokurikuler" | "holiday" | "other";
+
+type PromesLandscapeEventColumn = {
+  kind: PromesLandscapeEventKind;
+  label: string;
+};
+
+type PromesLandscapeRow = {
+  key: string;
+  tp: string;
+  materi: string;
+  jp: string;
+  unit: UnitDistribution | null;
+  isGroupStart?: boolean;
+};
+
+const PROMES_LEGEND_ITEMS: Array<{ kind: PromesLandscapeEventKind; label: string }> = [
+  { kind: "learning", label: "Kegiatan belajar mengajar" },
+  { kind: "assessment", label: "Asesmen sumatif tengah dan akhir semester" },
+  { kind: "scopeAssessment", label: "Asesmen sumatif lingkup materi" },
+  { kind: "kokurikuler", label: "Kokurikuler" },
+  { kind: "remedial", label: "Remedial" },
+  { kind: "holiday", label: "Libur semester / hari libur" },
+  { kind: "other", label: "Kegiatan sekolah khusus" },
+];
+
+function promesEventClassName(kind: PromesLandscapeEventKind): string {
+  return `promes-event-${kind}`;
+}
+
+function compactEventLabel(label: string): string {
+  const normalized = label.replace(/\s+/g, " ").trim();
+  if (!normalized) return "";
+  if (/libur/i.test(normalized) && normalized.length > 26) return normalized;
+  if (normalized.length <= 34) return normalized;
+  return `${normalized.slice(0, 31)}…`;
+}
+
+function getPromesLandscapeCalendarEvent(week: PromesWeek): PromesLandscapeEventColumn | null {
+  const rawLabel = (week.blockReason || (week.calendarKind ? promesCalendarKindLabel(week.calendarKind) : "")).trim();
+  const lower = rawLabel.toLowerCase();
+
+  if (week.calendarKind === "libur") {
+    return { kind: "holiday", label: compactEventLabel(rawLabel || "Libur") };
+  }
+
+  if (week.calendarKind === "pts" || week.calendarKind === "pas") {
+    return { kind: "assessment", label: compactEventLabel(rawLabel || promesCalendarKindLabel(week.calendarKind)) };
+  }
+
+  if (week.calendarKind === "remedial") {
+    return { kind: "remedial", label: compactEventLabel(rawLabel || "Remedial") };
+  }
+
+  if (week.calendarKind === "p5") {
+    // PROMES-KO-VERTICAL-EVENTS-01: dokumen baru memakai istilah Kokurikuler.
+    return { kind: "kokurikuler", label: "Kokurikuler" };
+  }
+
+  if (week.calendarKind === "other" && rawLabel) {
+    if (/asesmen|sumatif|lingkup/.test(lower)) {
+      return { kind: "scopeAssessment", label: compactEventLabel(rawLabel) };
+    }
+    return { kind: "other", label: compactEventLabel(rawLabel) };
+  }
+
+  return null;
+}
+
+function buildPromesLandscapeRows(distribution: UnitDistribution[]): PromesLandscapeRow[] {
+  if (distribution.length === 0) return [];
+
+  const rows: PromesLandscapeRow[] = [];
+  const groupSize = 4;
+
+  distribution.forEach((unit, index) => {
+    const groupNum = Math.floor(index / groupSize);
+    const isFirstInGroup = index % groupSize === 0;
+    const groupUnits = distribution.slice(groupNum * groupSize, Math.min((groupNum + 1) * groupSize, distribution.length));
+    const groupJP = groupUnits.reduce((sum, u) => sum + u.totalJP, 0);
+
+    rows.push({
+      key: unit.unitId,
+      tp: compactPromesMaterial(unit.title, 9),
+      materi: isFirstInGroup ? `Bab ${groupNum + 1}` : "",
+      jp: isFirstInGroup ? `${groupJP} JP` : "",
+      unit,
+      isGroupStart: isFirstInGroup,
+    });
+  });
+
+  return rows;
+}
+
+function getKokurikulerWeekNumbers(weeks: PromesWeek[], koRows: KORow[], mode: NonNullable<PromesOptions["koMode"]>): Set<number> {
+  const effectiveWeekNumbers = koRows.length > 0
+    ? koRows.map((row) => row.weekNumber)
+    : weeks.filter((week) => week.isEffective && week.koJP > 0).map((week) => week.weekNumber);
+
+  if (mode === "end_of_semester") {
+    // Visual Promes: blok akhir semester dibuat ringkas agar tidak membuat row terlalu tinggi.
+    // 18 JP KO PPKn biasanya cukup divisualkan sebagai 3 kolom blok akhir semester.
+    const blockCount = Math.min(3, effectiveWeekNumbers.length);
+    return new Set(effectiveWeekNumbers.slice(-blockCount));
+  }
+
+  return new Set(effectiveWeekNumbers);
+}
+
+function renderVerticalEventLabel(event: PromesLandscapeEventColumn) {
+  return <span className="promes-vertical-label">{event.label}</span>;
+}
+
 /**
  * Format Landscape (Matrix) — TP × bulan/minggu seperti contoh Promes sekolah.
- * PROMES-LANDSCAPE-ONEPAGE-POLISH-02: Versi compact untuk 1 halaman A4 landscape.
- * Materi dipendekkan via compactPromesMaterial. Layout compact, font kecil.
+ * PROMES-KO-VERTICAL-EVENTS-01:
+ * - Event kalender dibuat sebagai kolom warna penuh + tulisan vertikal.
+ * - KO punya 2 tampilan sesuai pilihan: per minggu atau blok akhir semester.
+ * - Row dibuat compact supaya area kosong tidak membuat dokumen terlalu tinggi.
  */
 function PromesLandscapeMatrixDocument({
   weeks,
   distribution,
+  koRows,
   summary,
   status,
   semester,
@@ -716,6 +839,7 @@ function PromesLandscapeMatrixDocument({
 }: {
   weeks: PromesWeek[];
   distribution: UnitDistribution[];
+  koRows: KORow[];
   summary: PromesSummary;
   status: "valid" | "needs_fix";
   semester: 1 | 2;
@@ -728,45 +852,41 @@ function PromesLandscapeMatrixDocument({
 }) {
   const monthGroups = buildPromesMonthGroups(weeks, semester);
   const weekColumns = monthGroups.flatMap((m) => m.weeks);
+  const matrixRows = buildPromesLandscapeRows(distribution);
+  const visibleMatrixRows = matrixRows.length > 0 ? matrixRows : [{ key: "empty", tp: "Belum ada materi/TP yang terdistribusi.", materi: "", jp: "", unit: null }];
+  const koMode = koRows[0]?.mode ?? "end_of_week";
+  const koWeekNumbers = getKokurikulerWeekNumbers(weeks, koRows, koMode);
+  const eventByWeekNumber = new Map<number, PromesLandscapeEventColumn | null>(
+    weeks.map((week) => [week.weekNumber, getPromesLandscapeCalendarEvent(week)])
+  );
 
-  function isUnitInWeek(unit: UnitDistribution, weekNumber: number) {
-    return unit.weeks.includes(weekNumber);
+  function isUnitInWeek(unit: UnitDistribution | null, weekNumber: number) {
+    return !!unit && unit.weeks.includes(weekNumber);
   }
 
-  function getCalendarLabel(weekNumber: number) {
-    const week = weeks.find((w) => w.weekNumber === weekNumber);
-    if (!week) return "";
-
-    // PROMES-CALENDAR-ASSESSMENT-CADANGAN-03: gunakan calendarKind dari engine
-    // (sudah dideteksi dari event kalender, bukan regex pada blockReason).
-    if (week.calendarKind) {
-      const kindLabel = promesCalendarKindLabel(week.calendarKind);
-      if (kindLabel) return kindLabel === "Remedial" ? "Rem." : kindLabel;
-      // "other" → tampilkan blockReason apa adanya (potong bila panjang)
-      const label = week.blockReason ?? "";
-      if (label) return label.length > 8 ? label.slice(0, 8) : label;
-    }
-
-    // Minggu non-efektif tanpa calendarKind → libur
-    if (!week.isEffective) return "Libur";
-
-    // PROMES-CALENDAR-ASSESSMENT-CADANGAN-03: JANGAN tampilkan "Cad." pada
-    // minggu bertanggal. Cadangan ditampilkan sebagai catatan terpisah.
-    return "";
+  function weekMeta(weekNumber: number) {
+    return weeks.find((w) => w.weekNumber === weekNumber);
   }
 
   return (
     <div className="print-area">
       <div className="document-page document-landscape promes-landscape-page promes-one-page" id="promes-landscape-doc">
-        <div className="promes-title">PROGRAM SEMESTER {semester === 1 ? "1 (GANJIL)" : "2 (GENAP)"}</div>
+        <div className="promes-title">PROGRAM SEMESTER {semester === 1 ? "1" : "2"}</div>
 
-        <div className="promes-identity-text">
-          <p>Tahun Pelajaran : {activeYearLabel || "-"}&nbsp;&nbsp;&nbsp;Kelas/Semester : {profile?.grade ?? "-"}/{semester === 1 ? "Ganjil" : "Genap"}</p>
-          <p>Mata Pelajaran : {profile?.subject ?? "-"}&nbsp;&nbsp;&nbsp;Alokasi Waktu: {summary.intraCapacityJP > 0 ? `${summary.effectiveWeeks > 0 ? Math.round(summary.intraCapacityJP / summary.effectiveWeeks) : 2} Jam/Minggu` : "-"}</p>
-          <p>Satuan Pendidikan : {schoolName || "-"}</p>
+        <div className="promes-identity-text promes-identity-split">
+          <div>
+            <p><strong>Tahun Pelajaran</strong> : {activeYearLabel || "-"}</p>
+            <p><strong>Mata Pelajaran</strong> : {profile?.subject ?? "-"}</p>
+            <p><strong>Satuan Pendidikan</strong> : {schoolName || "-"}</p>
+          </div>
+          <div>
+            <p><strong>Kelas/Semester</strong> : {profile?.grade ?? "-"}/{semester === 1 ? "Ganjil" : "Genap"}</p>
+            <p><strong>Alokasi Waktu</strong> : {summary.effectiveWeeks > 0 ? Math.round(summary.intraCapacityJP / summary.effectiveWeeks) : 0} Jam/Minggu</p>
+            <p><strong>Kokurikuler</strong> : {KO_MODE_LABELS_ID[koMode]}</p>
+          </div>
         </div>
 
-        <table className="promes-matrix-table">
+        <table className="promes-matrix-table promes-vertical-event-table">
           <thead>
             <tr>
               <th rowSpan={2} className="col-tp-merdeka">Tujuan Pembelajaran</th>
@@ -788,127 +908,98 @@ function PromesLandscapeMatrixDocument({
           </thead>
 
           <tbody>
-            {distribution.length === 0 ? (
-              <tr>
-                <td colSpan={3 + weekColumns.length} className="empty-row">
-                  Belum ada materi/TP yang terdistribusi.
-                </td>
-              </tr>
-            ) : (
-              (() => {
-                // PROMES-KURIKULUM-MERDEKA-01: Format sesuai contoh DOCX
-                // Kelompokkan unit per BAB/Alur. Baris pertama setiap grup
-                // punya TP + Materi + JP. Baris berikutnya hanya TP.
-                const rows: React.ReactNode[] = [];
-                let currentGroup = "";
-                let groupIdx = 0;
-                let groupJP = 0;
-
-                // Hitung group: setiap 3-4 TP atau deteksi BAB dari title
-                const groupSize = 4;
-
-                distribution.forEach((unit, index) => {
-                  const groupNum = Math.floor(index / groupSize);
-                  const isFirstInGroup = index % groupSize === 0;
-
-                  if (isFirstInGroup) {
-                    // Hitung total JP untuk group ini
-                    groupJP = distribution
-                      .slice(index, Math.min(index + groupSize, distribution.length))
-                      .reduce((sum, u) => sum + u.totalJP, 0);
-                    currentGroup = `Bab ${groupNum + 1}`;
-                    groupIdx++;
-
-                    // Baris BAB: TP pertama + nama Bab + total JP group
-                    rows.push(
-                      <tr key={`bab-${groupIdx}`} className="bab-row">
-                        <td className="tp-cell">{compactPromesMaterial(unit.title, 10)}</td>
-                        <td className="materi-cell"><strong>{currentGroup}</strong></td>
-                        <td className="text-center jp-cell">{groupJP} JP</td>
-                        {weekColumns.map((week) => (
-                          <td key={`${unit.unitId}-${week.weekNumber}`} className="week-cell">
-                            {isUnitInWeek(unit, week.weekNumber) ? "✓" : ""}
-                          </td>
-                        ))}
-                      </tr>
-                    );
-                  } else {
-                    // Baris TP berikutnya: hanya TP, kolom materi dan JP kosong
-                    rows.push(
-                      <tr key={unit.unitId}>
-                        <td className="tp-cell">{compactPromesMaterial(unit.title, 10)}</td>
-                        <td className="materi-cell"></td>
-                        <td className="text-center jp-cell"></td>
-                        {weekColumns.map((week) => (
-                          <td key={`${unit.unitId}-${week.weekNumber}`} className="week-cell">
-                            {isUnitInWeek(unit, week.weekNumber) ? "✓" : ""}
-                          </td>
-                        ))}
-                      </tr>
+            {visibleMatrixRows.map((row, rowIndex) => (
+              <tr key={row.key} className={`promes-learning-row ${row.isGroupStart ? "promes-group-start" : ""}`}>
+                <td className="tp-cell">{row.tp}</td>
+                <td className="materi-cell">{row.materi && <strong>{row.materi}</strong>}</td>
+                <td className="text-center jp-cell">{row.jp}</td>
+                {weekColumns.map((week) => {
+                  const event = eventByWeekNumber.get(week.weekNumber) ?? null;
+                  if (event) {
+                    if (rowIndex > 0) return null;
+                    return (
+                      <td
+                        key={`event-${week.weekNumber}`}
+                        rowSpan={visibleMatrixRows.length}
+                        className={`week-cell promes-event-cell ${promesEventClassName(event.kind)}`}
+                        title={event.label}
+                      >
+                        {renderVerticalEventLabel(event)}
+                      </td>
                     );
                   }
-                });
-                return rows;
-              })()
-            )}
 
-            {/* Baris kalender: PTS/PAS/Libur dll */}
-            <tr className="calendar-row">
-              <td><strong>Kegiatan Kalender</strong></td>
-              <td></td>
-              <td className="text-center">-</td>
-              {weekColumns.map((week) => (
-                <td key={`cal-${week.weekNumber}`} className="calendar-cell">
-                  {getCalendarLabel(week.weekNumber)}
-                </td>
-              ))}
-            </tr>
+                  const isLearning = isUnitInWeek(row.unit, week.weekNumber);
+                  return (
+                    <td
+                      key={`${row.key}-${week.weekNumber}`}
+                      className={`week-cell ${isLearning ? "promes-event-learning promes-learning-mark" : ""}`}
+                    >
+                      {isLearning ? "" : ""}
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
 
-            {/* Jumlah Jam Efektif */}
-            <tr className="total-row">
+            <tr className="total-row promes-summary-row">
               <td colSpan={2}><strong>Jumlah Jam Efektif</strong></td>
               <td className="text-center"><strong>{summary.intraCapacityJP} JP</strong></td>
               {weekColumns.map((week) => {
-                const found = weeks.find((w) => w.weekNumber === week.weekNumber);
+                const meta = weekMeta(week.weekNumber);
+                const event = eventByWeekNumber.get(week.weekNumber) ?? null;
                 return (
-                  <td key={`eff-${week.weekNumber}`} className="week-cell">
-                    {found?.isEffective ? "✓" : ""}
+                  <td key={`eff-${week.weekNumber}`} className={`week-cell ${event ? promesEventClassName(event.kind) : ""}`}>
+                    {meta?.isEffective ? "✔" : ""}
                   </td>
                 );
               })}
             </tr>
 
-            {/* Jumlah Jam Cadangan */}
-            <tr className="cadangan-row">
+            <tr className="cadangan-row promes-summary-row">
               <td colSpan={2}>Jumlah Jam Cadangan</td>
               <td className="text-center">{summary.cadanganJP > 0 ? `${summary.cadanganJP} JP` : "-"}</td>
-              {weekColumns.map((week) => (
-                <td key={`cad-${week.weekNumber}`} className="week-cell"></td>
-              ))}
+              {weekColumns.map((week) => {
+                const event = eventByWeekNumber.get(week.weekNumber) ?? null;
+                return <td key={`cad-${week.weekNumber}`} className={`week-cell ${event ? promesEventClassName(event.kind) : ""}`}></td>;
+              })}
             </tr>
 
-            {/* Jumlah Jam Total */}
-            <tr className="total-row">
+            <tr className="ko-row promes-summary-row">
+              <td colSpan={2}>{koMode === "end_of_semester" ? "Kokurikuler Blok Akhir Semester" : "Kokurikuler Per Minggu"}</td>
+              <td className="text-center">{summary.koTotalJP > 0 ? `${summary.koTotalJP} JP` : "-"}</td>
+              {weekColumns.map((week) => {
+                const isKO = koWeekNumbers.has(week.weekNumber);
+                return (
+                  <td key={`ko-${week.weekNumber}`} className={`week-cell ${isKO ? "promes-event-kokurikuler" : ""}`}>
+                    {isKO ? "✔" : ""}
+                  </td>
+                );
+              })}
+            </tr>
+
+            <tr className="total-row promes-summary-row">
               <td colSpan={2}><strong>Jumlah Jam Total Semester {semester === 1 ? "Ganjil" : "Genap"}</strong></td>
-              <td className="text-center"><strong>{summary.intraCapacityJP + summary.cadanganJP + summary.koTotalJP} JP</strong></td>
-              {weekColumns.map((week) => (
-                <td key={`tot-${week.weekNumber}`} className="week-cell"></td>
-              ))}
+              <td className="text-center"><strong>{summary.intraCapacityJP + summary.koTotalJP} JP</strong></td>
+              {weekColumns.map((week) => {
+                const event = eventByWeekNumber.get(week.weekNumber) ?? null;
+                return <td key={`tot-${week.weekNumber}`} className={`week-cell ${event ? promesEventClassName(event.kind) : ""}`}></td>;
+              })}
             </tr>
           </tbody>
         </table>
 
-        {/* Keterangan (legend) */}
-        <table className="promes-keterangan-table">
-          <tbody>
-            <tr>
-              <td>Kegiatan belajar mengajar</td>
-              <td>Asesmen sumatif tengah dan akhir semester</td>
-              <td>Proyek Penguatan Profil Pelajar Pancasila</td>
-              <td>Libur semester</td>
-            </tr>
-          </tbody>
-        </table>
+        <div className="promes-legend-block">
+          <strong>Keterangan</strong>
+          <div className="promes-legend-grid">
+            {PROMES_LEGEND_ITEMS.map((item) => (
+              <div key={item.kind} className="promes-legend-item">
+                <span className={`promes-legend-swatch ${promesEventClassName(item.kind)}`}></span>
+                <span>{item.label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
 
         {status !== "valid" && (
           <p className="promes-warning">
@@ -995,7 +1086,7 @@ function PromesDocWeekRow({ week }: { week: PromesWeek }) {
   );
 }
 
-function WeekRows({ week }: { week: import("@guru-admin/domain").PromesWeek }) {
+function WeekRows({ week, koMode }: { week: import("@guru-admin/domain").PromesWeek; koMode: NonNullable<PromesOptions["koMode"]> }) {
   const koRow = week.koJP > 0;
   return (
     <>
@@ -1045,7 +1136,7 @@ function WeekRows({ week }: { week: import("@guru-admin/domain").PromesWeek }) {
           <td className="py-1 px-2 text-slate-500 italic" colSpan={2}></td>
           <td className="py-1 px-2 text-orange-700">{week.koJP} JP</td>
           <td className="py-1 px-2 text-orange-700 italic">
-            KO: {KO_MODE_LABELS_ID["daily_block"]} (row terpisah, bukan materi)
+            KO: {KO_MODE_LABELS_ID[koMode]} (row terpisah, bukan materi)
           </td>
         </tr>
       )}
