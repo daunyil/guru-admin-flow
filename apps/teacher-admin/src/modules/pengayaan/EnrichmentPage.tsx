@@ -95,8 +95,9 @@ export function EnrichmentPage() {
   }, []);
 
   useEffect(() => {
-    if (message?.type === "error") setTimeout(() => setMessage(null), 5000);
-    if (message?.type === "success") setTimeout(() => setMessage(null), 3000);
+    if (!message) return;
+    const t = setTimeout(() => setMessage(null), message.type === "error" ? 5000 : 3000);
+    return () => clearTimeout(t);
   }, [message]);
 
   function selectedAssignment(): TeachingAssignment | undefined {

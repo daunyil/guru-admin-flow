@@ -26,7 +26,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { Card, CardHeader, Button, EmptyState, Badge, Select, InfoCard, Input, Textarea } from "../../shared/ui";
-import { getActiveAcademicYear, getTeacherProfile } from "../../shared/db/profile-repo";
+import { getActiveAcademicYear, getTeacherProfile, getSchoolProfile } from "../../shared/db/profile-repo";
 import { listAssignmentsByTeacher } from "../../shared/db/teaching-assignment-repo";
 import { listProtaProfiles } from "../../shared/db/prota-repo";
 import { listCalendarEvents } from "../../shared/db/calendar-repo";
@@ -48,6 +48,7 @@ import { GATE_GROUPS } from "../../shared/layout/navigation";
 import type {
   AcademicYear,
   TeacherProfile,
+  SchoolProfile,
   TeachingAssignment,
   ATPEntry,
   LKPD,
@@ -100,6 +101,7 @@ export function AdminPackagePage() {
   const [loading, setLoading] = useState(true);
   const [year, setYear] = useState<AcademicYear | null>(null);
   const [teacher, setTeacher] = useState<TeacherProfile | undefined>();
+  const [school, setSchool] = useState<SchoolProfile | undefined>();
   const [assignments, setAssignments] = useState<TeachingAssignment[]>([]);
   const [selectedAssignmentId, setSelectedAssignmentId] = useState("");
   const [docs, setDocs] = useState<DocItem[]>([]);
@@ -121,9 +123,11 @@ export function AdminPackagePage() {
 
   useEffect(() => {
     void (async () => {
-      const [y, tp] = await Promise.all([getActiveAcademicYear(), getTeacherProfile()]);
+      const [y, tp, sp] = await Promise.all([getActiveAcademicYear(), getTeacherProfile(), getSchoolProfile()]);
       setYear(y ?? null);
       setTeacher(tp);
+      setSchool(sp);
+      if (sp?.regency) setPrintTempat(sp.regency);
       if (y && tp) {
         const today = new Date();
         const todayISO = today.toISOString().slice(0, 10);
@@ -685,7 +689,7 @@ export function AdminPackagePage() {
               <Select label="Kelas dan Mapel" id="pkg-preview-asg" value={selectedAssignmentId} onChange={setSelectedAssignmentId} options={[{ value: "", label: "-- Pilih --" }, ...assignments.map((a) => ({ value: a.id, label: `${a.classLabel} · ${a.subject}` }))]} />
               <Input label="Tanggal Cetak" id="pkg-print-date" type="date" value={printDate} onChange={setPrintDate} />
               <Input label="Tempat" id="pkg-print-tempat" value={printTempat} onChange={setPrintTempat} placeholder="Bantan" />
-              <Input label="Kepala Sekolah" id="pkg-print-kepsek" value={teacher?.name ?? ""} onChange={() => {}} hint="Dari Profil Sekolah" />
+              <Input label="Kepala Sekolah" id="pkg-print-kepsek" value={school?.headmasterName ?? ""} onChange={() => {}} hint="Dari Profil Sekolah" />
               <Input label="Guru Mata Pelajaran" id="pkg-print-guru" value={assignment?.teacherName ?? teacher?.name ?? ""} onChange={() => {}} hint="Dari Kelas dan Mapel" />
               <Textarea label="Catatan Guru" id="pkg-print-catatan" value={printCatatan} onChange={setPrintCatatan} rows={3} placeholder="Catatan tambahan untuk paket administrasi..." />
               <div className="flex gap-2 flex-wrap">
@@ -755,8 +759,8 @@ export function AdminPackagePage() {
                   <p>Mengetahui,</p>
                   <p>Kepala Sekolah</p>
                   <div className="sig-space" />
-                  <p className="sig-name">............................</p>
-                  <p>NIP. .............................</p>
+                  <p className="sig-name">{school?.headmasterName ?? "............................"}</p>
+                  <p>NIP. {school?.headmasterNip ?? "............................."}</p>
                 </div>
               </div>
             </div>

@@ -40,7 +40,6 @@ import type {
   AcademicYear,
   SchoolProfile,
   TeacherProfile,
-  ProtaProfile,
   TeachingAssignment,
 } from "@guru-admin/domain";
 import {
@@ -597,7 +596,6 @@ function QuickJournalEditor({
   const [obstacle, setObstacle] = useState("");
   const [freeNote, setFreeNote] = useState("");
 
-  const [protas, setProtas] = useState<ProtaProfile[]>([]);
   const [availableUnits, setAvailableUnits] = useState<ProtaUnit[]>([]);
   const [selectedUnitId, setSelectedUnitId] = useState<string>("");
 
@@ -624,8 +622,7 @@ function QuickJournalEditor({
       const roster = academicYearId ? await findClassRoster(academicYearId, sess.classId) : null;
 
       if (academicYearId) {
-        const ps = await listProtaProfiles(academicYearId); void protas;
-        setProtas(ps);
+        const ps = await listProtaProfiles(academicYearId);
         const matchingProta = ps.find((p) => p.subject === sess.subject);
         if (matchingProta) {
           const units = matchingProta.units.filter((u) => u.semester === sess.semester);
