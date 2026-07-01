@@ -54,7 +54,11 @@ export function QuickAttendancePage() {
   useEffect(() => { void init(); }, []);
   useEffect(() => { void loadTodaySessions(); }, [date, teacher?.id]);
   useEffect(() => { void loadSusulan(); }, [assignmentId, year?.id]);
-  useEffect(() => { if (selectedSessionId) setTimeout(() => editorRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }), 100); }, [selectedSessionId]);
+  useEffect(() => {
+    if (!selectedSessionId) return;
+    const t = setTimeout(() => editorRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }), 100);
+    return () => clearTimeout(t);
+  }, [selectedSessionId]);
 
   async function init() {
     const [activeYear, profile] = await Promise.all([getActiveAcademicYear(), getTeacherProfile()]);
