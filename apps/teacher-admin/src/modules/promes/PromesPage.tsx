@@ -594,7 +594,7 @@ function PromesPortraitDocument({
           <div className="p-2 mt-2 bg-slate-50 border border-slate-300 rounded text-xs">
             <strong>Cadangan Akhir Semester: {summary.cadanganJP} JP</strong>
             <br />
-            <span className="text-slate-600">Tanggal: tidak ditentukan (fleksibel sesuai kebutuhan pembelajaran, asesmen, remedial, atau penyesuaian kegiatan sekolah).</span>
+            <span className="text-slate-600">Digunakan untuk kegiatan pembelajaran, penilaian, dan penyesuaian sesuai kebutuhan.</span>
           </div>
         )}
 
@@ -617,7 +617,7 @@ function PromesPortraitDocument({
 
         {koRows.length > 0 && (
           <p style={{ fontSize: "10pt", marginTop: "6pt" }}>
-            <b>Kokurikuler:</b> {koRows.length} × {koRows[0]?.jp ?? 0} JP = {summary.koTotalJP} JP ({KO_MODE_LABELS_ID[koRows[0]?.mode ?? "daily_block"]}). KO urusan koordinator/Smart Roster.
+            <b>Kokurikuler:</b> {koRows.length} × {koRows[0]?.jp ?? 0} JP = {summary.koTotalJP} JP.
           </p>
         )}
 
@@ -886,8 +886,8 @@ function PromesLandscapeMatrixDocument({
         )}
 
         <p className="promes-note">
-          Keterangan: ✓ = minggu pelaksanaan. KO = Kokurikuler. Materi ditulis singkat agar muat 1 halaman.
-          {summary.cadanganJP > 0 && ` Cadangan Akhir Semester: ${summary.cadanganJP} JP (tanggal fleksibel, tidak ditentukan).`}
+          Keterangan: tanda ✓ menunjukkan minggu pelaksanaan materi.
+          {summary.cadanganJP > 0 && ` Cadangan Akhir Semester: ${summary.cadanganJP} JP.`}
         </p>
 
         <PromesDocSignature
