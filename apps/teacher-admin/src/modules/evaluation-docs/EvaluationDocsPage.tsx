@@ -29,7 +29,7 @@ import {
 } from "@guru-admin/domain";
 import { filterATPForAssignment } from "@guru-admin/domain";
 import type { AcademicYear, TeacherProfile, SchoolProfile, TeachingAssignment, ATPEntry } from "@guru-admin/domain";
-import { formatLongDateID } from "@guru-admin/shared";
+import { formatLongDateID, todayISODate } from "@guru-admin/shared";
 
 type Tab = "minggu-efektif" | "kisi-kisi" | "kartu-soal";
 
@@ -75,8 +75,7 @@ export function EvaluationDocsPage() {
       setTeacher(tp);
       setSchool(sp);
       if (y && tp) {
-        const today = new Date();
-        const todayISO = today.toISOString().slice(0, 10);
+                const todayISO = todayISODate();
         const sem: 1 | 2 = y.semester2Start <= todayISO && todayISO <= y.semester2End ? 2 : 1;
         setAssignments(await listAssignmentsByTeacher(tp.id, y.id, sem));
         setAtpEntries(await listATPEntries({ academicYearId: y.id, teacherId: tp.id }));
@@ -310,7 +309,7 @@ export function EvaluationDocsPage() {
                           <tbody>
                             <tr><td>Mata Pelajaran</td><td>{assignment.subject}</td><td>Kelas</td><td>{assignment.classLabel}</td></tr>
                             <tr><td>Total Minggu</td><td>{effectiveWeeks.length}</td><td>Minggu Efektif</td><td>{effectiveWeeksTotal}</td></tr>
-                            <tr><td>Total JP Efektif</td><td>{effectiveJPTotal}</td><td>Tanggal</td><td>{formatLongDateID(new Date().toISOString().slice(0, 10))}</td></tr>
+                            <tr><td>Total JP Efektif</td><td>{effectiveJPTotal}</td><td>Tanggal</td><td>{formatLongDateID(todayISODate())}</td></tr>
                           </tbody>
                         </table>
                         <table className="document-table">
@@ -492,7 +491,7 @@ export function EvaluationDocsPage() {
                           <table className="document-identity">
                             <tbody>
                               <tr><td>Guru</td><td>{assignment.teacherName}</td><td>Semester</td><td>{assignment.semester === 1 ? "Ganjil" : "Genap"}</td></tr>
-                              <tr><td>Tanggal</td><td>{formatLongDateID(new Date().toISOString().slice(0, 10))}</td><td>Total Soal</td><td>{cardResult.questions.length}</td></tr>
+                              <tr><td>Tanggal</td><td>{formatLongDateID(todayISODate())}</td><td>Total Soal</td><td>{cardResult.questions.length}</td></tr>
                             </tbody>
                           </table>
                           {cardResult.questions.map((q) => (

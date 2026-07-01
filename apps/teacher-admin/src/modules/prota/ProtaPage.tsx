@@ -338,7 +338,7 @@ function ProfileDetail({
               onAdd={() => { setEditingUnit(null); setShowUnitForm(true); }}
               onEdit={(u) => { setEditingUnit(u); setShowUnitForm(true); }}
               onDelete={async (u) => {
-                if (confirm(`Hapus unit "${u.title}"?`)) {
+                if (window.confirm(`Hapus unit "${u.title}"?`)) {
                   await deleteProtaUnit(u.id);
                   onChanged();
                   onSuccess("Unit dihapus.");
@@ -353,7 +353,7 @@ function ProfileDetail({
               onAdd={() => { setEditingUnit(null); setShowUnitForm(true); }}
               onEdit={(u) => { setEditingUnit(u); setShowUnitForm(true); }}
               onDelete={async (u) => {
-                if (confirm(`Hapus unit "${u.title}"?`)) {
+                if (window.confirm(`Hapus unit "${u.title}"?`)) {
                   await deleteProtaUnit(u.id);
                   onChanged();
                   onSuccess("Unit dihapus.");

@@ -169,7 +169,7 @@ export function SchedulePage() {
                   >Edit</Button>
                   <Button variant="danger" className="text-xs px-2 py-1"
                     onClick={async () => {
-                      if (confirm(`Hapus jadwal ${s.subject} - ${s.classLabel}?`)) {
+                      if (window.confirm(`Hapus jadwal ${s.subject} - ${s.classLabel}?`)) {
                         await deleteTeachingSchedule(s.id);
                         setSuccess("Jadwal dihapus.");
                         void reload();
@@ -230,7 +230,7 @@ export function SchedulePage() {
           <Button
             variant="secondary"
             onClick={async () => {
-              if (confirm(`Hapus semua sesi semester ${semester}?`)) {
+              if (window.confirm(`Hapus semua sesi semester ${semester}?`)) {
                 await clearLessonSessions(activeYear.id, semester);
                 setSuccess("Sesi dihapus.");
                 void reload();

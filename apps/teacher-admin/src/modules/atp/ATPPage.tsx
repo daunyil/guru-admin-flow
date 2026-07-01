@@ -109,7 +109,7 @@ export function ATPPage() {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("Hapus TP ini? LKPD yang memakai TP ini tetap ada (TP-nya jadi snapshot).")) return;
+    if (!window.confirm("Hapus TP ini? LKPD yang memakai TP ini tetap ada (TP-nya jadi snapshot).")) return;
     await deleteATPEntry(id);
     setMessage("TP dihapus.");
     void reload();

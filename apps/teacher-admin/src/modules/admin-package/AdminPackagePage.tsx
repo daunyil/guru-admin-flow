@@ -129,8 +129,7 @@ export function AdminPackagePage() {
       setSchool(sp);
       if (sp?.regency) setPrintTempat(sp.regency);
       if (y && tp) {
-        const today = new Date();
-        const todayISO = today.toISOString().slice(0, 10);
+        const todayISO = todayISODate();
         const sem: 1 | 2 =
           y.semester2Start <= todayISO && todayISO <= y.semester2End ? 2 : 1;
         setAssignments(await listAssignmentsByTeacher(tp.id, y.id, sem));
@@ -516,7 +515,7 @@ export function AdminPackagePage() {
   const completenessScore = totalDocs > 0 ? Math.round((lengkapCount / totalDocs) * 100) : 0;
 
   // Deadline indicator: akhir semester
-  const todayISO = new Date().toISOString().slice(0, 10);
+  const todayISO = todayISODate();
   const semesterEnd = assignment?.semester === 1 ? year?.semester1End : year?.semester2End;
   const daysToDeadline = semesterEnd
     ? Math.ceil((new Date(semesterEnd).getTime() - new Date(todayISO).getTime()) / (1000 * 60 * 60 * 24))
@@ -804,7 +803,7 @@ function generateChecklistHTML(
   lengkapCount: number,
   totalDocs: number
 ): string {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayISODate();
   const rows = docs.map((d) => {
     const statusSymbol = d.status === "lengkap" ? "V" : d.status === "belum" ? "O" : "X";
     const statusColor = d.status === "lengkap" ? "#10b981" : d.status === "belum" ? "#f59e0b" : "#ef4444";

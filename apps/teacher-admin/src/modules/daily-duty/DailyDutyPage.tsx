@@ -229,7 +229,7 @@ export function DailyDutyPage() {
   }
 
   async function handleDeleteRecord(id: string) {
-    if (!confirm("Hapus catatan ini?")) return;
+    if (!window.confirm("Hapus catatan ini?")) return;
     try {
       await deleteDutyRecord(id);
       notify("success", "Catatan dihapus.");

@@ -78,8 +78,7 @@ export function TodayPage() {
           setJournals(allJournals);
 
           // PATCH-FLOW-RC2C: load assignments for context
-          const today = new Date();
-          const todayISO = today.toISOString().slice(0, 10);
+          const todayISO = todayISODate();
           const sem: 1 | 2 =
             year.semester2Start <= todayISO && todayISO <= year.semester2End ? 2 : 1;
           setAssignments(await listAssignmentsByTeacher(tp.id, year.id, sem));

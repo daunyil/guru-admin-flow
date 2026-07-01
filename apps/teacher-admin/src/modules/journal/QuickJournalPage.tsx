@@ -129,8 +129,7 @@ export function QuickJournalPage() {
       setSchool(sp);
       setTeacher(tp);
       if (y && tp) {
-        const today = new Date();
-        const todayISO = today.toISOString().slice(0, 10);
+                const todayISO = todayISODate();
         const sem: 1 | 2 =
           y.semester2Start <= todayISO && todayISO <= y.semester2End ? 2 : 1;
         setAssignments(await listAssignmentsByTeacher(tp.id, y.id, sem));

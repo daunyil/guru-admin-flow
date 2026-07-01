@@ -82,8 +82,7 @@ export function RemedialPage() {
       setTeacher(tp);
       setSchool(sp);
       if (y && tp) {
-        const today = new Date();
-        const todayISO = today.toISOString().slice(0, 10);
+                const todayISO = todayISODate();
         const sem: 1 | 2 =
           y.semester2Start <= todayISO && todayISO <= y.semester2End ? 2 : 1;
         setAssignments(await listAssignmentsByTeacher(tp.id, y.id, sem));
@@ -197,43 +196,59 @@ export function RemedialPage() {
 
   async function handleUpdateStudent(idx: number, patch: Partial<RemedialStudent>) {
     if (!program) return;
-    const nextStudents = [...program.students];
-    nextStudents[idx] = { ...nextStudents[idx], ...patch };
-    const updated = await updateRemedialProgram(program.id, { students: nextStudents });
-    if (updated) setProgram(updated);
+    try {
+      const nextStudents = [...program.students];
+      nextStudents[idx] = { ...nextStudents[idx], ...patch };
+      const updated = await updateRemedialProgram(program.id, { students: nextStudents });
+      if (updated) setProgram(updated);
+    } catch (e) {
+      setMessage({ type: "error", text: e instanceof Error ? e.message : "Gagal memperbarui siswa." });
+    }
   }
 
   async function handleSavePlan() {
     if (!program) return;
-    const updated = await updateRemedialProgram(program.id, {
-      plan,
-      startDate: startDate || undefined,
-      endDate: endDate || undefined,
-      kktp,
-    });
-    if (updated) {
-      setProgram(updated);
-      setMessage({ type: "success", text: "Rencana remedial tersimpan." });
+    try {
+      const updated = await updateRemedialProgram(program.id, {
+        plan,
+        startDate: startDate || undefined,
+        endDate: endDate || undefined,
+        kktp,
+      });
+      if (updated) {
+        setProgram(updated);
+        setMessage({ type: "success", text: "Rencana remedial tersimpan." });
+      }
+    } catch (e) {
+      setMessage({ type: "error", text: e instanceof Error ? e.message : "Gagal menyimpan rencana." });
     }
   }
 
   async function handleFinalize() {
     if (!program) return;
-    const result = await finalizeRemedialProgram(program.id);
-    if (result.success && result.program) {
-      setProgram(result.program);
-      setMessage({ type: "success", text: "Program remedial difinalkan." });
-    } else {
-      setMessage({ type: "error", text: result.errors.join(", ") });
+    try {
+      const result = await finalizeRemedialProgram(program.id);
+      if (result.success && result.program) {
+        setProgram(result.program);
+        setMessage({ type: "success", text: "Program remedial difinalkan." });
+      } else {
+        setMessage({ type: "error", text: result.errors.join(", ") });
+      }
+    } catch (e) {
+      setMessage({ type: "error", text: e instanceof Error ? e.message : "Gagal finalisasi program." });
     }
   }
 
   async function handleDelete() {
     if (!program) return;
-    if (!confirm("Hapus program remedial ini?")) return;
-    await deleteRemedialProgram(program.id);
-    setProgram(null);
-    setMessage({ type: "success", text: "Program remedial dihapus." });
+    if (!window.confirm("Hapus program remedial ini?")) return;
+    try {
+      await deleteRemedialProgram(program.id);
+      setProgram(null);
+      setMessage({ type: "success", text: "Program remedial dihapus." });
+    } catch (e) {
+      setMessage({ type: "error", text: e instanceof Error ? e.message : "Gagal menghapus program." });
+    }
   }
 
   if (loading) return <p className="text-sm text-slate-500">Memuat...</p>;

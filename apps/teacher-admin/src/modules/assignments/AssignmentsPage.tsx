@@ -126,7 +126,7 @@ export function AssignmentsPage() {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("Hapus assignment ini? Data absensi/jurnal/nilai TIDAK dihapus.")) return;
+    if (!window.confirm("Hapus assignment ini? Data absensi/jurnal/nilai TIDAK dihapus.")) return;
     await deleteAssignment(id);
     setMessage({ type: "success", text: "Assignment dihapus." });
     await reload();

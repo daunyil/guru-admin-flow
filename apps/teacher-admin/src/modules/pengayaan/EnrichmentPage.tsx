@@ -84,8 +84,7 @@ export function EnrichmentPage() {
       setTeacher(tp);
       setSchool(sp);
       if (y && tp) {
-        const today = new Date();
-        const todayISO = today.toISOString().slice(0, 10);
+                const todayISO = todayISODate();
         const sem: 1 | 2 =
           y.semester2Start <= todayISO && todayISO <= y.semester2End ? 2 : 1;
         setAssignments(await listAssignmentsByTeacher(tp.id, y.id, sem));
@@ -191,38 +190,54 @@ export function EnrichmentPage() {
 
   async function handleUpdateStudent(idx: number, patch: Partial<EnrichmentStudent>) {
     if (!program) return;
-    const nextStudents = [...program.students];
-    nextStudents[idx] = { ...nextStudents[idx], ...patch };
-    const updated = await updateEnrichmentProgram(program.id, { students: nextStudents });
-    if (updated) setProgram(updated);
+    try {
+      const nextStudents = [...program.students];
+      nextStudents[idx] = { ...nextStudents[idx], ...patch };
+      const updated = await updateEnrichmentProgram(program.id, { students: nextStudents });
+      if (updated) setProgram(updated);
+    } catch (e) {
+      setMessage({ type: "error", text: e instanceof Error ? e.message : "Gagal memperbarui siswa." });
+    }
   }
 
   async function handleSavePlan() {
     if (!program) return;
-    const updated = await updateEnrichmentProgram(program.id, { plan, threshold });
-    if (updated) {
-      setProgram(updated);
-      setMessage({ type: "success", text: "Rencana pengayaan tersimpan." });
+    try {
+      const updated = await updateEnrichmentProgram(program.id, { plan, threshold });
+      if (updated) {
+        setProgram(updated);
+        setMessage({ type: "success", text: "Rencana pengayaan tersimpan." });
+      }
+    } catch (e) {
+      setMessage({ type: "error", text: e instanceof Error ? e.message : "Gagal menyimpan rencana." });
     }
   }
 
   async function handleFinalize() {
     if (!program) return;
-    const result = await finalizeEnrichmentProgram(program.id);
-    if (result.success && result.program) {
-      setProgram(result.program);
-      setMessage({ type: "success", text: "Program pengayaan difinalkan." });
-    } else {
-      setMessage({ type: "error", text: result.errors.join(", ") });
+    try {
+      const result = await finalizeEnrichmentProgram(program.id);
+      if (result.success && result.program) {
+        setProgram(result.program);
+        setMessage({ type: "success", text: "Program pengayaan difinalkan." });
+      } else {
+        setMessage({ type: "error", text: result.errors.join(", ") });
+      }
+    } catch (e) {
+      setMessage({ type: "error", text: e instanceof Error ? e.message : "Gagal finalisasi program." });
     }
   }
 
   async function handleDelete() {
     if (!program) return;
-    if (!confirm("Hapus program pengayaan ini?")) return;
-    await deleteEnrichmentProgram(program.id);
-    setProgram(null);
-    setMessage({ type: "success", text: "Program pengayaan dihapus." });
+    if (!window.confirm("Hapus program pengayaan ini?")) return;
+    try {
+      await deleteEnrichmentProgram(program.id);
+      setProgram(null);
+      setMessage({ type: "success", text: "Program pengayaan dihapus." });
+    } catch (e) {
+      setMessage({ type: "error", text: e instanceof Error ? e.message : "Gagal menghapus program." });
+    }
   }
 
   if (loading) return <p className="text-sm text-slate-500">Memuat...</p>;

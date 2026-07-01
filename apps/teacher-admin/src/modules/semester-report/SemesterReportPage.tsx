@@ -28,7 +28,7 @@ import type {
   TeachingAssignment,
 } from "@guru-admin/domain";
 import { canFinalizeSemesterReport, type GenerateSemesterReportResult } from "@guru-admin/domain";
-import { formatLongDateID } from "@guru-admin/shared";
+import { formatLongDateID, todayISODate } from "@guru-admin/shared";
 
 export function SemesterReportPage() {
   const [loading, setLoading] = useState(true);
@@ -57,8 +57,7 @@ export function SemesterReportPage() {
       setSchool(sp);
       setTeacher(tp);
       if (year && tp) {
-        const today = new Date();
-        const todayISO = today.toISOString().slice(0, 10);
+                const todayISO = todayISODate();
         const sem: 1 | 2 =
           year.semester2Start <= todayISO && todayISO <= year.semester2End ? 2 : 1;
         const [asgs, ps] = await Promise.all([

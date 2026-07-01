@@ -51,8 +51,12 @@ export function CalendarPage() {
   }, []);
 
   useEffect(() => {
-    if (error) setTimeout(() => setError(null), 5000);
-    if (success) setTimeout(() => setSuccess(null), 3000);
+    if (!error && !success) return;
+    const t = setTimeout(() => {
+      setError(null);
+      setSuccess(null);
+    }, error ? 5000 : 3000);
+    return () => clearTimeout(t);
   }, [error, success]);
 
   if (loading) return <p className="text-sm text-slate-500">Memuat...</p>;
@@ -148,7 +152,7 @@ export function CalendarPage() {
                     variant="danger"
                     className="text-xs px-2 py-1"
                     onClick={async () => {
-                      if (confirm(`Hapus event "${e.label}"?`)) {
+                      if (window.confirm(`Hapus event "${e.label}"?`)) {
                         await deleteCalendarEvent(e.id);
                         setSuccess("Event dihapus.");
                         void reload();

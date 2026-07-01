@@ -19,6 +19,7 @@ import { findGradeBook, saveGradeBook, updateGradeBook } from "../../shared/db/g
 import type {
   AcademicYear, TeacherProfile, ClassRoster, GradeBook, GradeEntry, TeachingAssignment,
 } from "@guru-admin/domain";
+import { todayISODate } from "@guru-admin/shared";
 import {
   calculateGradeBookEntries, assignmentShortLabel, buildContextInfo, parseExcelPaste,
   validateCbtImport, previewCbtMatch, applyCbtToEntries,
@@ -72,8 +73,7 @@ export function GradesPage() {
       setTeacher(tp);
       if (y) setRosters(await listClassRosters(y.id));
       if (y && tp) {
-        const today = new Date();
-        const todayISO = today.toISOString().slice(0, 10);
+                const todayISO = todayISODate();
         const defaultSemester: 1 | 2 =
           y.semester2Start <= todayISO && todayISO <= y.semester2End ? 2 : 1;
         setAssignments(await listAssignmentsByTeacher(tp.id, y.id, defaultSemester));
