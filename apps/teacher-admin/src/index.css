@@ -679,3 +679,75 @@
     height: 20pt !important;
   }
 }
+
+/* PROMES-KURIKULUM-MERDEKA-01: Format sesuai contoh DOCX */
+.promes-identity-text {
+  margin-bottom: 4pt;
+  font-size: 7pt;
+  line-height: 1.3;
+}
+
+.promes-identity-text p {
+  margin: 0;
+  padding: 0;
+}
+
+.promes-matrix-table .col-tp-merdeka {
+  width: 22%;
+}
+
+.promes-matrix-table .col-materi-merdeka {
+  width: 18%;
+}
+
+.promes-matrix-table .col-jp-merdeka {
+  width: 28pt;
+}
+
+.promes-matrix-table .tp-cell {
+  font-size: 6pt;
+  line-height: 1.05;
+  vertical-align: top;
+}
+
+.promes-matrix-table .jp-cell {
+  font-size: 6pt;
+}
+
+.promes-matrix-table .cadangan-row {
+  background: #fafafa;
+  font-style: italic;
+}
+
+.promes-keterangan-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 4pt;
+  font-size: 6pt;
+}
+
+.promes-keterangan-table td {
+  border: 1px solid #000;
+  padding: 1.5pt 3pt;
+  text-align: center;
+  vertical-align: middle;
+  width: 25%;
+}
+
+@media print {
+  .promes-identity-text {
+    font-size: 6.5pt !important;
+  }
+
+  .promes-matrix-table .tp-cell {
+    font-size: 5.5pt !important;
+  }
+
+  .promes-keterangan-table {
+    font-size: 5.5pt !important;
+  }
+
+  .promes-keterangan-table td {
+    padding: 1pt 2pt !important;
+  }
+}

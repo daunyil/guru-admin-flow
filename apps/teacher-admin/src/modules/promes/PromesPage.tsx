@@ -758,37 +758,20 @@ function PromesLandscapeMatrixDocument({
   return (
     <div className="print-area">
       <div className="document-page document-landscape promes-landscape-page promes-one-page" id="promes-landscape-doc">
-        <div className="promes-title">PROGRAM SEMESTER {semester === 1 ? "GANJIL" : "GENAP"}</div>
+        <div className="promes-title">PROGRAM SEMESTER {semester === 1 ? "1 (GANJIL)" : "2 (GENAP)"}</div>
 
-        <table className="promes-identity-table">
-          <tbody>
-            <tr>
-              <td>Satuan Pendidikan</td>
-              <td>{schoolName || "-"}</td>
-              <td>Kelas / Semester</td>
-              <td>{profile?.grade ?? "-"} / {semester === 1 ? "Ganjil" : "Genap"}</td>
-            </tr>
-            <tr>
-              <td>Mata Pelajaran</td>
-              <td>{profile?.subject ?? "-"}</td>
-              <td>Tahun Pelajaran</td>
-              <td>{activeYearLabel || "-"}</td>
-            </tr>
-            <tr>
-              <td>Alokasi Waktu</td>
-              <td>{summary.intraCapacityJP} JP Intrakurikuler</td>
-              <td>Kokurikuler</td>
-              <td>{summary.koTotalJP} JP</td>
-            </tr>
-          </tbody>
-        </table>
+        <div className="promes-identity-text">
+          <p>Tahun Pelajaran : {activeYearLabel || "-"}&nbsp;&nbsp;&nbsp;Kelas/Semester : {profile?.grade ?? "-"}/{semester === 1 ? "Ganjil" : "Genap"}</p>
+          <p>Mata Pelajaran : {profile?.subject ?? "-"}&nbsp;&nbsp;&nbsp;Alokasi Waktu: {summary.intraCapacityJP > 0 ? `${summary.effectiveWeeks > 0 ? Math.round(summary.intraCapacityJP / summary.effectiveWeeks) : 2} Jam/Minggu` : "-"}</p>
+          <p>Satuan Pendidikan : {schoolName || "-"}</p>
+        </div>
 
         <table className="promes-matrix-table">
           <thead>
             <tr>
-              <th rowSpan={2} className="col-no">No.</th>
-              <th rowSpan={2} className="col-materi-wide">Alur dan Tujuan Pembelajaran</th>
-              <th rowSpan={2} className="col-jp">Alokasi Waktu</th>
+              <th rowSpan={2} className="col-tp-merdeka">Tujuan Pembelajaran</th>
+              <th rowSpan={2} className="col-materi-merdeka">Materi Pembelajaran</th>
+              <th rowSpan={2} className="col-jp-merdeka">JP</th>
               {monthGroups.map((group) => (
                 <th key={group.month} colSpan={group.weeks.length} className="month-head">
                   {group.label}
@@ -813,62 +796,66 @@ function PromesLandscapeMatrixDocument({
               </tr>
             ) : (
               (() => {
-                // PROMES-KURIKULUM-MERDEKA-01: Kelompokkan unit per BAB/Alur
-                // Berdasarkan contoh Prosem Kurikulum Merdeka: baris BAB pengelompok
-                // di antara baris TP. Karena data Prota tidak punya field "bab",
-                // kita kelompokkan berdasarkan prefix title atau setiap 3-4 TP.
+                // PROMES-KURIKULUM-MERDEKA-01: Format sesuai contoh DOCX
+                // Kelompokkan unit per BAB/Alur. Baris pertama setiap grup
+                // punya TP + Materi + JP. Baris berikutnya hanya TP.
                 const rows: React.ReactNode[] = [];
                 let currentGroup = "";
                 let groupIdx = 0;
+                let groupJP = 0;
+
+                // Hitung group: setiap 3-4 TP atau deteksi BAB dari title
+                const groupSize = 4;
 
                 distribution.forEach((unit, index) => {
-                  // Coba deteksi BAB dari title (mis. "BAB 1:", "Alur 1:", dll)
-                  const babMatch = unit.title.match(/^(BAB\s*\d+|Alur\s*\d+|Bab\s*\d+)/i);
-                  const groupName = babMatch ? babMatch[0] : "";
+                  const groupNum = Math.floor(index / groupSize);
+                  const isFirstInGroup = index % groupSize === 0;
 
-                  // Jika tidak ada BAB di title, kelompokkan setiap 4 TP
-                  let groupNameFallback = "";
-                  if (!groupName) {
-                    const groupSize = 4;
-                    const groupNum = Math.floor(index / groupSize) + 1;
-                    groupNameFallback = `Alur Pembelajaran ${groupNum}`;
-                  }
-
-                  const gName = groupName || groupNameFallback;
-                  if (gName !== currentGroup) {
-                    currentGroup = gName;
+                  if (isFirstInGroup) {
+                    // Hitung total JP untuk group ini
+                    groupJP = distribution
+                      .slice(index, Math.min(index + groupSize, distribution.length))
+                      .reduce((sum, u) => sum + u.totalJP, 0);
+                    currentGroup = `Bab ${groupNum + 1}`;
                     groupIdx++;
+
+                    // Baris BAB: TP pertama + nama Bab + total JP group
                     rows.push(
-                      <tr key={`group-${groupIdx}`} className="bab-row">
-                        <td colSpan={3 + weekColumns.length} className="bab-cell">
-                          {gName}
-                        </td>
+                      <tr key={`bab-${groupIdx}`} className="bab-row">
+                        <td className="tp-cell">{compactPromesMaterial(unit.title, 10)}</td>
+                        <td className="materi-cell"><strong>{currentGroup}</strong></td>
+                        <td className="text-center jp-cell">{groupJP} JP</td>
+                        {weekColumns.map((week) => (
+                          <td key={`${unit.unitId}-${week.weekNumber}`} className="week-cell">
+                            {isUnitInWeek(unit, week.weekNumber) ? "✓" : ""}
+                          </td>
+                        ))}
+                      </tr>
+                    );
+                  } else {
+                    // Baris TP berikutnya: hanya TP, kolom materi dan JP kosong
+                    rows.push(
+                      <tr key={unit.unitId}>
+                        <td className="tp-cell">{compactPromesMaterial(unit.title, 10)}</td>
+                        <td className="materi-cell"></td>
+                        <td className="text-center jp-cell"></td>
+                        {weekColumns.map((week) => (
+                          <td key={`${unit.unitId}-${week.weekNumber}`} className="week-cell">
+                            {isUnitInWeek(unit, week.weekNumber) ? "✓" : ""}
+                          </td>
+                        ))}
                       </tr>
                     );
                   }
-
-                  rows.push(
-                    <tr key={unit.unitId}>
-                      <td className="text-center">{index + 1}</td>
-                      <td className="materi-cell">{compactPromesMaterial(unit.title, 7)}</td>
-                      <td className="text-center">{unit.totalJP} JP</td>
-                      {weekColumns.map((week) => (
-                        <td key={`${unit.unitId}-${week.weekNumber}`} className="week-cell">
-                          {isUnitInWeek(unit, week.weekNumber) ? "✓" : ""}
-                        </td>
-                      ))}
-                    </tr>
-                  );
                 });
                 return rows;
               })()
             )}
 
+            {/* Baris kalender: PTS/PAS/Libur dll */}
             <tr className="calendar-row">
-              <td className="text-center">-</td>
-              <td>
-                <strong>Kegiatan Kalender</strong>
-              </td>
+              <td><strong>Kegiatan Kalender</strong></td>
+              <td></td>
               <td className="text-center">-</td>
               {weekColumns.map((week) => (
                 <td key={`cal-${week.weekNumber}`} className="calendar-cell">
@@ -877,9 +864,10 @@ function PromesLandscapeMatrixDocument({
               ))}
             </tr>
 
+            {/* Jumlah Jam Efektif */}
             <tr className="total-row">
-              <td colSpan={2} className="text-center">Jumlah JP</td>
-              <td className="text-center">{summary.intraCapacityJP + summary.koTotalJP} JP</td>
+              <td colSpan={2}><strong>Jumlah Jam Efektif</strong></td>
+              <td className="text-center"><strong>{summary.intraCapacityJP} JP</strong></td>
               {weekColumns.map((week) => {
                 const found = weeks.find((w) => w.weekNumber === week.weekNumber);
                 return (
@@ -889,6 +877,36 @@ function PromesLandscapeMatrixDocument({
                 );
               })}
             </tr>
+
+            {/* Jumlah Jam Cadangan */}
+            <tr className="cadangan-row">
+              <td colSpan={2}>Jumlah Jam Cadangan</td>
+              <td className="text-center">{summary.cadanganJP > 0 ? `${summary.cadanganJP} JP` : "-"}</td>
+              {weekColumns.map((week) => (
+                <td key={`cad-${week.weekNumber}`} className="week-cell"></td>
+              ))}
+            </tr>
+
+            {/* Jumlah Jam Total */}
+            <tr className="total-row">
+              <td colSpan={2}><strong>Jumlah Jam Total Semester {semester === 1 ? "Ganjil" : "Genap"}</strong></td>
+              <td className="text-center"><strong>{summary.intraCapacityJP + summary.cadanganJP + summary.koTotalJP} JP</strong></td>
+              {weekColumns.map((week) => (
+                <td key={`tot-${week.weekNumber}`} className="week-cell"></td>
+              ))}
+            </tr>
+          </tbody>
+        </table>
+
+        {/* Keterangan (legend) */}
+        <table className="promes-keterangan-table">
+          <tbody>
+            <tr>
+              <td>Kegiatan belajar mengajar</td>
+              <td>Asesmen sumatif tengah dan akhir semester</td>
+              <td>Proyek Penguatan Profil Pelajar Pancasila</td>
+              <td>Libur semester</td>
+            </tr>
           </tbody>
         </table>
 
@@ -897,11 +915,6 @@ function PromesLandscapeMatrixDocument({
             Promes belum lengkap: {summary.undistributedJP} JP materi belum terdistribusi.
           </p>
         )}
-
-        <p className="promes-note">
-          Keterangan: tanda ✓ menunjukkan minggu pelaksanaan materi.
-          {summary.cadanganJP > 0 && ` Cadangan Akhir Semester: ${summary.cadanganJP} JP.`}
-        </p>
 
         <PromesDocSignature
           schoolRegency={schoolRegency}
