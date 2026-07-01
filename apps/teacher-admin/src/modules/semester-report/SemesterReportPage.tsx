@@ -72,8 +72,9 @@ export function SemesterReportPage() {
   }, []);
 
   useEffect(() => {
-    if (error) setTimeout(() => setError(null), 5000);
-    if (success) setTimeout(() => setSuccess(null), 3000);
+    if (!error && !success) return;
+    const t = setTimeout(() => { setError(null); setSuccess(null); }, error ? 5000 : 3000);
+    return () => clearTimeout(t);
   }, [error, success]);
 
   if (loading) return <p className="text-sm text-slate-500">Memuat...</p>;
