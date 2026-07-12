@@ -886,6 +886,21 @@ function PromesLandscapeMatrixDocument({
           </div>
         </div>
 
+        {/* Rincian minggu efektif */}
+        <div className="promes-weekly-summary">
+          <table className="promes-keterangan-table" style={{ marginBottom: "4pt" }}>
+            <tbody>
+              <tr>
+                <td style={{ textAlign: "left" }}>Total Minggu: {summary.totalWeeks}</td>
+                <td style={{ textAlign: "left" }}>Minggu Efektif: {summary.effectiveWeeks}</td>
+                <td style={{ textAlign: "left" }}>Kapasitas Intra: {summary.intraCapacityJP} JP</td>
+                <td style={{ textAlign: "left" }}>Cadangan: {summary.cadanganJP} JP</td>
+                <td style={{ textAlign: "left" }}>Kokurikuler: {summary.koTotalJP} JP</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
         <table className="promes-matrix-table promes-vertical-event-table">
           <thead>
             <tr>
@@ -943,8 +958,9 @@ function PromesLandscapeMatrixDocument({
             ))}
 
             <tr className="total-row promes-summary-row">
-              <td colSpan={2}><strong>Jumlah Jam Efektif</strong></td>
+              <td><strong>Jumlah Jam Efektif</strong></td>
               <td className="text-center"><strong>{summary.intraCapacityJP} JP</strong></td>
+              <td></td>
               {weekColumns.map((week) => {
                 const meta = weekMeta(week.weekNumber);
                 const event = eventByWeekNumber.get(week.weekNumber) ?? null;
@@ -957,8 +973,9 @@ function PromesLandscapeMatrixDocument({
             </tr>
 
             <tr className="cadangan-row promes-summary-row">
-              <td colSpan={2}>Jumlah Jam Cadangan</td>
+              <td>Jumlah Jam Cadangan</td>
               <td className="text-center">{summary.cadanganJP > 0 ? `${summary.cadanganJP} JP` : "-"}</td>
+              <td></td>
               {weekColumns.map((week) => {
                 const event = eventByWeekNumber.get(week.weekNumber) ?? null;
                 return <td key={`cad-${week.weekNumber}`} className={`week-cell ${event ? promesEventClassName(event.kind) : ""}`}></td>;
@@ -966,8 +983,9 @@ function PromesLandscapeMatrixDocument({
             </tr>
 
             <tr className="ko-row promes-summary-row">
-              <td colSpan={2}>{koMode === "end_of_semester" ? "Kokurikuler Blok Akhir Semester" : "Kokurikuler Per Minggu"}</td>
+              <td>{koMode === "end_of_semester" ? "Kokurikuler Blok Akhir Semester" : "Kokurikuler Per Minggu"}</td>
               <td className="text-center">{summary.koTotalJP > 0 ? `${summary.koTotalJP} JP` : "-"}</td>
+              <td></td>
               {weekColumns.map((week) => {
                 const isKO = koWeekNumbers.has(week.weekNumber);
                 return (
@@ -979,8 +997,9 @@ function PromesLandscapeMatrixDocument({
             </tr>
 
             <tr className="total-row promes-summary-row">
-              <td colSpan={2}><strong>Jumlah Jam Total Semester {semester === 1 ? "Ganjil" : "Genap"}</strong></td>
-              <td className="text-center"><strong>{summary.intraCapacityJP + summary.koTotalJP} JP</strong></td>
+              <td><strong>Jumlah Jam Total Semester {semester === 1 ? "Ganjil" : "Genap"}</strong></td>
+              <td className="text-center"><strong>{summary.intraCapacityJP + summary.cadanganJP + summary.koTotalJP} JP</strong></td>
+              <td></td>
               {weekColumns.map((week) => {
                 const event = eventByWeekNumber.get(week.weekNumber) ?? null;
                 return <td key={`tot-${week.weekNumber}`} className={`week-cell ${event ? promesEventClassName(event.kind) : ""}`}></td>;
