@@ -491,7 +491,7 @@ function FormatToggle({
   );
 }
 
-/** Shared identity table + signature block untuk kedua format. */
+/** Shared identity table untuk portrait. */
 function PromesDocIdentity({ schoolName, profile, semester, activeYearLabel, summary }: {
   schoolName: string;
   profile: ProtaProfile | null;
@@ -504,7 +504,10 @@ function PromesDocIdentity({ schoolName, profile, semester, activeYearLabel, sum
       <tbody>
         <tr><td>Satuan Pendidikan</td><td>{schoolName}</td><td>Kelas / Fase</td><td>{profile?.grade ?? "-"} / {profile?.phase ?? "-"}</td></tr>
         <tr><td>Mata Pelajaran</td><td>{profile?.subject ?? "-"}</td><td>Semester</td><td>{semester === 1 ? "Ganjil" : "Genap"}</td></tr>
-        <tr><td>Tahun Pelajaran</td><td>{activeYearLabel}</td><td>Alokasi Waktu</td><td>{summary.intraCapacityJP} JP (Intrakurikuler) + {summary.koTotalJP} JP (Kokurikuler)</td></tr>
+        <tr><td>Tahun Pelajaran</td><td>{activeYearLabel}</td><td>Alokasi Waktu</td><td>{summary.effectiveWeeks > 0 ? Math.round(summary.intraCapacityJP / summary.effectiveWeeks) : 0} Jam/Minggu</td></tr>
+        <tr><td>Total Minggu</td><td>{summary.totalWeeks} minggu</td><td>Minggu Efektif</td><td>{summary.effectiveWeeks} minggu</td></tr>
+        <tr><td>Kapasitas Intrakurikuler</td><td>{summary.intraCapacityJP} JP</td><td>Cadangan</td><td>{summary.cadanganJP} JP</td></tr>
+        <tr><td>Kokurikuler</td><td>{summary.koTotalJP} JP</td><td>Total</td><td>{summary.intraCapacityJP + summary.cadanganJP + summary.koTotalJP} JP</td></tr>
       </tbody>
     </table>
   );
@@ -589,8 +592,8 @@ function PromesPortraitDocument({
               <td colSpan={2} className="text-center">JUMLAH</td>
               <td className="text-center">{summary.intraCapacityJP} JP</td>
               <td className="text-center">{summary.koTotalJP} JP</td>
-              <td>Materi: {summary.distributedJP} JP / Cadangan: {summary.cadanganJP} JP</td>
-              <td className="text-center">Total: {summary.totalWeeks} mg</td>
+              <td>Materi: {summary.distributedJP} JP</td>
+              <td className="text-center">{summary.effectiveWeeks} mg efektif</td>
             </tr>
           </tfoot>
         </table>
@@ -624,6 +627,12 @@ function PromesPortraitDocument({
         {koRows.length > 0 && (
           <p style={{ fontSize: "10pt", marginTop: "6pt" }}>
             <b>Kokurikuler:</b> {koRows.length} × {koRows[0]?.jp ?? 0} JP = {summary.koTotalJP} JP.
+          </p>
+        )}
+
+        {summary.cadanganJP > 0 && (
+          <p style={{ fontSize: "10pt", marginTop: "4pt" }}>
+            <b>Cadangan Akhir Semester:</b> {summary.cadanganJP} JP.
           </p>
         )}
 
