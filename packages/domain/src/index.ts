@@ -484,6 +484,21 @@ export {
   type GenerateSemesterReportResult,
 } from "./semester-report-generator";
 
+/* WYSIWYG-DOC-01 — SchoolDocument (infrastruktur WYSIWYG generik) */
+export {
+  schoolDocTypeSchema,
+  schoolDocOrientationSchema,
+  schoolDocumentSchema,
+  parseSchoolDocument,
+  safeParseSchoolDocument,
+  schoolDocumentCompositeKey,
+  SCHOOL_DOC_TYPES,
+  SCHOOL_DOC_TYPE_LABELS,
+  type SchoolDocType,
+  type SchoolDocOrientation,
+  type SchoolDocument,
+} from "./school-document";
+
 /* PIKET-HARIAN-MOBILE-01 — Daily Duty (Piket Harian) module */
 export {
   dutyRuleSchema,

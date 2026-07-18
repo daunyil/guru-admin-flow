@@ -1,0 +1,347 @@
+/**
+ * wysiwyg-canvas.css — gaya kanvas A4 untuk DocumentPreview.
+ *
+ * WYSIWYG-DOC-01
+ *
+ * Mode screen:
+ *   - Kertas putih dengan shadow (Word/Google Docs style).
+ *   - Background abu-abu di area sekitar kertas.
+ *   - Responsive scale di mobile.
+ *
+ * Mode print:
+ *   - @page A4 asli.
+ *   - body* invisible, hanya .wysiwyg-canvas terlihat.
+ *   - Shadow dan padding kertas dihilangkan.
+ */
+
+/* ------------------------------------------------------------------ */
+/*  Variables                                                         */
+/* ------------------------------------------------------------------ */
+
+:root {
+  --wysiwyg-bg: #e5e7eb;
+  --wysiwyg-canvas-bg: #fff;
+  --wysiwyg-canvas-shadow: 0 4px 24px rgba(0, 0, 0, 0.12);
+  --wysiwyg-toolbar-bg: #fff;
+  --wysiwyg-toolbar-border: #e2e8f0;
+  --wysiwyg-ink: #1e293b;
+  --wysiwyg-muted: #64748b;
+  --wysiwyg-accent: #2563eb;
+  --wysiwyg-danger: #dc2626;
+  --wysiwyg-success: #16a34a;
+  --wysiwyg-warning: #d97706;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Wrapper                                                           */
+/* ------------------------------------------------------------------ */
+
+.wysiwyg-wrapper {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Toolbar                                                           */
+/* ------------------------------------------------------------------ */
+
+.wysiwyg-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 16px;
+  background: var(--wysiwyg-toolbar-bg);
+  border-bottom: 1px solid var(--wysiwyg-toolbar-border);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.wysiwyg-toolbar-left,
+.wysiwyg-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.wysiwyg-doc-label {
+  font-weight: 700;
+  font-size: 0.875rem;
+  color: var(--wysiwyg-ink);
+}
+
+/* ------------------------------------------------------------------ */
+/*  Status badges                                                     */
+/* ------------------------------------------------------------------ */
+
+.wysiwyg-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.badge-draft {
+  color: var(--wysiwyg-muted);
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+}
+
+.badge-review {
+  color: var(--wysiwyg-warning);
+  background: #fef3c7;
+  border: 1px solid #fbbf24;
+}
+
+.badge-final {
+  color: var(--wysiwyg-success);
+  background: #dcfce7;
+  border: 1px solid #86efac;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Save indicator                                                    */
+/* ------------------------------------------------------------------ */
+
+.wysiwyg-save-indicator {
+  font-size: 0.75rem;
+  font-weight: 500;
+  transition: opacity 0.2s;
+}
+
+.save-saving {
+  color: var(--wysiwyg-accent);
+  animation: wysiwyg-pulse 1s infinite;
+}
+
+.save-saved {
+  color: var(--wysiwyg-success);
+}
+
+.save-error {
+  color: var(--wysiwyg-danger);
+}
+
+@keyframes wysiwyg-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* ------------------------------------------------------------------ */
+/*  Toolbar buttons                                                   */
+/* ------------------------------------------------------------------ */
+
+.wysiwyg-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  background: #fff;
+  color: var(--wysiwyg-ink);
+}
+
+.wysiwyg-btn:hover {
+  background: #f8fafc;
+  border-color: #94a3b8;
+}
+
+.wysiwyg-btn:active {
+  transform: scale(0.97);
+}
+
+.wysiwyg-btn-primary {
+  background: var(--wysiwyg-accent);
+  color: #fff;
+  border-color: var(--wysiwyg-accent);
+}
+
+.wysiwyg-btn-primary:hover {
+  background: #1d4ed8;
+  border-color: #1d4ed8;
+}
+
+.wysiwyg-btn-secondary {
+  background: #fff;
+  color: var(--wysiwyg-ink);
+  border-color: #d1d5db;
+}
+
+.wysiwyg-btn-secondary:hover {
+  background: #f1f5f9;
+}
+
+.wysiwyg-btn-final {
+  background: var(--wysiwyg-success);
+  color: #fff;
+  border-color: var(--wysiwyg-success);
+}
+
+.wysiwyg-btn-final:hover {
+  background: #15803d;
+  border-color: #15803d;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Canvas area (background abu-abu sekitar kertas)                  */
+/* ------------------------------------------------------------------ */
+
+.wysiwyg-canvas-area {
+  flex: 1;
+  background: var(--wysiwyg-bg);
+  padding: 24px;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* ------------------------------------------------------------------ */
+/*  A4 Canvas (kertas putih)                                          */
+/* ------------------------------------------------------------------ */
+
+.wysiwyg-canvas {
+  width: 210mm;
+  min-height: 297mm;
+  margin: 0 auto;
+  padding: 15mm 20mm;
+  background: var(--wysiwyg-canvas-bg);
+  box-shadow: var(--wysiwyg-canvas-shadow);
+  font-family: "Times New Roman", Times, serif;
+  font-size: 11pt;
+  line-height: 1.25;
+  color: #000;
+  overflow: visible;
+}
+
+.wysiwyg-canvas.wysiwyg-landscape {
+  width: 297mm;
+  min-height: 210mm;
+  padding: 12mm 15mm;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Responsive (mobile / tablet)                                      */
+/* ------------------------------------------------------------------ */
+
+@media screen and (max-width: 900px) {
+  .wysiwyg-canvas-area {
+    padding: 12px;
+  }
+
+  .wysiwyg-canvas,
+  .wysiwyg-canvas.wysiwyg-landscape {
+    width: 100%;
+    min-height: auto;
+    padding: 16px;
+    overflow-x: auto;
+  }
+
+  .wysiwyg-toolbar {
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 8px 10px;
+  }
+
+  .wysiwyg-toolbar-left,
+  .wysiwyg-toolbar-right {
+    gap: 6px;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/*  Print mode                                                        */
+/* ------------------------------------------------------------------ */
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 0;
+  }
+
+  @page landscape {
+    size: A4 landscape;
+    margin: 0;
+  }
+
+  /* Semua elemen di body disembunyikan saat print */
+  body * {
+    visibility: hidden;
+  }
+
+  /* Kecuali .wysiwyg-canvas dan isinya */
+  .wysiwyg-canvas,
+  .wysiwyg-canvas * {
+    visibility: visible;
+  }
+
+  /* Kanvas langsung di posisi kertas A4 */
+  .wysiwyg-canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 210mm !important;
+    min-height: 297mm !important;
+    margin: 0 !important;
+    padding: 15mm 20mm !important;
+    box-shadow: none !important;
+    background: white !important;
+    color: black !important;
+    font-family: "Times New Roman", Times, serif !important;
+    font-size: 11pt !important;
+    break-after: page;
+    page-break-after: always;
+  }
+
+  .wysiwyg-canvas.wysiwyg-landscape {
+    width: 297mm !important;
+    min-height: 210mm !important;
+    padding: 12mm 15mm !important;
+    page: landscape;
+  }
+
+  .wysiwyg-canvas:last-child {
+    break-after: auto;
+    page-break-after: auto;
+  }
+
+  /* Toolbar dan elemen non-print disembunyikan */
+  .wysiwyg-toolbar,
+  .no-print,
+  nav,
+  header.app-header,
+  .app-header,
+  .sidebar,
+  .topbar,
+  .bottom-nav {
+    display: none !important;
+  }
+
+  /* Break rules untuk tabel dan section */
+  .wysiwyg-canvas table {
+    page-break-inside: auto;
+  }
+
+  .wysiwyg-canvas tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .wysiwyg-canvas thead {
+    display: table-header-group;
+  }
+
+  .wysiwyg-canvas tfoot {
+    display: table-footer-group;
+  }
+}

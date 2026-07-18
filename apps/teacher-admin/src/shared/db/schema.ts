@@ -29,6 +29,7 @@ import type {
   DutyRule,
   DutyReport,
   DutyRecord,
+  SchoolDocument,
 } from "@guru-admin/domain";
 
 export class GuruAdminDB extends Dexie {
@@ -58,6 +59,9 @@ export class GuruAdminDB extends Dexie {
   dailyDutyRules!: Table<DutyRule, string>;
   dailyDutyReports!: Table<DutyReport, string>;
   dailyDutyRecords!: Table<DutyRecord, string>;
+
+  // WYSIWYG-DOC-01: tabel dokumen sekolah generik
+  schoolDocuments!: Table<SchoolDocument, string>;
 
   constructor() {
     super("guru-admin-flow");
@@ -113,6 +117,12 @@ export class GuruAdminDB extends Dexie {
       dailyDutyRules: "id, category, type, active",
       dailyDutyReports: "id, academicYearId, date, dutyTeacherId, finalized",
       dailyDutyRecords: "id, dutyReportId, academicYearId, date, studentId, classId, category, type",
+    });
+
+    // WYSIWYG-DOC-01: tabel ke-15 — dokumen sekolah generik untuk infrastruktur WYSIWYG
+    this.version(9).stores({
+      schoolDocuments:
+        "id, docType, semester, tahunAjaran, kodeMapel, kodeKelas, status, teacherId, academicYearId, updatedAt",
     });
   }
 }

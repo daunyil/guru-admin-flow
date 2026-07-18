@@ -28,7 +28,8 @@ type TableName =
   | "remedialPrograms"
   | "enrichmentPrograms"
   | "documentSnapshots"
-  | "syncQueue";
+  | "syncQueue"
+  | "schoolDocuments";
 
 /** Buat entitas baru dengan field BaseEntity terisi otomatis. */
 export function createEntity<T extends Record<string, unknown>>(
