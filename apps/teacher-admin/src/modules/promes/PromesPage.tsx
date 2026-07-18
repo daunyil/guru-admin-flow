@@ -8,13 +8,23 @@
  *   - Cadangan dari INTRA capacity, tidak boleh membuat materialCapacityJP negatif
  */
 
-import { useEffect, useState } from "react";
-import { Card, CardHeader, Input, Select, Button, EmptyState, Badge, PrintExportButtons } from "../../shared/ui";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Card, CardHeader, Input, Select, Button, EmptyState, Badge } from "../../shared/ui";
 import { listProtaProfiles } from "../../shared/db/prota-repo";
 import { listCalendarEvents } from "../../shared/db/calendar-repo";
 import { getActiveAcademicYear, getSchoolProfile, getTeacherProfile } from "../../shared/db/profile-repo";
 import { generatePromes, promesCalendarKindLabel } from "@guru-admin/domain";
 import type { ProtaProfile, CalendarEvent, AcademicYear, PromesResult, PromesOptions, SchoolProfile, TeacherProfile, PromesWeek, UnitDistribution, KORow, PromesSummary } from "@guru-admin/domain";
+// WYSIWYG-DOC-FASE2: DocumentPreview + schoolDocuments persistence
+import { DocumentPreview } from "../../shared/documents";
+import {
+  saveSchoolDocument,
+  updateSchoolDocumentData,
+  updateSchoolDocumentLayout,
+  setSchoolDocumentStatus,
+  findSchoolDocumentByCompositeKey,
+} from "../../shared/db/school-document-repo";
+import type { SchoolDocOrientation, DocumentStatus } from "@guru-admin/domain";
 import {
   formatLongDateID,
   todayISODate,
@@ -52,6 +62,10 @@ export function PromesPage() {
   // PROMES-DUAL-FORMAT-02: pilihan format dokumen (portrait ringkas vs landscape matrix)
   const [formatDokumen, setFormatDokumen] = useState<"portrait" | "landscape">("landscape");
 
+  // WYSIWYG-DOC-FASE2: persistence state
+  const [docId, setDocId] = useState<string | undefined>(undefined);
+  const [docStatus, setDocStatus] = useState<DocumentStatus>("draft");
+
   useEffect(() => {
     void (async () => {
       const [year, sp, tp] = await Promise.all([
@@ -74,6 +88,41 @@ export function PromesPage() {
       setLoading(false);
     })();
   }, []);
+
+  // WYSIWYG-DOC-FASE2: try to load existing schoolDocument for this promes context
+  useEffect(() => {
+    if (!activeYear || !teacher || profiles.length === 0) return;
+    const profile = profiles.find((p) => p.id === selectedProfileId);
+    if (!profile) return;
+
+    void (async () => {
+      const existing = await findSchoolDocumentByCompositeKey({
+        docType: "promes",
+        semester,
+        tahunAjaran: activeYear.label,
+        kodeMapel: profile.subject,
+        kodeKelas: profile.grade,
+        teacherId: teacher.id,
+      });
+      if (existing) {
+        setDocId(existing.id);
+        setDocStatus(existing.status);
+        // Restore saved data
+        if (existing.data?.promesResult) {
+          setResult(existing.data.promesResult as PromesResult);
+        }
+        if (existing.data?.formatDokumen) {
+          setFormatDokumen(existing.data.formatDokumen as "portrait" | "landscape");
+        }
+        if (existing.data?.promesOptions) {
+          setOptions(existing.data.promesOptions as PromesOptions);
+        }
+        if (existing.orientation) {
+          setFormatDokumen(existing.orientation);
+        }
+      }
+    })();
+  }, [activeYear, teacher, selectedProfileId, semester, profiles]);
 
   // UX-PLAN-07: HAPUS auto-generate diam-diam. Guru harus klik "Susun Promes"
   // secara eksplisit. Sebelumnya useEffect ini auto-generate saat buka halaman,
@@ -98,12 +147,88 @@ export function PromesPage() {
         options,
       });
       setResult(r);
+
+      // WYSIWYG-DOC-FASE2: persist to schoolDocuments
+      try {
+        const docData: Record<string, unknown> = {
+          promesResult: r,
+          promesOptions: options,
+          selectedProfileId,
+          semester,
+          formatDokumen,
+          schoolName: school?.name ?? "",
+          schoolRegency: school?.regency ?? "",
+          headmasterName: school?.headmasterName ?? "",
+          teacherName: teacher?.name ?? "",
+          activeYearLabel: activeYear?.label ?? "",
+          profileSubject: profile.subject,
+          profileGrade: profile.grade,
+          profilePhase: profile.phase,
+        };
+
+        if (docId) {
+          // Update existing
+          await updateSchoolDocumentData(docId, docData);
+        } else {
+          // Create new
+          const doc = await saveSchoolDocument({
+            docType: "promes",
+            semester,
+            tahunAjaran: activeYear.label,
+            kodeMapel: profile.subject,
+            kodeKelas: profile.grade,
+            teacherId: teacher?.id ?? "",
+            academicYearId: activeYear.id,
+            data: docData,
+            orientation: formatDokumen,
+            status: "draft",
+          });
+          setDocId(doc.id);
+          setDocStatus("draft");
+        }
+      } catch (e) {
+        console.error("Failed to save schoolDocument:", e);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Gagal generate Promes.");
     } finally {
       setGenerating(false);
     }
   }
+
+  // WYSIWYG-DOC-FASE2: auto-save data memo
+  const docDataForAutoSave = useMemo(() => {
+    if (!result) return {};
+    return {
+      promesResult: result,
+      promesOptions: options,
+      selectedProfileId,
+      semester,
+      formatDokumen,
+      schoolName: school?.name ?? "",
+      schoolRegency: school?.regency ?? "",
+      headmasterName: school?.headmasterName ?? "",
+      teacherName: teacher?.name ?? "",
+      activeYearLabel: activeYear?.label ?? "",
+    };
+  }, [result, options, selectedProfileId, semester, formatDokumen, school, teacher, activeYear]);
+
+  // WYSIWYG-DOC-FASE2: callbacks
+  const handleSaveDoc = useCallback(async (id: string, data: Record<string, unknown>) => {
+    await updateSchoolDocumentData(id, data);
+  }, []);
+
+  const handleSetFinal = useCallback(async (id: string) => {
+    await setSchoolDocumentStatus(id, "final");
+    setDocStatus("final");
+  }, []);
+
+  const handleOrientationChange = useCallback((orientation: SchoolDocOrientation) => {
+    setFormatDokumen(orientation);
+    if (docId) {
+      void updateSchoolDocumentLayout(docId, { orientation });
+    }
+  }, [docId]);
 
   if (loading) return <p className="text-sm text-slate-500">Memuat...</p>;
 
@@ -244,6 +369,12 @@ export function PromesPage() {
           activeYearLabel={activeYear?.label ?? ""}
           profile={profiles.find((p) => p.id === selectedProfileId) ?? null}
           semester={semester}
+          docId={docId}
+          docStatus={docStatus}
+          docDataForAutoSave={docDataForAutoSave}
+          onSaveDoc={handleSaveDoc}
+          onSetFinal={handleSetFinal}
+          onOrientationChange={handleOrientationChange}
         />
       )}
     </div>
@@ -274,6 +405,12 @@ function ResultView({
   activeYearLabel,
   profile,
   semester,
+  docId,
+  docStatus,
+  docDataForAutoSave,
+  onSaveDoc,
+  onSetFinal,
+  onOrientationChange,
 }: {
   result: PromesResult;
   showDocument: boolean;
@@ -287,20 +424,31 @@ function ResultView({
   activeYearLabel: string;
   profile: ProtaProfile | null;
   semester: 1 | 2;
+  // WYSIWYG-DOC-FASE2: DocumentPreview props
+  docId: string | undefined;
+  docStatus: DocumentStatus;
+  docDataForAutoSave: Record<string, unknown>;
+  onSaveDoc: (id: string, data: Record<string, unknown>) => Promise<void>;
+  onSetFinal: (id: string) => Promise<void>;
+  onOrientationChange: (orientation: SchoolDocOrientation) => void;
 }) {
   const { summary, status, errors, warnings, weeks, distribution, koRows } = result;
   const activeKOMode = koRows[0]?.mode ?? "end_of_week";
 
   // ====== MODE DOKUMEN ======
+  // WYSIWYG-DOC-FASE2: replaced print-toolbar + print-area with DocumentPreview
   if (showDocument) {
     return (
-      <div>
-        <div className="print-toolbar">
-          <Button variant="secondary" onClick={onToggleMode}>Mode Kerja</Button>
-          {/* PROMES-DUAL-FORMAT-02: segmented control format dokumen */}
-          <FormatToggle formatDokumen={formatDokumen} onChangeFormat={onChangeFormat} />
-          <PrintExportButtons filename="promes" title="Program Semester" schoolName={schoolName} orientation={formatDokumen} />
-        </div>
+      <DocumentPreview
+        docId={docId}
+        docType="promes"
+        orientation={formatDokumen}
+        status={docStatus}
+        data={docDataForAutoSave}
+        onSave={onSaveDoc}
+        onSetFinal={onSetFinal}
+        onOrientationChange={onOrientationChange}
+      >
         {formatDokumen === "portrait" ? (
           <PromesPortraitDocument
             weeks={weeks}
@@ -332,7 +480,7 @@ function ResultView({
             profile={profile}
           />
         )}
-      </div>
+      </DocumentPreview>
     );
   }
 
