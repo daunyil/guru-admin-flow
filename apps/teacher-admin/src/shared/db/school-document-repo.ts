@@ -167,7 +167,7 @@ export async function listSchoolDocumentsByYear(args: {
   semester?: 1 | 2;
   teacherId?: string;
 }): Promise<SchoolDocument[]> {
-  let collection = db.schoolDocuments
+  const collection = db.schoolDocuments
     .where("academicYearId")
     .equals(args.academicYearId);
 

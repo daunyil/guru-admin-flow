@@ -29,6 +29,9 @@ type TableName =
   | "enrichmentPrograms"
   | "documentSnapshots"
   | "syncQueue"
+  | "dailyDutyRules"
+  | "dailyDutyReports"
+  | "dailyDutyRecords"
   | "schoolDocuments";
 
 /** Buat entitas baru dengan field BaseEntity terisi otomatis. */

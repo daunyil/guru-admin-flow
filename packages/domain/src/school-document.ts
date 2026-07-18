@@ -9,10 +9,12 @@
  * (structuredClone native Dexie). Layout/orientasi disimpan terpisah supaya
  * render engine bisa toggle portrait/landscape tanpa rewrite data.
  *
- * Status lifecycle: draft → review → final.
- *   - draft   : masih diedit, auto-save aktif.
- *   - review  : sudah diajukan, lock edit.
- *   - final   : disetujui, bisa cetak.
+ * Status lifecycle: draft → ready_for_review → final (atau revised → final).
+ *   - draft           : masih diedit, auto-save aktif.
+ *   - ready_for_review: sudah diajukan, lock edit.
+ *   - final           : disetujui, bisa cetak.
+ *   - revised         : perlu revisi, kembali ke edit.
+ *   - locked          : dikunci permanen, tidak bisa diedit.
  *
  * `data` simpan objek apa adanya — Dexie 4 native structuredClone mendukung
  * objek bersarang tanpa serialisasi manual.

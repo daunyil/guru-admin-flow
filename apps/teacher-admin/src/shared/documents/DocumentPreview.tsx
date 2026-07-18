@@ -25,7 +25,7 @@ import { type ReactNode, useCallback, useEffect } from "react";
 import {
   useAutoSave,
   type AutoSaveStatus,
-} from "../../shared/hooks/useAutoSave";
+} from "../hooks/useAutoSave";
 import type {
   SchoolDocType,
   SchoolDocOrientation,
@@ -79,7 +79,7 @@ export interface DocumentPreviewProps {
   orientation: SchoolDocOrientation;
   /** Status dokumen. */
   status: DocumentStatus;
-  /** Data dokumen terkini. */
+  /** Data dokumen terkini. Auto-save ter-trigger setiap kali reference ini berubah. */
   data: Record<string, unknown>;
   /** Callback simpan data ke IndexedDB. */
   onSave: (id: string, data: Record<string, unknown>) => Promise<void>;
@@ -115,12 +115,17 @@ export function DocumentPreview({
   showToolbar = true,
   showFormatToggle = true,
 }: DocumentPreviewProps) {
-  // Auto-save hook
-  const { saveStatus, triggerSave } = useAutoSave({
+  // Auto-save: panggil scheduleSave setiap kali data berubah.
+  // scheduleSave debounce 1.5s — simpan hanya setelah user berhenti mengetik.
+  const { saveStatus, triggerSave, scheduleSave } = useAutoSave({
     docId,
     getData: useCallback(() => data, [data]),
     onSave,
   });
+
+  useEffect(() => {
+    scheduleSave();
+  }, [data, scheduleSave]);
 
   // Keyboard shortcut: Ctrl+S → save manual
   useEffect(() => {
@@ -160,7 +165,7 @@ export function DocumentPreview({
 
   const canvasClass = [
     "wysiwyg-canvas",
-    orientation === "landscape" ? "wysiwyg-landscape" : "wysiwyg-portrait",
+    orientation === "landscape" ? "wysiwyg-landscape" : "",
     className ?? "",
   ]
     .filter(Boolean)
