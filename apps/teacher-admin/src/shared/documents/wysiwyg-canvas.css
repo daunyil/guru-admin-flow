@@ -508,6 +508,65 @@
 }
 
 /* ------------------------------------------------------------------ */
+/*  Kalender Minggu Efektif document styles                           */
+/*  WYSIWYG-DOC-FASE2                                                 */
+/* ------------------------------------------------------------------ */
+
+.kme-table {
+  font-size: 9pt;
+}
+
+.kme-ineffective-row {
+  background: #fef2f2 !important;
+}
+
+.kme-effective-mark {
+  color: #16a34a;
+  font-weight: 800;
+}
+
+.kme-ineffective-mark {
+  color: #dc2626;
+  font-weight: 800;
+}
+
+.kme-effective-text {
+  color: #16a34a;
+  font-weight: 700;
+}
+
+.kme-ineffective-text {
+  color: #dc2626;
+  font-weight: 700;
+}
+
+.kme-effective-label {
+  color: #16a34a;
+  font-style: italic;
+  font-size: 8.5pt;
+}
+
+.kme-ineffective-label {
+  color: #dc2626;
+  font-weight: 600;
+  font-size: 8.5pt;
+}
+
+.kme-month-table {
+  font-size: 9pt;
+}
+
+.kme-month-table td,
+.kme-month-table th {
+  text-align: center;
+}
+
+.kme-month-table td:first-child,
+.kme-month-table th:first-child {
+  text-align: left;
+}
+
+/* ------------------------------------------------------------------ */
 /*  Print mode                                                        */
 /* ------------------------------------------------------------------ */
 
