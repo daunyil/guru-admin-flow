@@ -2,6 +2,11 @@
  * Modul M04 Promes — halaman /promes
  * Sumber: docs/SPRINT_2_DESIGN.md §5, §6
  *
+ * WYSIWYG-DOC-FASE2: Refactor ke layout WYSIWYG.
+ *   - Saat result ada → DocumentPreview sebagai view utama + sidebar kontrol.
+ *   - Saat result belum → form biasa.
+ *   - Hapus toggle Mode Kerja / Mode Dokumen (WYSIWYG = dokumen selalu terlihat).
+ *
  * KRITIS (lihat §0 CRITICAL PROMES RULE):
  *   - Material capacity pakai INTRA JP (intraJpPerWeek), BUKAN total 3 JP
  *   - KO tampil sebagai row terpisah, koTotalJP TIDAK mengurangi materialCapacityJP
@@ -58,7 +63,10 @@ export function PromesPage() {
   const [result, setResult] = useState<PromesResult | null>(null);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showDocument, setShowDocument] = useState(false);
+  // WYSIWYG-DOC-FASE2: sidebar toggle (default open di desktop, closed di mobile)
+  const [showSidebar, setShowSidebar] = useState(
+    typeof window !== "undefined" && window.innerWidth >= 1024
+  );
   // PROMES-DUAL-FORMAT-02: pilihan format dokumen (portrait ringkas vs landscape matrix)
   const [formatDokumen, setFormatDokumen] = useState<"portrait" | "landscape">("landscape");
 
@@ -123,11 +131,6 @@ export function PromesPage() {
       }
     })();
   }, [activeYear, teacher, selectedProfileId, semester, profiles]);
-
-  // UX-PLAN-07: HAPUS auto-generate diam-diam. Guru harus klik "Susun Promes"
-  // secara eksplisit. Sebelumnya useEffect ini auto-generate saat buka halaman,
-  // yang membingungkan guru (data muncul tanpa aksi).
-  // Sekarang: halaman buka kosong, guru pilih Prota + semester + klik "Susun Promes".
 
   async function handleGenerate() {
     if (!activeYear) return;
@@ -230,6 +233,9 @@ export function PromesPage() {
     }
   }, [docId]);
 
+  // Derived
+  const currentProfile = profiles.find((p) => p.id === selectedProfileId) ?? null;
+
   if (loading) return <p className="text-sm text-slate-500">Memuat...</p>;
 
   if (!activeYear) {
@@ -246,6 +252,234 @@ export function PromesPage() {
     );
   }
 
+  /* ================================================================ */
+  /*  WYSIWYG VIEW — result ada, DocumentPreview sebagai view utama   */
+  /* ================================================================ */
+  if (result) {
+    const { summary, status, errors, warnings, weeks, distribution, koRows } = result;
+
+    return (
+      <div className="promes-wysiwyg-layout">
+        {/* ---------- SIDEBAR ---------- */}
+        {showSidebar && (
+          <aside className="promes-sidebar no-print">
+            <div className="promes-sidebar-header">
+              <h2 className="text-sm font-bold text-slate-900">Program Semester</h2>
+              <button
+                type="button"
+                className="promes-sidebar-close"
+                onClick={() => setShowSidebar(false)}
+                title="Tutup sidebar"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* -- Kontrol -- */}
+            <div className="promes-sidebar-section">
+              <h3 className="promes-sidebar-section-title">Konteks & Opsi</h3>
+
+              <Select
+                label="Prota"
+                id="ps-prota"
+                value={selectedProfileId}
+                onChange={setSelectedProfileId}
+                options={profiles.map((p) => ({ value: p.id, label: `${p.subject} — ${p.grade}` }))}
+              />
+
+              <Select
+                label="Semester"
+                id="ps-sem"
+                value={String(semester)}
+                onChange={(v) => setSemester(Number(v) as 1 | 2)}
+                options={[{ value: "1", label: "Semester 1" }, { value: "2", label: "Semester 2" }]}
+              />
+
+              <div className="grid grid-cols-2 gap-2">
+                <Input
+                  label="Intra JP"
+                  id="ps-intra"
+                  type="number"
+                  value={String(options.intraJpPerWeek)}
+                  onChange={(v) => setOptions({ ...options, intraJpPerWeek: Number(v) || 0 })}
+                />
+                <Input
+                  label="KO JP"
+                  id="ps-ko"
+                  type="number"
+                  value={String(options.koJpPerWeek)}
+                  onChange={(v) => setOptions({ ...options, koJpPerWeek: Number(v) || 0 })}
+                />
+              </div>
+
+              <Input
+                label="Cadangan (JP)"
+                id="ps-cad"
+                type="number"
+                value={String(options.cadanganJP)}
+                onChange={(v) => setOptions({ ...options, cadanganJP: Number(v) || 0 })}
+              />
+
+              <Select
+                label="Mode KO"
+                id="ps-komode"
+                value={options.koMode ?? "end_of_week"}
+                onChange={(v) => setOptions({ ...options, koMode: v as PromesOptions["koMode"] })}
+                options={KO_PROMES_MODE_OPTIONS}
+              />
+
+              <div className="flex gap-2 mt-2">
+                <Button onClick={handleGenerate} disabled={generating} className="flex-1">
+                  {generating ? "Menyusun..." : "Susun Ulang"}
+                </Button>
+              </div>
+
+              {error && (
+                <div className="p-2 rounded-md bg-rose-50 border border-rose-200 text-xs text-rose-700 mt-2">
+                  {error}
+                </div>
+              )}
+            </div>
+
+            {/* -- Status & Ringkasan -- */}
+            <div className="promes-sidebar-section">
+              <h3 className="promes-sidebar-section-title">Ringkasan</h3>
+
+              <div className="flex items-center gap-2 mb-2">
+                {status === "valid" ? (
+                  <Badge variant="success">✓ Valid</Badge>
+                ) : (
+                  <Badge variant="warning">⚠ Perlu Perbaikan</Badge>
+                )}
+              </div>
+
+              <dl className="promes-summary-dl">
+                <div><dt>Minggu efektif</dt><dd>{summary.effectiveWeeks}/{summary.totalWeeks}</dd></div>
+                <div><dt>Kapasitas intra</dt><dd>{summary.intraCapacityJP} JP</dd></div>
+                <div><dt>Cadangan</dt><dd>{summary.cadanganJP} JP</dd></div>
+                <div><dt>Materi terdistribusi</dt><dd>{summary.distributedJP}/{summary.totalUnitJP} JP</dd></div>
+                <div><dt>Belum terdistribusi</dt><dd>{summary.undistributedJP} JP</dd></div>
+                <div><dt>Kokurikuler</dt><dd>{summary.koTotalJP} JP</dd></div>
+              </dl>
+            </div>
+
+            {/* -- Distribusi Materi -- */}
+            <div className="promes-sidebar-section">
+              <h3 className="promes-sidebar-section-title">Distribusi Materi</h3>
+              {distribution.length === 0 ? (
+                <p className="text-xs text-slate-400 italic">Tidak ada materi.</p>
+              ) : (
+                <ul className="promes-distribution-list">
+                  {distribution.map((d) => (
+                    <li key={d.unitId} className="promes-distribution-item">
+                      <span className="promes-distribution-title">{d.title}</span>
+                      <Badge variant={d.status === "fully_distributed" ? "success" : d.status === "partially_distributed" ? "warning" : "error"}>
+                        {d.distributedJP}/{d.totalJP} JP
+                      </Badge>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            {/* -- Warnings/Errors -- */}
+            {errors.length > 0 && (
+              <div className="promes-sidebar-section">
+                <h3 className="promes-sidebar-section-title text-rose-700">Error</h3>
+                <ul className="list-disc pl-4 space-y-0.5 text-xs text-rose-600">
+                  {errors.map((e, i) => <li key={i}>{e}</li>)}
+                </ul>
+              </div>
+            )}
+            {warnings.length > 0 && (
+              <div className="promes-sidebar-section">
+                <h3 className="promes-sidebar-section-title text-amber-700">Peringatan</h3>
+                <ul className="list-disc pl-4 space-y-0.5 text-xs text-amber-600">
+                  {warnings.map((w, i) => <li key={i}>{w}</li>)}
+                </ul>
+              </div>
+            )}
+
+            {/* -- Kembali ke Form -- */}
+            <div className="promes-sidebar-section promes-sidebar-footer">
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setResult(null);
+                  setError(null);
+                }}
+                className="w-full"
+              >
+                ← Kembali ke Form
+              </Button>
+            </div>
+          </aside>
+        )}
+
+        {/* ---------- DOCUMENT AREA ---------- */}
+        <div className="promes-document-area">
+          <DocumentPreview
+            docId={docId}
+            docType="promes"
+            orientation={formatDokumen}
+            status={docStatus}
+            data={docDataForAutoSave}
+            onSave={handleSaveDoc}
+            onSetFinal={handleSetFinal}
+            onOrientationChange={handleOrientationChange}
+          >
+            {formatDokumen === "portrait" ? (
+              <PromesPortraitDocument
+                weeks={weeks}
+                distribution={distribution}
+                koRows={koRows}
+                summary={summary}
+                status={status}
+                semester={semester}
+                activeYearLabel={activeYear?.label ?? ""}
+                schoolName={school?.name ?? ""}
+                schoolRegency={school?.regency ?? ""}
+                headmasterName={school?.headmasterName ?? ""}
+                teacherName={teacher?.name ?? ""}
+                profile={currentProfile}
+              />
+            ) : (
+              <PromesLandscapeMatrixDocument
+                weeks={weeks}
+                distribution={distribution}
+                koRows={koRows}
+                summary={summary}
+                status={status}
+                semester={semester}
+                activeYearLabel={activeYear?.label ?? ""}
+                schoolName={school?.name ?? ""}
+                schoolRegency={school?.regency ?? ""}
+                headmasterName={school?.headmasterName ?? ""}
+                teacherName={teacher?.name ?? ""}
+                profile={currentProfile}
+              />
+            )}
+          </DocumentPreview>
+        </div>
+
+        {/* ---------- SIDEBAR TOGGLE (when hidden) ---------- */}
+        {!showSidebar && (
+          <button
+            type="button"
+            className="promes-sidebar-toggle no-print"
+            onClick={() => setShowSidebar(true)}
+            title="Buka panel kontrol"
+          >
+            ⚙
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  /* ================================================================ */
+  /*  FORM VIEW — belum ada result, tampilkan form susun Promes       */
+  /* ================================================================ */
   return (
     <div className="space-y-4">
       <Header yearLabel={activeYear.label} />
@@ -337,49 +571,17 @@ export function PromesPage() {
               <Button onClick={handleGenerate} disabled={generating}>
                 {generating ? "Menyusun..." : "Susun Promes"}
               </Button>
-              {result && (
-                <Button
-                  variant="secondary"
-                  onClick={() => {
-                    // FIXPACK-01 QA-P2-01: buka mode dokumen dulu (yang punya .print-area
-                    // + .document-page.document-landscape), baru user klik Cetak di sana.
-                    // Sebelumnya: window.print() langsung di mode kerja → print kosong.
-                    setShowDocument(true);
-                  }}
-                >
-                  Cetak Preview
-                </Button>
-              )}
             </div>
           </div>
         )}
       </Card>
-
-      {result && (
-        <ResultView
-          result={result}
-          showDocument={showDocument}
-          onToggleMode={() => setShowDocument(!showDocument)}
-          formatDokumen={formatDokumen}
-          onChangeFormat={setFormatDokumen}
-          schoolName={school?.name ?? ""}
-          schoolRegency={school?.regency ?? ""}
-          headmasterName={school?.headmasterName ?? ""}
-          teacherName={teacher?.name ?? ""}
-          activeYearLabel={activeYear?.label ?? ""}
-          profile={profiles.find((p) => p.id === selectedProfileId) ?? null}
-          semester={semester}
-          docId={docId}
-          docStatus={docStatus}
-          docDataForAutoSave={docDataForAutoSave}
-          onSaveDoc={handleSaveDoc}
-          onSetFinal={handleSetFinal}
-          onOrientationChange={handleOrientationChange}
-        />
-      )}
     </div>
   );
 }
+
+/* ============================================================ */
+/*  Header                                                       */
+/* ============================================================ */
 
 function Header({ yearLabel }: { yearLabel?: string }) {
   return (
@@ -392,252 +594,9 @@ function Header({ yearLabel }: { yearLabel?: string }) {
   );
 }
 
-function ResultView({
-  result,
-  showDocument,
-  onToggleMode,
-  formatDokumen,
-  onChangeFormat,
-  schoolName,
-  schoolRegency,
-  headmasterName,
-  teacherName,
-  activeYearLabel,
-  profile,
-  semester,
-  docId,
-  docStatus,
-  docDataForAutoSave,
-  onSaveDoc,
-  onSetFinal,
-  onOrientationChange,
-}: {
-  result: PromesResult;
-  showDocument: boolean;
-  onToggleMode: () => void;
-  formatDokumen: "portrait" | "landscape";
-  onChangeFormat: (f: "portrait" | "landscape") => void;
-  schoolName: string;
-  schoolRegency: string;
-  headmasterName: string;
-  teacherName: string;
-  activeYearLabel: string;
-  profile: ProtaProfile | null;
-  semester: 1 | 2;
-  // WYSIWYG-DOC-FASE2: DocumentPreview props
-  docId: string | undefined;
-  docStatus: DocumentStatus;
-  docDataForAutoSave: Record<string, unknown>;
-  onSaveDoc: (id: string, data: Record<string, unknown>) => Promise<void>;
-  onSetFinal: (id: string) => Promise<void>;
-  onOrientationChange: (orientation: SchoolDocOrientation) => void;
-}) {
-  const { summary, status, errors, warnings, weeks, distribution, koRows } = result;
-  const activeKOMode = koRows[0]?.mode ?? "end_of_week";
-
-  // ====== MODE DOKUMEN ======
-  // WYSIWYG-DOC-FASE2: replaced print-toolbar + print-area with DocumentPreview
-  if (showDocument) {
-    return (
-      <DocumentPreview
-        docId={docId}
-        docType="promes"
-        orientation={formatDokumen}
-        status={docStatus}
-        data={docDataForAutoSave}
-        onSave={onSaveDoc}
-        onSetFinal={onSetFinal}
-        onOrientationChange={onOrientationChange}
-      >
-        {formatDokumen === "portrait" ? (
-          <PromesPortraitDocument
-            weeks={weeks}
-            distribution={distribution}
-            koRows={koRows}
-            summary={summary}
-            status={status}
-            semester={semester}
-            activeYearLabel={activeYearLabel}
-            schoolName={schoolName}
-            schoolRegency={schoolRegency}
-            headmasterName={headmasterName}
-            teacherName={teacherName}
-            profile={profile}
-          />
-        ) : (
-          <PromesLandscapeMatrixDocument
-            weeks={weeks}
-            distribution={distribution}
-            koRows={koRows}
-            summary={summary}
-            status={status}
-            semester={semester}
-            activeYearLabel={activeYearLabel}
-            schoolName={schoolName}
-            schoolRegency={schoolRegency}
-            headmasterName={headmasterName}
-            teacherName={teacherName}
-            profile={profile}
-          />
-        )}
-      </DocumentPreview>
-    );
-  }
-
-  // ====== MODE KERJA (dashboard-like) ======
-  return (
-    <div className="space-y-4">
-      <Card>
-        <div className="flex items-center justify-between gap-3 flex-wrap">
-          <div className="flex items-center gap-3">
-            {status === "valid" ? (
-              <Badge variant="success">✓ Valid ({summary.allocationStatus})</Badge>
-            ) : (
-              <Badge variant="warning">⚠ Perlu Perbaikan</Badge>
-            )}
-            <span className="text-xs text-slate-500">{summary.effectiveWeeks} dari {summary.totalWeeks} minggu efektif</span>
-          </div>
-          <div className="flex items-center gap-2 flex-wrap">
-            {/* PROMES-ORIENTATION-TOGGLE-02A: toggle format di Mode Kerja */}
-            <FormatToggle formatDokumen={formatDokumen} onChangeFormat={onChangeFormat} />
-            <Button variant="secondary" onClick={onToggleMode}>Mode Dokumen</Button>
-          </div>
-        </div>
-
-        {errors.length > 0 && (
-          <div className="info-banner-error mt-3">
-            <p className="font-medium mb-1">Error:</p>
-            <ul className="list-disc pl-5 space-y-0.5 text-xs">{errors.map((e, i) => <li key={i}>{e}</li>)}</ul>
-          </div>
-        )}
-        {warnings.length > 0 && (
-          <div className="info-banner-warning mt-3">
-            <p className="font-medium mb-1">Peringatan:</p>
-            <ul className="list-disc pl-5 space-y-0.5 text-xs">{warnings.map((w, i) => <li key={i}>{w}</li>)}</ul>
-          </div>
-        )}
-      </Card>
-
-      <Card>
-        <CardHeader title="Ringkasan" />
-        <div className="grid sm:grid-cols-2 gap-6 text-sm">
-          <div>
-            <h4 className="font-medium text-brand-800 mb-2">Intrakurikuler (Materi)</h4>
-            <dl className="space-y-1 text-xs">
-              <div className="flex justify-between"><dt>Total minggu:</dt><dd>{summary.totalWeeks}</dd></div>
-              <div className="flex justify-between"><dt>Minggu efektif:</dt><dd>{summary.effectiveWeeks}</dd></div>
-              <div className="flex justify-between"><dt>Kapasitas intra:</dt><dd>{summary.intraCapacityJP} JP</dd></div>
-              <div className="flex justify-between"><dt>Cadangan:</dt><dd>{summary.cadanganJP} JP</dd></div>
-              <div className="flex justify-between font-medium"><dt>Kapasitas materi:</dt><dd>{summary.materialCapacityJP} JP</dd></div>
-              <div className="flex justify-between"><dt>Materi (Prota):</dt><dd>{summary.totalUnitJP} JP</dd></div>
-              <div className="flex justify-between"><dt>Terdistribusi:</dt><dd>{summary.distributedJP} JP</dd></div>
-              <div className="flex justify-between"><dt>Belum terdistribusi:</dt><dd>{summary.undistributedJP} JP</dd></div>
-            </dl>
-          </div>
-          <div>
-            <h4 className="font-medium text-slate-700 mb-2">Kokurikuler (Row Terpisah)</h4>
-            <dl className="space-y-1 text-xs">
-              <div className="flex justify-between"><dt>Total KO:</dt><dd>{summary.koTotalJP} JP</dd></div>
-              <div className="flex justify-between"><dt>Row KO:</dt><dd>{koRows.length} row</dd></div>
-            </dl>
-            <p className="text-xs text-slate-500 mt-2">KO tidak mengurangi kapasitas materi. Solver KO urusan Smart Roster.</p>
-          </div>
-        </div>
-      </Card>
-
-      <Card>
-        <CardHeader title="Distribusi Mingguan" />
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs">
-            <thead>
-              <tr className="border-b border-slate-200 text-left">
-                <th className="py-2 px-2">Mg</th>
-                <th className="py-2 px-2">Tanggal</th>
-                <th className="py-2 px-2">Efektif</th>
-                <th className="py-2 px-2">Intra</th>
-                <th className="py-2 px-2">Materi / KO</th>
-              </tr>
-            </thead>
-            <tbody>
-              {weeks.map((w) => <WeekRows key={w.weekNumber} week={w} koMode={activeKOMode} />)}
-            </tbody>
-          </table>
-        </div>
-      </Card>
-
-      <Card>
-        <CardHeader title="Status per Materi" />
-        {distribution.length === 0 ? <p className="text-xs text-slate-400 italic">Tidak ada materi.</p> : (
-          <ul className="space-y-1 text-sm">
-            {distribution.map((d) => (
-              <li key={d.unitId} className="flex items-center justify-between p-2 bg-slate-50 rounded">
-                <div>
-                  <span className="font-medium">{d.title}</span>
-                  <span className="text-slate-500 ml-2">({d.totalJP} JP)</span>
-                </div>
-                <div className="text-right">
-                  <Badge variant={d.status === "fully_distributed" ? "success" : d.status === "partially_distributed" ? "warning" : "error"}>
-                    {d.status === "fully_distributed" ? "✓ Penuh" : d.status === "partially_distributed" ? "⚠ Sebagian" : "✗ Tidak"}
-                  </Badge>
-                  <p className="text-xs text-slate-500 mt-0.5">{d.distributedJP}/{d.totalJP} JP · minggu {d.weeks.length > 0 ? d.weeks.join(", ") : "-"}</p>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Card>
-
-      {koRows.length > 0 && (
-        <Card>
-          <CardHeader title="Row Kokurikuler (Catatan, Bukan Materi)" />
-          <p className="text-xs text-slate-500 mb-2">
-            {koRows.length} row KO × {koRows[0]?.jp} JP = {summary.koTotalJP} JP · Mode: {KO_MODE_LABELS_ID[activeKOMode]}
-          </p>
-          <p className="text-xs text-slate-400 italic">Solver KO urusan Smart Roster / Waka Kurikulum.</p>
-        </Card>
-      )}
-    </div>
-  );
-}
-
 /* ============================================================ */
-/*  PROMES-DUAL-FORMAT-02: 2 format dokumen (portrait + landscape)  */
+/*  Shared document sub-components                               */
 /* ============================================================ */
-
-/**
- * PROMES-ORIENTATION-TOGGLE-02A: Segmented control untuk pilih format dokumen.
- * Dipakai di Mode Kerja (sebelum masuk Mode Dokumen) DAN di toolbar Mode Dokumen.
- * Default: portrait (Vertikal).
- */
-function FormatToggle({
-  formatDokumen,
-  onChangeFormat,
-}: {
-  formatDokumen: "portrait" | "landscape";
-  onChangeFormat: (f: "portrait" | "landscape") => void;
-}) {
-  return (
-    <div className="flex items-center gap-2">
-      <span className="text-xs text-slate-500 hidden sm:inline">Format:</span>
-      <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-lg">
-        <button
-          type="button"
-          onClick={() => onChangeFormat("portrait")}
-          className={`px-3 py-1 text-xs rounded-md transition-colors ${formatDokumen === "portrait" ? "bg-white text-brand-700 font-semibold shadow-sm" : "text-slate-600 hover:text-slate-900"}`}
-        >
-          Vertikal
-        </button>
-        <button
-          type="button"
-          onClick={() => onChangeFormat("landscape")}
-          className={`px-3 py-1 text-xs rounded-md transition-colors ${formatDokumen === "landscape" ? "bg-white text-brand-700 font-semibold shadow-sm" : "text-slate-600 hover:text-slate-900"}`}
-        >
-          Landscape
-        </button>
-      </div>
-    </div>
-  );
-}
 
 /** Shared identity table untuk portrait. */
 function PromesDocIdentity({ schoolName, profile, semester, activeYearLabel, summary }: {
@@ -687,6 +646,10 @@ function PromesDocSignature({ schoolRegency, headmasterName, teacherName }: {
   );
 }
 
+/* ============================================================ */
+/*  PROMES-DUAL-FORMAT-02: 2 format dokumen (portrait + landscape)  */
+/* ============================================================ */
+
 /**
  * Format Vertikal (portrait) — daftar minggu per baris.
  * Format lama yang sudah ada sebelum PROMES-DUAL-FORMAT-02, sekarang dipisah jadi komponen.
@@ -729,9 +692,6 @@ function PromesPortraitDocument({
           </thead>
           <tbody>
             {weeks
-              // PROMES-CALENDAR-ASSESSMENT-CADANGAN-03: skip pure-cadangan weeks
-              // (reservedForCadangan > 0, no assignedUnits, no calendarKind).
-              // Cadangan ditampilkan sebagai section terpisah tanpa tanggal.
               .filter((w) => !isPureCadanganWeek(w))
               .map((w) => <PromesDocWeekRow key={w.weekNumber} week={w} />)}
           </tbody>
@@ -746,7 +706,6 @@ function PromesPortraitDocument({
           </tfoot>
         </table>
 
-        {/* PROMES-CALENDAR-ASSESSMENT-CADANGAN-03: Cadangan Akhir Semester tanpa tanggal */}
         {summary.cadanganJP > 0 && (
           <div className="p-2 mt-2 bg-slate-50 border border-slate-300 rounded text-xs">
             <strong>Cadangan Akhir Semester: {summary.cadanganJP} JP</strong>
@@ -796,10 +755,12 @@ function PromesPortraitDocument({
   );
 }
 
-/** Nama bulan pendek Indonesia untuk header matrix landscape. */
+/* ============================================================ */
+/*  Landscape matrix format helpers                              */
+/* ============================================================ */
+
 const MONTH_SHORT_ID = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
 
-/** PROMES-LANDSCAPE-ONEPAGE-POLISH-02: Tipe untuk group bulan + subkolom minggu. */
 type PromesMonthColumn = {
   month: number;
   label: string;
@@ -810,9 +771,6 @@ type PromesMonthColumn = {
   }>;
 };
 
-/**
- * PROMES-LANDSCAPE-ONEPAGE-POLISH-02: Bangun group bulan → subkolom minggu.
- */
 function buildPromesMonthGroups(weeks: PromesWeek[], semester: 1 | 2): PromesMonthColumn[] {
   const monthNumbers = semester === 1 ? [7, 8, 9, 10, 11, 12] : [1, 2, 3, 4, 5, 6];
 
@@ -835,12 +793,6 @@ function buildPromesMonthGroups(weeks: PromesWeek[], semester: 1 | 2): PromesMon
     .filter((group) => group.weeks.length > 0);
 }
 
-/**
- * PROMES-LANDSCAPE-ONEPAGE-POLISH-02: Compact materi untuk cetak 1 halaman.
- * - Hapus prefix "TP 1.2:" dll.
- * - Bila format "TP lengkap — Materi Singkat", ambil bagian setelah tanda pisah.
- * - Maksimal maxWords kata, sisanya dipotong dengan ellipsis.
- */
 function compactPromesMaterial(text: string, maxWords = 7): string {
   const cleaned = (text || "-")
     .replace(/\s+/g, " ")
@@ -849,8 +801,6 @@ function compactPromesMaterial(text: string, maxWords = 7): string {
 
   if (!cleaned || cleaned === "-") return "-";
 
-  // Jika guru memakai format: "TP lengkap — Materi Singkat"
-  // maka cetak Promes mengambil bagian setelah tanda pisah.
   const parts = cleaned.split(/\s[–—-]\s/).map((p) => p.trim()).filter(Boolean);
   const candidate = parts.length > 1 ? parts[parts.length - 1] : cleaned;
 
@@ -915,7 +865,6 @@ function getPromesLandscapeCalendarEvent(week: PromesWeek): PromesLandscapeEvent
   }
 
   if (week.calendarKind === "p5") {
-    // PROMES-KO-VERTICAL-EVENTS-01: dokumen baru memakai istilah Kokurikuler.
     return { kind: "kokurikuler", label: "Kokurikuler" };
   }
 
@@ -960,8 +909,6 @@ function getKokurikulerWeekNumbers(weeks: PromesWeek[], koRows: KORow[], mode: N
     : weeks.filter((week) => week.isEffective && week.koJP > 0).map((week) => week.weekNumber);
 
   if (mode === "end_of_semester") {
-    // Visual Promes: blok akhir semester dibuat ringkas agar tidak membuat row terlalu tinggi.
-    // 18 JP KO PPKn biasanya cukup divisualkan sebagai 3 kolom blok akhir semester.
     const blockCount = Math.min(3, effectiveWeekNumbers.length);
     return new Set(effectiveWeekNumbers.slice(-blockCount));
   }
@@ -975,10 +922,6 @@ function renderVerticalEventLabel(event: PromesLandscapeEventColumn) {
 
 /**
  * Format Landscape (Matrix) — TP × bulan/minggu seperti contoh Promes sekolah.
- * PROMES-KO-VERTICAL-EVENTS-01:
- * - Event kalender dibuat sebagai kolom warna penuh + tulisan vertikal.
- * - KO punya 2 tampilan sesuai pilihan: per minggu atau blok akhir semester.
- * - Row dibuat compact supaya area kosong tidak membuat dokumen terlalu tinggi.
  */
 function PromesLandscapeMatrixDocument({
   weeks,
@@ -1043,7 +986,6 @@ function PromesLandscapeMatrixDocument({
           </div>
         </div>
 
-        {/* Rincian minggu efektif */}
         <div className="promes-weekly-summary">
           <table className="promes-keterangan-table" style={{ marginBottom: "4pt" }}>
             <tbody>
@@ -1193,16 +1135,13 @@ function PromesLandscapeMatrixDocument({
   );
 }
 
+/* ============================================================ */
+/*  Helper: pure cadangan week check                             */
+/* ============================================================ */
+
 /**
- * PROMES-CALENDAR-ASSESSMENT-CADANGAN-03: Cek apakah minggu HANYA cadangan
+ * Cek apakah minggu HANYA cadangan
  * (reservedForCadangan > 0, tidak ada materi, tidak ada event kalender).
- * Minggu seperti ini TIDAK boleh dirender sebagai baris bertanggal.
- * Cadangan ditampilkan sebagai section terpisah "Cadangan Akhir Semester".
- *
- * APP-AUDIT-FIXPACK-02A: hapus syarat week.isEffective === false.
- * Minggu cadangan di-reserve dari minggu efektif (isEffective=true), jadi
- * syarat isEffective===false salah — cadangan tidak terfilter dan tetap
- * muncul sebagai baris bertanggal.
  */
 function isPureCadanganWeek(week: PromesWeek): boolean {
   return (
@@ -1215,22 +1154,18 @@ function isPureCadanganWeek(week: PromesWeek): boolean {
 function PromesDocWeekRow({ week }: { week: PromesWeek }) {
   const dateStr = formatLongDateID(week.startDate).split(",")[1]?.trim() ?? week.startDate;
 
-  // PROMES-CALENDAR-ASSESSMENT-CADANGAN-03: label untuk event kalender
   const calLabel = week.calendarKind
     ? promesCalendarKindLabel(week.calendarKind) || week.blockReason || ""
     : "";
 
-  // Materi / Kegiatan column
   let materiCell: React.ReactNode;
   if (week.assignedUnits.length > 0) {
     materiCell = week.assignedUnits.map((u, i) => (
       <span key={i}>{i > 0 && "; "}{u.title} ({u.jp} JP)</span>
     ));
   } else if (calLabel) {
-    // Minggu assessment/kegiatan kalender — tampilkan label event
     materiCell = <strong>{calLabel}</strong>;
   } else if (week.reservedForCadangan > 0) {
-    // Pure cadangan — seharusnya sudah di-filter, tapi fallback
     materiCell = <em>(Cadangan — lihat catatan di bawah)</em>;
   } else if (week.isEffective) {
     materiCell = "(Kosong)";
@@ -1238,7 +1173,6 @@ function PromesDocWeekRow({ week }: { week: PromesWeek }) {
     materiCell = week.blockReason ?? "(Libur)";
   }
 
-  // Keterangan column
   let keteranganCell: string;
   if (calLabel) {
     keteranganCell = calLabel;
@@ -1259,63 +1193,5 @@ function PromesDocWeekRow({ week }: { week: PromesWeek }) {
       <td>{materiCell}</td>
       <td>{keteranganCell}</td>
     </tr>
-  );
-}
-
-function WeekRows({ week, koMode }: { week: import("@guru-admin/domain").PromesWeek; koMode: NonNullable<PromesOptions["koMode"]> }) {
-  const koRow = week.koJP > 0;
-  return (
-    <>
-      <tr className={week.isEffective ? "bg-brand-50/30" : "bg-slate-100"}>
-        <td className="py-1.5 px-2 align-top">{week.weekNumber}</td>
-        <td className="py-1.5 px-2 align-top">
-          {formatLongDateID(week.startDate).split(",")[1]?.trim()}
-          <span className="text-slate-400"> - {formatLongDateID(week.endDate).split(",")[1]?.trim()}</span>
-        </td>
-        <td className="py-1.5 px-2 align-top">
-          {week.isEffective ? "✓" : <span className="text-rose-600">✗</span>}
-          {!week.isEffective && week.blockReason && (
-            <span className="text-xs text-rose-500 ml-1">{week.blockReason}</span>
-          )}
-        </td>
-        <td className="py-1.5 px-2 align-top">
-          {week.isEffective ? (
-            <span>
-              {week.intraCapacityJP} JP
-              {week.reservedForCadangan > 0 && (
-                <span className="text-amber-600"> (−{week.reservedForCadangan} cad)</span>
-              )}
-            </span>
-          ) : "—"}
-        </td>
-        <td className="py-1.5 px-2 align-top">
-          {week.assignedUnits.length > 0 ? (
-            <ul className="space-y-0.5">
-              {week.assignedUnits.map((u, i) => (
-                <li key={i}>
-                  <span className="font-medium">{u.title}</span> ({u.jp} JP)
-                </li>
-              ))}
-            </ul>
-          ) : week.reservedForCadangan > 0 ? (
-            <span className="text-amber-600 italic">(cadangan)</span>
-          ) : week.isEffective ? (
-            <span className="text-slate-400 italic">(kosong)</span>
-          ) : (
-            <span className="text-rose-500 italic">(libur)</span>
-          )}
-        </td>
-      </tr>
-      {koRow && (
-        <tr className="bg-orange-50/30 border-t border-orange-100">
-          <td className="py-1 px-2"></td>
-          <td className="py-1 px-2 text-slate-500 italic" colSpan={2}></td>
-          <td className="py-1 px-2 text-orange-700">{week.koJP} JP</td>
-          <td className="py-1 px-2 text-orange-700 italic">
-            KO: {KO_MODE_LABELS_ID[koMode]} (row terpisah, bukan materi)
-          </td>
-        </tr>
-      )}
-    </>
   );
 }

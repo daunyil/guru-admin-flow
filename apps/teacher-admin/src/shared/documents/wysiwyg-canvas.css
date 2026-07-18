@@ -294,6 +294,223 @@
 /*  Print mode                                                        */
 /* ------------------------------------------------------------------ */
 
+/* ------------------------------------------------------------------ */
+/*  Promes WYSIWYG Layout — sidebar + document                        */
+/*  WYSIWYG-DOC-FASE2                                                 */
+/* ------------------------------------------------------------------ */
+
+.promes-wysiwyg-layout {
+  display: flex;
+  position: relative;
+  min-height: calc(100vh - 120px); /* full viewport minus app header */
+}
+
+/* Sidebar */
+.promes-sidebar {
+  width: 320px;
+  min-width: 280px;
+  max-width: 360px;
+  height: calc(100vh - 120px);
+  position: sticky;
+  top: 0;
+  overflow-y: auto;
+  background: #fff;
+  border-right: 1px solid var(--wysiwyg-toolbar-border);
+  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.04);
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.promes-sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--wysiwyg-toolbar-border);
+  background: #f8fafc;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.promes-sidebar-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  color: var(--wysiwyg-muted);
+  font-size: 1rem;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all 0.15s;
+}
+
+.promes-sidebar-close:hover {
+  background: #e2e8f0;
+  color: var(--wysiwyg-ink);
+}
+
+.promes-sidebar-section {
+  padding: 12px 16px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.promes-sidebar-section-title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--wysiwyg-muted);
+  margin-bottom: 8px;
+}
+
+.promes-sidebar-section > label,
+.promes-sidebar-section > .space-y-2 > label {
+  margin-bottom: 6px;
+}
+
+.promes-sidebar-footer {
+  margin-top: auto;
+  border-top: 1px solid var(--wysiwyg-toolbar-border);
+  background: #f8fafc;
+}
+
+/* Summary definition list in sidebar */
+.promes-summary-dl {
+  display: grid;
+  gap: 4px;
+  font-size: 0.75rem;
+}
+
+.promes-summary-dl div {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 2px 0;
+}
+
+.promes-summary-dl dt {
+  color: var(--wysiwyg-muted);
+}
+
+.promes-summary-dl dd {
+  font-weight: 600;
+  color: var(--wysiwyg-ink);
+}
+
+/* Distribution list in sidebar */
+.promes-distribution-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.promes-distribution-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 4px 8px;
+  background: #f8fafc;
+  border-radius: 4px;
+  font-size: 0.7rem;
+}
+
+.promes-distribution-title {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--wysiwyg-ink);
+}
+
+/* Document area (flex: 1) */
+.promes-document-area {
+  flex: 1;
+  min-width: 0; /* prevent flex overflow */
+  display: flex;
+  flex-direction: column;
+}
+
+/* Sidebar toggle button (floating, when sidebar is hidden) */
+.promes-sidebar-toggle {
+  position: fixed;
+  top: 80px;
+  left: 12px;
+  z-index: 45;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  border: 1px solid var(--wysiwyg-toolbar-border);
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  font-size: 1.1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  color: var(--wysiwyg-muted);
+}
+
+.promes-sidebar-toggle:hover {
+  background: #f1f5f9;
+  color: var(--wysiwyg-ink);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Responsive: sidebar becomes overlay on tablet/mobile */
+@media screen and (max-width: 1024px) {
+  .promes-wysiwyg-layout {
+    flex-direction: column;
+  }
+
+  .promes-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    z-index: 60;
+    width: 320px;
+    transform: translateX(0);
+    transition: transform 0.2s ease;
+  }
+
+  /* Sidebar overlay backdrop */
+  .promes-sidebar::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.3);
+    z-index: -1;
+    pointer-events: none;
+  }
+
+  .promes-document-area {
+    width: 100%;
+  }
+}
+
+@media screen and (max-width: 640px) {
+  .promes-sidebar {
+    width: 100%;
+    max-width: 100%;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/*  Print mode                                                        */
+/* ------------------------------------------------------------------ */
+
 @media print {
   @page {
     size: A4 portrait;
@@ -348,6 +565,8 @@
 
   /* Toolbar dan elemen non-print disembunyikan */
   .wysiwyg-toolbar,
+  .promes-sidebar,
+  .promes-sidebar-toggle,
   .no-print,
   nav,
   header.app-header,
@@ -356,6 +575,15 @@
   .topbar,
   .bottom-nav {
     display: none !important;
+  }
+
+  /* Promes WYSIWYG layout: reset ke full-width saat print */
+  .promes-wysiwyg-layout {
+    display: block;
+  }
+
+  .promes-document-area {
+    width: 100%;
   }
 
   /* Break rules untuk tabel dan section */
