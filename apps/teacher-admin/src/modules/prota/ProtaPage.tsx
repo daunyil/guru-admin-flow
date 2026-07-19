@@ -4,23 +4,46 @@
  *
  * Filosofi: Prota adalah sumber kebenaran untuk materi, JP, dan tujuan pembelajaran.
  * KO (kokurikuler) hanya catatan struktur, BUKAN bagian dari validasi material.
+ *
+ * WYSIWYG-DOC-FASE4: Prota sebagai dokumen WYSIWYG.
+ *   - Saat profile dipilih → layout WYSIWYG: sidebar (kontrol) + DocumentPreview (dokumen).
+ *   - Saat belum pilih profile → daftar profile (CRUD list).
+ *   - Komponen ProtaDocument merender tabel resmi di kanvas A4.
+ *   - Auto-save ke schoolDocuments (docType: "prota").
+ *   - Uses ensureDoc pattern from FASE3 audit fixes.
  */
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Card, CardHeader, Input, Select, Textarea, Button, EmptyState, Badge } from "../../shared/ui";
 import {
   listProtaProfiles,
   saveProtaProfile,
-  saveProtaUnit,
-  deleteProtaUnit,
-  updateProtaProfile,
-  setProtaProfileStatus,
   importProtaFromJSON,
 } from "../../shared/db/prota-repo";
-import { getActiveAcademicYear, getTeacherProfile } from "../../shared/db/profile-repo";
-import type { ProtaProfile, ProtaUnit } from "@guru-admin/domain";
+import { getActiveAcademicYear, getTeacherProfile, getSchoolProfile } from "../../shared/db/profile-repo";
+import type { ProtaProfile } from "@guru-admin/domain";
 import { sumJP, validateJPTotal } from "@guru-admin/shared";
 import { parseProtaExcelPaste, type ProtaExcelParseResult } from "@guru-admin/domain";
+// WYSIWYG-DOC-FASE4
+import { DocumentPreview } from "../../shared/documents";
+import {
+  saveSchoolDocument,
+  updateSchoolDocumentData,
+  updateSchoolDocumentLayout,
+  setSchoolDocumentStatus,
+  findSchoolDocumentByCompositeKey,
+} from "../../shared/db/school-document-repo";
+import type { SchoolDocOrientation, DocumentStatus } from "@guru-admin/domain";
+
+/* ------------------------------------------------------------------ */
+/*  Constants                                                         */
+/* ------------------------------------------------------------------ */
+
+const MONTH_FULL_ID = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+
+/* ------------------------------------------------------------------ */
+/*  Main Component                                                    */
+/* ------------------------------------------------------------------ */
 
 export function ProtaPage() {
   const [loading, setLoading] = useState(true);
@@ -32,6 +55,17 @@ export function ProtaPage() {
   const [showNew, setShowNew] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+
+  // WYSIWYG-DOC-FASE4
+  const [schoolName, setSchoolName] = useState<string>("");
+  const [showSidebar, setShowSidebar] = useState(
+    typeof window !== "undefined" && window.innerWidth >= 1024
+  );
+  const [formatDokumen, setFormatDokumen] = useState<"portrait" | "landscape">("portrait");
+  const [docId, setDocId] = useState<string | undefined>(undefined);
+  const [docStatus, setDocStatus] = useState<DocumentStatus>("draft");
+  const [docSemester, setDocSemester] = useState<1 | 2>(1);
+  const ensuringRef = useRef(false);
 
   async function reload() {
     if (!activeYearId) return;
@@ -51,6 +85,8 @@ export function ProtaPage() {
         const ps = await listProtaProfiles(year.id);
         setProfiles(ps);
       }
+      const sp = await getSchoolProfile();
+      setSchoolName(sp?.name ?? "");
       setLoading(false);
     })();
   }, []);
@@ -60,6 +96,114 @@ export function ProtaPage() {
     const t = setTimeout(() => { setError(null); setSuccess(null); }, error ? 5000 : 3000);
     return () => clearTimeout(t);
   }, [error, success]);
+
+  // WYSIWYG-DOC-FASE4: ensureDoc (find-or-create schoolDocument)
+  const ensureDoc = useCallback(async (profile: ProtaProfile, semester: 1 | 2) => {
+    if (!activeYearId || !activeYearLabel || !profile) return;
+    if (ensuringRef.current) return;
+    ensuringRef.current = true;
+    try {
+      const existing = await findSchoolDocumentByCompositeKey({
+        docType: "prota",
+        semester,
+        tahunAjaran: activeYearLabel,
+        kodeMapel: profile.subject,
+        kodeKelas: profile.grade,
+        teacherId: profile.teacherId,
+      });
+      if (existing) {
+        setDocId(existing.id);
+        setDocStatus(existing.status);
+        if (existing.orientation) setFormatDokumen(existing.orientation);
+      } else {
+        const doc = await saveSchoolDocument({
+          docType: "prota",
+          semester,
+          tahunAjaran: activeYearLabel,
+          kodeMapel: profile.subject,
+          kodeKelas: profile.grade,
+          teacherId: profile.teacherId,
+          academicYearId: activeYearId,
+          data: { semester, subject: profile.subject, grade: profile.grade, schoolName },
+          orientation: "portrait",
+          status: "draft",
+        });
+        setDocId(doc.id);
+        setDocStatus("draft");
+        setFormatDokumen("portrait");
+      }
+    } finally {
+      ensuringRef.current = false;
+    }
+  }, [activeYearId, activeYearLabel, schoolName]);
+
+  // When selected profile changes, ensure doc
+  const selected = profiles.find((p) => p.id === selectedId) ?? null;
+  useEffect(() => {
+    if (selected) {
+      void ensureDoc(selected, docSemester);
+    } else {
+      setDocId(undefined);
+      setDocStatus("draft");
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected?.id, activeYearId]);
+
+  const handleSemesterChange = useCallback((newSemester: 1 | 2) => {
+    setDocId(undefined);
+    setDocStatus("draft");
+    setDocSemester(newSemester);
+    if (selected) void ensureDoc(selected, newSemester);
+  }, [selected, ensureDoc]);
+
+  // WYSIWYG callbacks
+  const handleSaveDoc = useCallback(async (id: string, data: Record<string, unknown>) => {
+    await updateSchoolDocumentData(id, data);
+  }, []);
+
+  const handleSetFinal = useCallback(async (id: string) => {
+    await setSchoolDocumentStatus(id, "final");
+    setDocStatus("final");
+  }, []);
+
+  const handleOrientationChange = useCallback((orientation: SchoolDocOrientation) => {
+    setFormatDokumen(orientation);
+    if (docId) void updateSchoolDocumentLayout(docId, { orientation });
+  }, [docId]);
+
+  // Auto-save data memo
+  const docDataForAutoSave = useMemo(() => {
+    if (!selected) return {};
+    const semUnits = selected.units.filter((u) => u.semester === docSemester);
+    return {
+      semester: docSemester,
+      tahunAjaran: activeYearLabel,
+      subject: selected.subject,
+      grade: selected.grade,
+      schoolName,
+      totalJP: sumJP(semUnits),
+      unitCount: semUnits.length,
+      unitsSnapshot: semUnits.map((u) => ({
+        order: u.order,
+        title: u.title,
+        jp: u.jp,
+        code: u.code,
+        learningOutcome: u.learningOutcome,
+      })),
+    };
+  }, [selected, docSemester, activeYearLabel, schoolName]);
+
+  // ESC to close modals
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        if (showNew) setShowNew(false);
+        if (showImport) setShowImport(false);
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [showNew, showImport]);
 
   if (loading) return <p className="text-sm text-slate-500">Memuat...</p>;
 
@@ -77,8 +221,133 @@ export function ProtaPage() {
     );
   }
 
-  const selected = profiles.find((p) => p.id === selectedId);
+  /* ================================================================ */
+  /*  WYSIWYG VIEW — profile dipilih, sidebar + document              */
+  /* ================================================================ */
+  if (selected) {
+    const s1Units = selected.units.filter((u) => u.semester === 1);
+    const s2Units = selected.units.filter((u) => u.semester === 2);
+    const semUnits = docSemester === 1 ? s1Units : s2Units;
+    const targetJP = docSemester === 1 ? selected.semester1IntraJP : selected.semester2IntraJP;
+    const validation = validateJPTotal(targetJP, semUnits);
 
+    return (
+      <div className="doc-wysiwyg-layout">
+        {/* ---------- SIDEBAR ---------- */}
+        {showSidebar && (
+          <aside className="doc-sidebar no-print">
+            <div className="doc-sidebar-header">
+              <h2 className="text-sm font-bold text-slate-900">Program Tahunan</h2>
+              <button
+                type="button"
+                className="doc-sidebar-close"
+                onClick={() => setShowSidebar(false)}
+                title="Tutup sidebar"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* -- Konteks -- */}
+            <div className="doc-sidebar-section">
+              <h3 className="doc-sidebar-section-title">Konteks</h3>
+              <Select
+                label="Semester"
+                id="prota-doc-sem"
+                value={String(docSemester)}
+                onChange={(v) => handleSemesterChange(Number(v) as 1 | 2)}
+                options={[{ value: "1", label: "Semester 1 (Ganjil)" }, { value: "2", label: "Semester 2 (Genap)" }]}
+              />
+              <p className="text-xs text-slate-500 mt-1">
+                {selected.subject} — Kelas {selected.grade} · Fase {selected.phase}
+              </p>
+            </div>
+
+            {/* -- Ringkasan -- */}
+            <div className="doc-sidebar-section">
+              <h3 className="doc-sidebar-section-title">Ringkasan</h3>
+              <dl className="doc-summary-dl">
+                <div><dt>Target JP</dt><dd>{targetJP} JP</dd></div>
+                <div><dt>Subtotal materi</dt><dd>{validation.actual} JP</dd></div>
+                <div><dt>Selisih</dt><dd className={validation.status === "valid" ? "kme-effective-text" : "kme-ineffective-text"}>{validation.diff > 0 ? `Kurang ${validation.diff}` : validation.diff < 0 ? `Lebih ${Math.abs(validation.diff)}` : "✓ Tepat"}</dd></div>
+                <div><dt>Jumlah unit</dt><dd>{semUnits.length}</dd></div>
+              </dl>
+            </div>
+
+            {/* -- Daftar Unit -- */}
+            <div className="doc-sidebar-section">
+              <h3 className="doc-sidebar-section-title">Daftar Unit</h3>
+              {semUnits.length === 0 ? (
+                <p className="text-xs text-slate-400 italic">Belum ada unit untuk semester ini.</p>
+              ) : (
+                <ul className="doc-sidebar-list">
+                  {semUnits.map((u) => (
+                    <li key={u.id} className="doc-sidebar-list-item">
+                      <span className="doc-sidebar-list-title">{u.order}. {u.title}</span>
+                      <Badge variant={u.jp > 0 ? "success" : "warning"}>{u.jp} JP</Badge>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            {/* -- Footer -- */}
+            <div className="doc-sidebar-section doc-sidebar-footer">
+              <Button
+                variant="secondary"
+                onClick={() => { setSelectedId(null); setDocId(undefined); }}
+                className="w-full"
+              >
+                ← Kembali ke Daftar Prota
+              </Button>
+            </div>
+          </aside>
+        )}
+
+        {/* ---------- DOCUMENT AREA ---------- */}
+        <div className="doc-document-area">
+          <DocumentPreview
+            docId={docId}
+            docType="prota"
+            orientation={formatDokumen}
+            status={docStatus}
+            data={docDataForAutoSave}
+            onSave={handleSaveDoc}
+            onSetFinal={handleSetFinal}
+            onOrientationChange={handleOrientationChange}
+            showFormatToggle={false}
+          >
+            <ProtaDocument
+              profile={selected}
+              semester={docSemester}
+              schoolName={schoolName}
+              tahunAjaran={activeYearLabel}
+            />
+          </DocumentPreview>
+        </div>
+
+        {/* ---------- SIDEBAR TOGGLE ---------- */}
+        {!showSidebar && (
+          <button
+            type="button"
+            className="doc-sidebar-toggle no-print"
+            onClick={() => setShowSidebar(true)}
+            title="Buka panel kontrol"
+          >
+            ⚙
+          </button>
+        )}
+
+        {/* Toast messages */}
+        {error && <div className="doc-toast doc-toast-error no-print">{error}</div>}
+        {success && <div className="doc-toast doc-toast-success no-print">{success}</div>}
+      </div>
+    );
+  }
+
+  /* ================================================================ */
+  /*  LIST VIEW — daftar profile, belum pilih                         */
+  /* ================================================================ */
   return (
     <div className="space-y-4">
       <Header yearLabel={activeYearLabel} count={profiles.length} />
@@ -145,13 +414,12 @@ export function ProtaPage() {
                       {p.units.length} unit · {sumJP(p.units)} JP
                     </span>
                   </div>
-                  {/* UX-PLAN-06: tombol Buka eksplisit, bukan seluruh row clickable */}
                   <Button
                     variant={selectedId === p.id ? "primary" : "secondary"}
                     className="text-xs px-3 py-1 shrink-0"
-                    onClick={() => setSelectedId(p.id)}
+                    onClick={() => { setSelectedId(p.id); setDocSemester(1); }}
                   >
-                    {selectedId === p.id ? "Dipilih" : "Buka"}
+                    Buka
                   </Button>
                 </div>
               </div>
@@ -159,18 +427,13 @@ export function ProtaPage() {
           </div>
         )}
       </Card>
-
-      {selected && (
-        <ProfileDetail
-          profile={selected}
-          onChanged={() => { void reload(); }}
-          onError={(msg) => setError(msg)}
-          onSuccess={(msg) => setSuccess(msg)}
-        />
-      )}
     </div>
   );
 }
+
+/* ============================================================ */
+/*  Header                                                       */
+/* ============================================================ */
 
 function Header({ yearLabel, count }: { yearLabel?: string; count?: number }) {
   return (
@@ -194,7 +457,6 @@ function statusBadge(status: ProtaProfile["status"]): "success" | "warning" | "e
 }
 
 function statusLabel(status: ProtaProfile["status"]): string {
-  // UX-PLAN-04: label Indonesia (Draf, Siap Dicek, Final, Perlu Revisi, Dikunci)
   switch (status) {
     case "draft": return "Draf";
     case "ready_for_review": return "Siap Dicek";
@@ -260,451 +522,33 @@ function NewProfileForm({
   }
 
   return (
-    <Card>
-      <CardHeader title="Buat Prota Baru" description="Identitas dasar. Materi/units bisa ditambah setelah ini." />
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="grid sm:grid-cols-3 gap-3">
-          <Input label="Mapel" id="p-subject" required value={form.subject} onChange={(v) => set("subject", v)} placeholder="Pendidikan Pancasila" />
-          <Select label="Kelas" id="p-grade" value={form.grade} onChange={(v) => set("grade", v)}
-            options={[{value:"VII",label:"VII"},{value:"VIII",label:"VIII"},{value:"IX",label:"IX"}]} />
-          <Select label="Fase" id="p-phase" value={form.phase} onChange={(v) => set("phase", v)}
-            options={[{value:"D",label:"D (VII-IX)"}]} />
-        </div>
-        <div className="grid sm:grid-cols-3 gap-3">
-          <Input label="Total JP Tahunan (intra)" id="p-annual" type="number" value={String(form.annualIntraJP)} onChange={(v) => set("annualIntraJP", Number(v) || 0)} />
-          <Input label="JP Semester 1 (intra)" id="p-s1" type="number" value={String(form.semester1IntraJP)} onChange={(v) => set("semester1IntraJP", Number(v) || 0)} />
-          <Input label="JP Semester 2 (intra)" id="p-s2" type="number" value={String(form.semester2IntraJP)} onChange={(v) => set("semester2IntraJP", Number(v) || 0)} />
-        </div>
-        <p className="text-xs text-slate-500">
-          ℹ Untuk PPKn SMP: 72 JP intra + 36 JP KO = 108 JP total struktur. KO hanya catatan, tidak mempengaruhi validasi material.
-        </p>
-        <div className="flex gap-2">
-          <Button type="submit" disabled={saving}>{saving ? "Menyimpan..." : "Buat Prota"}</Button>
-          <Button type="button" variant="secondary" onClick={onClose} disabled={saving}>Batal</Button>
-        </div>
-      </form>
-    </Card>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/*  Profile Detail (identity + units + validation + status)            */
-/* ------------------------------------------------------------------ */
-
-function ProfileDetail({
-  profile,
-  onChanged,
-  onError,
-  onSuccess,
-}: {
-  profile: ProtaProfile;
-  onChanged: () => void;
-  onError: (msg: string) => void;
-  onSuccess: (msg: string) => void;
-}) {
-  const [tab, setTab] = useState<"identity" | "units" | "status">("units");
-  const [showUnitForm, setShowUnitForm] = useState(false);
-  const [editingUnit, setEditingUnit] = useState<ProtaUnit | null>(null);
-
-  const s1Units = profile.units.filter((u) => u.semester === 1);
-  const s2Units = profile.units.filter((u) => u.semester === 2);
-  const s1Validation = validateJPTotal(profile.semester1IntraJP, s1Units);
-  const s2Validation = validateJPTotal(profile.semester2IntraJP, s2Units);
-
-  return (
-    <Card>
-      <CardHeader
-        title={`${profile.subject} — Kelas ${profile.grade}`}
-        description={`Fase ${profile.phase} · ${profile.units.length} unit · Status: ${statusLabel(profile.status)}`}
-      />
-
-      <div className="flex gap-1 border-b border-slate-200 mb-4">
-        <TabButton active={tab === "identity"} onClick={() => setTab("identity")}>Identitas</TabButton>
-        <TabButton active={tab === "units"} onClick={() => setTab("units")}>Materi ({profile.units.length})</TabButton>
-        <TabButton active={tab === "status"} onClick={() => setTab("status")}>Status Dokumen</TabButton>
+    <div className="doc-overlay no-print" onClick={onClose}>
+      <div className="doc-overlay-card" onClick={(e) => e.stopPropagation()}>
+        <Card>
+          <CardHeader title="Buat Prota Baru" description="Identitas dasar. Materi/units bisa ditambah setelah ini." />
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="grid sm:grid-cols-3 gap-3">
+              <Input label="Mapel" id="p-subject" required value={form.subject} onChange={(v) => set("subject", v)} placeholder="Pendidikan Pancasila" />
+              <Select label="Kelas" id="p-grade" value={form.grade} onChange={(v) => set("grade", v)}
+                options={[{value:"VII",label:"VII"},{value:"VIII",label:"VIII"},{value:"IX",label:"IX"}]} />
+              <Select label="Fase" id="p-phase" value={form.phase} onChange={(v) => set("phase", v)}
+                options={[{value:"D",label:"D (VII-IX)"}]} />
+            </div>
+            <div className="grid sm:grid-cols-3 gap-3">
+              <Input label="Total JP Tahunan (intra)" id="p-annual" type="number" value={String(form.annualIntraJP)} onChange={(v) => set("annualIntraJP", Number(v) || 0)} />
+              <Input label="JP Semester 1 (intra)" id="p-s1" type="number" value={String(form.semester1IntraJP)} onChange={(v) => set("semester1IntraJP", Number(v) || 0)} />
+              <Input label="JP Semester 2 (intra)" id="p-s2" type="number" value={String(form.semester2IntraJP)} onChange={(v) => set("semester2IntraJP", Number(v) || 0)} />
+            </div>
+            <p className="text-xs text-slate-500">
+              ℹ Untuk PPKn SMP: 72 JP intra + 36 JP KO = 108 JP total struktur. KO hanya catatan, tidak mempengaruhi validasi material.
+            </p>
+            <div className="flex gap-2">
+              <Button type="submit" disabled={saving}>{saving ? "Menyimpan..." : "Buat Prota"}</Button>
+              <Button type="button" variant="secondary" onClick={onClose} disabled={saving}>Batal</Button>
+            </div>
+          </form>
+        </Card>
       </div>
-
-      {tab === "identity" && (
-        <IdentityTab profile={profile} onChanged={onChanged} onError={onError} onSuccess={onSuccess} />
-      )}
-
-      {tab === "units" && (
-        <div className="space-y-4">
-          <div className="grid sm:grid-cols-2 gap-4">
-            <SemesterBlock
-              title="Semester 1"
-              target={profile.semester1IntraJP}
-              units={s1Units}
-              validation={s1Validation}
-              onAdd={() => { setEditingUnit(null); setShowUnitForm(true); }}
-              onEdit={(u) => { setEditingUnit(u); setShowUnitForm(true); }}
-              onDelete={async (u) => {
-                if (window.confirm(`Hapus unit "${u.title}"?`)) {
-                  await deleteProtaUnit(u.id);
-                  onChanged();
-                  onSuccess("Unit dihapus.");
-                }
-              }}
-            />
-            <SemesterBlock
-              title="Semester 2"
-              target={profile.semester2IntraJP}
-              units={s2Units}
-              validation={s2Validation}
-              onAdd={() => { setEditingUnit(null); setShowUnitForm(true); }}
-              onEdit={(u) => { setEditingUnit(u); setShowUnitForm(true); }}
-              onDelete={async (u) => {
-                if (window.confirm(`Hapus unit "${u.title}"?`)) {
-                  await deleteProtaUnit(u.id);
-                  onChanged();
-                  onSuccess("Unit dihapus.");
-                }
-              }}
-            />
-          </div>
-
-          {showUnitForm && (
-            <UnitForm
-              profile={profile}
-              editing={editingUnit}
-              onClose={() => { setShowUnitForm(false); setEditingUnit(null); }}
-              onSaved={() => { setShowUnitForm(false); setEditingUnit(null); onChanged(); }}
-              onError={onError}
-            />
-          )}
-        </div>
-      )}
-
-      {tab === "status" && (
-        <StatusTab profile={profile} onChanged={onChanged} onError={onError} onSuccess={onSuccess} />
-      )}
-    </Card>
-  );
-}
-
-function TabButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button
-      onClick={onClick}
-      className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
-        active ? "border-brand-600 text-brand-700" : "border-transparent text-slate-500 hover:text-slate-900"
-      }`}
-    >
-      {children}
-    </button>
-  );
-}
-
-function SemesterBlock({
-  title,
-  target,
-  units,
-  validation,
-  onAdd,
-  onEdit,
-  onDelete,
-}: {
-  title: string;
-  target: number;
-  units: ProtaUnit[];
-  validation: ReturnType<typeof validateJPTotal>;
-  onAdd: () => void;
-  onEdit: (u: ProtaUnit) => void;
-  onDelete: (u: ProtaUnit) => void;
-}) {
-  return (
-    <div className="border border-slate-200 rounded-md p-3">
-      <div className="flex items-center justify-between mb-2">
-        <h4 className="font-semibold text-sm">{title}</h4>
-        <Button variant="secondary" className="text-xs px-2 py-1" onClick={onAdd}>+ Tambah</Button>
-      </div>
-      <div className="text-xs mb-2">
-        Subtotal: <strong>{validation.actual} JP</strong> / target {target} JP{" "}
-        <Badge variant={validation.status === "valid" ? "success" : "warning"}>
-          {validation.status === "valid" ? "✓ Tepat" : `⚠ ${validation.diff > 0 ? `Kurang ${validation.diff}` : `Lebih ${Math.abs(validation.diff)}`} JP`}
-        </Badge>
-      </div>
-      {units.length === 0 ? (
-        <p className="text-xs text-slate-400 italic">Belum ada unit.</p>
-      ) : (
-        <ul className="space-y-1">
-          {units.map((u) => (
-            <li key={u.id} className="flex items-center justify-between text-xs p-2 bg-slate-50 rounded">
-              <div className="flex-1 min-w-0">
-                <span className="font-medium">{u.order}. {u.title}</span>
-                <span className="text-slate-500 ml-2">({u.jp} JP)</span>
-              </div>
-              <div className="flex gap-1">
-                <button onClick={() => onEdit(u)} className="text-brand-600 hover:underline">edit</button>
-                <button onClick={() => onDelete(u)} className="text-rose-600 hover:underline">hapus</button>
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-}
-
-function UnitForm({
-  profile,
-  editing,
-  onClose,
-  onSaved,
-  onError,
-}: {
-  profile: ProtaProfile;
-  editing: ProtaUnit | null;
-  onClose: () => void;
-  onSaved: () => void;
-  onError: (msg: string) => void;
-}) {
-  const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({
-    semester: editing?.semester ?? (1 as 1 | 2),
-    title: editing?.title ?? "",
-    jp: editing?.jp ?? 2,
-    order: editing?.order ?? (profile.units.filter((u) => u.semester === (editing?.semester ?? 1)).length + 1),
-    code: editing?.code ?? "",
-    learningOutcome: editing?.learningOutcome ?? "",
-  });
-
-  const set = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) =>
-    setForm((f) => ({ ...f, [key]: value }));
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setSaving(true);
-    try {
-      await saveProtaUnit(profile.id, {
-        id: editing?.id,
-        semester: form.semester,
-        title: form.title,
-        jp: form.jp,
-        order: form.order,
-        code: form.code || undefined,
-        learningOutcome: form.learningOutcome || undefined,
-      });
-      onSaved();
-    } catch (e) {
-      onError(e instanceof Error ? e.message : "Gagal menyimpan unit.");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <Card>
-      <CardHeader title={editing ? "Edit Unit" : "Tambah Unit"} />
-      <form onSubmit={handleSubmit} className="space-y-3">
-        <div className="grid sm:grid-cols-2 gap-3">
-          <Select label="Semester" id="u-sem" value={String(form.semester)} onChange={(v) => set("semester", Number(v) as 1 | 2)}
-            options={[{value:"1",label:"Semester 1"},{value:"2",label:"Semester 2"}]} />
-          <Input label="Urutan (order)" id="u-order" type="number" value={String(form.order)} onChange={(v) => set("order", Number(v) || 1)} />
-        </div>
-        <Input label="Judul Materi/TP" id="u-title" required value={form.title} onChange={(v) => set("title", v)} placeholder="Budaya Demokrasi" />
-        <div className="grid sm:grid-cols-2 gap-3">
-          <Input label="JP" id="u-jp" type="number" value={String(form.jp)} onChange={(v) => set("jp", Number(v) || 1)} hint="Bilangan bulat positif" />
-          <Input label="Kode (opsional)" id="u-code" value={form.code} onChange={(v) => set("code", v)} placeholder="PP.7.1" />
-        </div>
-        <Textarea label="Tujuan Pembelajaran (opsional)" id="u-lo" value={form.learningOutcome} onChange={(v) => set("learningOutcome", v)} rows={3} />
-        <div className="flex gap-2">
-          <Button type="submit" disabled={saving}>{saving ? "Menyimpan..." : "Simpan"}</Button>
-          <Button type="button" variant="secondary" onClick={onClose} disabled={saving}>Batal</Button>
-        </div>
-      </form>
-    </Card>
-  );
-}
-
-function IdentityTab({
-  profile,
-  onChanged,
-  onError,
-  onSuccess,
-}: {
-  profile: ProtaProfile;
-  onChanged: () => void;
-  onError: (msg: string) => void;
-  onSuccess: (msg: string) => void;
-}) {
-  const [editing, setEditing] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({
-    subject: profile.subject,
-    grade: profile.grade,
-    phase: profile.phase,
-    annualIntraJP: profile.annualIntraJP,
-    semester1IntraJP: profile.semester1IntraJP,
-    semester2IntraJP: profile.semester2IntraJP,
-    annualCocurricularJP: profile.annualCocurricularJP ?? 0,
-    semester1CocurricularJP: profile.semester1CocurricularJP ?? 0,
-    semester2CocurricularJP: profile.semester2CocurricularJP ?? 0,
-  });
-
-  const set = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) =>
-    setForm((f) => ({ ...f, [key]: value }));
-
-  async function handleSave() {
-    setSaving(true);
-    try {
-      await updateProtaProfile(profile.id, {
-        subject: form.subject,
-        grade: form.grade,
-        phase: form.phase,
-        annualIntraJP: form.annualIntraJP,
-        semester1IntraJP: form.semester1IntraJP,
-        semester2IntraJP: form.semester2IntraJP,
-        annualCocurricularJP: form.annualCocurricularJP || undefined,
-        semester1CocurricularJP: form.semester1CocurricularJP || undefined,
-        semester2CocurricularJP: form.semester2CocurricularJP || undefined,
-      });
-      setEditing(false);
-      onChanged();
-      onSuccess("Identitas Prota disimpan.");
-    } catch (e) {
-      onError(e instanceof Error ? e.message : "Gagal menyimpan.");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  if (!editing) {
-    return (
-      <div className="space-y-3 text-sm">
-        <div className="grid sm:grid-cols-3 gap-3">
-          <Field label="Mapel" value={profile.subject} />
-          <Field label="Kelas" value={profile.grade} />
-          <Field label="Fase" value={profile.phase} />
-        </div>
-        <div className="grid sm:grid-cols-3 gap-3">
-          <Field label="Total JP Tahunan (intra)" value={`${profile.annualIntraJP} JP`} />
-          <Field label="JP Semester 1 (intra)" value={`${profile.semester1IntraJP} JP`} />
-          <Field label="JP Semester 2 (intra)" value={`${profile.semester2IntraJP} JP`} />
-        </div>
-        {profile.annualCocurricularJP !== undefined && (
-          <div className="grid sm:grid-cols-3 gap-3">
-            <Field label="Total JP Tahunan (KO)" value={`${profile.annualCocurricularJP} JP`} />
-            <Field label="JP Semester 1 (KO)" value={`${profile.semester1CocurricularJP ?? 0} JP`} />
-            <Field label="JP Semester 2 (KO)" value={`${profile.semester2CocurricularJP ?? 0} JP`} />
-          </div>
-        )}
-        <Button variant="secondary" onClick={() => setEditing(true)}>Edit Identitas</Button>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-3">
-      <div className="grid sm:grid-cols-3 gap-3">
-        <Input label="Mapel" id="i-subject" value={form.subject} onChange={(v) => set("subject", v)} />
-        <Select label="Kelas" id="i-grade" value={form.grade} onChange={(v) => set("grade", v)}
-          options={[{value:"VII",label:"VII"},{value:"VIII",label:"VIII"},{value:"IX",label:"IX"}]} />
-        <Select label="Fase" id="i-phase" value={form.phase} onChange={(v) => set("phase", v)}
-          options={[{value:"D",label:"D"}]} />
-      </div>
-      <div className="grid sm:grid-cols-3 gap-3">
-        <Input label="Total JP Tahunan (intra)" id="i-annual" type="number" value={String(form.annualIntraJP)} onChange={(v) => set("annualIntraJP", Number(v) || 0)} />
-        <Input label="JP Semester 1 (intra)" id="i-s1" type="number" value={String(form.semester1IntraJP)} onChange={(v) => set("semester1IntraJP", Number(v) || 0)} />
-        <Input label="JP Semester 2 (intra)" id="i-s2" type="number" value={String(form.semester2IntraJP)} onChange={(v) => set("semester2IntraJP", Number(v) || 0)} />
-      </div>
-      <div className="grid sm:grid-cols-3 gap-3">
-        <Input label="Total JP Tahunan (KO)" id="i-ko-annual" type="number" value={String(form.annualCocurricularJP)} onChange={(v) => set("annualCocurricularJP", Number(v) || 0)} />
-        <Input label="JP Semester 1 (KO)" id="i-ko-s1" type="number" value={String(form.semester1CocurricularJP)} onChange={(v) => set("semester1CocurricularJP", Number(v) || 0)} />
-        <Input label="JP Semester 2 (KO)" id="i-ko-s2" type="number" value={String(form.semester2CocurricularJP)} onChange={(v) => set("semester2CocurricularJP", Number(v) || 0)} />
-      </div>
-      <p className="text-xs text-slate-500">
-        ℹ KO hanya catatan struktur. Validasi material hanya pakai JP intrakurikuler.
-      </p>
-      <div className="flex gap-2">
-        <Button onClick={handleSave} disabled={saving}>{saving ? "Menyimpan..." : "Simpan"}</Button>
-        <Button variant="secondary" onClick={() => setEditing(false)} disabled={saving}>Batal</Button>
-      </div>
-    </div>
-  );
-}
-
-function Field({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <p className="text-xs text-slate-500 uppercase tracking-wider">{label}</p>
-      <p className="text-sm font-medium">{value}</p>
-    </div>
-  );
-}
-
-function StatusTab({
-  profile,
-  onChanged,
-  onError,
-  onSuccess,
-}: {
-  profile: ProtaProfile;
-  onChanged: () => void;
-  onError: (msg: string) => void;
-  onSuccess: (msg: string) => void;
-}) {
-  const s1Units = profile.units.filter((u) => u.semester === 1);
-  const s2Units = profile.units.filter((u) => u.semester === 2);
-  const s1Valid = validateJPTotal(profile.semester1IntraJP, s1Units).status === "valid";
-  const s2Valid = validateJPTotal(profile.semester2IntraJP, s2Units).status === "valid";
-  const allValid = s1Valid && s2Valid;
-
-  async function transition(newStatus: ProtaProfile["status"]) {
-    try {
-      await setProtaProfileStatus(profile.id, newStatus);
-      onChanged();
-      onSuccess(`Status Prota diubah ke ${statusLabel(newStatus)}.`);
-    } catch (e) {
-      onError(e instanceof Error ? e.message : "Gagal ubah status.");
-    }
-  }
-
-  return (
-    <div className="space-y-4 text-sm">
-      <div className="p-3 rounded-md bg-slate-50 border border-slate-200">
-        <p className="font-medium mb-2">Validasi JP (untuk transisi ke Ready for Review):</p>
-        <ul className="space-y-1 text-xs">
-          <li>Semester 1: {s1Valid ? "✓" : "✗"} subtotal {sumJP(s1Units)} JP / target {profile.semester1IntraJP} JP</li>
-          <li>Semester 2: {s2Valid ? "✓" : "✗"} subtotal {sumJP(s2Units)} JP / target {profile.semester2IntraJP} JP</li>
-        </ul>
-        {!allValid && profile.status === "draft" && (
-          <p className="text-xs text-amber-600 mt-2">⚠ Validasi JP belum pass. Tidak bisa transisi ke Ready for Review.</p>
-        )}
-      </div>
-
-      <div className="flex flex-wrap gap-2">
-        {profile.status === "draft" && (
-          <Button
-            disabled={!allValid}
-            onClick={() => transition("ready_for_review")}
-          >
-            Tandai Ready for Review
-          </Button>
-        )}
-        {profile.status === "ready_for_review" && (
-          <>
-            <Button variant="secondary" onClick={() => transition("draft")}>Kembali ke Draft</Button>
-            <Button onClick={() => transition("final")}>Tandai Final</Button>
-          </>
-        )}
-        {profile.status === "final" && (
-          <>
-            <Button variant="secondary" onClick={() => transition("revised")}>Buat Revisi</Button>
-            <Button onClick={() => transition("locked")}>Lock Permanen</Button>
-          </>
-        )}
-        {profile.status === "revised" && (
-          <Button onClick={() => transition("final")}>Tandai Final Lagi</Button>
-        )}
-        {profile.status === "locked" && (
-          <p className="text-xs text-slate-500 italic">Dokumen terkunci permanen. Tidak bisa diubah.</p>
-        )}
-      </div>
-
-      {profile.status === "final" || profile.status === "locked" ? (
-        <p className="text-xs text-slate-500">Dokumen sudah berstatus {statusLabel(profile.status)} (snapshot tersimpan).</p>
-      ) : null}
     </div>
   );
 }
@@ -764,7 +608,6 @@ function ImportModal({
           onError(result.errors);
         }
       } else {
-        // Excel paste
         if (!excelPreview || excelPreview.units.length === 0) {
           onError(["Tidak ada unit valid untuk diimpor. Klik Preview dulu."]);
           setImporting(false);
@@ -776,7 +619,6 @@ function ImportModal({
           return;
         }
 
-        // P1-3: cek duplikat ProtaProfile (subject+grade+year sama).
         const existing = await listProtaProfiles(academicYearId);
         const duplicate = existing.find(
           (p) => p.subject === excelMeta.subject && p.grade === excelMeta.grade
@@ -790,7 +632,6 @@ function ImportModal({
           return;
         }
 
-        // P1-4: validasi konsistensi JP (warning saja, tidak block).
         const jpInconsistency: string[] = [];
         if (
           excelMeta.annualIntraJP > 0 &&
@@ -801,7 +642,6 @@ function ImportModal({
           );
         }
 
-        // P0-2: konfirmasi sebelum apply.
         const ok = window.confirm(
           `Impor Prota ${excelMeta.subject} kelas ${excelMeta.grade} dengan ${excelPreview.units.length} unit? ` +
           (jpInconsistency.length > 0 ? jpInconsistency.join(" ") + " " : "") +
@@ -812,7 +652,6 @@ function ImportModal({
           return;
         }
 
-        // P0-3: pakai saveProtaProfile dengan units sekaligus (atomic transaction di repo).
         const profile = await saveProtaProfile({
           subject: excelMeta.subject,
           grade: excelMeta.grade,
@@ -846,102 +685,249 @@ function ImportModal({
   }
 
   return (
-    <Card>
-      <CardHeader
-        title="Impor Prota"
-        description="Mode JSON (format guru-admin-flow/prota/v1) atau Excel paste. Prota baru akan dibuat dengan status draft."
-      />
-      <div className="space-y-3">
-        <Select
-          label="Mode Impor"
-          id="prota-import-mode"
-          value={mode}
-          onChange={(v) => { setMode(v as "json" | "excel"); setExcelPreview(null); }}
-          options={[
-            { value: "json", label: "JSON (format guru-admin-flow/prota/v1)" },
-            { value: "excel", label: "Excel Paste (tab/koma/semicolon)" },
-          ]}
-        />
+    <div className="doc-overlay no-print" onClick={onClose}>
+      <div className="doc-overlay-card" onClick={(e) => e.stopPropagation()}>
+        <Card>
+          <CardHeader
+            title="Impor Prota"
+            description="Mode JSON (format guru-admin-flow/prota/v1) atau Excel paste. Prota baru akan dibuat dengan status draft."
+          />
+          <div className="space-y-3">
+            <Select
+              label="Mode Impor"
+              id="prota-import-mode"
+              value={mode}
+              onChange={(v) => { setMode(v as "json" | "excel"); setExcelPreview(null); }}
+              options={[
+                { value: "json", label: "JSON (format guru-admin-flow/prota/v1)" },
+                { value: "excel", label: "Excel Paste (tab/koma/semicolon)" },
+              ]}
+            />
 
-        {mode === "json" ? (
-          <Textarea
-            label="JSON Prota"
-            id="import-prota-json"
-            value={jsonText}
-            onChange={setJsonText}
-            rows={12}
-            placeholder={`{
+            {mode === "json" ? (
+              <Textarea
+                label="JSON Prota"
+                id="import-prota-json"
+                value={jsonText}
+                onChange={setJsonText}
+                rows={12}
+                placeholder={`{
   "$schema": "guru-admin-flow/prota/v1",
   "subject": "Pendidikan Pancasila",
   "grade": "VII",
   ...
 }`}
-          />
-        ) : (
-          <>
-            <div className="grid sm:grid-cols-3 gap-3">
-              <Input label="Subject" id="prota-excel-subject" value={excelMeta.subject} onChange={(v) => setExcelMeta({ ...excelMeta, subject: v })} />
-              <Input label="Grade" id="prota-excel-grade" value={excelMeta.grade} onChange={(v) => setExcelMeta({ ...excelMeta, grade: v })} />
-              <Input label="Phase" id="prota-excel-phase" value={excelMeta.phase} onChange={(v) => setExcelMeta({ ...excelMeta, phase: v })} />
-              <Input label="Annual Intra JP" id="prota-excel-annual" type="number" value={String(excelMeta.annualIntraJP)} onChange={(v) => setExcelMeta({ ...excelMeta, annualIntraJP: Number(v) || 0 })} />
-              <Input label="Sem 1 Intra JP" id="prota-excel-sem1" type="number" value={String(excelMeta.semester1IntraJP)} onChange={(v) => setExcelMeta({ ...excelMeta, semester1IntraJP: Number(v) || 0 })} />
-              <Input label="Sem 2 Intra JP" id="prota-excel-sem2" type="number" value={String(excelMeta.semester2IntraJP)} onChange={(v) => setExcelMeta({ ...excelMeta, semester2IntraJP: Number(v) || 0 })} />
-            </div>
-            <Textarea
-              label="Paste dari Excel (header: Semester, Materi, JP, Order, Code, Learning Outcome)"
-              id="import-prota-excel"
-              value={excelText}
-              onChange={(v) => { setExcelText(v); setExcelPreview(null); }}
-              rows={10}
-              placeholder={"Semester\tMateri\tJP\tOrder\tCode\tLearning Outcome\n1\tBab 1: Norma\t2\t1\tM1\tMemahami norma\n2\tBab 3: Hukum\t2\t2\tM3\tMemahami hukum"}
-            />
-            <Button variant="secondary" className="text-sm" onClick={handleExcelPreview} disabled={!excelText.trim()}>
-              Preview Parse
-            </Button>
-            {excelPreview && (
-              <div className="p-3 bg-slate-50 rounded-md text-sm space-y-2">
-                <p className="font-semibold text-emerald-700">
-                  ✓ {excelPreview.units.length} unit siap diimpor
-                  {excelPreview.skippedRows.length > 0 && (
-                    <span className="text-amber-700"> · {excelPreview.skippedRows.length} baris di-skip</span>
-                  )}
-                </p>
-                {excelPreview.skippedRows.length > 0 && (
-                  <div className="max-h-32 overflow-y-auto text-xs text-rose-700">
-                    <p className="font-semibold">Baris di-skip:</p>
-                    {excelPreview.skippedRows.map((s, i) => (
-                      <div key={i} className="p-1">Baris {s.lineNumber}: {s.reason}</div>
-                    ))}
-                  </div>
-                )}
-                {excelPreview.units.length > 0 && (
-                  <div className="max-h-48 overflow-y-auto text-xs">
-                    {excelPreview.units.map((u, i) => (
-                      <div key={i} className="p-1 border-b border-slate-200">
-                        S{u.semester} · <strong>{u.title}</strong> · {u.jp} JP · order {u.order}
-                        {u.code && <span className="text-slate-500"> · {u.code}</span>}
+              />
+            ) : (
+              <>
+                <div className="grid sm:grid-cols-3 gap-3">
+                  <Input label="Subject" id="prota-excel-subject" value={excelMeta.subject} onChange={(v) => setExcelMeta({ ...excelMeta, subject: v })} />
+                  <Input label="Grade" id="prota-excel-grade" value={excelMeta.grade} onChange={(v) => setExcelMeta({ ...excelMeta, grade: v })} />
+                  <Input label="Phase" id="prota-excel-phase" value={excelMeta.phase} onChange={(v) => setExcelMeta({ ...excelMeta, phase: v })} />
+                  <Input label="Annual Intra JP" id="prota-excel-annual" type="number" value={String(excelMeta.annualIntraJP)} onChange={(v) => setExcelMeta({ ...excelMeta, annualIntraJP: Number(v) || 0 })} />
+                  <Input label="Sem 1 Intra JP" id="prota-excel-sem1" type="number" value={String(excelMeta.semester1IntraJP)} onChange={(v) => setExcelMeta({ ...excelMeta, semester1IntraJP: Number(v) || 0 })} />
+                  <Input label="Sem 2 Intra JP" id="prota-excel-sem2" type="number" value={String(excelMeta.semester2IntraJP)} onChange={(v) => setExcelMeta({ ...excelMeta, semester2IntraJP: Number(v) || 0 })} />
+                </div>
+                <Textarea
+                  label="Paste dari Excel (header: Semester, Materi, JP, Order, Code, Learning Outcome)"
+                  id="import-prota-excel"
+                  value={excelText}
+                  onChange={(v) => { setExcelText(v); setExcelPreview(null); }}
+                  rows={10}
+                  placeholder={"Semester\tMateri\tJP\tOrder\tCode\tLearning Outcome\n1\tBab 1: Norma\t2\t1\tM1\tMemahami norma\n2\tBab 3: Hukum\t2\t2\tM3\tMemahami hukum"}
+                />
+                <Button variant="secondary" className="text-sm" onClick={handleExcelPreview} disabled={!excelText.trim()}>
+                  Preview Parse
+                </Button>
+                {excelPreview && (
+                  <div className="p-3 bg-slate-50 rounded-md text-sm space-y-2">
+                    <p className="font-semibold text-emerald-700">
+                      ✓ {excelPreview.units.length} unit siap diimpor
+                      {excelPreview.skippedRows.length > 0 && (
+                        <span className="text-amber-700"> · {excelPreview.skippedRows.length} baris di-skip</span>
+                      )}
+                    </p>
+                    {excelPreview.skippedRows.length > 0 && (
+                      <div className="max-h-32 overflow-y-auto text-xs text-rose-700">
+                        <p className="font-semibold">Baris di-skip:</p>
+                        {excelPreview.skippedRows.map((s, i) => (
+                          <div key={i} className="p-1">Baris {s.lineNumber}: {s.reason}</div>
+                        ))}
                       </div>
-                    ))}
+                    )}
+                    {excelPreview.units.length > 0 && (
+                      <div className="max-h-48 overflow-y-auto text-xs">
+                        {excelPreview.units.map((u, i) => (
+                          <div key={i} className="p-1 border-b border-slate-200">
+                            S{u.semester} · <strong>{u.title}</strong> · {u.jp} JP · order {u.order}
+                            {u.code && <span className="text-slate-500"> · {u.code}</span>}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
-              </div>
+              </>
             )}
-          </>
-        )}
 
-        <div className="flex gap-2">
-          <Button
-            onClick={handleImport}
-            disabled={
-              importing ||
-              (mode === "json" ? !jsonText.trim() : !excelPreview || excelPreview.units.length === 0)
-            }
-          >
-            {importing ? "Mengimpor..." : "Impor Prota"}
-          </Button>
-          <Button variant="secondary" onClick={onClose} disabled={importing}>Batal</Button>
+            <div className="flex gap-2">
+              <Button
+                onClick={handleImport}
+                disabled={
+                  importing ||
+                  (mode === "json" ? !jsonText.trim() : !excelPreview || excelPreview.units.length === 0)
+                }
+              >
+                {importing ? "Mengimpor..." : "Impor Prota"}
+              </Button>
+              <Button variant="secondary" onClick={onClose} disabled={importing}>Batal</Button>
+            </div>
+          </div>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================ */
+/*  Prota Document (A4 portrait)                                 */
+/* ============================================================ */
+
+function ProtaDocument({
+  profile,
+  semester,
+  schoolName,
+  tahunAjaran,
+}: {
+  profile: ProtaProfile;
+  semester: 1 | 2;
+  schoolName: string;
+  tahunAjaran: string;
+}) {
+  const semUnits = profile.units.filter((u) => u.semester === semester);
+  const targetJP = semester === 1 ? profile.semester1IntraJP : profile.semester2IntraJP;
+  const subtotalJP = sumJP(semUnits);
+  const koJP = semester === 1
+    ? (profile.semester1CocurricularJP ?? 0)
+    : (profile.semester2CocurricularJP ?? 0);
+  const totalJP = subtotalJP + koJP;
+
+  return (
+    <div className="print-area">
+      <div className="document-page document-portrait">
+        <div className="document-title">PROGRAM TAHUNAN</div>
+        <div className="document-subtitle">
+          SEMESTER {semester === 1 ? "1 (GANJIL)" : "2 (GENAP)"} — TAHUN PELAJARAN {tahunAjaran}
+        </div>
+
+        {/* Identity table */}
+        <table className="document-identity">
+          <tbody>
+            <tr>
+              <td>Satuan Pendidikan</td>
+              <td>{schoolName || "-"}</td>
+              <td>Semester</td>
+              <td>{semester === 1 ? "Ganjil" : "Genap"}</td>
+            </tr>
+            <tr>
+              <td>Mata Pelajaran</td>
+              <td>{profile.subject}</td>
+              <td>Kelas / Fase</td>
+              <td>{profile.grade} / {profile.phase}</td>
+            </tr>
+            <tr>
+              <td>Tahun Pelajaran</td>
+              <td>{tahunAjaran}</td>
+              <td>Alokasi Waktu</td>
+              <td>{subtotalJP} JP intra{koJP > 0 ? ` + ${koJP} JP KO` : ""}</td>
+            </tr>
+          </tbody>
+        </table>
+
+        {/* Main table: Unit Materi */}
+        <div className="document-section-title">DAFTAR MATERI / TUJUAN PEMBELAJARAN</div>
+        <table className="document-table prota-table">
+          <thead>
+            <tr>
+              <th style={{ width: "6%" }}>No</th>
+              <th style={{ width: "8%" }}>Kode</th>
+              <th>Materi / Tujuan Pembelajaran</th>
+              <th style={{ width: "10%" }}>JP</th>
+            </tr>
+          </thead>
+          <tbody>
+            {semUnits.length === 0 ? (
+              <tr>
+                <td colSpan={4} className="text-center text-slate-400 italic">Belum ada unit</td>
+              </tr>
+            ) : (
+              semUnits.map((u) => (
+                <tr key={u.id}>
+                  <td className="text-center">{u.order}</td>
+                  <td className="text-center">{u.code || "-"}</td>
+                  <td>
+                    <span className="font-medium">{u.title}</span>
+                    {u.learningOutcome && (
+                      <span className="prota-lo-text"><br />{u.learningOutcome}</span>
+                    )}
+                  </td>
+                  <td className="text-center">{u.jp}</td>
+                </tr>
+              ))
+            )}
+          </tbody>
+          <tfoot>
+            <tr>
+              <td colSpan={3} className="text-right"><strong>Subtotal JP Intrakurikuler</strong></td>
+              <td className="text-center"><strong>{subtotalJP}</strong></td>
+            </tr>
+            {koJP > 0 && (
+              <tr>
+                <td colSpan={3} className="text-right">JP Kokurikuler</td>
+                <td className="text-center">{koJP}</td>
+              </tr>
+            )}
+            {koJP > 0 && (
+              <tr>
+                <td colSpan={3} className="text-right"><strong>Total JP</strong></td>
+                <td className="text-center"><strong>{totalJP}</strong></td>
+              </tr>
+            )}
+            <tr>
+              <td colSpan={3} className="text-right">Target JP Intrakurikuler</td>
+              <td className="text-center">{targetJP}</td>
+            </tr>
+            <tr>
+              <td colSpan={3} className="text-right">
+                <strong>Selisih</strong>
+              </td>
+              <td className="text-center">
+                <strong className={subtotalJP === targetJP ? "kme-effective-text" : "kme-ineffective-text"}>
+                  {subtotalJP === targetJP ? "✓ Tepat" : `${subtotalJP > targetJP ? "Lebih" : "Kurang"} ${Math.abs(subtotalJP - targetJP)} JP`}
+                </strong>
+              </td>
+            </tr>
+          </tfoot>
+        </table>
+
+        {/* Signature */}
+        <div className="signature-grid" style={{ marginTop: "24pt" }}>
+          <div>
+            <p>Mengetahui,</p>
+            <p>Kepala Sekolah</p>
+            <div className="sig-space" />
+            <p className="sig-name">(........................................)</p>
+            <p>NIP. .....................</p>
+          </div>
+          <div>
+            <p>..........., {MONTH_FULL_ID[new Date().getMonth()]} {new Date().getFullYear()}</p>
+            <p>Guru Mata Pelajaran</p>
+            <div className="sig-space" />
+            <p className="sig-name">(........................................)</p>
+            <p>NIP. .....................</p>
+          </div>
         </div>
       </div>
-    </Card>
+    </div>
   );
 }
