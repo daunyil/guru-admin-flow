@@ -424,6 +424,126 @@
   color: var(--wysiwyg-ink);
 }
 
+/* Sidebar event items (two-row layout for CalendarPage) */
+.doc-sidebar-list-events {
+  max-height: 180px;
+}
+
+.doc-sidebar-event-item {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.doc-sidebar-event-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+}
+
+.doc-sidebar-event-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.doc-sidebar-event-dates {
+  font-size: 10px;
+  color: var(--wysiwyg-muted);
+}
+
+.doc-sidebar-event-actions {
+  display: flex;
+  gap: 2px;
+}
+
+.doc-sidebar-action-btn {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 10px;
+  padding: 0 2px;
+  transition: opacity 0.15s;
+}
+
+.doc-sidebar-action-btn:hover {
+  opacity: 0.7;
+}
+
+.doc-sidebar-action-edit {
+  color: #2563eb;
+}
+
+.doc-sidebar-action-delete {
+  color: var(--wysiwyg-danger);
+}
+
+/* Sidebar blocked-week items */
+.doc-sidebar-list-blocked {
+  max-height: 160px;
+}
+
+.doc-sidebar-blocked-item {
+  background: #fef2f2;
+}
+
+/* Sidebar footer text */
+.doc-sidebar-footer-text {
+  font-size: 10px;
+  color: var(--wysiwyg-muted);
+  text-align: center;
+}
+
+/* Overlay (modal backdrop) */
+.doc-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.doc-overlay-card {
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
+  width: 100%;
+  max-width: 560px;
+  max-height: 90vh;
+  overflow-y: auto;
+  margin: 16px;
+}
+
+/* Toast notifications */
+.doc-toast {
+  position: fixed;
+  bottom: 16px;
+  right: 16px;
+  z-index: 80;
+  padding: 10px 16px;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  max-width: 24rem;
+}
+
+.doc-toast-error {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+}
+
+.doc-toast-success {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: #15803d;
+}
+
 /* Document area (flex: 1) */
 .doc-document-area {
   flex: 1;
@@ -619,6 +739,8 @@
   .wysiwyg-toolbar,
   .doc-sidebar,
   .doc-sidebar-toggle,
+  .doc-overlay,
+  .doc-toast,
   .no-print,
   nav,
   header.app-header,

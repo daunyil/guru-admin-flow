@@ -8,9 +8,18 @@
  *   - Komponen KalenderMEDocument merender tabel resmi di kanvas A4.
  *   - Auto-save ke schoolDocuments (docType: "kalender-minggu-efektif").
  *   - Tidak ada toggle mode — dokumen selalu terlihat (true WYSIWYG).
+ *
+ * AUDIT FIXES:
+ *   A1: Replace two competing useEffects (load-existing + create-if-missing) with single
+ *       ensureDoc() that atomically finds-or-creates. Avoids race condition / duplicate docs.
+ *   A2: Load-existing useEffect no longer has docSemester in deps — instead, semester
+ *       changes call handleSemesterChange() which explicitly resets docId and re-ensures.
+ *   A3: Semester change resets docId first, so auto-save targets the correct doc.
+ *   A5: Edit button stores the CalendarEvent directly (no more updateCalendarEvent hack).
+ *   A7: Modal overlays close on ESC key.
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Card, CardHeader, Input, Select, Textarea, Button, EmptyState, Badge } from "../../shared/ui";
 import {
   listCalendarEvents,
@@ -176,6 +185,9 @@ export function CalendarPage() {
   const [docId, setDocId] = useState<string | undefined>(undefined);
   const [docStatus, setDocStatus] = useState<DocumentStatus>("draft");
 
+  // A1: guard to prevent concurrent ensureDoc calls
+  const ensuringRef = useRef(false);
+
   async function reload() {
     if (!activeYearId) return;
     const evs = await listCalendarEvents(activeYearId);
@@ -206,28 +218,57 @@ export function CalendarPage() {
     return () => clearTimeout(t);
   }, [error, success]);
 
-  // WYSIWYG-DOC-FASE3: load existing schoolDocument on mount / semester change
-  useEffect(() => {
+  /* ---------------------------------------------------------------- */
+  /*  A1+A2+A3: Single ensureDoc — find existing or create new.       */
+  /*  Called on initial load and when semester changes.                */
+  /* ---------------------------------------------------------------- */
+  const ensureDoc = useCallback(async (semester: 1 | 2) => {
     if (!activeYearId || !activeYearLabel) return;
-    void (async () => {
+    if (ensuringRef.current) return; // prevent concurrent runs
+    ensuringRef.current = true;
+
+    try {
+      // First, try to find existing document for this composite key
       const existing = await findSchoolDocumentByCompositeKey({
         docType: "kalender-minggu-efektif",
-        semester: docSemester,
+        semester,
         tahunAjaran: activeYearLabel,
-        teacherId: "__system__", // Kalender is per-school, not per-teacher
+        teacherId: "__system__",
       });
+
       if (existing) {
         setDocId(existing.id);
         setDocStatus(existing.status);
-        if (existing.data?.semester) {
-          setDocSemester(existing.data.semester as 1 | 2);
-        }
         if (existing.orientation) {
           setFormatDokumen(existing.orientation);
         }
+      } else {
+        // No existing doc — create one
+        const doc = await saveSchoolDocument({
+          docType: "kalender-minggu-efektif",
+          semester,
+          tahunAjaran: activeYearLabel,
+          teacherId: "__system__",
+          academicYearId: activeYearId,
+          data: { semester, tahunAjaran: activeYearLabel, schoolName },
+          orientation: "portrait",
+          status: "draft",
+        });
+        setDocId(doc.id);
+        setDocStatus("draft");
+        setFormatDokumen("portrait");
       }
-    })();
-  }, [activeYearId, activeYearLabel, docSemester]);
+    } finally {
+      ensuringRef.current = false;
+    }
+  }, [activeYearId, activeYearLabel, schoolName]);
+
+  // Run ensureDoc once on initial data load
+  useEffect(() => {
+    if (!activeYearId || !activeYearLabel) return;
+    void ensureDoc(docSemester);
+  // eslint-disable-next-line react-hooks/exhaustive-deps — only on initial data availability
+  }, [activeYearId, activeYearLabel]);
 
   // Build semester weeks for document
   const semesterWeeks = useMemo(() => {
@@ -274,32 +315,25 @@ export function CalendarPage() {
     }
   }, [docId]);
 
-  // Ensure schoolDocument exists (create if needed) — called once on mount when data is ready
+  // A3: Semester change → reset docId and ensure new doc
+  const handleSemesterChange = useCallback((newSemester: 1 | 2) => {
+    setDocId(undefined); // A3: reset so auto-save won't write to wrong doc
+    setDocStatus("draft");
+    setDocSemester(newSemester);
+    void ensureDoc(newSemester);
+  }, [ensureDoc]);
+
+  // A7: Close modals on ESC
   useEffect(() => {
-    if (!activeYearId || !activeYearLabel) return;
-    if (docId) return; // already have a doc
-    void (async () => {
-      const docData: Record<string, unknown> = {
-        semester: docSemester,
-        tahunAjaran: activeYearLabel,
-        schoolName,
-        totalWeeks,
-        effectiveWeeks,
-      };
-      const doc = await saveSchoolDocument({
-        docType: "kalender-minggu-efektif",
-        semester: docSemester,
-        tahunAjaran: activeYearLabel,
-        teacherId: "__system__",
-        academicYearId: activeYearId,
-        data: docData,
-        orientation: formatDokumen,
-        status: "draft",
-      });
-      setDocId(doc.id);
-      setDocStatus("draft");
-    })();
-  }, [activeYearId, activeYearLabel]); // only on first load, not on every semester change
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        if (showForm) { setShowForm(false); setEditing(null); }
+        if (showImport) setShowImport(false);
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [showForm, showImport]);
 
   if (loading) return <p className="text-sm text-slate-500">Memuat...</p>;
 
@@ -344,7 +378,7 @@ export function CalendarPage() {
               label="Semester"
               id="kme-sem"
               value={String(docSemester)}
-              onChange={(v) => setDocSemester(Number(v) as 1 | 2)}
+              onChange={(v) => handleSemesterChange(Number(v) as 1 | 2)}
               options={[{ value: "1", label: "Semester 1 (Ganjil)" }, { value: "2", label: "Semester 2 (Genap)" }]}
             />
           </div>
@@ -354,8 +388,8 @@ export function CalendarPage() {
             <h3 className="doc-sidebar-section-title">Ringkasan</h3>
             <dl className="doc-summary-dl">
               <div><dt>Total minggu</dt><dd>{totalWeeks}</dd></div>
-              <div><dt>Minggu efektif</dt><dd className="text-green-700">{effectiveWeeks}</dd></div>
-              <div><dt>Minggu tidak efektif</dt><dd className="text-rose-600">{totalWeeks - effectiveWeeks}</dd></div>
+              <div><dt>Minggu efektif</dt><dd className="kme-effective-text">{effectiveWeeks}</dd></div>
+              <div><dt>Minggu tidak efektif</dt><dd className="kme-ineffective-text">{totalWeeks - effectiveWeeks}</dd></div>
               <div><dt>Tahun ajaran</dt><dd>{activeYearLabel}</dd></div>
             </dl>
           </div>
@@ -382,36 +416,30 @@ export function CalendarPage() {
             {events.length === 0 ? (
               <p className="text-xs text-slate-400 italic">Belum ada event. Tambah manual atau impor dari JSON.</p>
             ) : (
-              <ul className="doc-sidebar-list" style={{ maxHeight: "180px" }}>
+              <ul className="doc-sidebar-list doc-sidebar-list-events">
                 {events.map((e) => (
-                  <li key={e.id} className="doc-sidebar-list-item" style={{ flexDirection: "column", alignItems: "flex-start", gap: "2px" }}>
-                    <div className="flex items-center gap-1.5 w-full">
+                  <li key={e.id} className="doc-sidebar-list-item doc-sidebar-event-item">
+                    <div className="doc-sidebar-event-row">
                       <span className="doc-sidebar-list-title font-medium">{e.label}</span>
                       <Badge variant={badgeForType(e.type)}>
                         {CALENDAR_EVENT_TYPE_LABELS_ID[e.type]}
                       </Badge>
                     </div>
-                    <div className="flex items-center justify-between w-full">
-                      <span className="text-[10px] text-slate-400">
+                    <div className="doc-sidebar-event-meta">
+                      <span className="doc-sidebar-event-dates">
                         {formatLongDateID(e.startDate)} — {formatLongDateID(e.endDate)}
                       </span>
-                      <div className="flex gap-0.5">
+                      <div className="doc-sidebar-event-actions">
                         <button
                           type="button"
-                          className="text-[10px] text-blue-600 hover:underline px-0.5"
-                          onClick={async () => {
-                            const updated = await updateCalendarEvent(e.id, {});
-                            if (updated) {
-                              setEditing(updated);
-                              setShowForm(true);
-                            }
-                          }}
+                          className="doc-sidebar-action-btn doc-sidebar-action-edit"
+                          onClick={() => { setEditing(e); setShowForm(true); }}
                         >
                           Edit
                         </button>
                         <button
                           type="button"
-                          className="text-[10px] text-rose-500 hover:underline px-0.5"
+                          className="doc-sidebar-action-btn doc-sidebar-action-delete"
                           onClick={async () => {
                             if (window.confirm(`Hapus event "${e.label}"?`)) {
                               await deleteCalendarEvent(e.id);
@@ -436,13 +464,13 @@ export function CalendarPage() {
             {semesterWeeks.filter((w) => !w.isEffective).length === 0 ? (
               <p className="text-xs text-slate-400 italic">Semua minggu efektif.</p>
             ) : (
-              <ul className="doc-sidebar-list" style={{ maxHeight: "160px" }}>
+              <ul className="doc-sidebar-list doc-sidebar-list-blocked">
                 {semesterWeeks
                   .filter((w) => !w.isEffective)
                   .map((w) => (
-                    <li key={w.weekNumber} className="doc-sidebar-list-item" style={{ background: "#fef2f2" }}>
-                      <span className="text-rose-700">Mg {w.weekNumber}</span>
-                      <span className="doc-sidebar-list-title text-rose-500 text-[10px]" title={w.blockReason}>{w.blockReason}</span>
+                    <li key={w.weekNumber} className="doc-sidebar-list-item doc-sidebar-blocked-item">
+                      <span className="kme-ineffective-text">Mg {w.weekNumber}</span>
+                      <span className="doc-sidebar-list-title kme-ineffective-label" title={w.blockReason}>{w.blockReason}</span>
                     </li>
                   ))}
               </ul>
@@ -451,7 +479,7 @@ export function CalendarPage() {
 
           {/* -- Footer -- */}
           <div className="doc-sidebar-section doc-sidebar-footer">
-            <p className="text-[10px] text-slate-400 text-center">
+            <p className="doc-sidebar-footer-text">
               {events.length} event · TP {activeYearLabel}
             </p>
           </div>
@@ -521,12 +549,12 @@ export function CalendarPage() {
 
       {/* Toast messages */}
       {error && (
-        <div className="fixed bottom-4 right-4 z-50 p-3 rounded-md bg-rose-50 border border-rose-200 text-sm text-rose-700 shadow-lg max-w-sm no-print">
+        <div className="doc-toast doc-toast-error no-print">
           {error}
         </div>
       )}
       {success && (
-        <div className="fixed bottom-4 right-4 z-50 p-3 rounded-md bg-green-50 border border-green-200 text-sm text-green-700 shadow-lg max-w-sm no-print">
+        <div className="doc-toast doc-toast-success no-print">
           {success}
         </div>
       )}
@@ -628,8 +656,8 @@ function EventForm({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 no-print" onClick={onClose}>
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto m-4" onClick={(e) => e.stopPropagation()}>
+    <div className="doc-overlay no-print" onClick={onClose}>
+      <div className="doc-overlay-card" onClick={(e) => e.stopPropagation()}>
         <Card>
           <CardHeader title={editing ? "Edit Event" : "Tambah Event"} />
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -711,8 +739,8 @@ function ImportModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 no-print" onClick={onClose}>
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto m-4" onClick={(e) => e.stopPropagation()}>
+    <div className="doc-overlay no-print" onClick={onClose}>
+      <div className="doc-overlay-card" onClick={(e) => e.stopPropagation()}>
         <Card>
           <CardHeader
             title="Impor Kalender dari JSON"
