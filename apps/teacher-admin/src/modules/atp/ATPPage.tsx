@@ -7,12 +7,17 @@
  * ATP/TP menyimpan: kelas, bab, elemen, CP, TP, profil Pelajar Pancasila,
  * kata kunci, alokasi JP. LKPD wajib pilih TP (lihat menu LKPD).
  * AI Prompt tetap ada sebagai generator prompt (guru salin manual).
+ *
+ * WYSIWYG-DOC-FASE5: ATP sebagai dokumen WYSIWYG.
+ *   - Layout always-on: sidebar (kontrol) + DocumentPreview (dokumen).
+ *   - Komponen ATPDocument merender tabel resmi TP di kanvas A4.
+ *   - Auto-save ke schoolDocuments (docType: "atp").
+ *   - Uses ensureDoc pattern from FASE3/FASE4 audit fixes.
  */
 
-import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Card, CardHeader, Input, Textarea, Button, EmptyState, Badge, Select } from "../../shared/ui";
-import { getActiveAcademicYear, getTeacherProfile } from "../../shared/db/profile-repo";
+import { getActiveAcademicYear, getTeacherProfile, getSchoolProfile } from "../../shared/db/profile-repo";
 import {
   listATPEntries,
   saveATPEntry,
@@ -29,13 +34,27 @@ import {
   atpPasteRowsToEntries,
   type AtpPasteMeta,
 } from "@guru-admin/domain";
+// WYSIWYG-DOC-FASE5
+import { DocumentPreview } from "../../shared/documents";
+import {
+  saveSchoolDocument,
+  updateSchoolDocumentData,
+  updateSchoolDocumentLayout,
+  setSchoolDocumentStatus,
+  findSchoolDocumentByCompositeKey,
+} from "../../shared/db/school-document-repo";
+import type { SchoolDocOrientation, DocumentStatus } from "@guru-admin/domain";
+
+/* ------------------------------------------------------------------ */
+/*  Main Component                                                    */
+/* ------------------------------------------------------------------ */
 
 export function ATPPage() {
   const [loading, setLoading] = useState(true);
   const [year, setYear] = useState<AcademicYear | null>(null);
   const [teacher, setTeacher] = useState<TeacherProfile | undefined>();
   const [entries, setEntries] = useState<ATPEntry[]>([]);
-  const [lkpds, setLkpds] = useState<LKPD[]>([]);
+  const [_lkpds, setLkpds] = useState<LKPD[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<ATPEntry | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -57,6 +76,26 @@ export function ATPPage() {
     | null
   >(null);
 
+  // WYSIWYG-DOC-FASE5: document state
+  const [schoolName, setSchoolName] = useState<string>("");
+  const [showSidebar, setShowSidebar] = useState(() => window.innerWidth >= 1024);
+  const [formatDokumen, setFormatDokumen] = useState<"portrait" | "landscape">("portrait");
+  const [docId, setDocId] = useState<string | undefined>(undefined);
+  const [docStatus, setDocStatus] = useState<DocumentStatus>("draft");
+  const [filterSubject, setFilterSubject] = useState<string>("");
+  const [filterGrade, setFilterGrade] = useState<string>("");
+  const ensuringRef = useRef(false);
+
+  async function reload() {
+    if (!year || !teacher) return;
+    const [atps, lks] = await Promise.all([
+      listATPEntries({ academicYearId: year.id, teacherId: teacher.id }),
+      listLKPDs({ academicYearId: year.id, teacherId: teacher.id }),
+    ]);
+    setEntries(atps);
+    setLkpds(lks);
+  }
+
   useEffect(() => {
     void (async () => {
       const [y, tp] = await Promise.all([getActiveAcademicYear(), getTeacherProfile()]);
@@ -69,21 +108,146 @@ export function ATPPage() {
         ]);
         setEntries(atps);
         setLkpds(lks);
+        // Set default filter from first subject
+        if (tp.subjects?.[0]?.subject) {
+          setFilterSubject(tp.subjects[0].subject);
+        }
+        if (tp.subjects?.[0]?.grades?.[0]) {
+          setFilterGrade(tp.subjects[0].grades[0]);
+        }
       }
+      const sp = await getSchoolProfile();
+      setSchoolName(sp?.name ?? "");
       setLoading(false);
     })();
   }, []);
 
-  async function reload() {
-    if (!year || !teacher) return;
-    const [atps, lks] = await Promise.all([
-      listATPEntries({ academicYearId: year.id, teacherId: teacher.id }),
-      listLKPDs({ academicYearId: year.id, teacherId: teacher.id }),
-    ]);
-    setEntries(atps);
-    setLkpds(lks);
-  }
+  useEffect(() => {
+    if (!message) return;
+    const t = setTimeout(() => setMessage(null), 3000);
+    return () => clearTimeout(t);
+  }, [message]);
 
+  // WYSIWYG-DOC-FASE5: ensureDoc
+  const ensureDoc = useCallback(async (subject: string, grade: string) => {
+    if (!year || !teacher || !subject || !grade) return;
+    if (ensuringRef.current) return;
+    ensuringRef.current = true;
+    try {
+      const existing = await findSchoolDocumentByCompositeKey({
+        docType: "atp",
+        semester: 1, // ATP is not semester-specific, use 1 as default
+        tahunAjaran: year.label,
+        kodeMapel: subject,
+        kodeKelas: grade,
+        teacherId: teacher.id,
+      });
+      if (existing) {
+        setDocId(existing.id);
+        setDocStatus(existing.status);
+        if (existing.orientation) setFormatDokumen(existing.orientation);
+      } else {
+        const doc = await saveSchoolDocument({
+          docType: "atp",
+          semester: 1, // ATP is not semester-specific
+          tahunAjaran: year.label,
+          kodeMapel: subject,
+          kodeKelas: grade,
+          teacherId: teacher.id,
+          academicYearId: year.id,
+          data: { subject, grade, schoolName, teacherName: teacher.name },
+          orientation: "landscape",
+          status: "draft",
+        });
+        setDocId(doc.id);
+        setDocStatus("draft");
+        setFormatDokumen("landscape");
+      }
+    } finally {
+      ensuringRef.current = false;
+    }
+  }, [year, teacher, schoolName]);
+
+  // When filter changes, ensure doc
+  useEffect(() => {
+    if (filterSubject && filterGrade && teacher) {
+      void ensureDoc(filterSubject, filterGrade);
+    } else {
+      setDocId(undefined);
+      setDocStatus("draft");
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filterSubject, filterGrade, teacher?.id]);
+
+  // Filtered entries for document
+  const filteredEntries = useMemo(() => {
+    return entries.filter((e) => {
+      if (filterSubject && e.subject !== filterSubject) return false;
+      if (filterGrade && e.grade !== filterGrade) return false;
+      return true;
+    });
+  }, [entries, filterSubject, filterGrade]);
+
+  // Group entries by bab for document rendering
+  const groupedByBab = useMemo(() => {
+    const groups: Record<string, ATPEntry[]> = {};
+    for (const e of filteredEntries) {
+      const key = e.bab || "Tanpa Bab";
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(e);
+    }
+    return groups;
+  }, [filteredEntries]);
+
+  // Unique subjects and grades for filter
+  const subjects = useMemo(() => [...new Set(entries.map((e) => e.subject))], [entries]);
+  const grades = useMemo(() => {
+    const filtered = filterSubject
+      ? entries.filter((e) => e.subject === filterSubject)
+      : entries;
+    return [...new Set(filtered.map((e) => e.grade))];
+  }, [entries, filterSubject]);
+
+  // Auto-save data memo
+  const docDataForAutoSave = useMemo(() => {
+    if (filteredEntries.length === 0) return {};
+    return {
+      subject: filterSubject,
+      grade: filterGrade,
+      tahunAjaran: year?.label ?? "",
+      schoolName,
+      teacherName: teacher?.name ?? "",
+      totalTP: filteredEntries.length,
+      totalJP: filteredEntries.reduce((sum, e) => sum + e.alokasiJP, 0),
+      entriesSnapshot: filteredEntries.map((e) => ({
+        bab: e.bab,
+        elemen: e.elemen,
+        cp: e.cp,
+        tp: e.tp,
+        profilPelajar: e.profilPelajar,
+        kataKunci: e.kataKunci,
+        alokasiJP: e.alokasiJP,
+        status: e.status,
+      })),
+    };
+  }, [filteredEntries, filterSubject, filterGrade, year?.label, schoolName, teacher?.name]);
+
+  // WYSIWYG callbacks
+  const handleSaveDoc = useCallback(async (id: string, data: Record<string, unknown>) => {
+    await updateSchoolDocumentData(id, data);
+  }, []);
+
+  const handleSetFinal = useCallback(async (id: string) => {
+    await setSchoolDocumentStatus(id, "final");
+    setDocStatus("final");
+  }, []);
+
+  const handleOrientationChange = useCallback((orientation: SchoolDocOrientation) => {
+    setFormatDokumen(orientation);
+    if (docId) void updateSchoolDocumentLayout(docId, { orientation });
+  }, [docId]);
+
+  // CRUD handlers
   async function handleSave(data: Omit<ATPEntry, "id" | "createdAt" | "updatedAt" | "deletedAt" | "syncStatus" | "academicYearId" | "teacherId" | "status">) {
     if (!year || !teacher) return;
     try {
@@ -115,7 +279,7 @@ export function ATPPage() {
     void reload();
   }
 
-  // IMPORT-BANK-TP-PROTA-RC1: preview import
+  // IMPORT handlers (same as before)
   function handleImportPreview() {
     if (importMode === "json") {
       try {
@@ -135,7 +299,6 @@ export function ATPPage() {
         });
       }
     } else {
-      // Excel paste
       if (!importMeta.subject || !importMeta.grade || !importMeta.phase) {
         setImportPreview({
           type: "excel",
@@ -150,12 +313,9 @@ export function ATPPage() {
   }
 
   async function handleImportApply() {
-    if (!year || !teacher) return;
-    if (!importPreview) return;
+    if (!year || !teacher || !importPreview) return;
 
-    // UX-PLAN-02: deteksi duplikat (subject + grade + tp sama) → default skip
-    // Build entries dari preview
-    let entries: Array<{
+    let entriesToImport: Array<{
       subject: string; grade: string; phase: string; bab?: string;
       elemen: string; cp: string; tp: string; profilPelajar?: string;
       kataKunci?: string; alokasiJP: number; classId?: string;
@@ -169,51 +329,41 @@ export function ATPPage() {
         setMessage(`Import gagal: ${v.errors.join("; ")}`);
         return;
       }
-      entries = atpImportToEntries(v.data);
+      entriesToImport = atpImportToEntries(v.data);
       teacherNameForImport = v.data.teacherName ?? teacher.name;
     } else {
-      entries = atpPasteRowsToEntries(importPreview.rows, importMeta);
+      entriesToImport = atpPasteRowsToEntries(importPreview.rows, importMeta);
     }
 
-    if (entries.length === 0) {
+    if (entriesToImport.length === 0) {
       setMessage("Tidak ada TP untuk diimpor.");
       return;
     }
 
-    // Cek duplikat vs existing entries
     const existingKey = (e: { subject: string; grade: string; tp: string }) =>
       `${e.subject}|${e.grade}|${e.tp}`;
-    const existingKeys = new Set(entries.map(existingKey));
-    // entries lokal sudah pasti unik? Tidak — bisa ada duplikat di input sendiri.
-    // Pakai listATPEntries untuk dapat existing di DB
     const existing = await listATPEntries({ academicYearId: year.id, teacherId: teacher.id });
     const dbKeys = new Set(existing.map(existingKey));
-    const duplicates = entries.filter((e) => dbKeys.has(existingKey(e)));
-    const newEntries = entries.filter((e) => !dbKeys.has(existingKey(e)));
-    void existingKeys; // unused tapi keep untuk clarity
+    const duplicates = entriesToImport.filter((e) => dbKeys.has(existingKey(e)));
+    const newEntries = entriesToImport.filter((e) => !dbKeys.has(existingKey(e)));
 
-    // UX-PLAN-02: bila ada duplikat, confirm typed "IMPOR DUPLIKAT"
     let importDuplicates = false;
     if (duplicates.length > 0) {
       const typed = window.prompt(
-        `Ditemukan ${duplicates.length} TP duplikat (subject + kelas + TP sama sudah ada).\n` +
-        `Default: hanya ${newEntries.length} TP baru yang akan diimpor.\n\n` +
-        `Untuk memaksa impor duplikat juga, ketik: IMPOR DUPLIKAT\n` +
-        `(atau klik Batal untuk hanya impor ${newEntries.length} TP baru)`
+        `Ditemukan ${duplicates.length} TP duplikat.\n` +
+        `Default: hanya ${newEntries.length} TP baru.\n\n` +
+        `Untuk paksa impor duplikat, ketik: IMPOR DUPLIKAT`
       );
       if (typed === "IMPOR DUPLIKAT") {
         importDuplicates = true;
       } else if (typed === null) {
-        // User klik Cancel → batalkan seluruh import
         setMessage("Import dibatalkan.");
         return;
       }
-      // typed lain (kosong/random) → lanjut import hanya yang baru (default skip duplikat)
     }
 
-    // Bila semua duplikat dan user tidak paksa → info
     if (newEntries.length === 0 && !importDuplicates) {
-      setMessage(`Semua ${duplicates.length} TP sudah ada (duplikat). Tidak ada yang diimpor.`);
+      setMessage(`Semua ${duplicates.length} TP sudah ada (duplikat).`);
       setShowImport(false);
       setImportJson("");
       setImportExcel("");
@@ -222,17 +372,12 @@ export function ATPPage() {
     }
 
     const ok = window.confirm(
-      `Impor ${importDuplicates ? entries.length : newEntries.length} TP ke Bank TP?` +
-      (duplicates.length > 0 && !importDuplicates
-        ? `\n(${duplicates.length} duplikat di-skip)`
-        : importDuplicates
-          ? `\n(TERMASUK ${duplicates.length} duplikat — akan dibuat entry baru)`
-          : "")
+      `Impor ${importDuplicates ? entriesToImport.length : newEntries.length} TP ke Bank TP?`
     );
     if (!ok) return;
 
     try {
-      const toImport = importDuplicates ? entries : newEntries;
+      const toImport = importDuplicates ? entriesToImport : newEntries;
       let saved = 0;
       for (const e of toImport) {
         await saveATPEntry({
@@ -244,13 +389,7 @@ export function ATPPage() {
         });
         saved++;
       }
-      const skippedMsg = importDuplicates
-        ? ""
-        : duplicates.length > 0
-          ? ` (${duplicates.length} duplikat di-skip)`
-          : "";
-      setMessage(`${saved} TP berhasil diimpor${skippedMsg}.`);
-      // Reset
+      setMessage(`${saved} TP berhasil diimpor.`);
       setShowImport(false);
       setImportJson("");
       setImportExcel("");
@@ -274,58 +413,234 @@ Alokasi JP: ${entry.alokasiJP} JP
 
 Format: sesuaikan dengan standar Kurikulum Merdeka untuk ${entry.grade}.`;
 
-    if (type === "lkpd") {
-      return base + "\n\nLKPD harus memuat: tujuan, alat/bahan, langkah kegiatan, pertanyaan pemandu, penilaian.";
-    }
-    if (type === "rpp") {
-      return base + "\n\nRPP/Modul Ajar harus memuat: identitas, kompetensi awal, tujuan, kegiatan pendahuluan-inti-penutup, asesmen.";
-    }
-    if (type === "remedial") {
-      return base + "\n\nBuat program remedial sederhana untuk siswa yang belum mencapai TP ini.";
-    }
-    if (type === "pengayaan") {
-      return base + "\n\nBuat program pengayaan untuk siswa yang sudah menguasai TP ini.";
-    }
+    if (type === "lkpd") return base + "\n\nLKPD harus memuat: tujuan, alat/bahan, langkah kegiatan, pertanyaan pemandu, penilaian.";
+    if (type === "rpp") return base + "\n\nRPP/Modul Ajar harus memuat: identitas, kompetensi awal, tujuan, kegiatan pendahuluan-inti-penutup, asesmen.";
+    if (type === "remedial") return base + "\n\nBuat program remedial sederhana untuk siswa yang belum mencapai TP ini.";
+    if (type === "pengayaan") return base + "\n\nBuat program pengayaan untuk siswa yang sudah menguasai TP ini.";
     return base;
   }
 
   if (loading) return <p className="text-sm text-slate-500">Memuat...</p>;
 
+  if (!year || !teacher) {
+    return (
+      <div className="space-y-4">
+        <h1 className="text-2xl font-bold text-slate-900">Bank TP</h1>
+        <Card>
+          <EmptyState
+            title="Belum siap"
+            description="Buat tahun pelajaran aktif dan profil guru dulu di menu Profil."
+          />
+        </Card>
+      </div>
+    );
+  }
+
+  /* ================================================================ */
+  /*  ALWAYS-ON WYSIWYG LAYOUT — sidebar + document                   */
+  /* ================================================================ */
   return (
-    <div className="space-y-4">
-      <div className="page-header">
-        <h1 className="text-2xl font-bold text-slate-900">Bank TP (Tujuan Pembelajaran)</h1>
-        <p className="text-sm text-slate-500 mt-1">
-          {year ? `TP ${year.label}` : "Belum ada tahun aktif"} · {teacher?.name ?? "Belum ada guru"}
-        </p>
+    <>
+      <div className="doc-wysiwyg-layout">
+        {/* Mobile backdrop */}
+        {showSidebar && (
+          <div
+            className="doc-sidebar-backdrop no-print"
+            onClick={() => setShowSidebar(false)}
+          />
+        )}
+
+        {/* Sidebar toggle */}
+        {!showSidebar && (
+          <button
+            type="button"
+            className="doc-sidebar-toggle no-print"
+            onClick={() => setShowSidebar(true)}
+            title="Buka sidebar"
+          >
+            ☰
+          </button>
+        )}
+
+        {/* Sidebar */}
+        {showSidebar && (
+          <aside className="doc-sidebar no-print">
+            <div className="doc-sidebar-header">
+              <h2 className="text-sm font-bold text-slate-900">Bank TP (ATP)</h2>
+              <button
+                type="button"
+                className="doc-sidebar-close"
+                onClick={() => setShowSidebar(false)}
+                title="Tutup sidebar"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Konteks */}
+            <div className="doc-sidebar-section">
+              <h3 className="doc-sidebar-section-title">Konteks</h3>
+              <Select
+                label="Mapel"
+                id="atp-filter-subject"
+                value={filterSubject}
+                onChange={(v) => { setFilterSubject(v); setFilterGrade(""); }}
+                options={[
+                  { value: "", label: "Semua Mapel" },
+                  ...subjects.map((s) => ({ value: s, label: s })),
+                ]}
+              />
+              <Select
+                label="Kelas"
+                id="atp-filter-grade"
+                value={filterGrade}
+                onChange={(v) => setFilterGrade(v)}
+                options={[
+                  { value: "", label: "Semua Kelas" },
+                  ...grades.map((g) => ({ value: g, label: g })),
+                ]}
+              />
+              <p className="text-[10px] text-slate-400 mt-1">{teacher.name} · {year.label}</p>
+            </div>
+
+            {/* Ringkasan */}
+            <div className="doc-sidebar-section">
+              <h3 className="doc-sidebar-section-title">Ringkasan</h3>
+              <dl className="doc-summary-dl">
+                <div><dt>Total TP</dt><dd>{filteredEntries.length}</dd></div>
+                <div><dt>Total JP</dt><dd>{filteredEntries.reduce((s, e) => s + e.alokasiJP, 0)}</dd></div>
+                <div><dt>Jumlah Bab</dt><dd>{Object.keys(groupedByBab).length}</dd></div>
+                <div><dt>Mapel</dt><dd>{filterSubject || "Semua"}</dd></div>
+                <div><dt>Kelas</dt><dd>{filterGrade || "Semua"}</dd></div>
+              </dl>
+            </div>
+
+            {/* Kelola TP */}
+            <div className="doc-sidebar-section">
+              <h3 className="doc-sidebar-section-title">Kelola TP</h3>
+              <div className="flex gap-2 flex-wrap mb-2">
+                <Button
+                  className="text-xs px-2 py-1"
+                  onClick={() => { setEditing(null); setShowForm(true); }}
+                >
+                  + Tambah
+                </Button>
+                <Button
+                  variant="secondary"
+                  className="text-xs px-2 py-1"
+                  onClick={() => setShowImport(true)}
+                >
+                  Impor
+                </Button>
+              </div>
+
+              {message && (
+                <div className="p-2 rounded bg-brand-50 border border-brand-200 text-xs text-brand-700 mb-2">{message}</div>
+              )}
+
+              {filteredEntries.length === 0 ? (
+                <p className="text-xs text-slate-400 italic">Belum ada TP untuk filter ini.</p>
+              ) : (
+                <ul className="space-y-1 max-h-[280px] overflow-y-auto">
+                  {filteredEntries.map((e) => (
+                    <li key={e.id} className="flex items-start justify-between p-1.5 border border-slate-100 rounded text-xs">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1 flex-wrap">
+                          <span className="font-medium text-slate-900 truncate">{atpEntryLabel(e)}</span>
+                          <Badge variant={e.status === "final" ? "success" : "neutral"}>
+                            {e.status === "final" ? "F" : "D"}
+                          </Badge>
+                        </div>
+                        <p className="text-[10px] text-slate-500 mt-0.5 truncate">{e.tp}</p>
+                        <p className="text-[10px] text-slate-400">{e.alokasiJP} JP · {e.elemen}</p>
+                      </div>
+                      <div className="flex gap-1 ml-1 shrink-0">
+                        <button
+                          type="button"
+                          className="text-slate-400 hover:text-blue-600 text-xs"
+                          onClick={() => { setEditing(e); setShowForm(true); }}
+                          title="Edit"
+                        >
+                          ✎
+                        </button>
+                        <button
+                          type="button"
+                          className="text-slate-400 hover:text-rose-600 text-xs"
+                          onClick={() => handleDelete(e.id)}
+                          title="Hapus"
+                        >
+                          ✗
+                        </button>
+                        <button
+                          type="button"
+                          className="text-slate-400 hover:text-amber-600 text-xs"
+                          onClick={() => setShowAIPrompt(showAIPrompt === e.id ? null : e.id)}
+                          title="Prompt AI"
+                        >
+                          ✦
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="doc-sidebar-section doc-sidebar-footer">
+              <p className="text-[10px] text-slate-400 text-center">
+                Dokumen auto-save · {entries.length} TP total
+              </p>
+            </div>
+          </aside>
+        )}
+
+        {/* Document Area */}
+        <div className="doc-document-area">
+          <DocumentPreview
+            docId={docId}
+            docType="atp"
+            orientation={formatDokumen}
+            status={docStatus}
+            data={docDataForAutoSave}
+            onSave={handleSaveDoc}
+            onSetFinal={handleSetFinal}
+            onOrientationChange={handleOrientationChange}
+            showFormatToggle={true}
+          >
+            <ATPDocument
+              subject={filterSubject}
+              grade={filterGrade}
+              tahunAjaran={year.label}
+              schoolName={schoolName}
+              teacherName={teacher.name}
+              entries={filteredEntries}
+              groupedByBab={groupedByBab}
+            />
+          </DocumentPreview>
+        </div>
       </div>
 
-      {message && <div className="info-banner-success">{message}</div>}
+      {/* Overlay: ATP Form */}
+      {showForm && (
+        <ATPForm
+          editing={editing}
+          defaultSubject={filterSubject || (teacher?.subjects?.[0]?.subject ?? "")}
+          defaultGrade={filterGrade || (teacher?.subjects?.[0]?.grades?.[0] ?? "VII")}
+          defaultPhase={teacher?.subjects?.[0]?.phases?.[0] ?? "D"}
+          onSave={handleSave}
+          onCancel={() => { setShowForm(false); setEditing(null); }}
+        />
+      )}
 
-      <Card>
-        <div className="flex justify-between items-center">
-          <div>
-            <p className="text-sm text-slate-600">
-              Pusat bank Tujuan Pembelajaran. TP dipakai untuk: LKPD, Perangkat Penilaian, Promes.
-            </p>
-            <p className="text-xs text-slate-400 mt-1">
-              CP (Capaian Pembelajaran) adalah dokumen resmi pemerintah — diarsipkan sebagai referensi, bukan digenerate app.
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <Button variant="secondary" onClick={() => setShowImport(!showImport)}>Impor Bank TP</Button>
-            <Button onClick={() => { setEditing(null); setShowForm(true); }}>+ Tambah TP</Button>
-          </div>
-        </div>
-      </Card>
-
+      {/* Overlay: Import */}
       {showImport && (
-        <Card>
+        <Card className="fixed inset-4 z-50 overflow-y-auto bg-white shadow-xl rounded-lg">
           <CardHeader
             title="Impor Bank TP"
-            description="Impor TP dari JSON (hasil AI) atau paste dari Excel. Subject/Grade/Phase wajib untuk mode Excel."
+            description="Impor TP dari JSON (hasil AI) atau paste dari Excel."
           />
-          <div className="space-y-3">
+          <div className="space-y-3 p-4">
             <div className="flex gap-2 items-end">
               <Select
                 label="Mode Impor"
@@ -333,50 +648,25 @@ Format: sesuaikan dengan standar Kurikulum Merdeka untuk ${entry.grade}.`;
                 value={importMode}
                 onChange={(v) => { setImportMode(v as "json" | "excel"); setImportPreview(null); }}
                 options={[
-                  { value: "json", label: "JSON (format guru-admin-flow/atp/v1)" },
-                  { value: "excel", label: "Excel Paste (tab/koma/semicolon)" },
+                  { value: "json", label: "JSON (guru-admin-flow/atp/v1)" },
+                  { value: "excel", label: "Excel Paste" },
                 ]}
               />
               {importMode === "excel" && (
                 <>
-                  <Input
-                    label="Subject"
-                    id="atp-imp-subject"
-                    value={importMeta.subject}
-                    onChange={(v) => { setImportMeta({ ...importMeta, subject: v }); setImportPreview(null); }}
-                  />
-                  <Input
-                    label="Grade"
-                    id="atp-imp-grade"
-                    value={importMeta.grade}
-                    onChange={(v) => { setImportMeta({ ...importMeta, grade: v }); setImportPreview(null); }}
-                  />
-                  <Input
-                    label="Phase"
-                    id="atp-imp-phase"
-                    value={importMeta.phase}
-                    onChange={(v) => { setImportMeta({ ...importMeta, phase: v }); setImportPreview(null); }}
-                  />
+                  <Input label="Subject" id="atp-imp-subject" value={importMeta.subject} onChange={(v) => { setImportMeta({ ...importMeta, subject: v }); setImportPreview(null); }} />
+                  <Input label="Grade" id="atp-imp-grade" value={importMeta.grade} onChange={(v) => { setImportMeta({ ...importMeta, grade: v }); setImportPreview(null); }} />
+                  <Input label="Phase" id="atp-imp-phase" value={importMeta.phase} onChange={(v) => { setImportMeta({ ...importMeta, phase: v }); setImportPreview(null); }} />
                 </>
               )}
             </div>
 
             {importMode === "json" ? (
-              <Textarea
-                label="JSON Bank TP"
-                id="atp-import-json"
-                value={importJson}
-                onChange={(v) => { setImportJson(v); setImportPreview(null); }}
-                rows={8}
+              <Textarea label="JSON Bank TP" id="atp-import-json" value={importJson} onChange={(v) => { setImportJson(v); setImportPreview(null); }} rows={8}
                 placeholder={'{"$schema":"guru-admin-flow/atp/v1","subject":"PPKn","grade":"VII","phase":"D","entries":[{"bab":"1","elemen":"Norma","cp":"...","tp":"...","alokasiJP":2}]}'}
               />
             ) : (
-              <Textarea
-                label="Paste dari Excel (header: Bab, Elemen, CP, TP, Profil Pelajar, Kata Kunci, Alokasi JP)"
-                id="atp-import-excel"
-                value={importExcel}
-                onChange={(v) => { setImportExcel(v); setImportPreview(null); }}
-                rows={8}
+              <Textarea label="Paste dari Excel" id="atp-import-excel" value={importExcel} onChange={(v) => { setImportExcel(v); setImportPreview(null); }} rows={8}
                 placeholder={"Bab\tElemen\tCP\tTP\tProfil Pelajar\tKata Kunci\tAlokasi JP\n1\tNorma\tMemahami norma\tMenjelaskan norma\tBernalar\tnorma\t2"}
               />
             )}
@@ -390,9 +680,7 @@ Format: sesuaikan dengan standar Kurikulum Merdeka untuk ${entry.grade}.`;
                   (importPreview.type === "json" && importPreview.entries.length === 0) ||
                   (importPreview.type === "excel" && importPreview.rows.length === 0)
                 }>
-                  Impor {importPreview.type === "json"
-                    ? `${importPreview.entries.length} TP`
-                    : `${importPreview.rows.length} TP`}
+                  Impor {importPreview.type === "json" ? `${importPreview.entries.length} TP` : `${importPreview.rows.length} TP`}
                 </Button>
               )}
               <Button variant="secondary" onClick={() => { setShowImport(false); setImportPreview(null); }}>Batal</Button>
@@ -405,15 +693,11 @@ Format: sesuaikan dengan standar Kurikulum Merdeka untuk ${entry.grade}.`;
                     {importPreview.errors.length > 0 ? (
                       <div className="p-2 bg-rose-100 rounded text-xs text-rose-800">
                         <p className="font-semibold">Error:</p>
-                        <ul className="ml-4 list-disc">
-                          {importPreview.errors.map((e, i) => <li key={i}>{e}</li>)}
-                        </ul>
+                        <ul className="ml-4 list-disc">{importPreview.errors.map((e, i) => <li key={i}>{e}</li>)}</ul>
                       </div>
                     ) : (
                       <div>
-                        <p className="text-sm font-semibold text-emerald-700">
-                          ✓ {importPreview.entries.length} TP siap diimpor
-                        </p>
+                        <p className="text-sm font-semibold text-emerald-700">✓ {importPreview.entries.length} TP siap diimpor</p>
                         <div className="mt-2 max-h-48 overflow-y-auto text-xs">
                           {importPreview.entries.map((e, i) => (
                             <div key={i} className="p-1 border-b border-slate-200">
@@ -428,27 +712,11 @@ Format: sesuaikan dengan standar Kurikulum Merdeka untuk ${entry.grade}.`;
                   <>
                     <p className="text-sm font-semibold text-emerald-700">
                       ✓ {importPreview.rows.length} baris siap diimpor
-                      {importPreview.skipped.length > 0 && (
-                        <span className="text-amber-700"> · {importPreview.skipped.length} baris di-skip</span>
-                      )}
+                      {importPreview.skipped.length > 0 && <span className="text-amber-700"> · {importPreview.skipped.length} di-skip</span>}
                     </p>
                     {importPreview.skipped.length > 0 && (
                       <div className="mt-2 max-h-32 overflow-y-auto text-xs text-rose-700">
-                        <p className="font-semibold">Baris di-skip:</p>
-                        {importPreview.skipped.map((s, i) => (
-                          <div key={i} className="p-1">
-                            Baris {s.lineNumber}: {s.reason}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    {importPreview.rows.length > 0 && (
-                      <div className="mt-2 max-h-48 overflow-y-auto text-xs">
-                        {importPreview.rows.map((r, i) => (
-                          <div key={i} className="p-1 border-b border-slate-200">
-                            <strong>{r.elemen}</strong>: {r.tp.slice(0, 80)}{r.tp.length > 80 ? "..." : ""} ({r.alokasiJP} JP)
-                          </div>
-                        ))}
+                        {importPreview.skipped.map((s, i) => <div key={i} className="p-1">Baris {s.lineNumber}: {s.reason}</div>)}
                       </div>
                     )}
                   </>
@@ -459,84 +727,45 @@ Format: sesuaikan dengan standar Kurikulum Merdeka untuk ${entry.grade}.`;
         </Card>
       )}
 
-      {showForm && (
-        <ATPForm
-          editing={editing}
-          defaultSubject={teacher?.subjects[0]?.subject ?? ""}
-          defaultGrade={teacher?.subjects[0]?.grades[0] ?? "VII"}
-          defaultPhase={teacher?.subjects[0]?.phases[0] ?? "D"}
-          onSave={handleSave}
-          onCancel={() => { setShowForm(false); setEditing(null); }}
-        />
-      )}
-
-      {entries.length === 0 ? (
-        <Card><EmptyState title="Belum ada TP" description="Tambah TP untuk membuat LKPD, RPP, dan jurnal." /></Card>
-      ) : (
-        <div className="space-y-2">
-          {entries.map((e) => (
-            <Card key={e.id}>
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-medium text-sm">{atpEntryLabel(e)}</span>
-                    <Badge variant={e.status === "final" ? "success" : "neutral"}>
-                      {e.status === "final" ? "Final" : "Draft"}
-                    </Badge>
-                  </div>
-                  <p className="text-sm text-slate-700 mt-1"><strong>TP:</strong> {e.tp}</p>
-                  <p className="text-xs text-slate-500 mt-1">Elemen: {e.elemen} · CP: {e.cp}</p>
-                  {e.profilPelajar && <p className="text-xs text-slate-500">Profil: {e.profilPelajar}</p>}
-                  {e.kataKunci && <p className="text-xs text-slate-400">Kata kunci: {e.kataKunci}</p>}
-
-                  {/* Dipakai di */}
-                  <div className="flex items-center gap-1.5 mt-2 flex-wrap">
-                    <span className="text-[10px] text-slate-400 uppercase tracking-wide">Dipakai di:</span>
-                    {lkpds.some((l) => l.atpEntryId === e.id) ? (
-                      <Link to="/lkpd"><Badge variant="success">LKPD</Badge></Link>
-                    ) : (
-                      <span className="text-[10px] text-slate-300">belum</span>
-                    )}
-                    <Link to="/evaluation-docs"><Badge variant="neutral">Perangkat Penilaian</Badge></Link>
-                    <Link to="/promes"><Badge variant="neutral">Promes</Badge></Link>
-                  </div>
+      {/* Overlay: AI Prompt */}
+      {showAIPrompt && (() => {
+        const entry = entries.find((e) => e.id === showAIPrompt);
+        if (!entry) return null;
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={() => setShowAIPrompt(null)}>
+            <div className="w-full max-w-md mx-4 bg-white rounded-lg shadow-xl" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
+              <CardHeader title="Prompt AI" description="Klik Salin lalu paste ke AI eksternal." />
+              <div className="p-4 space-y-2">
+                <div className="flex gap-2 flex-wrap">
+                  {(["lkpd", "rpp", "jurnal", "remedial", "pengayaan"] as const).map((type) => (
+                    <Button
+                      key={type}
+                      variant="secondary"
+                      className="text-xs px-2 py-1"
+                      onClick={() => {
+                        const prompt = generateAIPrompt(entry, type);
+                        navigator.clipboard.writeText(prompt);
+                        setMessage(`Prompt ${type.toUpperCase()} disalin.`);
+                      }}
+                    >
+                      Salin {type.toUpperCase()}
+                    </Button>
+                  ))}
                 </div>
-                <div className="flex flex-col gap-1 shrink-0">
-                  <Button variant="secondary" className="text-xs px-2 py-1" onClick={() => { setEditing(e); setShowForm(true); }}>Edit</Button>
-                  <Button variant="danger" className="text-xs px-2 py-1" onClick={() => handleDelete(e.id)}>Hapus</Button>
-                  <Button variant="secondary" className="text-xs px-2 py-1" onClick={() => setShowAIPrompt(showAIPrompt === e.id ? null : e.id)}>Prompt AI</Button>
-                </div>
+                <p className="text-xs text-slate-400">Tidak ada API key. Tidak ada data dikirim. Guru paste manual ke AI.</p>
+                <Button variant="secondary" onClick={() => setShowAIPrompt(null)} className="w-full">Tutup</Button>
               </div>
-
-              {showAIPrompt === e.id && (
-                <div className="mt-3 p-3 bg-slate-50 rounded-md space-y-2">
-                  <p className="text-xs font-semibold text-slate-600">Prompt AI — klik Salin lalu paste ke AI eksternal:</p>
-                  <div className="flex gap-2 flex-wrap">
-                    {(["lkpd", "rpp", "jurnal", "remedial", "pengayaan"] as const).map((type) => (
-                      <Button
-                        key={type}
-                        variant="secondary"
-                        className="text-xs px-2 py-1"
-                        onClick={() => {
-                          const prompt = generateAIPrompt(e, type);
-                          navigator.clipboard.writeText(prompt);
-                          setMessage(`Prompt ${type.toUpperCase()} disalin ke clipboard.`);
-                        }}
-                      >
-                        Salin Prompt {type.toUpperCase()}
-                      </Button>
-                    ))}
-                  </div>
-                  <p className="text-xs text-slate-400">Tidak ada API key. Tidak ada data dikirim. Guru paste manual ke AI.</p>
-                </div>
-              )}
-            </Card>
-          ))}
-        </div>
-      )}
-    </div>
+            </div>
+          </div>
+        );
+      })()}
+    </>
   );
 }
+
+/* ============================================================ */
+/*  ATP Form                                                     */
+/* ============================================================ */
 
 function ATPForm({
   editing,
@@ -571,30 +800,165 @@ function ATPForm({
     setForm((f) => ({ ...f, [key]: value }));
 
   return (
-    <Card>
-      <CardHeader title={editing ? "Edit TP" : "Tambah TP"} description="Wajib: Mapel, Kelas, Fase, Elemen, CP, TP, Alokasi JP." />
-      <div className="space-y-3">
-        <div className="grid sm:grid-cols-3 gap-3">
-          <Input label="Mapel" id="atp-subject" value={form.subject} onChange={(v) => set("subject", v)} />
-          <Input label="Kelas" id="atp-grade" value={form.grade} onChange={(v) => set("grade", v)} placeholder="VII" />
-          <Input label="Fase" id="atp-phase" value={form.phase} onChange={(v) => set("phase", v)} placeholder="D" />
-        </div>
-        <div className="grid sm:grid-cols-2 gap-3">
-          <Input label="Bab" id="atp-bab" value={form.bab} onChange={(v) => set("bab", v)} placeholder="Bab 1" />
-          <Input label="Elemen" id="atp-elemen" value={form.elemen} onChange={(v) => set("elemen", v)} />
-        </div>
-        <Textarea label="Capaian Pembelajaran (CP)" id="atp-cp" value={form.cp} onChange={(v) => set("cp", v)} rows={2} />
-        <Textarea label="Tujuan Pembelajaran (TP)" id="atp-tp" value={form.tp} onChange={(v) => set("tp", v)} rows={3} />
-        <Input label="Profil Pelajar Pancasila" id="atp-profil" value={form.profilPelajar} onChange={(v) => set("profilPelajar", v)} />
-        <div className="grid sm:grid-cols-2 gap-3">
-          <Input label="Kata Kunci" id="atp-kk" value={form.kataKunci} onChange={(v) => set("kataKunci", v)} />
-          <Input label="Alokasi JP" id="atp-jp" type="number" value={String(form.alokasiJP)} onChange={(v) => set("alokasiJP", Number(v) || 2)} />
-        </div>
-        <div className="flex gap-2">
-          <Button onClick={() => onSave(form)}>Simpan</Button>
-          <Button variant="secondary" onClick={onCancel}>Batal</Button>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={onCancel}>
+      <div className="w-full max-w-lg mx-4 bg-white rounded-lg shadow-xl" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
+        <CardHeader title={editing ? "Edit TP" : "Tambah TP"} description="Wajib: Mapel, Kelas, Fase, Elemen, CP, TP, Alokasi JP." />
+        <div className="space-y-3 p-4">
+          <div className="grid sm:grid-cols-3 gap-3">
+            <Input label="Mapel" id="atp-subject" value={form.subject} onChange={(v) => set("subject", v)} />
+            <Input label="Kelas" id="atp-grade" value={form.grade} onChange={(v) => set("grade", v)} placeholder="VII" />
+            <Input label="Fase" id="atp-phase" value={form.phase} onChange={(v) => set("phase", v)} placeholder="D" />
+          </div>
+          <div className="grid sm:grid-cols-2 gap-3">
+            <Input label="Bab" id="atp-bab" value={form.bab} onChange={(v) => set("bab", v)} placeholder="Bab 1" />
+            <Input label="Elemen" id="atp-elemen" value={form.elemen} onChange={(v) => set("elemen", v)} />
+          </div>
+          <Textarea label="Capaian Pembelajaran (CP)" id="atp-cp" value={form.cp} onChange={(v) => set("cp", v)} rows={2} />
+          <Textarea label="Tujuan Pembelajaran (TP)" id="atp-tp" value={form.tp} onChange={(v) => set("tp", v)} rows={3} />
+          <Input label="Profil Pelajar Pancasila" id="atp-profil" value={form.profilPelajar} onChange={(v) => set("profilPelajar", v)} />
+          <div className="grid sm:grid-cols-2 gap-3">
+            <Input label="Kata Kunci" id="atp-kk" value={form.kataKunci} onChange={(v) => set("kataKunci", v)} />
+            <Input label="Alokasi JP" id="atp-jp" type="number" value={String(form.alokasiJP)} onChange={(v) => set("alokasiJP", Number(v) || 2)} />
+          </div>
+          <div className="flex gap-2">
+            <Button onClick={() => onSave(form)}>Simpan</Button>
+            <Button variant="secondary" onClick={onCancel}>Batal</Button>
+          </div>
         </div>
       </div>
-    </Card>
+    </div>
+  );
+}
+
+/* ============================================================ */
+/*  ATP Document (A4 landscape — wide table)                     */
+/* ============================================================ */
+
+function ATPDocument({
+  subject,
+  grade,
+  tahunAjaran,
+  schoolName,
+  teacherName,
+  entries,
+  groupedByBab,
+}: {
+  subject: string;
+  grade: string;
+  tahunAjaran: string;
+  schoolName: string;
+  teacherName: string;
+  entries: ATPEntry[];
+  groupedByBab: Record<string, ATPEntry[]>;
+}) {
+  const totalJP = entries.reduce((sum, e) => sum + e.alokasiJP, 0);
+
+  return (
+    <div className="print-area">
+      <div className="document-page document-landscape">
+        <div className="document-title">DAFTAR TUJUAN PEMBELAJARAN</div>
+        <div className="document-subtitle">
+          {subject || "SEMUA MAPEL"} — KELAS {grade || "..."} — TAHUN PELAJARAN {tahunAjaran}
+        </div>
+
+        {/* Identity */}
+        <table className="document-identity">
+          <tbody>
+            <tr>
+              <td>Satuan Pendidikan</td>
+              <td>{schoolName || "-"}</td>
+              <td>Mata Pelajaran</td>
+              <td>{subject || "Semua"}</td>
+            </tr>
+            <tr>
+              <td>Tahun Pelajaran</td>
+              <td>{tahunAjaran}</td>
+              <td>Kelas / Fase</td>
+              <td>{grade || "Semua"}</td>
+            </tr>
+            <tr>
+              <td>Guru Mata Pelajaran</td>
+              <td>{teacherName || "-"}</td>
+              <td>Total TP / JP</td>
+              <td>{entries.length} TP / {totalJP} JP</td>
+            </tr>
+          </tbody>
+        </table>
+
+        {/* Main table grouped by Bab */}
+        {Object.entries(groupedByBab).map(([bab, babEntries]) => (
+          <div key={bab} style={{ marginTop: "12pt" }}>
+            <div className="document-section-title">BAB {bab}</div>
+            <table className="document-table" style={{ fontSize: "9pt" }}>
+              <thead>
+                <tr>
+                  <th style={{ width: "5%" }}>No</th>
+                  <th style={{ width: "15%" }}>Elemen</th>
+                  <th style={{ width: "25%" }}>Capaian Pembelajaran</th>
+                  <th style={{ width: "30%" }}>Tujuan Pembelajaran</th>
+                  <th style={{ width: "12%" }}>Profil Pelajar</th>
+                  <th style={{ width: "8%" }}>JP</th>
+                  <th style={{ width: "5%" }}>St</th>
+                </tr>
+              </thead>
+              <tbody>
+                {babEntries.map((e, idx) => (
+                  <tr key={e.id}>
+                    <td className="text-center">{idx + 1}</td>
+                    <td>{e.elemen}</td>
+                    <td style={{ fontSize: "8.5pt" }}>{e.cp}</td>
+                    <td style={{ fontWeight: 600 }}>{e.tp}</td>
+                    <td style={{ fontSize: "8.5pt" }}>{e.profilPelajar || "-"}</td>
+                    <td className="text-center">{e.alokasiJP}</td>
+                    <td className="text-center" style={{ fontSize: "8pt" }}>
+                      {e.status === "final" ? "✓" : "○"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr>
+                  <td colSpan={5} className="text-right"><strong>JP Bab {bab}</strong></td>
+                  <td className="text-center"><strong>{babEntries.reduce((s, e) => s + e.alokasiJP, 0)}</strong></td>
+                  <td />
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        ))}
+
+        {entries.length === 0 && (
+          <div style={{ textAlign: "center", marginTop: "40pt", color: "#94a3b8" }}>
+            <p>Belum ada Tujuan Pembelajaran untuk filter ini.</p>
+            <p style={{ fontSize: "9pt", marginTop: "4pt" }}>Tambah TP via sidebar atau impor dari JSON.</p>
+          </div>
+        )}
+
+        {/* Grand total */}
+        {entries.length > 0 && (
+          <div style={{ marginTop: "12pt", fontSize: "10pt", fontWeight: 700 }}>
+            Total: {entries.length} Tujuan Pembelajaran — {totalJP} Jam Pelajaran
+          </div>
+        )}
+
+        {/* Signature */}
+        <div className="signature-grid" style={{ marginTop: "24pt" }}>
+          <div>
+            <p>Mengetahui,</p>
+            <p>Kepala Sekolah</p>
+            <div className="sig-space" />
+            <p className="sig-name">(........................................)</p>
+            <p>NIP. .....................</p>
+          </div>
+          <div>
+            <p>..........., ....................</p>
+            <p>Guru Mata Pelajaran</p>
+            <div className="sig-space" />
+            <p className="sig-name">(........................................)</p>
+            <p>NIP. .....................</p>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
