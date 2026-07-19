@@ -259,15 +259,15 @@ export function PromesPage() {
     const { summary, status, errors, warnings, weeks, distribution, koRows } = result;
 
     return (
-      <div className="promes-wysiwyg-layout">
+      <div className="doc-wysiwyg-layout">
         {/* ---------- SIDEBAR ---------- */}
         {showSidebar && (
-          <aside className="promes-sidebar no-print">
-            <div className="promes-sidebar-header">
+          <aside className="doc-sidebar no-print">
+            <div className="doc-sidebar-header">
               <h2 className="text-sm font-bold text-slate-900">Program Semester</h2>
               <button
                 type="button"
-                className="promes-sidebar-close"
+                className="doc-sidebar-close"
                 onClick={() => setShowSidebar(false)}
                 title="Tutup sidebar"
               >
@@ -276,8 +276,8 @@ export function PromesPage() {
             </div>
 
             {/* -- Kontrol -- */}
-            <div className="promes-sidebar-section">
-              <h3 className="promes-sidebar-section-title">Konteks & Opsi</h3>
+            <div className="doc-sidebar-section">
+              <h3 className="doc-sidebar-section-title">Konteks & Opsi</h3>
 
               <Select
                 label="Prota"
@@ -342,8 +342,8 @@ export function PromesPage() {
             </div>
 
             {/* -- Status & Ringkasan -- */}
-            <div className="promes-sidebar-section">
-              <h3 className="promes-sidebar-section-title">Ringkasan</h3>
+            <div className="doc-sidebar-section">
+              <h3 className="doc-sidebar-section-title">Ringkasan</h3>
 
               <div className="flex items-center gap-2 mb-2">
                 {status === "valid" ? (
@@ -353,7 +353,7 @@ export function PromesPage() {
                 )}
               </div>
 
-              <dl className="promes-summary-dl">
+              <dl className="doc-summary-dl">
                 <div><dt>Minggu efektif</dt><dd>{summary.effectiveWeeks}/{summary.totalWeeks}</dd></div>
                 <div><dt>Kapasitas intra</dt><dd>{summary.intraCapacityJP} JP</dd></div>
                 <div><dt>Cadangan</dt><dd>{summary.cadanganJP} JP</dd></div>
@@ -364,15 +364,15 @@ export function PromesPage() {
             </div>
 
             {/* -- Distribusi Materi -- */}
-            <div className="promes-sidebar-section">
-              <h3 className="promes-sidebar-section-title">Distribusi Materi</h3>
+            <div className="doc-sidebar-section">
+              <h3 className="doc-sidebar-section-title">Distribusi Materi</h3>
               {distribution.length === 0 ? (
                 <p className="text-xs text-slate-400 italic">Tidak ada materi.</p>
               ) : (
-                <ul className="promes-distribution-list">
+                <ul className="doc-sidebar-list">
                   {distribution.map((d) => (
-                    <li key={d.unitId} className="promes-distribution-item">
-                      <span className="promes-distribution-title">{d.title}</span>
+                    <li key={d.unitId} className="doc-sidebar-list-item">
+                      <span className="doc-sidebar-list-title">{d.title}</span>
                       <Badge variant={d.status === "fully_distributed" ? "success" : d.status === "partially_distributed" ? "warning" : "error"}>
                         {d.distributedJP}/{d.totalJP} JP
                       </Badge>
@@ -384,16 +384,16 @@ export function PromesPage() {
 
             {/* -- Warnings/Errors -- */}
             {errors.length > 0 && (
-              <div className="promes-sidebar-section">
-                <h3 className="promes-sidebar-section-title text-rose-700">Error</h3>
+              <div className="doc-sidebar-section">
+                <h3 className="doc-sidebar-section-title text-rose-700">Error</h3>
                 <ul className="list-disc pl-4 space-y-0.5 text-xs text-rose-600">
                   {errors.map((e, i) => <li key={i}>{e}</li>)}
                 </ul>
               </div>
             )}
             {warnings.length > 0 && (
-              <div className="promes-sidebar-section">
-                <h3 className="promes-sidebar-section-title text-amber-700">Peringatan</h3>
+              <div className="doc-sidebar-section">
+                <h3 className="doc-sidebar-section-title text-amber-700">Peringatan</h3>
                 <ul className="list-disc pl-4 space-y-0.5 text-xs text-amber-600">
                   {warnings.map((w, i) => <li key={i}>{w}</li>)}
                 </ul>
@@ -401,7 +401,7 @@ export function PromesPage() {
             )}
 
             {/* -- Kembali ke Form -- */}
-            <div className="promes-sidebar-section promes-sidebar-footer">
+            <div className="doc-sidebar-section doc-sidebar-footer">
               <Button
                 variant="secondary"
                 onClick={() => {
@@ -417,7 +417,7 @@ export function PromesPage() {
         )}
 
         {/* ---------- DOCUMENT AREA ---------- */}
-        <div className="promes-document-area">
+        <div className="doc-document-area">
           <DocumentPreview
             docId={docId}
             docType="promes"
@@ -466,7 +466,7 @@ export function PromesPage() {
         {!showSidebar && (
           <button
             type="button"
-            className="promes-sidebar-toggle no-print"
+            className="doc-sidebar-toggle no-print"
             onClick={() => setShowSidebar(true)}
             title="Buka panel kontrol"
           >

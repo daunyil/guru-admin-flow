@@ -1,7 +1,7 @@
 /**
  * wysiwyg-canvas.css — gaya kanvas A4 untuk DocumentPreview.
  *
- * WYSIWYG-DOC-01
+ * WYSIWYG-DOC-01 → WYSIWYG-DOC-FASE3
  *
  * Mode screen:
  *   - Kertas putih dengan shadow (Word/Google Docs style).
@@ -260,10 +260,6 @@
 }
 
 /* ------------------------------------------------------------------ */
-/*  Print mode                                                        */
-/* ------------------------------------------------------------------ */
-
-/* ------------------------------------------------------------------ */
 /*  Override: document-page inside wysiwyg-canvas should NOT add A4   */
 /*  sizing because wysiwyg-canvas already provides the A4 canvas.     */
 /* ------------------------------------------------------------------ */
@@ -291,22 +287,19 @@
 }
 
 /* ------------------------------------------------------------------ */
-/*  Print mode                                                        */
+/*  Generic WYSIWYG Doc Layout — sidebar + document                   */
+/*  WYSIWYG-DOC-FASE3 (renamed from promes-* to doc-*)               */
+/*  Used by: PromesPage, CalendarPage, and future doc pages           */
 /* ------------------------------------------------------------------ */
 
-/* ------------------------------------------------------------------ */
-/*  Promes WYSIWYG Layout — sidebar + document                        */
-/*  WYSIWYG-DOC-FASE2                                                 */
-/* ------------------------------------------------------------------ */
-
-.promes-wysiwyg-layout {
+.doc-wysiwyg-layout {
   display: flex;
   position: relative;
   min-height: calc(100vh - 120px); /* full viewport minus app header */
 }
 
 /* Sidebar */
-.promes-sidebar {
+.doc-sidebar {
   width: 320px;
   min-width: 280px;
   max-width: 360px;
@@ -323,7 +316,7 @@
   gap: 0;
 }
 
-.promes-sidebar-header {
+.doc-sidebar-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -335,7 +328,7 @@
   z-index: 1;
 }
 
-.promes-sidebar-close {
+.doc-sidebar-close {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -350,17 +343,17 @@
   transition: all 0.15s;
 }
 
-.promes-sidebar-close:hover {
+.doc-sidebar-close:hover {
   background: #e2e8f0;
   color: var(--wysiwyg-ink);
 }
 
-.promes-sidebar-section {
+.doc-sidebar-section {
   padding: 12px 16px;
   border-bottom: 1px solid #f1f5f9;
 }
 
-.promes-sidebar-section-title {
+.doc-sidebar-section-title {
   font-size: 0.75rem;
   font-weight: 700;
   text-transform: uppercase;
@@ -369,50 +362,50 @@
   margin-bottom: 8px;
 }
 
-.promes-sidebar-section > label,
-.promes-sidebar-section > .space-y-2 > label {
+.doc-sidebar-section > label,
+.doc-sidebar-section > .space-y-2 > label {
   margin-bottom: 6px;
 }
 
-.promes-sidebar-footer {
+.doc-sidebar-footer {
   margin-top: auto;
   border-top: 1px solid var(--wysiwyg-toolbar-border);
   background: #f8fafc;
 }
 
 /* Summary definition list in sidebar */
-.promes-summary-dl {
+.doc-summary-dl {
   display: grid;
   gap: 4px;
   font-size: 0.75rem;
 }
 
-.promes-summary-dl div {
+.doc-summary-dl div {
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 2px 0;
 }
 
-.promes-summary-dl dt {
+.doc-summary-dl dt {
   color: var(--wysiwyg-muted);
 }
 
-.promes-summary-dl dd {
+.doc-summary-dl dd {
   font-weight: 600;
   color: var(--wysiwyg-ink);
 }
 
-/* Distribution list in sidebar */
-.promes-distribution-list {
+/* List items in sidebar (distribution / events) */
+.doc-sidebar-list {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  max-height: 200px;
+  max-height: 240px;
   overflow-y: auto;
 }
 
-.promes-distribution-item {
+.doc-sidebar-list-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -423,7 +416,7 @@
   font-size: 0.7rem;
 }
 
-.promes-distribution-title {
+.doc-sidebar-list-title {
   flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -432,7 +425,7 @@
 }
 
 /* Document area (flex: 1) */
-.promes-document-area {
+.doc-document-area {
   flex: 1;
   min-width: 0; /* prevent flex overflow */
   display: flex;
@@ -440,7 +433,7 @@
 }
 
 /* Sidebar toggle button (floating, when sidebar is hidden) */
-.promes-sidebar-toggle {
+.doc-sidebar-toggle {
   position: fixed;
   top: 80px;
   left: 12px;
@@ -460,7 +453,7 @@
   color: var(--wysiwyg-muted);
 }
 
-.promes-sidebar-toggle:hover {
+.doc-sidebar-toggle:hover {
   background: #f1f5f9;
   color: var(--wysiwyg-ink);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
@@ -468,11 +461,11 @@
 
 /* Responsive: sidebar becomes overlay on tablet/mobile */
 @media screen and (max-width: 1024px) {
-  .promes-wysiwyg-layout {
+  .doc-wysiwyg-layout {
     flex-direction: column;
   }
 
-  .promes-sidebar {
+  .doc-sidebar {
     position: fixed;
     top: 0;
     left: 0;
@@ -484,7 +477,7 @@
   }
 
   /* Sidebar overlay backdrop */
-  .promes-sidebar::before {
+  .doc-sidebar::before {
     content: "";
     position: fixed;
     inset: 0;
@@ -495,13 +488,13 @@
     pointer-events: none;
   }
 
-  .promes-document-area {
+  .doc-document-area {
     width: 100%;
   }
 }
 
 @media screen and (max-width: 640px) {
-  .promes-sidebar {
+  .doc-sidebar {
     width: 100%;
     max-width: 100%;
   }
@@ -509,7 +502,7 @@
 
 /* ------------------------------------------------------------------ */
 /*  Kalender Minggu Efektif document styles                           */
-/*  WYSIWYG-DOC-FASE2                                                 */
+/*  WYSIWYG-DOC-FASE2 → FASE3                                         */
 /* ------------------------------------------------------------------ */
 
 .kme-table {
@@ -624,8 +617,8 @@
 
   /* Toolbar dan elemen non-print disembunyikan */
   .wysiwyg-toolbar,
-  .promes-sidebar,
-  .promes-sidebar-toggle,
+  .doc-sidebar,
+  .doc-sidebar-toggle,
   .no-print,
   nav,
   header.app-header,
@@ -636,12 +629,12 @@
     display: none !important;
   }
 
-  /* Promes WYSIWYG layout: reset ke full-width saat print */
-  .promes-wysiwyg-layout {
+  /* WYSIWYG doc layout: reset ke full-width saat print */
+  .doc-wysiwyg-layout {
     display: block;
   }
 
-  .promes-document-area {
+  .doc-document-area {
     width: 100%;
   }
 

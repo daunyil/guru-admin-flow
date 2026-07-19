@@ -2,11 +2,12 @@
  * Modul M02 Kalender — halaman /calendar
  * Sumber: docs/SPRINT_2_DESIGN.md §3
  *
- * WYSIWYG-DOC-FASE2: Kalender Minggu Efektif sebagai dokumen WYSIWYG.
- *   - Tombol "Cetak Minggu Efektif" membuka DocumentPreview + sidebar.
+ * WYSIWYG-DOC-FASE3: Kalender Minggu Efektif sebagai dokumen WYSIWYG.
+ *   - Layout WYSIWYG selalu aktif: DocumentPreview + sidebar.
+ *   - Sidebar berisi: konteks (semester), ringkasan, kelola event (tambah/edit/impor/hapus), event penyebab.
  *   - Komponen KalenderMEDocument merender tabel resmi di kanvas A4.
  *   - Auto-save ke schoolDocuments (docType: "kalender-minggu-efektif").
- *   - Mode CRUD (tambah/edit/import) tetap ada — user toggle antara CRUD dan WYSIWYG.
+ *   - Tidak ada toggle mode — dokumen selalu terlihat (true WYSIWYG).
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -25,7 +26,7 @@ import {
   CALENDAR_EVENT_TYPE_LABELS_ID,
   formatLongDateID,
 } from "@guru-admin/shared";
-// WYSIWYG-DOC-FASE2: DocumentPreview + schoolDocuments persistence
+// WYSIWYG-DOC-FASE3: DocumentPreview + schoolDocuments persistence
 import { DocumentPreview } from "../../shared/documents";
 import {
   saveSchoolDocument,
@@ -166,8 +167,10 @@ export function CalendarPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  // WYSIWYG-DOC-FASE2: document mode state
-  const [showDocument, setShowDocument] = useState(false);
+  // WYSIWYG-DOC-FASE3: sidebar toggle (default open di desktop, closed di mobile)
+  const [showSidebar, setShowSidebar] = useState(
+    typeof window !== "undefined" && window.innerWidth >= 1024
+  );
   const [docSemester, setDocSemester] = useState<1 | 2>(1);
   const [formatDokumen, setFormatDokumen] = useState<"portrait" | "landscape">("portrait");
   const [docId, setDocId] = useState<string | undefined>(undefined);
@@ -203,7 +206,7 @@ export function CalendarPage() {
     return () => clearTimeout(t);
   }, [error, success]);
 
-  // WYSIWYG-DOC-FASE2: try to load existing schoolDocument
+  // WYSIWYG-DOC-FASE3: load existing schoolDocument on mount / semester change
   useEffect(() => {
     if (!activeYearId || !activeYearLabel) return;
     void (async () => {
@@ -271,9 +274,10 @@ export function CalendarPage() {
     }
   }, [docId]);
 
-  // Create/save document when entering WYSIWYG mode
-  const handleOpenDocument = useCallback(() => {
+  // Ensure schoolDocument exists (create if needed) — called once on mount when data is ready
+  useEffect(() => {
     if (!activeYearId || !activeYearLabel) return;
+    if (docId) return; // already have a doc
     void (async () => {
       const docData: Record<string, unknown> = {
         semester: docSemester,
@@ -282,26 +286,20 @@ export function CalendarPage() {
         totalWeeks,
         effectiveWeeks,
       };
-
-      if (docId) {
-        await updateSchoolDocumentData(docId, docData);
-      } else {
-        const doc = await saveSchoolDocument({
-          docType: "kalender-minggu-efektif",
-          semester: docSemester,
-          tahunAjaran: activeYearLabel,
-          teacherId: "__system__",
-          academicYearId: activeYearId,
-          data: docData,
-          orientation: formatDokumen,
-          status: "draft",
-        });
-        setDocId(doc.id);
-        setDocStatus("draft");
-      }
-      setShowDocument(true);
+      const doc = await saveSchoolDocument({
+        docType: "kalender-minggu-efektif",
+        semester: docSemester,
+        tahunAjaran: activeYearLabel,
+        teacherId: "__system__",
+        academicYearId: activeYearId,
+        data: docData,
+        orientation: formatDokumen,
+        status: "draft",
+      });
+      setDocId(doc.id);
+      setDocStatus("draft");
     })();
-  }, [activeYearId, activeYearLabel, docId, docSemester, schoolName, totalWeeks, effectiveWeeks, formatDokumen]);
+  }, [activeYearId, activeYearLabel]); // only on first load, not on every semester change
 
   if (loading) return <p className="text-sm text-slate-500">Memuat...</p>;
 
@@ -320,27 +318,28 @@ export function CalendarPage() {
   }
 
   /* ================================================================ */
-  /*  WYSIWYG VIEW — Kalender Minggu Efektif Document                */
+  /*  WYSIWYG VIEW — selalu aktif, sidebar + document                 */
   /* ================================================================ */
-  if (showDocument) {
-    return (
-      <div className="promes-wysiwyg-layout">
-        {/* Sidebar */}
-        <aside className="promes-sidebar no-print">
-          <div className="promes-sidebar-header">
+  return (
+    <div className="doc-wysiwyg-layout">
+      {/* ---------- SIDEBAR ---------- */}
+      {showSidebar && (
+        <aside className="doc-sidebar no-print">
+          <div className="doc-sidebar-header">
             <h2 className="text-sm font-bold text-slate-900">Kalender Minggu Efektif</h2>
             <button
               type="button"
-              className="promes-sidebar-close"
-              onClick={() => setShowDocument(false)}
-              title="Kembali ke daftar event"
+              className="doc-sidebar-close"
+              onClick={() => setShowSidebar(false)}
+              title="Tutup sidebar"
             >
               ✕
             </button>
           </div>
 
-          <div className="promes-sidebar-section">
-            <h3 className="promes-sidebar-section-title">Konteks</h3>
+          {/* -- Konteks -- */}
+          <div className="doc-sidebar-section">
+            <h3 className="doc-sidebar-section-title">Konteks</h3>
             <Select
               label="Semester"
               id="kme-sem"
@@ -350,9 +349,10 @@ export function CalendarPage() {
             />
           </div>
 
-          <div className="promes-sidebar-section">
-            <h3 className="promes-sidebar-section-title">Ringkasan</h3>
-            <dl className="promes-summary-dl">
+          {/* -- Ringkasan -- */}
+          <div className="doc-sidebar-section">
+            <h3 className="doc-sidebar-section-title">Ringkasan</h3>
+            <dl className="doc-summary-dl">
               <div><dt>Total minggu</dt><dd>{totalWeeks}</dd></div>
               <div><dt>Minggu efektif</dt><dd className="text-green-700">{effectiveWeeks}</dd></div>
               <div><dt>Minggu tidak efektif</dt><dd className="text-rose-600">{totalWeeks - effectiveWeeks}</dd></div>
@@ -360,82 +360,141 @@ export function CalendarPage() {
             </dl>
           </div>
 
-          <div className="promes-sidebar-section">
-            <h3 className="promes-sidebar-section-title">Event Penyebab</h3>
-            {semesterWeeks.filter((w) => !w.isEffective).length === 0 ? (
-              <p className="text-xs text-slate-400 italic">Tidak ada minggu yang diblokir.</p>
+          {/* -- Kelola Event -- */}
+          <div className="doc-sidebar-section">
+            <h3 className="doc-sidebar-section-title">Kelola Event</h3>
+            <div className="flex gap-2 mb-2">
+              <Button
+                className="text-xs px-2 py-1 flex-1"
+                onClick={() => { setEditing(null); setShowForm(true); }}
+              >
+                + Tambah
+              </Button>
+              <Button
+                variant="secondary"
+                className="text-xs px-2 py-1 flex-1"
+                onClick={() => setShowImport(true)}
+              >
+                Impor
+              </Button>
+            </div>
+
+            {events.length === 0 ? (
+              <p className="text-xs text-slate-400 italic">Belum ada event. Tambah manual atau impor dari JSON.</p>
             ) : (
-              <ul className="space-y-1 text-xs">
+              <ul className="doc-sidebar-list" style={{ maxHeight: "180px" }}>
+                {events.map((e) => (
+                  <li key={e.id} className="doc-sidebar-list-item" style={{ flexDirection: "column", alignItems: "flex-start", gap: "2px" }}>
+                    <div className="flex items-center gap-1.5 w-full">
+                      <span className="doc-sidebar-list-title font-medium">{e.label}</span>
+                      <Badge variant={badgeForType(e.type)}>
+                        {CALENDAR_EVENT_TYPE_LABELS_ID[e.type]}
+                      </Badge>
+                    </div>
+                    <div className="flex items-center justify-between w-full">
+                      <span className="text-[10px] text-slate-400">
+                        {formatLongDateID(e.startDate)} — {formatLongDateID(e.endDate)}
+                      </span>
+                      <div className="flex gap-0.5">
+                        <button
+                          type="button"
+                          className="text-[10px] text-blue-600 hover:underline px-0.5"
+                          onClick={async () => {
+                            const updated = await updateCalendarEvent(e.id, {});
+                            if (updated) {
+                              setEditing(updated);
+                              setShowForm(true);
+                            }
+                          }}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          className="text-[10px] text-rose-500 hover:underline px-0.5"
+                          onClick={async () => {
+                            if (window.confirm(`Hapus event "${e.label}"?`)) {
+                              await deleteCalendarEvent(e.id);
+                              setSuccess("Event dihapus.");
+                              void reload();
+                            }
+                          }}
+                        >
+                          Hapus
+                        </button>
+                      </div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          {/* -- Event Penyebab (blocking) -- */}
+          <div className="doc-sidebar-section">
+            <h3 className="doc-sidebar-section-title">Minggu Tidak Efektif</h3>
+            {semesterWeeks.filter((w) => !w.isEffective).length === 0 ? (
+              <p className="text-xs text-slate-400 italic">Semua minggu efektif.</p>
+            ) : (
+              <ul className="doc-sidebar-list" style={{ maxHeight: "160px" }}>
                 {semesterWeeks
                   .filter((w) => !w.isEffective)
                   .map((w) => (
-                    <li key={w.weekNumber} className="flex justify-between p-1.5 bg-rose-50 rounded">
-                      <span>Minggu {w.weekNumber}</span>
-                      <span className="text-rose-600 truncate ml-2 max-w-[150px]" title={w.blockReason}>{w.blockReason}</span>
+                    <li key={w.weekNumber} className="doc-sidebar-list-item" style={{ background: "#fef2f2" }}>
+                      <span className="text-rose-700">Mg {w.weekNumber}</span>
+                      <span className="doc-sidebar-list-title text-rose-500 text-[10px]" title={w.blockReason}>{w.blockReason}</span>
                     </li>
                   ))}
               </ul>
             )}
           </div>
 
-          <div className="promes-sidebar-section promes-sidebar-footer">
-            <Button
-              variant="secondary"
-              onClick={() => setShowDocument(false)}
-              className="w-full"
-            >
-              ← Kembali ke Daftar Event
-            </Button>
+          {/* -- Footer -- */}
+          <div className="doc-sidebar-section doc-sidebar-footer">
+            <p className="text-[10px] text-slate-400 text-center">
+              {events.length} event · TP {activeYearLabel}
+            </p>
           </div>
         </aside>
+      )}
 
-        {/* Document Area */}
-        <div className="promes-document-area">
-          <DocumentPreview
-            docId={docId}
-            docType="kalender-minggu-efektif"
-            orientation={formatDokumen}
-            status={docStatus}
-            data={docDataForAutoSave}
-            onSave={handleSaveDoc}
-            onSetFinal={handleSetFinal}
-            onOrientationChange={handleOrientationChange}
-            showFormatToggle={false}
-          >
-            <KalenderMEDocument
-              semester={docSemester}
-              tahunAjaran={activeYearLabel}
-              schoolName={schoolName}
-              weeks={semesterWeeks}
-              effectiveWeeks={effectiveWeeks}
-              totalWeeks={totalWeeks}
-            />
-          </DocumentPreview>
-        </div>
-      </div>
-    );
-  }
-
-  /* ================================================================ */
-  /*  CRUD VIEW — daftar event, tambah, edit, impor                  */
-  /* ================================================================ */
-  return (
-    <div className="space-y-4">
-      <Header yearLabel={activeYearLabel} count={events.length} />
-
-      {error && <div className="p-3 rounded-md bg-rose-50 border border-rose-200 text-sm text-rose-700">{error}</div>}
-      {success && <div className="p-3 rounded-md bg-brand-50 border border-brand-200 text-sm text-brand-700">{success}</div>}
-
-      <div className="flex gap-2 flex-wrap">
-        <Button onClick={() => { setEditing(null); setShowForm(true); }}>+ Tambah Event</Button>
-        <Button variant="secondary" onClick={() => setShowImport(true)}>Impor JSON</Button>
-        {events.length > 0 && (
-          <Button variant="secondary" onClick={handleOpenDocument}>
-            Cetak Minggu Efektif
-          </Button>
-        )}
+      {/* ---------- DOCUMENT AREA ---------- */}
+      <div className="doc-document-area">
+        <DocumentPreview
+          docId={docId}
+          docType="kalender-minggu-efektif"
+          orientation={formatDokumen}
+          status={docStatus}
+          data={docDataForAutoSave}
+          onSave={handleSaveDoc}
+          onSetFinal={handleSetFinal}
+          onOrientationChange={handleOrientationChange}
+          showFormatToggle={false}
+        >
+          <KalenderMEDocument
+            semester={docSemester}
+            tahunAjaran={activeYearLabel}
+            schoolName={schoolName}
+            weeks={semesterWeeks}
+            effectiveWeeks={effectiveWeeks}
+            totalWeeks={totalWeeks}
+          />
+        </DocumentPreview>
       </div>
 
+      {/* ---------- SIDEBAR TOGGLE (when hidden) ---------- */}
+      {!showSidebar && (
+        <button
+          type="button"
+          className="doc-sidebar-toggle no-print"
+          onClick={() => setShowSidebar(true)}
+          title="Buka panel kontrol"
+        >
+          ⚙
+        </button>
+      )}
+
+      {/* ---------- OVERLAYS: EventForm & ImportModal ---------- */}
       {showForm && (
         <EventForm
           academicYearId={activeYearId}
@@ -460,62 +519,17 @@ export function CalendarPage() {
         />
       )}
 
-      <Card>
-        <CardHeader title="Daftar Event" description={`${events.length} event untuk tahun pelajaran ${activeYearLabel}`} />
-        {events.length === 0 ? (
-          <EmptyState
-            title="Belum ada event kalender"
-            description="Impor dari JSON hasil AI, atau tambah manual."
-          />
-        ) : (
-          <div className="space-y-2">
-            {events.map((e) => (
-              <div key={e.id} className="flex items-start justify-between p-3 border border-slate-200 rounded-md">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-medium text-slate-900">{e.label}</span>
-                    <Badge variant={badgeForType(e.type)}>{CALENDAR_EVENT_TYPE_LABELS_ID[e.type]}</Badge>
-                    {e.blocksLearning && <Badge variant="warning">blocks KBM</Badge>}
-                  </div>
-                  <p className="text-xs text-slate-500 mt-1">
-                    {formatLongDateID(e.startDate)} — {formatLongDateID(e.endDate)}
-                  </p>
-                  {e.description && <p className="text-xs text-slate-600 mt-1">{e.description}</p>}
-                  <p className="text-[10px] text-slate-400 mt-1">Sumber: {e.source === "ai_import" ? "Impor AI" : "Manual"}</p>
-                </div>
-                <div className="flex gap-1">
-                  <Button
-                    variant="secondary"
-                    className="text-xs px-2 py-1"
-                    onClick={async () => {
-                      const updated = await updateCalendarEvent(e.id, {});
-                      if (updated) {
-                        setEditing(updated);
-                        setShowForm(true);
-                      }
-                    }}
-                  >
-                    Edit
-                  </Button>
-                  <Button
-                    variant="danger"
-                    className="text-xs px-2 py-1"
-                    onClick={async () => {
-                      if (window.confirm(`Hapus event "${e.label}"?`)) {
-                        await deleteCalendarEvent(e.id);
-                        setSuccess("Event dihapus.");
-                        void reload();
-                      }
-                    }}
-                  >
-                    Hapus
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </Card>
+      {/* Toast messages */}
+      {error && (
+        <div className="fixed bottom-4 right-4 z-50 p-3 rounded-md bg-rose-50 border border-rose-200 text-sm text-rose-700 shadow-lg max-w-sm no-print">
+          {error}
+        </div>
+      )}
+      {success && (
+        <div className="fixed bottom-4 right-4 z-50 p-3 rounded-md bg-green-50 border border-green-200 text-sm text-green-700 shadow-lg max-w-sm no-print">
+          {success}
+        </div>
+      )}
     </div>
   );
 }
@@ -552,7 +566,7 @@ function badgeForType(type: CalendarEventType): "success" | "warning" | "error" 
 }
 
 /* ============================================================ */
-/*  Event Form                                                   */
+/*  Event Form (overlay)                                         */
 /* ============================================================ */
 
 function EventForm({
@@ -614,46 +628,50 @@ function EventForm({
   }
 
   return (
-    <Card>
-      <CardHeader title={editing ? "Edit Event" : "Tambah Event"} />
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <Input label="Label" id="ev-label" required value={form.label} onChange={(v) => set("label", v)} />
-        <Select
-          label="Jenis"
-          id="ev-type"
-          value={form.type}
-          onChange={(v) => set("type", v as CalendarEventType)}
-          options={CALENDAR_EVENT_TYPES.map((t) => ({ value: t, label: CALENDAR_EVENT_TYPE_LABELS_ID[t] }))}
-        />
-        <div className="grid grid-cols-2 gap-3">
-          <Input label="Mulai" id="ev-start" type="date" required value={form.startDate} onChange={(v) => set("startDate", v)} />
-          <Input label="Selesai" id="ev-end" type="date" required value={form.endDate} onChange={(v) => set("endDate", v)} />
-        </div>
-        <Textarea label="Deskripsi (opsional)" id="ev-desc" value={form.description} onChange={(v) => set("description", v)} rows={2} />
-        <label className="flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={form.blocksLearning}
-            onChange={(e) => set("blocksLearning", e.target.checked)}
-            disabled={form.type === "holiday"}
-          />
-          <span>Blokir KBM (tidak ada pembelajaran di rentang ini)</span>
-        </label>
-        {form.type === "holiday" && (
-          <p className="text-xs text-amber-600">Event tipe Libur wajib memblokir KBM (otomatis aktif).</p>
-        )}
-        {error && <div className="p-2 rounded bg-rose-50 border border-rose-200 text-xs text-rose-700">{error}</div>}
-        <div className="flex gap-2">
-          <Button type="submit" disabled={saving}>{saving ? "Menyimpan..." : "Simpan"}</Button>
-          <Button type="button" variant="secondary" onClick={onClose} disabled={saving}>Batal</Button>
-        </div>
-      </form>
-    </Card>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 no-print" onClick={onClose}>
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto m-4" onClick={(e) => e.stopPropagation()}>
+        <Card>
+          <CardHeader title={editing ? "Edit Event" : "Tambah Event"} />
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <Input label="Label" id="ev-label" required value={form.label} onChange={(v) => set("label", v)} />
+            <Select
+              label="Jenis"
+              id="ev-type"
+              value={form.type}
+              onChange={(v) => set("type", v as CalendarEventType)}
+              options={CALENDAR_EVENT_TYPES.map((t) => ({ value: t, label: CALENDAR_EVENT_TYPE_LABELS_ID[t] }))}
+            />
+            <div className="grid grid-cols-2 gap-3">
+              <Input label="Mulai" id="ev-start" type="date" required value={form.startDate} onChange={(v) => set("startDate", v)} />
+              <Input label="Selesai" id="ev-end" type="date" required value={form.endDate} onChange={(v) => set("endDate", v)} />
+            </div>
+            <Textarea label="Deskripsi (opsional)" id="ev-desc" value={form.description} onChange={(v) => set("description", v)} rows={2} />
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={form.blocksLearning}
+                onChange={(e) => set("blocksLearning", e.target.checked)}
+                disabled={form.type === "holiday"}
+              />
+              <span>Blokir KBM (tidak ada pembelajaran di rentang ini)</span>
+            </label>
+            {form.type === "holiday" && (
+              <p className="text-xs text-amber-600">Event tipe Libur wajib memblokir KBM (otomatis aktif).</p>
+            )}
+            {error && <div className="p-2 rounded bg-rose-50 border border-rose-200 text-xs text-rose-700">{error}</div>}
+            <div className="flex gap-2">
+              <Button type="submit" disabled={saving}>{saving ? "Menyimpan..." : "Simpan"}</Button>
+              <Button type="button" variant="secondary" onClick={onClose} disabled={saving}>Batal</Button>
+            </div>
+          </form>
+        </Card>
+      </div>
+    </div>
   );
 }
 
 /* ============================================================ */
-/*  Import Modal                                                 */
+/*  Import Modal (overlay)                                       */
 /* ============================================================ */
 
 function ImportModal({
@@ -693,34 +711,38 @@ function ImportModal({
   }
 
   return (
-    <Card>
-      <CardHeader
-        title="Impor Kalender dari JSON"
-        description="Tempel JSON hasil AI (format guru-admin-flow/calendar/v1). Event existing akan di-soft-delete dan diganti."
-      />
-      <Textarea
-        label="JSON Kalender"
-        id="import-json"
-        value={jsonText}
-        onChange={setJsonText}
-        rows={12}
-        placeholder={`{
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 no-print" onClick={onClose}>
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto m-4" onClick={(e) => e.stopPropagation()}>
+        <Card>
+          <CardHeader
+            title="Impor Kalender dari JSON"
+            description="Tempel JSON hasil AI (format guru-admin-flow/calendar/v1). Event existing akan di-soft-delete dan diganti."
+          />
+          <Textarea
+            label="JSON Kalender"
+            id="import-json"
+            value={jsonText}
+            onChange={setJsonText}
+            rows={12}
+            placeholder={`{
   "$schema": "guru-admin-flow/calendar/v1",
   "academicYearLabel": "2025/2026",
   "events": [...]
 }`}
-      />
-      <div className="mt-3 p-3 rounded-md bg-amber-50 border border-amber-200 text-xs text-amber-800">
-        ⚠️ Impor akan <strong>mengganti</strong> semua event kalender existing untuk tahun pelajaran ini.
-        Pastikan backup data lama bila perlu.
+          />
+          <div className="mt-3 p-3 rounded-md bg-amber-50 border border-amber-200 text-xs text-amber-800">
+            ⚠️ Impor akan <strong>mengganti</strong> semua event kalender existing untuk tahun pelajaran ini.
+            Pastikan backup data lama bila perlu.
+          </div>
+          <div className="flex gap-2 mt-3">
+            <Button onClick={handleImport} disabled={importing || !jsonText.trim()}>
+              {importing ? "Mengimpor..." : "Impor & Ganti"}
+            </Button>
+            <Button variant="secondary" onClick={onClose} disabled={importing}>Batal</Button>
+          </div>
+        </Card>
       </div>
-      <div className="flex gap-2 mt-3">
-        <Button onClick={handleImport} disabled={importing || !jsonText.trim()}>
-          {importing ? "Mengimpor..." : "Impor & Ganti"}
-        </Button>
-        <Button variant="secondary" onClick={onClose} disabled={importing}>Batal</Button>
-      </div>
-    </Card>
+    </div>
   );
 }
 
