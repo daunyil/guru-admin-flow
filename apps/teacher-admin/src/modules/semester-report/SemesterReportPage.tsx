@@ -154,8 +154,8 @@ export function SemesterReportPage() {
     <div className="space-y-4">
       <Header yearLabel={activeYear.label} />
 
-      {error && <div className="p-3 rounded-md bg-rose-50 border border-rose-200 text-sm text-rose-700">{error}</div>}
-      {success && <div className="p-3 rounded-md bg-brand-50 border border-brand-200 text-sm text-brand-700">{success}</div>}
+      {error && <div className="p-3 rounded-md bg-rose-50 border border-rose-200 text-sm text-rose-700" role="status" aria-live="polite">{error}</div>}
+      {success && <div className="p-3 rounded-md bg-brand-50 border border-brand-200 text-sm text-brand-700" role="status" aria-live="polite">{success}</div>}
 
       <Card>
         <CardHeader

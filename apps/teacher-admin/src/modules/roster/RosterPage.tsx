@@ -74,8 +74,8 @@ export function RosterPage() {
     <div className="space-y-4">
       <Header yearLabel={year.label} count={rosters.length} />
 
-      {error && <div className="info-banner-error">{error}</div>}
-      {success && <div className="info-banner-success">{success}</div>}
+      {error && <div className="info-banner-error" role="status" aria-live="polite">{error}</div>}
+      {success && <div className="info-banner-success" role="status" aria-live="polite">{success}</div>}
 
       <div className="flex gap-2">
         <Button onClick={() => setShowNew(true)}>+ Buat Kelas</Button>

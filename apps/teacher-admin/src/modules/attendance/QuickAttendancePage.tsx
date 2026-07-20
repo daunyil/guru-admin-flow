@@ -108,7 +108,7 @@ export function QuickAttendancePage() {
       <h1 className="text-2xl font-bold text-slate-900">Absensi Cepat</h1>
       <p className="text-sm text-slate-500 mt-1">{year ? `TP ${year.label}` : "Belum ada tahun aktif"}</p>
     </div>
-    {notice && <div className="info-banner-success">{notice}</div>}
+    {notice && <div className="info-banner-success" role="status" aria-live="polite">{notice}</div>}
 
     {/* Mode selector */}
     <Card>

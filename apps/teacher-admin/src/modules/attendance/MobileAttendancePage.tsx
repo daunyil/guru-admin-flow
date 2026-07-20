@@ -57,7 +57,7 @@ export function MobileAttendancePage() {
         <h1>Absensi HP</h1>
         <p>Format cepat H/S/I/T/A seperti aplikasi SIAKAD.</p>
       </div>
-      {message && <div className="info-banner-success">{message}</div>}
+      {message && <div className="info-banner-success" role="status" aria-live="polite">{message}</div>}
       <Card>
         <CardHeader title="Tanggal" description="Pilih tanggal absensi." />
         <Input label="" id="attendance-date" type="date" value={date} onChange={setDate} />

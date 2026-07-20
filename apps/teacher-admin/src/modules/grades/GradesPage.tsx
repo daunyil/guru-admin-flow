@@ -341,7 +341,7 @@ export function GradesPage() {
         </p>
       </div>
 
-      {message && <div className="info-banner-success">{message}</div>}
+      {message && <div className="info-banner-success" role="status" aria-live="polite">{message}</div>}
 
       {/* Pilih Kelas dan Mapel */}
       <Card>

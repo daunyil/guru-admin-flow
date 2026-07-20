@@ -232,7 +232,7 @@ export function BackupPage() {
       </Card>
 
       {error && (
-        <div className="p-3 rounded-md bg-rose-50 border border-rose-200 text-sm text-rose-700">
+        <div className="p-3 rounded-md bg-rose-50 border border-rose-200 text-sm text-rose-700" role="status" aria-live="polite">
           {error}
         </div>
       )}

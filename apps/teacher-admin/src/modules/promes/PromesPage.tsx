@@ -497,7 +497,7 @@ export function PromesPage() {
     <div className="space-y-4">
       <Header yearLabel={activeYear.label} />
 
-      {error && <div className="p-3 rounded-md bg-rose-50 border border-rose-200 text-sm text-rose-700">{error}</div>}
+      {error && <div className="p-3 rounded-md bg-rose-50 border border-rose-200 text-sm text-rose-700" role="status" aria-live="polite">{error}</div>}
 
       <Card>
         <CardHeader title="Susun Promes" description="Promes = Prota + Kalender + options. Generate on-demand (tidak persist)." />

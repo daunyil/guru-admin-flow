@@ -80,7 +80,7 @@ function LoginPanel({ onSignedIn }: { onSignedIn: () => void }) {
           Password
           <input className="input mt-1" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
         </label>
-        {error && <div className="p-3 rounded-md bg-rose-50 border border-rose-200 text-sm text-rose-700">{error}</div>}
+        {error && <div className="p-3 rounded-md bg-rose-50 border border-rose-200 text-sm text-rose-700" role="status" aria-live="polite">{error}</div>}
         <button type="submit" disabled={busy} className="w-full rounded-xl bg-brand-600 text-white font-bold py-3 disabled:opacity-60">
           {busy ? "Memeriksa..." : "Masuk"}
         </button>

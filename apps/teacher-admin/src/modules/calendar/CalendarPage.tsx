@@ -557,12 +557,12 @@ export function CalendarPage() {
 
       {/* Toast messages */}
       {error && (
-        <div className="doc-toast doc-toast-error no-print">
+        <div className="doc-toast doc-toast-error no-print" role="status" aria-live="polite">
           {error}
         </div>
       )}
       {success && (
-        <div className="doc-toast doc-toast-success no-print">
+        <div className="doc-toast doc-toast-success no-print" role="status" aria-live="polite">
           {success}
         </div>
       )}

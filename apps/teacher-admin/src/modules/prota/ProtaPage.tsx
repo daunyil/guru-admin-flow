@@ -347,8 +347,8 @@ export function ProtaPage() {
         )}
 
         {/* Toast messages */}
-        {error && <div className="doc-toast doc-toast-error no-print">{error}</div>}
-        {success && <div className="doc-toast doc-toast-success no-print">{success}</div>}
+        {error && <div className="doc-toast doc-toast-error no-print" role="status" aria-live="polite">{error}</div>}
+        {success && <div className="doc-toast doc-toast-success no-print" role="status" aria-live="polite">{success}</div>}
       </div>
     );
   }
@@ -360,8 +360,8 @@ export function ProtaPage() {
     <div className="space-y-4">
       <Header yearLabel={activeYearLabel} count={profiles.length} />
 
-      {error && <div className="p-3 rounded-md bg-rose-50 border border-rose-200 text-sm text-rose-700">{error}</div>}
-      {success && <div className="p-3 rounded-md bg-brand-50 border border-brand-200 text-sm text-brand-700">{success}</div>}
+      {error && <div className="p-3 rounded-md bg-rose-50 border border-rose-200 text-sm text-rose-700" role="status" aria-live="polite">{error}</div>}
+      {success && <div className="p-3 rounded-md bg-brand-50 border border-brand-200 text-sm text-brand-700" role="status" aria-live="polite">{success}</div>}
 
       <div className="flex gap-2 flex-wrap">
         <Button onClick={() => setShowNew(true)}>+ Buat Prota Baru</Button>

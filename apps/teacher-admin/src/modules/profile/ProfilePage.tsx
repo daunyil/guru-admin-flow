@@ -238,12 +238,12 @@ function SchoolProfileForm() {
       </Card>
 
       {error && (
-        <div className="p-3 rounded-md bg-rose-50 border border-rose-200 text-sm text-rose-700">
+        <div className="p-3 rounded-md bg-rose-50 border border-rose-200 text-sm text-rose-700" role="status" aria-live="polite">
           {error}
         </div>
       )}
       {saved && (
-        <div className="p-3 rounded-md bg-brand-50 border border-brand-200 text-sm text-brand-700">
+        <div className="p-3 rounded-md bg-brand-50 border border-brand-200 text-sm text-brand-700" role="status" aria-live="polite">
           Profil sekolah tersimpan di perangkat.
         </div>
       )}
@@ -413,12 +413,12 @@ function TeacherProfileForm() {
       </Card>
 
       {error && (
-        <div className="p-3 rounded-md bg-rose-50 border border-rose-200 text-sm text-rose-700">
+        <div className="p-3 rounded-md bg-rose-50 border border-rose-200 text-sm text-rose-700" role="status" aria-live="polite">
           {error}
         </div>
       )}
       {saved && (
-        <div className="p-3 rounded-md bg-brand-50 border border-brand-200 text-sm text-brand-700">
+        <div className="p-3 rounded-md bg-brand-50 border border-brand-200 text-sm text-brand-700" role="status" aria-live="polite">
           Profil guru tersimpan di perangkat.
         </div>
       )}
@@ -568,12 +568,12 @@ function AcademicYearManager() {
           </div>
 
           {error && (
-            <div className="p-3 rounded-md bg-rose-50 border border-rose-200 text-sm text-rose-700">
+            <div className="p-3 rounded-md bg-rose-50 border border-rose-200 text-sm text-rose-700" role="status" aria-live="polite">
               {error}
             </div>
           )}
           {saved && (
-            <div className="p-3 rounded-md bg-brand-50 border border-brand-200 text-sm text-brand-700">
+            <div className="p-3 rounded-md bg-brand-50 border border-brand-200 text-sm text-brand-700" role="status" aria-live="polite">
               Tahun pelajaran tersimpan &amp; diaktifkan.
             </div>
           )}
