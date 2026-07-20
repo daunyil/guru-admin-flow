@@ -34,6 +34,7 @@ import { AppsScriptImportPage } from "./modules/apps-script-import/AppsScriptImp
 import { AutoDocumentPage } from "./modules/auto-document/AutoDocumentPage";
 import { EvaluationDocsPage } from "./modules/evaluation-docs/EvaluationDocsPage";
 import { DailyDutyPage } from "./modules/daily-duty/DailyDutyPage";
+import { LainnyaPage } from "./modules/lainnya/LainnyaPage";
 
 export function App() {
   return (
@@ -68,6 +69,7 @@ export function App() {
             <Route path="/auto-document" element={<AutoDocumentPage />} />
             <Route path="/evaluation-docs" element={<EvaluationDocsPage />} />
             <Route path="/piket" element={<DailyDutyPage />} />
+            <Route path="/lainnya" element={<LainnyaPage />} />
             <Route path="*" element={<TodayPage />} />
           </Routes>
         </AppShell>

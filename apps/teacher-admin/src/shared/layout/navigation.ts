@@ -118,6 +118,7 @@ export const GATE_GROUPS: GateGroup[] = [
       { id: "pengayaan", label: "Pengayaan", to: "/pengayaan", description: "Program pengayaan" },
       // RELEASE-FIXPACK-P1-P2-01: "Nilai" dihapus dari Group D karena sudah ada di sidebar Harian.
       { id: "semester-report", label: "Laporan Semester", to: "/semester-report", description: "Laporan akhir semester" },
+      { id: "lainnya", label: "Dokumen Lainnya", to: "/lainnya", description: "Surat, catatan, dokumen administrasi lain" },
     ],
   },
   {
