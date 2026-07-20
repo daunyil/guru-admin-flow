@@ -728,37 +728,14 @@ Format: sesuaikan dengan standar Kurikulum Merdeka untuk ${entry.grade}.`;
       )}
 
       {/* Overlay: AI Prompt */}
-      {showAIPrompt && (() => {
-        const entry = entries.find((e) => e.id === showAIPrompt);
-        if (!entry) return null;
-        return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={() => setShowAIPrompt(null)}>
-            <div className="w-full max-w-md mx-4 bg-white rounded-lg shadow-xl" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
-              <CardHeader title="Prompt AI" description="Klik Salin lalu paste ke AI eksternal." />
-              <div className="p-4 space-y-2">
-                <div className="flex gap-2 flex-wrap">
-                  {(["lkpd", "rpp", "jurnal", "remedial", "pengayaan"] as const).map((type) => (
-                    <Button
-                      key={type}
-                      variant="secondary"
-                      className="text-xs px-2 py-1"
-                      onClick={() => {
-                        const prompt = generateAIPrompt(entry, type);
-                        navigator.clipboard.writeText(prompt);
-                        setMessage(`Prompt ${type.toUpperCase()} disalin.`);
-                      }}
-                    >
-                      Salin {type.toUpperCase()}
-                    </Button>
-                  ))}
-                </div>
-                <p className="text-xs text-slate-400">Tidak ada API key. Tidak ada data dikirim. Guru paste manual ke AI.</p>
-                <Button variant="secondary" onClick={() => setShowAIPrompt(null)} className="w-full">Tutup</Button>
-              </div>
-            </div>
-          </div>
-        );
-      })()}
+      {showAIPrompt && (
+        <AIPromptOverlay
+          entry={entries.find((e) => e.id === showAIPrompt) ?? null}
+          onGenerate={generateAIPrompt}
+          onCopy={(text) => { navigator.clipboard.writeText(text); setMessage("Prompt disalin."); }}
+          onClose={() => setShowAIPrompt(null)}
+        />
+      )}
     </>
   );
 }
@@ -824,6 +801,71 @@ function ATPForm({
             <Button onClick={() => onSave(form)}>Simpan</Button>
             <Button variant="secondary" onClick={onCancel}>Batal</Button>
           </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================ */
+/*  AI Prompt Overlay                                            */
+/* ============================================================ */
+
+const AI_PROMPT_TYPES = ["lkpd", "rpp", "jurnal", "remedial", "pengayaan"] as const;
+type AIPromptType = (typeof AI_PROMPT_TYPES)[number];
+
+function AIPromptOverlay({
+  entry,
+  onGenerate,
+  onCopy,
+  onClose,
+}: {
+  entry: ATPEntry | null;
+  onGenerate: (entry: ATPEntry, type: AIPromptType) => string;
+  onCopy: (text: string) => void;
+  onClose: () => void;
+}) {
+  if (!entry) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/30"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-md mx-4 bg-white rounded-lg shadow-xl"
+        onClick={(e: React.MouseEvent) => e.stopPropagation()}
+      >
+        <CardHeader
+          title="Prompt AI"
+          description="Klik Salin lalu paste ke AI eksternal."
+        />
+        <div className="p-4 space-y-2">
+          <div className="flex gap-2 flex-wrap">
+            {AI_PROMPT_TYPES.map((type) => (
+              <Button
+                key={type}
+                variant="secondary"
+                className="text-xs px-2 py-1"
+                onClick={() => {
+                  const prompt = onGenerate(entry, type);
+                  onCopy(prompt);
+                }}
+              >
+                Salin {type.toUpperCase()}
+              </Button>
+            ))}
+          </div>
+          <p className="text-xs text-slate-400">
+            Tidak ada API key. Tidak ada data dikirim. Guru paste manual ke AI.
+          </p>
+          <Button
+            variant="secondary"
+            onClick={onClose}
+            className="w-full"
+          >
+            Tutup
+          </Button>
         </div>
       </div>
     </div>

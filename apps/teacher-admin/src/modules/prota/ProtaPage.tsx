@@ -233,6 +233,14 @@ export function ProtaPage() {
 
     return (
       <div className="doc-wysiwyg-layout">
+        {/* ---------- MOBILE BACKDROP ---------- */}
+        {showSidebar && (
+          <div
+            className="doc-sidebar-backdrop no-print"
+            onClick={() => setShowSidebar(false)}
+          />
+        )}
+
         {/* ---------- SIDEBAR ---------- */}
         {showSidebar && (
           <aside className="doc-sidebar no-print">
@@ -453,6 +461,7 @@ function statusBadge(status: ProtaProfile["status"]): "success" | "warning" | "e
     case "final": return "success";
     case "revised": return "warning";
     case "locked": return "success";
+    default: return "neutral";
   }
 }
 
@@ -463,6 +472,7 @@ function statusLabel(status: ProtaProfile["status"]): string {
     case "final": return "Final";
     case "revised": return "Perlu Revisi";
     case "locked": return "Dikunci";
+    default: return status;
   }
 }
 
