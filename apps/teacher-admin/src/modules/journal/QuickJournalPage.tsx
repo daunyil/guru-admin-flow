@@ -12,7 +12,7 @@
  *   - Window khusus Jurnal Susulan: daftar pertemuan belum jurnal dengan
  *     tombol "Buat Jurnal" per pertemuan.
  *
- * WYSIWYG-DOC-FASE4: Jurnal sebagai dokumen WYSIWYG.
+ * WYSIWYG-DOC-FASE9: Jurnal sebagai dokumen WYSIWYG.
  *   - Saat assignment dipilih → layout WYSIWYG: sidebar (kontrol) + DocumentPreview (dokumen).
  *   - Sidebar: konteks (assignment, tanggal, mode), rekap, daftar pertemuan, opsi darurat.
  *   - DocumentPreview: form editor (no-print) + formal journal document.
@@ -66,7 +66,7 @@ import {
 } from "@guru-admin/domain";
 import { formatLongDateID, todayISODate } from "@guru-admin/shared";
 import { LoadingState } from "../../shared/ui";
-// WYSIWYG-DOC-FASE4
+// WYSIWYG-DOC-FASE9
 import { DocumentPreview } from "../../shared/documents";
 import {
   saveSchoolDocument,
@@ -107,7 +107,7 @@ export function QuickJournalPage() {
   // UX-DAILY-04: ref untuk auto-scroll ke editor jurnal
   const editorRef = useRef<HTMLDivElement | null>(null);
 
-  // WYSIWYG-DOC-FASE4
+  // WYSIWYG-DOC-FASE9
   const [showSidebar, setShowSidebar] = useState(
     typeof window !== "undefined" && window.innerWidth >= 1024
   );
@@ -256,7 +256,7 @@ export function QuickJournalPage() {
     }
   }
 
-  // WYSIWYG-DOC-FASE4: ensureDoc (find-or-create schoolDocument)
+  // WYSIWYG-DOC-FASE9: ensureDoc (find-or-create schoolDocument)
   const ensureDoc = useCallback(async (asg: TeachingAssignment, semester: 1 | 2) => {
     if (!year || !asg) return;
     if (ensuringRef.current) return;
@@ -308,7 +308,7 @@ export function QuickJournalPage() {
       setDocStatus("draft");
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedAssignmentId, assignments, year?.id, ensureDoc]);
+  }, [selectedAssignmentId, year?.id]);
 
   // WYSIWYG callbacks
   const handleSaveDoc = useCallback(async (id: string, data: Record<string, unknown>) => {
@@ -637,8 +637,26 @@ export function QuickJournalPage() {
         </div>
       </aside>
 
+      {/* ---------- FLOATING SIDEBAR TOGGLE ---------- */}
+      {!showSidebar && (
+        <button
+          type="button"
+          className="doc-sidebar-toggle no-print"
+          onClick={() => setShowSidebar(true)}
+          title="Buka sidebar"
+        >
+          ☰
+        </button>
+      )}
+
       {/* ---------- DOCUMENT AREA ---------- */}
       <div className="doc-document-area">
+        {message && (
+          <div className={`p-3 rounded-md mb-3 no-print ${message.type === "success" ? "bg-emerald-50 border border-emerald-200 text-sm text-emerald-700" : "bg-rose-50 border border-rose-200 text-sm text-rose-700"}`} role="status" aria-live="polite">
+            {message.text}
+          </div>
+        )}
+
         <DocumentPreview
           docId={docId}
           docType="jurnal-semester"
@@ -664,46 +682,20 @@ export function QuickJournalPage() {
               onError={(msg) => setMessage({ type: "error", text: msg })}
             />
           ) : (
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: 300 }}>
-              <div style={{ textAlign: "center", color: "#94a3b8" }}>
-                <p style={{ fontSize: "2rem", marginBottom: 8 }}>📝</p>
-                <p style={{ fontWeight: 600 }}>Pilih Pertemuan</p>
-                <p style={{ fontSize: "0.8rem", marginTop: 4 }}>
-                  Pilih sesi di sidebar untuk mulai mengisi jurnal.
-                </p>
-              </div>
+            <div className="flex flex-col items-center justify-center h-full text-slate-400 py-20">
+              <p className="text-lg font-medium">Pilih Pertemuan</p>
+              <p className="text-sm mt-1">Buka sidebar untuk memilih sesi.</p>
             </div>
           )}
         </DocumentPreview>
       </div>
-
-      {/* ---------- SIDEBAR TOGGLE ---------- */}
-      {!showSidebar && (
-        <button
-          type="button"
-          className="doc-sidebar-toggle no-print"
-          onClick={() => setShowSidebar(true)}
-          title="Buka sidebar"
-          aria-label="Buka sidebar"
-          aria-expanded={showSidebar}
-        >
-          ☰
-        </button>
-      )}
-
-      {/* Toast messages */}
-      {message && (
-        <div className={`doc-toast doc-toast-${message.type === "success" ? "success" : "error"} no-print`} role="status" aria-live="polite">
-          {message.text}
-        </div>
-      )}
     </div>
   );
 }
 
 /* ================================================================== */
 /*  QuickJournalEditor — sub-component for editing a single session    */
-/*  WYSIWYG-DOC-FASE4: no showDocument toggle, no PrintExportButtons   */
+/*  WYSIWYG-DOC-FASE9: no showDocument toggle, no PrintExportButtons   */
 /* ================================================================== */
 
 function QuickJournalEditor({
