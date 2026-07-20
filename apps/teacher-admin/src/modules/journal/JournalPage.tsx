@@ -20,7 +20,7 @@ import {
   finalizeJournal,
   unlockJournal,
 } from "../../shared/db/journal-repo";
-import { listProtaProfiles, getProtaProfile } from "../../shared/db/prota-repo";
+import { listProtaProfiles } from "../../shared/db/prota-repo";
 import { getActiveAcademicYear, getTeacherProfile, getSchoolProfile } from "../../shared/db/profile-repo";
 import type {
   LessonSession,
@@ -142,6 +142,7 @@ export function JournalPage() {
         <JournalEditor
           sessionId={selectedSessionId}
           academicYearId={activeYear.id}
+          academicYearLabel={activeYear.label}
           schoolName={school?.name ?? ""}
           onSaved={(msg) => setSuccess(msg)}
           onError={(msg) => setError(msg)}
@@ -165,12 +166,14 @@ function Header({ dateLabel, sessionCount }: { dateLabel?: string; sessionCount?
 function JournalEditor({
   sessionId,
   academicYearId,
+  academicYearLabel,
   schoolName,
   onSaved,
   onError,
 }: {
   sessionId: string;
   academicYearId: string;
+  academicYearLabel: string;
   schoolName: string;
   onSaved: (msg: string) => void;
   onError: (msg: string) => void;
@@ -202,8 +205,6 @@ function JournalEditor({
           const found = p.units.find((u) => u.id === sess.plannedUnitId);
           if (found) {
             unit = found;
-            const fullProfile = await getProtaProfile(p.id);
-            void fullProfile; // untuk konteks
             break;
           }
         }
@@ -384,7 +385,7 @@ function JournalEditor({
                   </tr>
                   <tr>
                     <td>Semester</td><td>{journal.semester === 1 ? "Ganjil" : "Genap"}</td>
-                    <td>Tahun Pelajaran</td><td>{activeYearLabel(journal)}</td>
+                    <td>Tahun Pelajaran</td><td>{academicYearLabel}</td>
                   </tr>
                 </tbody>
               </table>
@@ -467,7 +468,7 @@ function JournalEditor({
             <Button variant="secondary" onClick={() => setShowDocumentPreview(false)}>Mode Kerja</Button>
             <Button onClick={() => window.print()}>Cetak</Button>
             {!isLocked && (
-              <Button onClick={handleSave} disabled={isLocked}>Simpan</Button>
+              <Button onClick={handleSave}>Simpan</Button>
             )}
           </div>
         </>
@@ -476,8 +477,4 @@ function JournalEditor({
   );
 }
 
-function activeYearLabel(journal: TeachingJournal): string {
-  // Simplified — actual year label bisa diambil dari academicYear repo bila perlu
-  void journal;
-  return "2025/2026";
-}
+/* activeYearLabel removed — tahun pelajaran sekarang dari prop academicYearLabel */

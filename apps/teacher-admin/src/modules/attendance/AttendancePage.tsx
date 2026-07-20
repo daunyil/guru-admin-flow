@@ -335,6 +335,7 @@ function AttendanceEditor({
                   <th className="py-2 px-2 text-center border border-slate-300">H</th>
                   <th className="py-2 px-2 text-center border border-slate-300">S</th>
                   <th className="py-2 px-2 text-center border border-slate-300">I</th>
+                  <th className="py-2 px-2 text-center border border-slate-300">T</th>
                   <th className="py-2 px-2 text-center border border-slate-300">A</th>
                   <th className="py-2 px-2 text-left border border-slate-300">Keterangan</th>
                 </tr>
@@ -348,6 +349,7 @@ function AttendanceEditor({
                     <td className="py-1.5 px-2 text-center border border-slate-300">{r.status === "present" ? "✓" : ""}</td>
                     <td className="py-1.5 px-2 text-center border border-slate-300">{r.status === "sick" ? "✓" : ""}</td>
                     <td className="py-1.5 px-2 text-center border border-slate-300">{r.status === "excused" ? "✓" : ""}</td>
+                    <td className="py-1.5 px-2 text-center border border-slate-300">{r.status === "late" ? "✓" : ""}</td>
                     <td className="py-1.5 px-2 text-center border border-slate-300">{r.status === "absent" ? "✓" : ""}</td>
                     <td className="py-1.5 px-2 border border-slate-300">{r.note ?? ""}</td>
                   </tr>
@@ -359,6 +361,7 @@ function AttendanceEditor({
                   <td className="py-2 px-2 text-center border border-slate-300">{summary.present}</td>
                   <td className="py-2 px-2 text-center border border-slate-300">{summary.sick}</td>
                   <td className="py-2 px-2 text-center border border-slate-300">{summary.excused}</td>
+                  <td className="py-2 px-2 text-center border border-slate-300">{summary.late}</td>
                   <td className="py-2 px-2 text-center border border-slate-300">{summary.absent}</td>
                   <td className="py-2 px-2 border border-slate-300">Total: {summary.total}</td>
                 </tr>

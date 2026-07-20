@@ -202,6 +202,7 @@ export function PromesPage() {
   // WYSIWYG-DOC-FASE2: auto-save data memo
   const docDataForAutoSave = useMemo(() => {
     if (!result) return {};
+    const profile = profiles.find((p) => p.id === selectedProfileId);
     return {
       promesResult: result,
       promesOptions: options,
@@ -213,8 +214,11 @@ export function PromesPage() {
       headmasterName: school?.headmasterName ?? "",
       teacherName: teacher?.name ?? "",
       activeYearLabel: activeYear?.label ?? "",
+      profileSubject: profile?.subject ?? "",
+      profileGrade: profile?.grade ?? "",
+      profilePhase: profile?.phase ?? "",
     };
-  }, [result, options, selectedProfileId, semester, formatDokumen, school, teacher, activeYear]);
+  }, [result, options, selectedProfileId, semester, formatDokumen, school, teacher, activeYear, profiles]);
 
   // WYSIWYG-DOC-FASE2: callbacks
   const handleSaveDoc = useCallback(async (id: string, data: Record<string, unknown>) => {
@@ -260,6 +264,14 @@ export function PromesPage() {
 
     return (
       <div className="doc-wysiwyg-layout">
+        {/* ---------- MOBILE BACKDROP ---------- */}
+        {showSidebar && (
+          <div
+            className="doc-sidebar-backdrop no-print"
+            onClick={() => setShowSidebar(false)}
+          />
+        )}
+
         {/* ---------- SIDEBAR ---------- */}
         {showSidebar && (
           <aside className="doc-sidebar no-print">
@@ -1049,7 +1061,7 @@ function PromesLandscapeMatrixDocument({
                       key={`${row.key}-${week.weekNumber}`}
                       className={`week-cell ${isLearning ? "promes-event-learning promes-learning-mark" : ""}`}
                     >
-                      {isLearning ? "" : ""}
+                      {isLearning ? "✓" : ""}
                     </td>
                   );
                 })}
