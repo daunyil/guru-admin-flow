@@ -11,7 +11,8 @@
  */
 
 import { useEffect, useState, useRef } from "react";
-import { Card, CardHeader, Input, Textarea, Button, EmptyState, Badge, Select, InfoCard } from "../../shared/ui";
+import { Card, CardHeader, Input, Textarea, Button, EmptyState, Badge, Select } from "../../shared/ui";
+import { InfoCard } from "../../shared/ui/ContextCard";
 import { getActiveAcademicYear, getSchoolProfile, getTeacherProfile } from "../../shared/db/profile-repo";
 import { listAssignmentsByTeacher } from "../../shared/db/teaching-assignment-repo";
 import {

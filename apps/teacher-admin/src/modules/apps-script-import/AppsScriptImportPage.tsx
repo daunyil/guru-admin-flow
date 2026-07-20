@@ -11,7 +11,8 @@
  */
 
 import { useEffect, useState, useRef } from "react";
-import { Card, CardHeader, Button, Badge, Textarea, InfoCard } from "../../shared/ui";
+import { Card, CardHeader, Button, Badge, Textarea } from "../../shared/ui";
+import { InfoCard } from "../../shared/ui/ContextCard";
 import { getActiveAcademicYear, getTeacherProfile } from "../../shared/db/profile-repo";
 import { importFromAppsScript, type ImportSummary } from "../../shared/db/apps-script-import-repo";
 import {

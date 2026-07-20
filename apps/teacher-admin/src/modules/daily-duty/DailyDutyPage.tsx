@@ -4,7 +4,8 @@
  */
 
 import { useEffect, useMemo, useState } from "react";
-import { Card, CardHeader, Input, Button, Badge, EmptyState, Textarea, PrintExportButtons } from "../../shared/ui";
+import { Card, CardHeader, Input, Button, Badge, EmptyState, Textarea } from "../../shared/ui";
+import { PrintExportButtons } from "../../shared/ui/PrintExportButtons";
 import { getActiveAcademicYear, getSchoolProfile, getTeacherProfile } from "../../shared/db/profile-repo";
 import { listClassRosters } from "../../shared/db/class-roster-repo";
 import { formatLongDateID, todayISODate } from "@guru-admin/shared";

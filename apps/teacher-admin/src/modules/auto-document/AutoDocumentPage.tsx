@@ -14,7 +14,8 @@
 
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Card, CardHeader, Button, EmptyState, Badge, Select, InfoCard, downloadHTML } from "../../shared/ui";
+import { Card, CardHeader, Button, EmptyState, Badge, Select, downloadHTML } from "../../shared/ui";
+import { InfoCard } from "../../shared/ui/ContextCard";
 import { getActiveAcademicYear, getTeacherProfile, getSchoolProfile } from "../../shared/db/profile-repo";
 import { listAssignmentsByTeacher } from "../../shared/db/teaching-assignment-repo";
 import { listProtaProfiles } from "../../shared/db/prota-repo";

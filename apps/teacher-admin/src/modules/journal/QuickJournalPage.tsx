@@ -23,7 +23,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Card, CardHeader, Input, Textarea, Button, EmptyState, Badge, Select, ContextCard } from "../../shared/ui";
+import { Card, CardHeader, Input, Textarea, Button, EmptyState, Badge, Select } from "../../shared/ui";
+import { ContextCard } from "../../shared/ui/ContextCard";
 import {
   getLessonSessionsByDate,
   getLessonSession,

@@ -16,7 +16,8 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Input, Select, Button, Badge, Textarea, EmptyState, ContextCard } from "../../shared/ui";
+import { Input, Select, Button, Badge, Textarea, EmptyState } from "../../shared/ui";
+import { ContextCard } from "../../shared/ui/ContextCard";
 import { listClassRosters } from "../../shared/db/class-roster-repo";
 import { getActiveAcademicYear, getTeacherProfile } from "../../shared/db/profile-repo";
 import { listAssignmentsByTeacher } from "../../shared/db/teaching-assignment-repo";

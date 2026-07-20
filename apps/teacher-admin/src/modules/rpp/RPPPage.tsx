@@ -10,7 +10,8 @@
  */
 
 import { useEffect, useState } from "react";
-import { Card, CardHeader, Input, Select, Button, InfoCard, EmptyState } from "../../shared/ui";
+import { Card, CardHeader, Input, Select, Button, EmptyState } from "../../shared/ui";
+import { InfoCard } from "../../shared/ui/ContextCard";
 import { getActiveAcademicYear, getSchoolProfile, getTeacherProfile } from "../../shared/db/profile-repo";
 import type { AcademicYear, SchoolProfile, TeacherProfile } from "@guru-admin/domain";
 import { LoadingState } from "../../shared/ui";
