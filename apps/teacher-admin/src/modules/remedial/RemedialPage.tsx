@@ -30,6 +30,7 @@ import { DocumentPreview } from "../../shared/documents";
 import {
   saveSchoolDocument,
   updateSchoolDocumentData,
+  updateSchoolDocumentLayout,
   setSchoolDocumentStatus,
   findSchoolDocumentByCompositeKey,
 } from "../../shared/db/school-document-repo";
@@ -338,7 +339,8 @@ export function RemedialPage() {
 
   const handleOrientationChange = useCallback((o: SchoolDocOrientation) => {
     setFormatDokumen(o);
-  }, []);
+    if (docId) void updateSchoolDocumentLayout(docId, { orientation: o });
+  }, [docId]);
 
   // Generate / re-generate program
   async function handleGenerate() {

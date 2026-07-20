@@ -11,7 +11,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Card, CardHeader, Input, Select, Button, EmptyState, Badge, LoadingState } from "../../shared/ui";
+import { Card, Input, Select, Button, EmptyState, Badge, LoadingState } from "../../shared/ui";
 import { getLessonSessionsByDate, getLessonSession, listLessonSessions } from "../../shared/db/lesson-session-repo";
 import { getAttendanceBySession, saveDefaultAttendance, updateAttendance } from "../../shared/db/attendance-repo";
 import { findClassRoster } from "../../shared/db/class-roster-repo";
@@ -469,8 +469,11 @@ function AttendanceEditor({ sessionId, date, year, onSaved, onError }: { session
   const summary = summarizeAttendance(records.map((r) => ({ ...r, status: eff(r) })));
 
   return (
-    <Card>
-      <CardHeader title={`Absensi — ${roster.classLabel}`} description={`${session?.subject ?? "Mapel"} · ${formatLongDateID(session?.date ?? date)}`} />
+    <div>
+      <div className="mb-3">
+        <h3 className="text-sm font-bold text-slate-900">Absensi — {roster.classLabel}</h3>
+        <p className="text-xs text-slate-500">{session?.subject ?? "Mapel"} · {formatLongDateID(session?.date ?? date)}</p>
+      </div>
       <div className="grid grid-cols-4 gap-2 mb-4 text-center no-print">
         <div className="p-2 bg-brand-50 rounded"><span className="font-bold text-brand-700">H {summary.present}</span></div>
         <div className="p-2 bg-amber-50 rounded"><span className="font-bold text-amber-700">S {summary.sick}</span></div>
@@ -498,6 +501,6 @@ function AttendanceEditor({ sessionId, date, year, onSaved, onError }: { session
       <div className="sticky bottom-0 mt-4 pt-3 bg-white border-t no-print">
         <Button onClick={save} className="w-full">Simpan Absensi</Button>
       </div>
-    </Card>
+    </div>
   );
 }

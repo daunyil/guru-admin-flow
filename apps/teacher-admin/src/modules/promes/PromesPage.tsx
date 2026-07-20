@@ -13,7 +13,7 @@
  *   - Cadangan dari INTRA capacity, tidak boleh membuat materialCapacityJP negatif
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Card, CardHeader, Input, Select, Button, EmptyState, Badge } from "../../shared/ui";
 import { listProtaProfiles } from "../../shared/db/prota-repo";
 import { listCalendarEvents } from "../../shared/db/calendar-repo";
@@ -74,6 +74,7 @@ export function PromesPage() {
   // WYSIWYG-DOC-FASE2: persistence state
   const [docId, setDocId] = useState<string | undefined>(undefined);
   const [docStatus, setDocStatus] = useState<DocumentStatus>("draft");
+  const ensuringRef = useRef(false);
 
   useEffect(() => {
     void (async () => {
@@ -103,32 +104,38 @@ export function PromesPage() {
     if (!activeYear || !teacher || profiles.length === 0) return;
     const profile = profiles.find((p) => p.id === selectedProfileId);
     if (!profile) return;
+    if (ensuringRef.current) return;
+    ensuringRef.current = true;
 
     void (async () => {
-      const existing = await findSchoolDocumentByCompositeKey({
-        docType: "promes",
-        semester,
-        tahunAjaran: activeYear.label,
-        kodeMapel: profile.subject,
-        kodeKelas: profile.grade,
-        teacherId: teacher.id,
-      });
-      if (existing) {
-        setDocId(existing.id);
-        setDocStatus(existing.status);
-        // Restore saved data
-        if (existing.data?.promesResult) {
-          setResult(existing.data.promesResult as PromesResult);
+      try {
+        const existing = await findSchoolDocumentByCompositeKey({
+          docType: "promes",
+          semester,
+          tahunAjaran: activeYear.label,
+          kodeMapel: profile.subject,
+          kodeKelas: profile.grade,
+          teacherId: teacher.id,
+        });
+        if (existing) {
+          setDocId(existing.id);
+          setDocStatus(existing.status);
+          // Restore saved data
+          if (existing.data?.promesResult) {
+            setResult(existing.data.promesResult as PromesResult);
+          }
+          if (existing.data?.formatDokumen) {
+            setFormatDokumen(existing.data.formatDokumen as "portrait" | "landscape");
+          }
+          if (existing.data?.promesOptions) {
+            setOptions(existing.data.promesOptions as PromesOptions);
+          }
+          if (existing.orientation) {
+            setFormatDokumen(existing.orientation);
+          }
         }
-        if (existing.data?.formatDokumen) {
-          setFormatDokumen(existing.data.formatDokumen as "portrait" | "landscape");
-        }
-        if (existing.data?.promesOptions) {
-          setOptions(existing.data.promesOptions as PromesOptions);
-        }
-        if (existing.orientation) {
-          setFormatDokumen(existing.orientation);
-        }
+      } finally {
+        ensuringRef.current = false;
       }
     })();
   }, [activeYear, teacher, selectedProfileId, semester, profiles]);
