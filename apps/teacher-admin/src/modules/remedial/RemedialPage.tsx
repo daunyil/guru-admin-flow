@@ -2,13 +2,19 @@
  * Remedial — program remedial otomatis dari GradeBook.
  *
  * GENERATOR-COMPLETION-RC1 Phase 2.
+ * WYSIWYG-DOC-FASE6: Refactor ke layout WYSIWYG.
+ *   - Layout always-on: sidebar (kontrol) + DocumentPreview (dokumen).
+ *   - Hapus toggle Mode Kerja / Mode Dokumen (WYSIWYG = dokumen selalu terlihat).
+ *   - Auto-save ke schoolDocuments (docType: "remedial").
+ *   - Uses ensureDoc pattern from FASE3/FASE4 audit fixes.
+ *   - Sidebar slide animation + Final button loading state (UX-POLISH-01).
  *
  * Siswa dengan nilai akhir < KKTP otomatis masuk daftar remedial.
  * Filter by assignment 5-tuple (teacherId + subject + classId + semester).
  */
 
-import { useEffect, useState } from "react";
-import { Card, CardHeader, Input, Textarea, Button, EmptyState, Badge, Select, InfoCard, PrintExportButtons } from "../../shared/ui";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Card, CardHeader, Input, Textarea, Button, EmptyState, Badge, Select, InfoCard } from "../../shared/ui";
 import { getActiveAcademicYear, getTeacherProfile, getSchoolProfile } from "../../shared/db/profile-repo";
 import { listAssignmentsByTeacher } from "../../shared/db/teaching-assignment-repo";
 import { findGradeBook } from "../../shared/db/gradebook-repo";
@@ -19,6 +25,15 @@ import {
   finalizeRemedialProgram,
   deleteRemedialProgram,
 } from "../../shared/db/remedial-repo";
+// WYSIWYG-DOC-FASE6
+import { DocumentPreview } from "../../shared/documents";
+import {
+  saveSchoolDocument,
+  updateSchoolDocumentData,
+  setSchoolDocumentStatus,
+  findSchoolDocumentByCompositeKey,
+} from "../../shared/db/school-document-repo";
+import type { SchoolDocOrientation, DocumentStatus } from "@guru-admin/domain";
 import type {
   AcademicYear,
   TeacherProfile,
@@ -49,8 +64,115 @@ const SCHEDULE_PRESETS = [
   "Sesuai kesepakatan guru dan siswa",
 ];
 
-const DEFAULT_REMEDIAL_NOTE = "Perlu penguatan materi yang belum tuntas.";
-const DEFAULT_REMEDIAL_PLAN = `Program remedial dilaksanakan bagi siswa yang belum mencapai KKTP. Bentuk kegiatan berupa pembelajaran ulang secara singkat, bimbingan, dan tugas perbaikan sesuai kebutuhan siswa. Setelah kegiatan remedial, guru memberi kesempatan kepada siswa untuk memperbaiki hasil belajar melalui tugas atau penilaian ulang.`;
+const DEFAULT_REMEDIAL_NOTE = "Siswa diberi tugas perbaikan untuk mencapai ketuntasan pembelajaran.";
+const DEFAULT_REMEDIAL_PLAN = `Program remedial diberikan kepada siswa yang belum mencapai Ketuntasan Kompetensi Tujuan Pembelajaran (KKTP). Kegiatan remedial dilakukan melalui pembelajaran ulang, bimbingan individual, tugas perbaikan, atau tutor sebaya agar siswa dapat mencapai ketuntasan minimal.`;
+
+/* ------------------------------------------------------------------ */
+/*  RemedialDocument — renders inside A4 canvas                       */
+/* ------------------------------------------------------------------ */
+
+function RemedialDocument({
+  program,
+  plan,
+  school,
+  teacher,
+  year,
+}: {
+  program: RemedialProgram;
+  plan: string;
+  school: SchoolProfile | undefined;
+  teacher: TeacherProfile | undefined;
+  year: AcademicYear | null;
+}) {
+  return (
+    <>
+      <div className="document-title">PROGRAM REMEDIAL</div>
+      <div className="document-subtitle">{school?.name ?? "Sekolah"}</div>
+      <div className="document-subtitle">Tahun Pelajaran {year?.label}</div>
+
+      <table className="document-identity">
+        <tbody>
+          <tr>
+            <td>Mata Pelajaran</td><td>{program.subject}</td>
+            <td>Kelas</td><td>{program.classLabel}</td>
+          </tr>
+          <tr>
+            <td>Guru</td><td>{program.teacherName ?? teacher?.name ?? "-"}</td>
+            <td>Semester</td><td>{program.semester === 1 ? "Ganjil" : "Genap"}</td>
+          </tr>
+          <tr>
+            <td>KKTP</td><td>{program.kktp}</td>
+            <td>Tanggal Pelaksanaan</td><td>{program.startDate ? formatLongDateID(program.startDate) : "-"}</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div className="document-section-title">A. DAFTAR SISWA REMEDIAL</div>
+      {program.students.length === 0 ? (
+        <div style={{ border: "1px solid #000", padding: "12pt", marginBottom: "12pt", textAlign: "center" }}>
+          <p style={{ fontStyle: "italic" }}>
+            Tidak terdapat siswa yang mengikuti remedial karena seluruh siswa telah mencapai KKTP ({program.kktp}).
+          </p>
+        </div>
+      ) : (
+        <table className="document-table" style={{ fontSize: "9pt" }}>
+          <thead>
+            <tr>
+              <th style={{ width: "4%" }}>No</th>
+              <th>Nama Siswa</th>
+              <th style={{ width: "9%" }}>Nilai</th>
+              <th style={{ width: "11%" }}>Nilai Remedial</th>
+              <th style={{ width: "18%" }}>Bentuk</th>
+              <th style={{ width: "14%" }}>Jadwal</th>
+            </tr>
+          </thead>
+          <tbody>
+            {program.students.map((s, i) => (
+              <tr key={s.studentId}>
+                <td className="text-center">{i + 1}</td>
+                <td>{s.studentName}</td>
+                <td className="text-center">{s.finalScore}</td>
+                <td className="text-center">{s.remedialScore ?? "-"}</td>
+                <td>{s.method ?? "-"}</td>
+                <td>{s.schedule ?? "-"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+
+      {plan && (
+        <>
+          <div className="document-section-title">B. RENCANA REMEDIAL</div>
+          <div style={{ border: "1px solid #000", padding: "8pt", minHeight: "60pt", marginBottom: "12pt" }}>
+            <pre style={{ whiteSpace: "pre-wrap", fontFamily: "inherit", margin: 0 }}>{plan}</pre>
+          </div>
+        </>
+      )}
+
+      <div className="signature-grid">
+        <div>
+          <p>Mengetahui,</p>
+          <p>Kepala Sekolah</p>
+          <div className="sig-space" />
+          <p className="sig-name">{school?.headmasterName ?? "(............)"}</p>
+          <p>NIP. {school?.headmasterNip ?? "-"}</p>
+        </div>
+        <div>
+          <p>{school?.regency ?? "..........."}, {formatLongDateID(program.startDate ?? todayISODate())}</p>
+          <p>Guru Mata Pelajaran</p>
+          <div className="sig-space" />
+          <p className="sig-name">{program.teacherName ?? teacher?.name ?? "-"}</p>
+          <p>NIP. {teacher?.nip ?? "-"}</p>
+        </div>
+      </div>
+    </>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  RemedialPage                                                      */
+/* ------------------------------------------------------------------ */
 
 export function RemedialPage() {
   const [loading, setLoading] = useState(true);
@@ -60,11 +182,10 @@ export function RemedialPage() {
   const [assignments, setAssignments] = useState<TeachingAssignment[]>([]);
   const [selectedAssignmentId, setSelectedAssignmentId] = useState("");
   const [program, setProgram] = useState<RemedialProgram | null>(null);
-  const [kktp, setKktp] = useState(75);
   const [plan, setPlan] = useState("");
+  const [kktp, setKktp] = useState(75);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
-  const [showDocument, setShowDocument] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   // Preset untuk Isi Otomatis Semua
@@ -72,6 +193,24 @@ export function RemedialPage() {
   const [presetSchedule, setPresetSchedule] = useState("");
   const [presetNote, setPresetNote] = useState("");
 
+  // WYSIWYG-DOC-FASE6: sidebar + document state
+  const [showSidebar, setShowSidebar] = useState(
+    typeof window !== "undefined" && window.innerWidth >= 1024
+  );
+  const [docId, setDocId] = useState<string | undefined>();
+  const [docStatus, setDocStatus] = useState<DocumentStatus>("draft");
+  const [formatDokumen, setFormatDokumen] = useState<SchoolDocOrientation>("portrait");
+
+  const ensuringRef = useRef(false);
+
+  // Auto-dismiss messages
+  useEffect(() => {
+    if (!message) return;
+    const t = setTimeout(() => setMessage(null), message.type === "error" ? 5000 : 3000);
+    return () => clearTimeout(t);
+  }, [message]);
+
+  // Load profile data
   useEffect(() => {
     void (async () => {
       const [y, tp, sp] = await Promise.all([
@@ -83,7 +222,7 @@ export function RemedialPage() {
       setTeacher(tp);
       setSchool(sp);
       if (y && tp) {
-                const todayISO = todayISODate();
+        const todayISO = todayISODate();
         const sem: 1 | 2 =
           y.semester2Start <= todayISO && todayISO <= y.semester2End ? 2 : 1;
         setAssignments(await listAssignmentsByTeacher(tp.id, y.id, sem));
@@ -92,21 +231,17 @@ export function RemedialPage() {
     })();
   }, []);
 
-  useEffect(() => {
-    if (!message) return;
-    const t = setTimeout(() => setMessage(null), message.type === "error" ? 5000 : 3000);
-    return () => clearTimeout(t);
-  }, [message]);
-
   function selectedAssignment(): TeachingAssignment | undefined {
     return assignments.find((a) => a.id === selectedAssignmentId);
   }
 
+  // Load program when assignment changes
   async function loadProgram() {
     if (!year || !teacher) return;
     const assignment = selectedAssignment();
     if (!assignment) {
       setProgram(null);
+      setDocId(undefined);
       return;
     }
     const all = await listRemedialPrograms({ academicYearId: year.id, teacherId: teacher.id });
@@ -118,15 +253,13 @@ export function RemedialPage() {
     );
     if (found) {
       setProgram(found);
-      setKktp(found.kktp);
       setPlan(found.plan ?? "");
+      setKktp(found.kktp);
       setStartDate(found.startDate ?? "");
       setEndDate(found.endDate ?? "");
     } else {
       setProgram(null);
       setPlan("");
-      setStartDate("");
-      setEndDate("");
     }
   }
 
@@ -134,6 +267,80 @@ export function RemedialPage() {
     void loadProgram();
   }, [selectedAssignmentId, year]);
 
+  // WYSIWYG-DOC-FASE6: ensureDoc — find or create schoolDocument
+  const ensureDoc = useCallback(async () => {
+    if (!year || !teacher || !program) return;
+    if (ensuringRef.current) return;
+    ensuringRef.current = true;
+    try {
+      const existing = await findSchoolDocumentByCompositeKey({
+        docType: "remedial",
+        semester: program.semester,
+        tahunAjaran: year.label,
+        kodeMapel: program.subject,
+        kodeKelas: program.classLabel,
+        teacherId: teacher.id,
+      });
+      if (existing) {
+        setDocId(existing.id);
+        setDocStatus(existing.status);
+        if (existing.orientation) setFormatDokumen(existing.orientation);
+      } else {
+        const doc = await saveSchoolDocument({
+          docType: "remedial",
+          semester: program.semester,
+          tahunAjaran: year.label,
+          kodeMapel: program.subject,
+          kodeKelas: program.classLabel,
+          teacherId: teacher.id,
+          academicYearId: year.id,
+          status: "draft",
+        });
+        setDocId(doc.id);
+        setDocStatus("draft");
+      }
+    } finally {
+      ensuringRef.current = false;
+    }
+  }, [year, teacher, program]);
+
+  useEffect(() => {
+    if (program) {
+      void ensureDoc();
+    } else {
+      setDocId(undefined);
+    }
+  }, [program, ensureDoc]);
+
+  // Auto-save data for DocumentPreview
+  const docDataForAutoSave = useMemo<Record<string, unknown>>(() => {
+    if (!program) return {};
+    return {
+      programId: program.id,
+      subject: program.subject,
+      classLabel: program.classLabel,
+      semester: program.semester,
+      kktp: program.kktp,
+      students: program.students,
+      plan,
+      teacherName: program.teacherName ?? teacher?.name ?? "",
+    };
+  }, [program, plan, teacher]);
+
+  const handleSaveDoc = useCallback(async (id: string, data: Record<string, unknown>) => {
+    await updateSchoolDocumentData(id, data);
+  }, []);
+
+  const handleSetFinal = useCallback(async (id: string) => {
+    await setSchoolDocumentStatus(id, "final");
+    setDocStatus("final");
+  }, []);
+
+  const handleOrientationChange = useCallback((o: SchoolDocOrientation) => {
+    setFormatDokumen(o);
+  }, []);
+
+  // Generate / re-generate program
   async function handleGenerate() {
     if (!year || !teacher) return;
     const assignment = selectedAssignment();
@@ -141,17 +348,15 @@ export function RemedialPage() {
       setMessage({ type: "error", text: "Pilih Kelas dan Mapel dulu." });
       return;
     }
-    // UX-DOC-06: confirm bila program sudah ada (Susun Ulang akan overwrite edit)
     if (program) {
       const ok = window.confirm(
         "Susun ulang dari nilai terbaru akan mengganti daftar siswa remedial " +
-        "dengan data nilai terbaru. Edit manual (rencana, jadwal, metode) yang sudah " +
-        "diisi akan dipertahankan untuk siswa yang masih ada. Lanjutkan?"
+        "dengan data nilai terbaru. Edit manual yang sudah diisi akan dipertahankan " +
+        "untuk siswa yang masih ada. Lanjutkan?"
       );
       if (!ok) return;
     }
     try {
-      // Load GradeBook untuk assignment
       const gb = await findGradeBook({
         academicYearId: assignment.academicYearId,
         teacherId: assignment.teacherId,
@@ -167,7 +372,6 @@ export function RemedialPage() {
         return;
       }
 
-      // Calculate finalScore untuk semua entries
       const calculated = calculateGradeBookEntries(gb.entries, kktp);
       const entriesForFilter = calculated.map((e) => ({
         studentId: e.studentId,
@@ -188,7 +392,7 @@ export function RemedialPage() {
       setProgram(result);
       setMessage({
         type: "success",
-        text: `Program remedial dibuat. ${result.students.length} siswa di bawah KKTP ${kktp}.`,
+        text: `Program remedial dibuat. ${result.students.length} siswa di bawah KKTP.`,
       });
     } catch (e) {
       setMessage({ type: "error", text: e instanceof Error ? e.message : "Gagal generate." });
@@ -210,12 +414,7 @@ export function RemedialPage() {
   async function handleSavePlan() {
     if (!program) return;
     try {
-      const updated = await updateRemedialProgram(program.id, {
-        plan,
-        startDate: startDate || undefined,
-        endDate: endDate || undefined,
-        kktp,
-      });
+      const updated = await updateRemedialProgram(program.id, { plan });
       if (updated) {
         setProgram(updated);
         setMessage({ type: "success", text: "Rencana remedial tersimpan." });
@@ -256,367 +455,340 @@ export function RemedialPage() {
 
   const assignment = selectedAssignment();
 
-  return (
-    <div className="space-y-4">
-      <div className="page-header">
-        <h1 className="text-2xl font-bold text-slate-900">Program Remedial</h1>
-        <p className="text-sm text-slate-500 mt-1">
-          {year ? `TP ${year.label}` : "Belum ada tahun aktif"} · Siswa nilai &lt; KKTP otomatis masuk remedial.
-        </p>
-      </div>
-
-      {message && (
-        <div className={`info-banner-${message.type === "success" ? "success" : "error"}`}>
-          {message.text}
+  /* ================================================================ */
+  /*  NO PROGRAM YET — show assignment selector only                  */
+  /* ================================================================ */
+  if (!program) {
+    return (
+      <div className="space-y-4">
+        <div className="page-header">
+          <h1 className="text-2xl font-bold text-slate-900">Program Remedial</h1>
+          <p className="text-sm text-slate-500 mt-1">
+            {year ? `TP ${year.label}` : "Belum ada tahun aktif"} · Siswa nilai &lt; KKTP otomatis masuk remedial.
+          </p>
         </div>
-      )}
 
-      {/* Step 1: Pilih Kelas dan Mapel */}
-      <Card>
-        <CardHeader title="1. Pilih Kelas dan Mapel" description="Filter siswa dari GradeBook sesuai assignment." />
-        {assignments.length === 0 ? (
-          <EmptyState
-            title="Belum ada Kelas dan Mapel"
-            description="Buka menu Kelas dan Mapel untuk membuat assignment dulu."
-            action={<Button variant="secondary" onClick={() => (window.location.hash = "#/assignments")}>Buka Kelas dan Mapel</Button>}
-          />
-        ) : (
-          <div className="space-y-3">
-            <Select
-              label="Kelas dan Mapel"
-              id="rem-asg"
-              value={selectedAssignmentId}
-              onChange={setSelectedAssignmentId}
-              options={[
-                { value: "", label: "-- Pilih --" },
-                ...assignments.map((a) => ({
-                  value: a.id,
-                  label: `${a.classLabel} · ${a.subject} · ${a.teacherName}`,
-                })),
-              ]}
-            />
-            {assignment && (
-              <InfoCard
-                entries={[
-                  { label: "Guru", value: assignment.teacherName },
-                  { label: "Mapel", value: assignment.subject },
-                  { label: "Kelas", value: assignment.classLabel },
-                  { label: "Semester", value: String(assignment.semester) },
-                  { label: "Tahun Pelajaran", value: year?.label ?? "-" },
-                ]}
-              />
-            )}
-            {assignment && (
-              <div className="grid sm:grid-cols-3 gap-3">
-                <Input
-                  label="KKTP"
-                  id="rem-kktp"
-                  type="number"
-                  value={String(kktp)}
-                  onChange={(v) => setKktp(Number(v) || 75)}
-                  hint="Siswa dengan nilai < KKTP masuk remedial."
-                />
-                <Input label="Tanggal Pelaksanaan" id="rem-start" type="date" value={startDate} onChange={setStartDate} />
-                {/* APP-AUDIT-FIXPACK-02A: endDate dihapus dari UI. Internal tetap kirim undefined. */}
-              </div>
-            )}
-            {assignment && (
-              <Button onClick={handleGenerate}>
-                {program ? "Susun Ulang dari Nilai Terbaru" : "Susun dari Nilai"}
-              </Button>
-            )}
+        {message && (
+          <div className={`info-banner-${message.type === "success" ? "success" : "error"}`}>
+            {message.text}
           </div>
         )}
-      </Card>
 
-      {/* Step 2: Daftar siswa + rencana */}
-      {program && (
-        <>
-          <Card>
-            <CardHeader
-              title="2. Daftar Siswa Remedial"
-              description={`${program.students.length} siswa di bawah KKTP ${program.kktp}`}
+        <Card>
+          <CardHeader title="Pilih Kelas dan Mapel" description="Filter siswa dari GradeBook sesuai assignment." />
+          {assignments.length === 0 ? (
+            <EmptyState
+              title="Belum ada Kelas dan Mapel"
+              description="Buka menu Kelas dan Mapel untuk membuat assignment dulu."
+              action={<Button variant="secondary" onClick={() => (window.location.hash = "#/assignments")}>Buka Kelas dan Mapel</Button>}
             />
-            {program.students.length === 0 ? (
-              <EmptyState
-                title="Tidak ada siswa remedial 🎉"
-                description={`Semua siswa sudah tuntas (nilai >= ${program.kktp}).`}
-              />
-            ) : (
-              <>
-                {/* Isi Otomatis Semua — preset */}
-                <div className="p-3 bg-slate-50 rounded-md mb-3 space-y-2">
-                  <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Isi Otomatis Semua Siswa</p>
-                  <div className="flex gap-2 flex-wrap items-end">
-                    <Select
-                      label=""
-                      id="rem-preset-method"
-                      value={presetMethod}
-                      onChange={setPresetMethod}
-                      options={[
-                        { value: "", label: "-- Pilih bentuk --" },
-                        ...REMEDIAL_PRESETS.map((p) => ({ value: p, label: p })),
-                      ]}
-                    />
-                    <Select
-                      label=""
-                      id="rem-preset-schedule"
-                      value={presetSchedule}
-                      onChange={setPresetSchedule}
-                      options={[
-                        { value: "", label: "-- Pilih jadwal --" },
-                        ...SCHEDULE_PRESETS.map((s) => ({ value: s, label: s })),
-                      ]}
-                    />
-                    <Input
-                      label=""
-                      id="rem-preset-note"
-                      value={presetNote}
-                      onChange={setPresetNote}
-                      placeholder="Catatan cepat (opsional)"
-                    />
-                    <Button
-                      variant="secondary"
-                      className="text-sm"
-                      onClick={async () => {
-                        if (!program) return;
-                        // UX-DOC-07: pakai preset yang user isi (presetMethod/presetSchedule/presetNote)
-                        // bila ada, fallback ke default bila kosong.
-                        const updatedStudents = program.students.map((s) => ({
-                          ...s,
-                          method: presetMethod || REMEDIAL_PRESETS[0],
-                          schedule: presetSchedule || SCHEDULE_PRESETS[0],
-                          note: presetNote || DEFAULT_REMEDIAL_NOTE,
-                          remedialScore: s.remedialScore ?? program.kktp,
-                        }));
-                        const updated = await updateRemedialProgram(program.id, { students: updatedStudents, plan: plan || DEFAULT_REMEDIAL_PLAN });
-                        if (updated) {
-                          setProgram(updated);
-                          setPlan(DEFAULT_REMEDIAL_PLAN);
-                        }
-                        setMessage({ type: "success", text: "Isi otomatis diterapkan. Masih bisa edit per siswa." });
-                      }}
-                    >
-                      Isi Otomatis Semua
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      className="text-sm"
-                      onClick={async () => {
-                        if (!program) return;
-                        const updatedStudents = program.students.map((s) => ({
-                          ...s,
-                          method: presetMethod || s.method,
-                          schedule: presetSchedule || s.schedule,
-                          note: presetNote || s.note,
-                        }));
-                        const updated = await updateRemedialProgram(program.id, { students: updatedStudents });
-                        if (updated) setProgram(updated);
-                        setMessage({ type: "success", text: "Preset diterapkan ke semua siswa. Masih bisa edit per siswa." });
-                      }}
-                      disabled={!presetMethod && !presetSchedule && !presetNote}
-                    >
-                      Terapkan ke Semua
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-slate-200 text-left">
-                      <th className="py-2 px-2">No</th>
-                      <th className="py-2 px-2">Nama</th>
-                      <th className="py-2 px-2 w-20">Nilai</th>
-                      <th className="py-2 px-2 w-20">Nilai Remedial</th>
-                      <th className="py-2 px-2">Bentuk Remedial</th>
-                      <th className="py-2 px-2">Jadwal</th>
-                      <th className="py-2 px-2">Catatan</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {program.students.map((s, i) => (
-                      <tr key={s.studentId} className="border-b border-slate-100">
-                        <td className="py-1.5 px-2">{s.studentNumber ?? i + 1}</td>
-                        <td className="py-1.5 px-2 font-medium">{s.studentName}</td>
-                        <td className="py-1.5 px-2">
-                          <Badge variant="error">{s.finalScore}</Badge>
-                        </td>
-                        <td className="py-1.5 px-2">
-                          <input
-                            type="number"
-                            className="w-16 px-2 py-1 border border-slate-300 rounded text-sm"
-                            value={s.remedialScore ?? ""}
-                            onChange={(e) =>
-                              handleUpdateStudent(i, {
-                                remedialScore: e.target.value === "" ? null : Number(e.target.value),
-                              })
-                            }
-                            min={0}
-                            max={100}
-                          />
-                        </td>
-                        <td className="py-1.5 px-2">
-                          <select
-                            className="w-36 px-2 py-1 border border-slate-300 rounded text-sm"
-                            value={s.method ?? ""}
-                            onChange={(e) => handleUpdateStudent(i, { method: e.target.value })}
-                          >
-                            <option value="">-- Pilih --</option>
-                            {REMEDIAL_PRESETS.map((p) => (
-                              <option key={p} value={p}>{p}</option>
-                            ))}
-                          </select>
-                        </td>
-                        <td className="py-1.5 px-2">
-                          <select
-                            className="w-32 px-2 py-1 border border-slate-300 rounded text-sm"
-                            value={s.schedule ?? ""}
-                            onChange={(e) => handleUpdateStudent(i, { schedule: e.target.value })}
-                          >
-                            <option value="">-- Pilih --</option>
-                            {SCHEDULE_PRESETS.map((sc) => (
-                              <option key={sc} value={sc}>{sc}</option>
-                            ))}
-                          </select>
-                        </td>
-                        <td className="py-1.5 px-2">
-                          <input
-                            type="text"
-                            className="w-32 px-2 py-1 border border-slate-300 rounded text-sm"
-                            value={s.note ?? ""}
-                            onChange={(e) => handleUpdateStudent(i, { note: e.target.value })}
-                          />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                </div>
-              </>
-            )}
-          </Card>
-
-          <Card>
-            <CardHeader title="3. Rencana Remedial Umum" />
+          ) : (
             <div className="space-y-3">
-              <Textarea
-                label="Rencana Remedial"
-                id="rem-plan"
-                value={plan}
-                onChange={setPlan}
-                rows={4}
-                placeholder="Bentuk remedial: tutor sebaya, pengulangan, tugas ulang, bimbingan individual..."
+              <Select
+                label="Kelas dan Mapel"
+                id="rem-asg"
+                value={selectedAssignmentId}
+                onChange={setSelectedAssignmentId}
+                options={[
+                  { value: "", label: "-- Pilih --" },
+                  ...assignments.map((a) => ({
+                    value: a.id,
+                    label: `${a.classLabel} · ${a.subject} · ${a.teacherName}`,
+                  })),
+                ]}
               />
-              <div className="flex gap-2 flex-wrap">
-                <Button onClick={handleSavePlan}>Simpan Rencana</Button>
-                {program.status !== "final" && (
-                  <Button onClick={handleFinalize}>Finalkan Program</Button>
-                )}
-                {program.status === "final" && (
-                  <Badge variant="success">✓ Final</Badge>
-                )}
-                <Button variant="secondary" onClick={() => setShowDocument(!showDocument)}>
-                  {showDocument ? "Mode Kerja" : "Mode Dokumen"}
+              {assignment && (
+                <InfoCard
+                  entries={[
+                    { label: "Guru", value: assignment.teacherName },
+                    { label: "Mapel", value: assignment.subject },
+                    { label: "Kelas", value: assignment.classLabel },
+                    { label: "Semester", value: String(assignment.semester) },
+                    { label: "Tahun Pelajaran", value: year?.label ?? "-" },
+                  ]}
+                />
+              )}
+              {assignment && (
+                <Button onClick={handleGenerate}>
+                  Susun dari Nilai
                 </Button>
-                {showDocument && (
-                  <PrintExportButtons filename={`remedial-${program.classLabel}-${program.subject}`.replace(/\s+/g, "-")} title="Program Remedial" schoolName={school?.name} />
+              )}
+            </div>
+          )}
+        </Card>
+      </div>
+    );
+  }
+
+  /* ================================================================ */
+  /*  WYSIWYG VIEW — sidebar + document always visible                */
+  /* ================================================================ */
+  return (
+    <div className="doc-wysiwyg-layout">
+      {/* Mobile backdrop */}
+      <div
+        className={`doc-sidebar-backdrop no-print ${!showSidebar ? "doc-backdrop-hidden" : ""}`}
+        onClick={() => setShowSidebar(false)}
+        aria-hidden="true"
+      />
+
+      {/* Sidebar */}
+      <aside className={`doc-sidebar no-print ${!showSidebar ? "doc-sidebar-hidden" : ""}`}>
+        <div className="doc-sidebar-header">
+          <h2 className="text-sm font-bold text-slate-900">Program Remedial</h2>
+          <button
+            type="button"
+            className="doc-sidebar-close"
+            onClick={() => setShowSidebar(false)}
+            title="Tutup sidebar"
+          >
+            ✕
+          </button>
+        </div>
+
+        {/* Konteks */}
+        <div className="doc-sidebar-section">
+          <h3 className="doc-sidebar-section-title">Konteks</h3>
+          <Select
+            label="Kelas dan Mapel"
+            id="rem-asg-wysiwyg"
+            value={selectedAssignmentId}
+            onChange={setSelectedAssignmentId}
+            options={[
+              { value: "", label: "-- Pilih --" },
+              ...assignments.map((a) => ({
+                value: a.id,
+                label: `${a.classLabel} · ${a.subject}`,
+              })),
+            ]}
+          />
+          <div className="flex gap-2 mt-2">
+            <Button onClick={handleGenerate} className="flex-1 text-xs">
+              {program ? "Susun Ulang" : "Susun dari Nilai"}
+            </Button>
+          </div>
+        </div>
+
+        {/* Ringkasan */}
+        <div className="doc-sidebar-section">
+          <h3 className="doc-sidebar-section-title">Ringkasan</h3>
+          <dl className="doc-summary-dl">
+            <div><dt>Siswa remedial</dt><dd>{program.students.length}</dd></div>
+            <div><dt>KKTP</dt><dd>{program.kktp}</dd></div>
+            <div><dt>Status</dt>
+              <dd>
+                {program.status === "final" ? (
+                  <Badge variant="success">Final</Badge>
+                ) : (
+                  <Badge variant="neutral">Draft</Badge>
                 )}
-                <Button variant="danger" onClick={handleDelete}>Hapus</Button>
+              </dd>
+            </div>
+            <div><dt>Mapel</dt><dd>{program.subject}</dd></div>
+            <div><dt>Kelas</dt><dd>{program.classLabel}</dd></div>
+          </dl>
+        </div>
+
+        {/* Isi Otomatis */}
+        {program.students.length > 0 && (
+          <div className="doc-sidebar-section">
+            <h3 className="doc-sidebar-section-title">Isi Otomatis Semua</h3>
+            <div className="space-y-2">
+              <Select
+                label="Bentuk Remedial"
+                id="rem-preset-method"
+                value={presetMethod}
+                onChange={setPresetMethod}
+                options={[
+                  { value: "", label: "-- Pilih --" },
+                  ...REMEDIAL_PRESETS.map((p) => ({ value: p, label: p })),
+                ]}
+              />
+              <Select
+                label="Jadwal"
+                id="rem-preset-schedule"
+                value={presetSchedule}
+                onChange={setPresetSchedule}
+                options={[
+                  { value: "", label: "-- Pilih --" },
+                  ...SCHEDULE_PRESETS.map((p) => ({ value: p, label: p })),
+                ]}
+              />
+              <Input
+                label="Catatan"
+                id="rem-preset-note"
+                value={presetNote}
+                onChange={setPresetNote}
+                placeholder="Catatan cepat (opsional)"
+              />
+              <div className="flex gap-2">
+                <Button
+                  variant="secondary"
+                  className="text-xs flex-1"
+                  onClick={async () => {
+                    if (!program) return;
+                    const updatedStudents = program.students.map((s) => ({
+                      ...s,
+                      method: presetMethod || REMEDIAL_PRESETS[0],
+                      schedule: presetSchedule || SCHEDULE_PRESETS[0],
+                      note: presetNote || DEFAULT_REMEDIAL_NOTE,
+                    }));
+                    const updated = await updateRemedialProgram(program.id, { students: updatedStudents, plan: plan || DEFAULT_REMEDIAL_PLAN });
+                    if (updated) {
+                      setProgram(updated);
+                      setPlan(DEFAULT_REMEDIAL_PLAN);
+                    }
+                    setMessage({ type: "success", text: "Isi otomatis diterapkan." });
+                  }}
+                >
+                  Isi Otomatis
+                </Button>
+                <Button
+                  variant="secondary"
+                  className="text-xs flex-1"
+                  onClick={async () => {
+                    if (!program) return;
+                    const updatedStudents = program.students.map((s) => ({
+                      ...s,
+                      method: presetMethod || s.method,
+                      schedule: presetSchedule || s.schedule,
+                      note: presetNote || s.note,
+                    }));
+                    const updated = await updateRemedialProgram(program.id, { students: updatedStudents });
+                    if (updated) setProgram(updated);
+                    setMessage({ type: "success", text: "Preset diterapkan ke semua siswa." });
+                  }}
+                  disabled={!presetMethod && !presetSchedule && !presetNote}
+                >
+                  Terapkan
+                </Button>
               </div>
             </div>
-          </Card>
+          </div>
+        )}
 
-          {showDocument && (
-            <Card>
-              <div className="print-area">
-                <div className="document-page document-portrait">
-                  <div className="document-title">PROGRAM REMEDIAL</div>
-                  <div className="document-subtitle">{school?.name ?? "Sekolah"}</div>
-                  <div className="document-subtitle">Tahun Pelajaran {year?.label}</div>
-
-                  <table className="document-identity">
-                    <tbody>
-                      <tr>
-                        <td>Mata Pelajaran</td><td>{program.subject}</td>
-                        <td>Kelas</td><td>{program.classLabel}</td>
-                      </tr>
-                      <tr>
-                        <td>Guru</td><td>{program.teacherName ?? teacher?.name ?? "-"}</td>
-                        <td>Semester</td><td>{program.semester === 1 ? "Ganjil" : "Genap"}</td>
-                      </tr>
-                      <tr>
-                        <td>KKTP</td><td>{program.kktp}</td>
-                        <td>Tanggal Pelaksanaan</td><td>{program.startDate ? formatLongDateID(program.startDate) : "-"}</td>
-                      </tr>
-                    </tbody>
-                  </table>
-
-                  <div className="document-section-title">A. DAFTAR SISWA REMEDIAL</div>
-                  {program.students.length === 0 ? (
-                    <div style={{ border: "1px solid #000", padding: "12pt", marginBottom: "12pt", textAlign: "center" }}>
-                      <p style={{ fontStyle: "italic" }}>
-                        Tidak terdapat siswa yang mengikuti remedial karena seluruh siswa telah mencapai KKTP ({program.kktp}).
-                      </p>
-                    </div>
-                  ) : (
-                    <table className="document-table" style={{ fontSize: "9pt" }}>
-                      <thead>
-                        <tr>
-                          <th style={{ width: "4%" }}>No</th>
-                          <th>Nama Siswa</th>
-                          <th style={{ width: "9%" }}>Nilai</th>
-                          <th style={{ width: "11%" }}>Nilai Remedial</th>
-                          <th style={{ width: "18%" }}>Bentuk</th>
-                          <th style={{ width: "14%" }}>Jadwal</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {program.students.map((s, i) => (
-                          <tr key={s.studentId}>
-                            <td className="text-center">{i + 1}</td>
-                            <td>{s.studentName}</td>
-                            <td className="text-center">{s.finalScore}</td>
-                            <td className="text-center">{s.remedialScore ?? "-"}</td>
-                            <td>{s.method ?? "-"}</td>
-                            <td>{s.schedule ?? "-"}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  )}
-
-                  {plan && (
-                    <>
-                      <div className="document-section-title">B. RENCANA REMEDIAL</div>
-                      <div style={{ border: "1px solid #000", padding: "8pt", minHeight: "60pt", marginBottom: "12pt" }}>
-                        <pre style={{ whiteSpace: "pre-wrap", fontFamily: "inherit", margin: 0 }}>{plan}</pre>
-                      </div>
-                    </>
-                  )}
-
-                  <div className="signature-grid">
-                    <div>
-                      <p>Mengetahui,</p>
-                      <p>Kepala Sekolah</p>
-                      <div className="sig-space" />
-                      <p className="sig-name">{school?.headmasterName ?? "(............)"}</p>
-                      <p>NIP. {school?.headmasterNip ?? "-"}</p>
-                    </div>
-                    <div>
-                      <p>{school?.regency ?? "..........."}, {formatLongDateID(program.startDate ?? todayISODate())}</p>
-                      <p>Guru Mata Pelajaran</p>
-                      <div className="sig-space" />
-                      <p className="sig-name">{program.teacherName ?? teacher?.name ?? "-"}</p>
-                      <p>NIP. {teacher?.nip ?? "-"}</p>
-                    </div>
+        {/* Daftar Siswa */}
+        {program.students.length > 0 && (
+          <div className="doc-sidebar-section">
+            <h3 className="doc-sidebar-section-title">Daftar Siswa ({program.students.length})</h3>
+            <ul className="doc-sidebar-list">
+              {program.students.map((s, i) => (
+                <li key={s.studentId} className="doc-sidebar-list-item" style={{ flexDirection: "column", alignItems: "flex-start", gap: "4px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "6px", width: "100%" }}>
+                    <span className="doc-sidebar-list-title">{i + 1}. {s.studentName}</span>
+                    <Badge variant="error">{s.finalScore}</Badge>
                   </div>
-                </div>
-              </div>
-            </Card>
-          )}
-        </>
+                  <div style={{ display: "flex", gap: "4px", width: "100%" }}>
+                    <input
+                      type="number"
+                      className="w-14 px-1 py-0.5 border border-slate-300 rounded text-xs"
+                      value={s.remedialScore ?? ""}
+                      onChange={(e) =>
+                        handleUpdateStudent(i, {
+                          remedialScore: e.target.value === "" ? null : Number(e.target.value),
+                        })
+                      }
+                      placeholder="Nilai"
+                      min={0}
+                      max={100}
+                    />
+                    <select
+                      className="flex-1 px-1 py-0.5 border border-slate-300 rounded text-xs"
+                      value={s.method ?? ""}
+                      onChange={(e) => handleUpdateStudent(i, { method: e.target.value })}
+                    >
+                      <option value="">-- Bentuk --</option>
+                      {REMEDIAL_PRESETS.map((p) => (
+                        <option key={p} value={p}>{p}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <select
+                    className="w-full px-1.5 py-0.5 border border-slate-300 rounded text-xs"
+                    value={s.schedule ?? ""}
+                    onChange={(e) => handleUpdateStudent(i, { schedule: e.target.value })}
+                  >
+                    <option value="">-- Jadwal --</option>
+                    {SCHEDULE_PRESETS.map((sc) => (
+                      <option key={sc} value={sc}>{sc}</option>
+                    ))}
+                  </select>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* Rencana */}
+        <div className="doc-sidebar-section">
+          <h3 className="doc-sidebar-section-title">Rencana Remedial</h3>
+          <Textarea
+            label=""
+            id="rem-plan-wysiwyg"
+            value={plan}
+            onChange={setPlan}
+            rows={3}
+            placeholder="Rencana remedial..."
+          />
+          <div className="flex gap-2 mt-2">
+            <Button onClick={handleSavePlan} className="flex-1 text-xs">Simpan</Button>
+            {program.status !== "final" && (
+              <Button onClick={handleFinalize} className="flex-1 text-xs" variant="secondary">Finalkan</Button>
+            )}
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="doc-sidebar-section doc-sidebar-footer">
+          <Button
+            variant="danger"
+            onClick={handleDelete}
+            className="w-full text-xs"
+          >
+            Hapus Program
+          </Button>
+        </div>
+      </aside>
+
+      {/* Document Area */}
+      <div className="doc-document-area">
+        <DocumentPreview
+          docId={docId}
+          docType="remedial"
+          orientation={formatDokumen}
+          status={docStatus}
+          data={docDataForAutoSave}
+          onSave={handleSaveDoc}
+          onSetFinal={handleSetFinal}
+          onOrientationChange={handleOrientationChange}
+          showFormatToggle={false}
+        >
+          <RemedialDocument
+            program={program}
+            plan={plan}
+            school={school}
+            teacher={teacher}
+            year={year}
+          />
+        </DocumentPreview>
+      </div>
+
+      {/* Sidebar toggle (when hidden) */}
+      {!showSidebar && (
+        <button
+          type="button"
+          className="doc-sidebar-toggle no-print"
+          onClick={() => setShowSidebar(true)}
+          title="Buka panel kontrol"
+          aria-label="Buka panel kontrol"
+          aria-expanded={showSidebar}
+        >
+          ☰
+        </button>
       )}
+
+      {/* Toast messages */}
+      {message && <div className={`doc-toast doc-toast-${message.type === "success" ? "success" : "error"} no-print`} role="status" aria-live="polite">{message.text}</div>}
     </div>
   );
 }
