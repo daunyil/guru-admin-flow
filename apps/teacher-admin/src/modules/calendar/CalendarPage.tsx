@@ -590,6 +590,7 @@ function badgeForType(type: CalendarEventType): "success" | "warning" | "error" 
     case "remedial": return "warning";
     case "report": return "neutral";
     case "cocurricular": return "neutral";
+    default: return "neutral";
   }
 }
 
@@ -892,26 +893,23 @@ function KalenderMEDocument({
             </tr>
           </thead>
           <tbody>
-            {(() => {
-              const months = SEMESTER_MONTHS[semester];
-              return months.map((month) => {
-                const monthWeeks = weeks.filter((w) => {
-                  const d = new Date(w.startDate + "T00:00:00");
-                  return d.getMonth() + 1 === month;
-                });
-                if (monthWeeks.length === 0) return null;
-                const eff = monthWeeks.filter((w) => w.isEffective).length;
-                const ineff = monthWeeks.length - eff;
-                return (
-                  <tr key={month}>
-                    <td>{MONTH_FULL_ID[month - 1]}</td>
-                    <td className="text-center">{monthWeeks.length}</td>
-                    <td className="text-center kme-effective-text">{eff}</td>
-                    <td className="text-center kme-ineffective-text">{ineff}</td>
-                  </tr>
-                );
+            {SEMESTER_MONTHS[semester].map((month) => {
+              const monthWeeks = weeks.filter((w) => {
+                const d = new Date(w.startDate + "T00:00:00");
+                return d.getMonth() + 1 === month;
               });
-            })()}
+              if (monthWeeks.length === 0) return null;
+              const eff = monthWeeks.filter((w) => w.isEffective).length;
+              const ineff = monthWeeks.length - eff;
+              return (
+                <tr key={month}>
+                  <td>{MONTH_FULL_ID[month - 1]}</td>
+                  <td className="text-center">{monthWeeks.length}</td>
+                  <td className="text-center kme-effective-text">{eff}</td>
+                  <td className="text-center kme-ineffective-text">{ineff}</td>
+                </tr>
+              );
+            })}
           </tbody>
           <tfoot>
             <tr>
