@@ -13,6 +13,7 @@ import {
   FileSpreadsheet,
   ClipboardList,
   BookMarked,
+  Printer,
 } from "./icons";
 
 export interface NavItem {
@@ -43,6 +44,7 @@ export const NAV_GROUPS: NavGroup[] = [
     title: "Administrasi",
     items: [
       { to: "/admin-package", label: "Paket Admin", icon: BookMarked },
+      { to: "/report-center", label: "Pusat Laporan", icon: Printer },
     ],
   },
 ];
@@ -127,6 +129,7 @@ export const GATE_GROUPS: GateGroup[] = [
       { id: "apps-script-import", label: "Import dari HP", to: "/apps-script-import", description: "Import data dari Apps Script" },
       { id: "auto-document", label: "Auto Document", to: "/auto-document", description: "Generate paket dokumen" },
       { id: "completeness", label: "Cek Kelengkapan", to: "/completeness", description: "Cek kelengkapan administrasi" },
+      { id: "report-center", label: "Pusat Laporan", to: "/report-center", description: "Cetak laporan piket, absensi, nilai, jurnal" },
     ],
   },
 ];
