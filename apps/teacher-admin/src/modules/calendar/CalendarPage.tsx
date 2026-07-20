@@ -356,6 +356,14 @@ export function CalendarPage() {
   /* ================================================================ */
   return (
     <div className="doc-wysiwyg-layout">
+      {/* ---------- MOBILE BACKDROP ---------- */}
+      {showSidebar && (
+        <div
+          className="doc-sidebar-backdrop no-print"
+          onClick={() => setShowSidebar(false)}
+        />
+      )}
+
       {/* ---------- SIDEBAR ---------- */}
       {showSidebar && (
         <aside className="doc-sidebar no-print">

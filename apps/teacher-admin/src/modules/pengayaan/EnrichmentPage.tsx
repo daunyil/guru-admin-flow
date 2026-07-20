@@ -364,9 +364,9 @@ export function EnrichmentPage() {
                         if (!program) return;
                         const updatedStudents = program.students.map((s) => ({
                           ...s,
-                          activity: ENRICHMENT_PRESETS[0],
-                          material: MATERIAL_PRESETS[0],
-                          note: DEFAULT_ENRICHMENT_NOTE,
+                          activity: presetActivity || ENRICHMENT_PRESETS[0],
+                          material: presetMaterial || MATERIAL_PRESETS[0],
+                          note: presetNote || DEFAULT_ENRICHMENT_NOTE,
                         }));
                         const updated = await updateEnrichmentProgram(program.id, { students: updatedStudents, plan: plan || DEFAULT_ENRICHMENT_PLAN });
                         if (updated) {

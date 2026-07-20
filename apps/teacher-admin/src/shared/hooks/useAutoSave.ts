@@ -13,6 +13,9 @@
  * - scheduleSave() dipanggil setiap kali konten berubah (debounce otomatis).
  * - triggerSave() untuk simpan manual (langsung tanpa debounce).
  * - saveStatus: idle | saving | saved | error.
+ *
+ * v2: retry logic — 2x retry dengan exponential backoff (500ms, 1500ms).
+ *     Error di-log ke console. Reset timeout saat unmount.
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -28,6 +31,8 @@ interface UseAutoSaveArgs {
   onSave: (id: string, data: Record<string, unknown>) => Promise<void>;
   /** Debounce delay dalam ms. Default 1500. */
   debounceMs?: number;
+  /** Maksimal retry saat save gagal. Default 2. */
+  maxRetries?: number;
 }
 
 interface UseAutoSaveResult {
@@ -41,14 +46,19 @@ interface UseAutoSaveResult {
   resetStatus: () => void;
 }
 
+const DEFAULT_MAX_RETRIES = 2;
+const RETRY_BASE_MS = 500;
+
 export function useAutoSave({
   docId,
   getData,
   onSave,
   debounceMs = 1500,
+  maxRetries = DEFAULT_MAX_RETRIES,
 }: UseAutoSaveArgs): UseAutoSaveResult {
   const [saveStatus, setSaveStatus] = useState<AutoSaveStatus>("idle");
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dataRef = useRef<Record<string, unknown>>({});
 
   // Simpan snapshot terakhir supaya callback tidak stale.
@@ -57,17 +67,36 @@ export function useAutoSave({
   const doSave = useCallback(async () => {
     if (!docId) return;
     setSaveStatus("saving");
-    try {
-      await onSave(docId, dataRef.current);
-      setSaveStatus("saved");
-      // Kembalikan ke idle setelah 2 detik supaya indikator tidak permanen.
-      setTimeout(() => {
-        setSaveStatus((prev) => (prev === "saved" ? "idle" : prev));
-      }, 2000);
-    } catch {
-      setSaveStatus("error");
+
+    let lastError: unknown = null;
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        await onSave(docId, dataRef.current);
+        setSaveStatus("saved");
+        // Kembalikan ke idle setelah 2 detik supaya indikator tidak permanen.
+        if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
+        savedTimerRef.current = setTimeout(() => {
+          setSaveStatus((prev) => (prev === "saved" ? "idle" : prev));
+        }, 2000);
+        return; // success — keluar
+      } catch (err) {
+        lastError = err;
+        if (attempt < maxRetries) {
+          // Exponential backoff: 500ms, 1500ms, ...
+          const delay = RETRY_BASE_MS * Math.pow(3, attempt);
+          console.warn(
+            `[useAutoSave] Save gagal (attempt ${attempt + 1}/${maxRetries}), retry in ${delay}ms:`,
+            err
+          );
+          await new Promise<void>((resolve) => setTimeout(resolve, delay));
+        }
+      }
     }
-  }, [docId, onSave]);
+
+    // Semua retry gagal
+    console.error("[useAutoSave] Save gagal setelah semua retry:", lastError);
+    setSaveStatus("error");
+  }, [docId, onSave, maxRetries]);
 
   // Debounce: setiap kali scheduleSave dipanggil, reset timer dan simpan
   // setelah debounceMs.
@@ -82,6 +111,7 @@ export function useAutoSave({
   useEffect(() => {
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
+      if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
     };
   }, []);
 

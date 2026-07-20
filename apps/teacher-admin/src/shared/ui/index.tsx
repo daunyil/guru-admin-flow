@@ -171,6 +171,19 @@ export function Textarea({
   );
 }
 
+export { ErrorBoundary } from "./ErrorBoundary";
+
+export function LoadingState({ message = "Memuat…" }: { message?: string }) {
+  return (
+    <div className="flex items-center justify-center py-16 px-4" role="status" aria-live="polite">
+      <div className="flex flex-col items-center gap-3">
+        <div className="loading-spinner" />
+        <p className="text-sm text-slate-500">{message}</p>
+      </div>
+    </div>
+  );
+}
+
 export function EmptyState({
   title,
   description,

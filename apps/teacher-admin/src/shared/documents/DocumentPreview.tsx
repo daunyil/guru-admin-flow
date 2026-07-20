@@ -21,7 +21,7 @@
  *   - children       : konten yang dirender di dalam kanvas A4.
  */
 
-import { type ReactNode, useCallback, useEffect } from "react";
+import { Component, type ReactNode, useCallback, useEffect, type ErrorInfo } from "react";
 import {
   useAutoSave,
   type AutoSaveStatus,
@@ -99,6 +99,69 @@ export interface DocumentPreviewProps {
 
 /* ------------------------------------------------------------------ */
 /*  Component                                                         */
+/* ------------------------------------------------------------------ */
+
+/* ------------------------------------------------------------------ */
+/*  Document Error Boundary                                           */
+/* ------------------------------------------------------------------ */
+
+type DocErrorBoundaryState = { hasError: boolean; error: Error | null };
+
+class DocErrorBoundary extends Component<
+  { children: ReactNode; docLabel: string },
+  DocErrorBoundaryState
+> {
+  constructor(props: { children: ReactNode; docLabel: string }) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error): DocErrorBoundaryState {
+    return { hasError: true, error };
+  }
+
+  override componentDidCatch(error: Error, info: ErrorInfo): void {
+    console.error("[DocErrorBoundary] Dokumen crash:", error, info);
+  }
+
+  override render(): ReactNode {
+    if (!this.state.hasError) return this.props.children;
+    return (
+      <div className="doc-error-fallback">
+        <div className="doc-error-fallback-inner">
+          <div className="doc-error-icon">⚠</div>
+          <h3>Dokumen Gagal Dimuat</h3>
+          <p>
+            Terjadi kesalahan saat merender {this.props.docLabel}. Data Anda
+            tetap aman di penyimpanan lokal.
+          </p>
+          <div className="doc-error-detail">
+            {this.state.error?.message ?? "Unknown error"}
+          </div>
+          <div className="doc-error-actions">
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => this.setState({ hasError: false, error: null })}
+            >
+              Coba Lagi
+            </button>
+            <button
+              type="button"
+              className="btn-primary"
+              onClick={() => window.location.reload()}
+            >
+              Muat Ulang Halaman
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/*  DocumentPreview                                                   */
 /* ------------------------------------------------------------------ */
 
 export function DocumentPreview({
@@ -214,9 +277,11 @@ export function DocumentPreview({
 
       {/* A4 Canvas */}
       <div className="wysiwyg-canvas-area">
-        <div className={canvasClass} data-doc-id={docId}>
-          {children}
-        </div>
+        <DocErrorBoundary docLabel={docLabel}>
+          <div className={canvasClass} data-doc-id={docId}>
+            {children}
+          </div>
+        </DocErrorBoundary>
       </div>
     </div>
   );
