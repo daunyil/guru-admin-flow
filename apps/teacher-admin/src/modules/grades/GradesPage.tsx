@@ -20,6 +20,7 @@ import type {
   AcademicYear, TeacherProfile, ClassRoster, GradeBook, GradeEntry, TeachingAssignment,
 } from "@guru-admin/domain";
 import { todayISODate } from "@guru-admin/shared";
+import { LoadingState } from "../../shared/ui";
 import {
   calculateGradeBookEntries, assignmentShortLabel, buildContextInfo, parseExcelPaste,
   validateCbtImport, previewCbtMatch, applyCbtToEntries,
@@ -324,7 +325,7 @@ export function GradesPage() {
     }
   }
 
-  if (loading) return <p className="text-sm text-slate-500">Memuat...</p>;
+  if (loading) return <LoadingState />;
 
   const calculated = calculateGradeBookEntries(entries, Number(kktp) || 75);
   const remedialCount = calculated.filter((e) => e.status === "remedial").length;

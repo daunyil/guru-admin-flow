@@ -19,6 +19,7 @@ import { getActiveAcademicYear, getTeacherProfile } from "../../shared/db/profil
 import type { LessonSession, AttendanceRecord, ClassRoster, AcademicYear } from "@guru-admin/domain";
 import { formatLongDateID, todayISODate } from "@guru-admin/shared";
 import { summarizeAttendance } from "@guru-admin/domain";
+import { LoadingState } from "../../shared/ui";
 
 type Status = AttendanceRecord["status"];
 const STATUSES: Array<{ value: Status; label: string; short: string; color: string }> = [
@@ -68,7 +69,7 @@ export function AttendancePage() {
     return () => clearTimeout(t);
   }, [error, success]);
 
-  if (loading) return <p className="text-sm text-slate-500">Memuat...</p>;
+  if (loading) return <LoadingState />;
 
   if (!activeYear) {
     return (
@@ -213,7 +214,7 @@ function AttendanceEditor({
     }
   }
 
-  if (loading) return <p className="text-sm text-slate-500">Memuat absensi...</p>;
+  if (loading) return <LoadingState message="Memuat absensi..." />;
   if (!session) return null;
   if (!roster || records.length === 0) {
     return (

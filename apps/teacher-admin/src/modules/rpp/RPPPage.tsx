@@ -13,6 +13,7 @@ import { useEffect, useState } from "react";
 import { Card, CardHeader, Input, Select, Button, InfoCard, EmptyState } from "../../shared/ui";
 import { getActiveAcademicYear, getSchoolProfile, getTeacherProfile } from "../../shared/db/profile-repo";
 import type { AcademicYear, SchoolProfile, TeacherProfile } from "@guru-admin/domain";
+import { LoadingState } from "../../shared/ui";
 
 export function RPPPage() {
   const [loading, setLoading] = useState(true);
@@ -109,7 +110,7 @@ ${placeholders[7].key}, ........................`;
     }
   }
 
-  if (loading) return <p className="text-sm text-slate-500">Memuat...</p>;
+  if (loading) return <LoadingState />;
 
   // DOCUMENT-OUTPUT-FIXPACK-01: empty state bila tahun/guru belum ada
   if (!year || !teacher) {

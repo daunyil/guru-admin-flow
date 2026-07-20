@@ -44,6 +44,7 @@ import {
   findSchoolDocumentByCompositeKey,
 } from "../../shared/db/school-document-repo";
 import type { SchoolDocOrientation, DocumentStatus } from "@guru-admin/domain";
+import { LoadingState } from "../../shared/ui";
 
 /* ------------------------------------------------------------------ */
 /*  Main Component                                                    */
@@ -420,7 +421,7 @@ Format: sesuaikan dengan standar Kurikulum Merdeka untuk ${entry.grade}.`;
     return base;
   }
 
-  if (loading) return <p className="text-sm text-slate-500">Memuat...</p>;
+  if (loading) return <LoadingState />;
 
   if (!year || !teacher) {
     return (

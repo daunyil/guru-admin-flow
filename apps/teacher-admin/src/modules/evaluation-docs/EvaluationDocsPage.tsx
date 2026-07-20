@@ -30,6 +30,7 @@ import {
 import { filterATPForAssignment } from "@guru-admin/domain";
 import type { AcademicYear, TeacherProfile, SchoolProfile, TeachingAssignment, ATPEntry } from "@guru-admin/domain";
 import { formatLongDateID, todayISODate } from "@guru-admin/shared";
+import { LoadingState } from "../../shared/ui";
 
 type Tab = "minggu-efektif" | "kisi-kisi" | "kartu-soal";
 
@@ -191,7 +192,7 @@ export function EvaluationDocsPage() {
     setMessage({ type: "success", text: "Disalin ke clipboard." });
   }
 
-  if (loading) return <p className="text-sm text-slate-500">Memuat...</p>;
+  if (loading) return <LoadingState />;
 
   const assignment = selectedAssignment();
   const effectiveWeeksTotal = effectiveWeeks.filter((w) => w.isEffective).length;

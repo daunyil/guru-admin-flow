@@ -57,6 +57,7 @@ import {
   JOURNAL_FOLLOWUP_CHOICES,
 } from "@guru-admin/domain";
 import { formatLongDateID, todayISODate } from "@guru-admin/shared";
+import { LoadingState } from "../../shared/ui";
 
 type RealizationStatus = TeachingJournal["realizationStatus"];
 const REALIZATION_OPTIONS: Array<{ value: RealizationStatus; label: string }> = [
@@ -226,7 +227,7 @@ export function QuickJournalPage() {
     }
   }
 
-  if (loading) return <p className="text-sm text-slate-500">Memuat...</p>;
+  if (loading) return <LoadingState />;
 
   const assignment = selectedAssignment();
   const recap = assignment
@@ -795,7 +796,7 @@ function QuickJournalEditor({
     }
   }
 
-  if (loading) return <p className="text-sm text-slate-500">Memuat jurnal...</p>;
+  if (loading) return <LoadingState message="Memuat jurnal..." />;
   if (!session || !journal) return null;
 
   const isLocked = journal.locked;

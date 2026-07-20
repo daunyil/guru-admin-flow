@@ -54,6 +54,7 @@ import type {
   LKPD,
   RppDocument,
 } from "@guru-admin/domain";
+import { LoadingState } from "../../shared/ui";
 import {
   filterATPForAssignment,
   filterLKPDForAssignment,
@@ -505,7 +506,7 @@ export function AdminPackagePage() {
     void loadDocs();
   }, [selectedAssignmentId, year]);
 
-  if (loading) return <p className="text-sm text-slate-500">Memuat...</p>;
+  if (loading) return <LoadingState />;
 
   const assignment = selectedAssignment();
   const lengkapCount = docs.filter((d) => d.status === "lengkap").length;

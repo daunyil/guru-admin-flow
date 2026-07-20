@@ -13,7 +13,7 @@
  */
 
 import { useEffect, useState } from "react";
-import { Card, CardHeader, Input, Select, Button, EmptyState, Badge } from "../../shared/ui";
+import { Card, CardHeader, Input, Select, Button, EmptyState, Badge, LoadingState } from "../../shared/ui";
 import {
   listAssignments,
   saveAssignment,
@@ -140,7 +140,7 @@ export function AssignmentsPage() {
     }
   }
 
-  if (loading) return <p className="text-sm text-slate-500">Memuat...</p>;
+  if (loading) return <LoadingState />;
 
   return (
     <div className="space-y-4">

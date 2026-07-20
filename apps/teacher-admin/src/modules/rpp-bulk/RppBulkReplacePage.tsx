@@ -42,6 +42,7 @@ import {
   extractDocxText,
 } from "@guru-admin/domain";
 import { formatLongDateID, todayISODate } from "@guru-admin/shared";
+import { LoadingState } from "../../shared/ui";
 
 /** Delimiter untuk multi-dokumen paste. */
 const DOC_DELIMITERS = ["=== DOKUMEN ===", "=== RPP ===", "---DOKUMEN---", "---RPP---"];
@@ -490,7 +491,7 @@ export function RppBulkReplacePage() {
     return bytes.buffer;
   }
 
-  if (loading) return <p className="text-sm text-slate-500">Memuat...</p>;
+  if (loading) return <LoadingState />;
 
   // Live preview saat user ketik
   const validLiterals = getValidLiteralReplacements();

@@ -34,6 +34,7 @@ import type {
 } from "@guru-admin/domain";
 import { lkpdLabel } from "@guru-admin/domain";
 import { formatLongDateID, todayISODate } from "@guru-admin/shared";
+import { LoadingState } from "../../shared/ui";
 
 export function LKPDPage() {
   const [loading, setLoading] = useState(true);
@@ -153,7 +154,7 @@ export function LKPDPage() {
     }
   }
 
-  if (loading) return <p className="text-sm text-slate-500">Memuat...</p>;
+  if (loading) return <LoadingState />;
 
   // DOCUMENT-OUTPUT-FIXPACK-01: empty state bila tahun/guru belum ada
   if (!year || !teacher) {

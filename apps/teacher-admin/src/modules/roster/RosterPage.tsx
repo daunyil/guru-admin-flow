@@ -16,6 +16,7 @@ import {
 } from "../../shared/db/class-roster-repo";
 import { getActiveAcademicYear } from "../../shared/db/profile-repo";
 import type { ClassRoster, AcademicYear } from "@guru-admin/domain";
+import { LoadingState } from "../../shared/ui";
 
 
 interface ParsedStudent {
@@ -56,7 +57,7 @@ export function RosterPage() {
     return () => clearTimeout(t);
   }, [error, success]);
 
-  if (loading) return <p className="text-sm text-slate-500">Memuat...</p>;
+  if (loading) return <LoadingState />;
 
   if (!year) {
     return (

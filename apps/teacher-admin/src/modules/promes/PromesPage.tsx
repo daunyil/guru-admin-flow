@@ -30,6 +30,7 @@ import {
   findSchoolDocumentByCompositeKey,
 } from "../../shared/db/school-document-repo";
 import type { SchoolDocOrientation, DocumentStatus } from "@guru-admin/domain";
+import { LoadingState } from "../../shared/ui";
 import {
   formatLongDateID,
   todayISODate,
@@ -240,7 +241,7 @@ export function PromesPage() {
   // Derived
   const currentProfile = profiles.find((p) => p.id === selectedProfileId) ?? null;
 
-  if (loading) return <p className="text-sm text-slate-500">Memuat...</p>;
+  if (loading) return <LoadingState />;
 
   if (!activeYear) {
     return (

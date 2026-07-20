@@ -44,6 +44,7 @@ import {
   validateDutyRecordInput,
 } from "@guru-admin/domain";
 import { buildPiketLetter, type PiketLetterDocument, type PiketLetterType } from "./piket-letter";
+import { LoadingState } from "../../shared/ui";
 
 type Tab = "catat" | "rekap" | "catatan" | "poin" | "cetak";
 
@@ -347,7 +348,7 @@ export function DailyDutyPage() {
     setLetterPreview(letter);
   }
 
-  if (loading) return <p className="text-sm text-slate-500">Memuat...</p>;
+  if (loading) return <LoadingState />;
 
   const summary = summarizeDutyRecords(records);
   const tabs: Array<{ key: Tab; label: string }> = [

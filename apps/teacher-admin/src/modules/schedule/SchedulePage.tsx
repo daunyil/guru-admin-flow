@@ -31,6 +31,7 @@ import { getActiveAcademicYear, getTeacherProfile } from "../../shared/db/profil
 import type { TeachingSchedule, LessonSession, AcademicYear, ProtaUnit } from "@guru-admin/domain";
 import { linkPromesToLessons } from "@guru-admin/domain";
 import { DAY_LABELS_ID, formatLongDateID, DEFAULT_CADANGAN_JP } from "@guru-admin/shared";
+import { LoadingState } from "../../shared/ui";
 
 export function SchedulePage() {
   const [loading, setLoading] = useState(true);
@@ -81,7 +82,7 @@ export function SchedulePage() {
     return () => clearTimeout(t);
   }, [error, success]);
 
-  if (loading) return <p className="text-sm text-slate-500">Memuat...</p>;
+  if (loading) return <LoadingState />;
 
   if (!activeYear) {
     return (

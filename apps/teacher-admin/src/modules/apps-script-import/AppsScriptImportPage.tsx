@@ -22,6 +22,7 @@ import {
   type AppsScriptImportPreview,
 } from "@guru-admin/domain";
 import type { AcademicYear, TeacherProfile } from "@guru-admin/domain";
+import { LoadingState } from "../../shared/ui";
 
 export function AppsScriptImportPage() {
   const [loading, setLoading] = useState(true);
@@ -212,7 +213,7 @@ export function AppsScriptImportPage() {
     setSummary(null);
   }
 
-  if (loading) return <p className="text-sm text-slate-500">Memuat...</p>;
+  if (loading) return <LoadingState />;
 
   return (
     <div className="space-y-4">

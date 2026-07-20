@@ -29,6 +29,7 @@ import type {
 } from "@guru-admin/domain";
 import { calculateGradeBookEntries } from "@guru-admin/domain";
 import { formatLongDateID, todayISODate } from "@guru-admin/shared";
+import { LoadingState } from "../../shared/ui";
 
 /** Preset bentuk remedial untuk dropdown. */
 const REMEDIAL_PRESETS = [
@@ -251,7 +252,7 @@ export function RemedialPage() {
     }
   }
 
-  if (loading) return <p className="text-sm text-slate-500">Memuat...</p>;
+  if (loading) return <LoadingState />;
 
   const assignment = selectedAssignment();
 

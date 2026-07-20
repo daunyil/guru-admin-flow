@@ -8,6 +8,7 @@ import { getActiveAcademicYear, getTeacherProfile } from "../../shared/db/profil
 import { summarizeAttendance } from "@guru-admin/domain";
 import type { AcademicYear, AttendanceRecord, ClassRoster, LessonSession } from "@guru-admin/domain";
 import { formatLongDateID, todayISODate } from "@guru-admin/shared";
+import { LoadingState } from "../../shared/ui";
 
 type Status = AttendanceRecord["status"];
 
@@ -47,7 +48,7 @@ export function MobileAttendancePage() {
 
   useEffect(() => { void loadSessions(date); }, [date]);
 
-  if (loading) return <p className="text-sm text-slate-500">Memuat...</p>;
+  if (loading) return <LoadingState />;
   if (!year) return <Card><EmptyState title="Belum ada tahun pelajaran aktif" /></Card>;
 
   return (
@@ -120,7 +121,7 @@ function MobileAttendanceEditor({ sessionId, academicYearId, onSaved }: { sessio
     onSaved();
   }
 
-  if (!session) return <p className="text-sm text-slate-500">Memuat daftar siswa...</p>;
+  if (!session) return <LoadingState message="Memuat daftar siswa..." />;
   if (!roster || records.length === 0) return <Card><EmptyState title="Belum ada daftar siswa" description={`Buat daftar siswa untuk ${session.classLabel}.`} /></Card>;
 
   const effectiveRecords = records.map((record) => ({ ...record, status: effectiveStatus(record) }));

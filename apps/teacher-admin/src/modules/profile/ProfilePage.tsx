@@ -16,6 +16,7 @@ import {
 } from "../../shared/db/profile-repo";
 import type { TeacherProfile, AcademicYear } from "@guru-admin/domain";
 import { formatLongDateID } from "@guru-admin/shared";
+import { LoadingState } from "../../shared/ui";
 
 /** Field yang diedit di form SchoolProfile (semua string untuk konsistensi input). */
 type SchoolProfileFormFields = {
@@ -195,7 +196,7 @@ function SchoolProfileForm() {
     }
   }
 
-  if (loading) return <p className="text-sm text-slate-500">Memuat...</p>;
+  if (loading) return <LoadingState />;
 
   const set = (key: keyof SchoolProfileFormFields, value: string) =>
     setForm((f) => ({ ...f, [key]: value }));
@@ -324,7 +325,7 @@ function TeacherProfileForm() {
     }
   }
 
-  if (loading) return <p className="text-sm text-slate-500">Memuat...</p>;
+  if (loading) return <LoadingState />;
 
   const set = <K extends keyof TeacherProfileFormFields>(
     key: K,
@@ -495,7 +496,7 @@ function AcademicYearManager() {
     await reload();
   }
 
-  if (loading) return <p className="text-sm text-slate-500">Memuat...</p>;
+  if (loading) return <LoadingState />;
 
   return (
     <div className="space-y-4">

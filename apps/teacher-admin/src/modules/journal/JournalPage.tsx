@@ -30,6 +30,7 @@ import type {
   SchoolProfile,
 } from "@guru-admin/domain";
 import { formatLongDateID, todayISODate } from "@guru-admin/shared";
+import { LoadingState } from "../../shared/ui";
 
 type RealizationStatus = TeachingJournal["realizationStatus"];
 const REALIZATION_STATUSES: Array<{ value: RealizationStatus; label: string; color: string }> = [
@@ -82,7 +83,7 @@ export function JournalPage() {
     return () => clearTimeout(t);
   }, [error, success]);
 
-  if (loading) return <p className="text-sm text-slate-500">Memuat...</p>;
+  if (loading) return <LoadingState />;
 
   if (!activeYear) {
     return (
@@ -271,7 +272,7 @@ function JournalEditor({
     }
   }
 
-  if (loading) return <p className="text-sm text-slate-500">Memuat jurnal...</p>;
+  if (loading) return <LoadingState message="Memuat jurnal..." />;
   if (!session || !journal) return null;
 
   const isLocked = journal.locked;

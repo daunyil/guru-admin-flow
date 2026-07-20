@@ -45,6 +45,7 @@ import {
   findSchoolDocumentByCompositeKey,
 } from "../../shared/db/school-document-repo";
 import type { SchoolDocOrientation, DocumentStatus } from "@guru-admin/domain";
+import { LoadingState } from "../../shared/ui";
 
 /* ------------------------------------------------------------------ */
 /*  Constants                                                         */
@@ -335,7 +336,7 @@ export function CalendarPage() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [showForm, showImport]);
 
-  if (loading) return <p className="text-sm text-slate-500">Memuat...</p>;
+  if (loading) return <LoadingState />;
 
   if (!activeYearId) {
     return (

@@ -13,6 +13,7 @@ import { listTeachingSchedules } from "../../shared/db/teaching-schedule-repo";
 import { listLessonSessions } from "../../shared/db/lesson-session-repo";
 import { listJournals } from "../../shared/db/journal-repo";
 import { listClassRosters } from "../../shared/db/class-roster-repo";
+import { LoadingState } from "../../shared/ui";
 
 type CheckItem = {
   label: string;
@@ -118,7 +119,7 @@ export function CompletenessPage() {
     })();
   }, []);
 
-  if (loading) return <p className="text-sm text-slate-500">Memuat kelengkapan...</p>;
+  if (loading) return <LoadingState message="Memuat kelengkapan..." />;
 
   const okCount = checks.filter((c) => c.status === "ok").length;
   const warningCount = checks.filter((c) => c.status === "warning").length;

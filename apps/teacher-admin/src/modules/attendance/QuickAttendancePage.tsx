@@ -20,6 +20,7 @@ import { listAssignmentsByTeacher } from "../../shared/db/teaching-assignment-re
 import { generateDefaultAttendance, summarizeAttendance } from "@guru-admin/domain";
 import type { AcademicYear, AttendanceRecord, ClassRoster, LessonSession, TeachingAssignment, TeacherProfile } from "@guru-admin/domain";
 import { formatLongDateID, nowTimestamp, todayISODate } from "@guru-admin/shared";
+import { LoadingState } from "../../shared/ui";
 
 type Status = "present" | "sick" | "excused" | "absent";
 type Mode = "jadwal" | "susulan";
@@ -99,7 +100,7 @@ export function QuickAttendancePage() {
   async function afterSave(info: SaveInfo) { setNotice("Absensi tersimpan."); setSaved(info); await loadTodaySessions(); await loadSusulan(); }
   function closeSaved() { setSaved(null); if (mode === "susulan") setSelectedSessionId(null); }
   function handlePickSession(sid: string) { setSelectedSessionId(sid); setSaved(null); }
-  if (loading) return <p className="text-sm text-slate-500">Memuat...</p>;
+  if (loading) return <LoadingState />;
   const doneIds = new Set(allRecords.map((r) => r.sessionId));
 
   return <div className="space-y-4">
@@ -344,7 +345,7 @@ function AttendanceEditor({ sessionId, date, year, onSaved, onError }: { session
     }
   }
 
-  if (loading) return <Card><p className="text-sm text-slate-500">Memuat absensi...</p></Card>;
+  if (loading) return <Card><LoadingState message="Memuat absensi..." /></Card>;
   if (!roster) return <Card><EmptyState title="Belum ada daftar siswa" description="Buat roster kelas dulu di menu Siswa." /></Card>;
 
   const summary = summarizeAttendance(records.map((r) => ({ ...r, status: eff(r) })));

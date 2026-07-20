@@ -32,6 +32,7 @@ import {
   DEFAULT_ENRICHMENT_THRESHOLD,
 } from "@guru-admin/domain";
 import { formatLongDateID, todayISODate } from "@guru-admin/shared";
+import { LoadingState } from "../../shared/ui";
 
 /** Preset aktivitas pengayaan untuk dropdown. */
 const ENRICHMENT_PRESETS = [
@@ -240,7 +241,7 @@ export function EnrichmentPage() {
     }
   }
 
-  if (loading) return <p className="text-sm text-slate-500">Memuat...</p>;
+  if (loading) return <LoadingState />;
 
   const assignment = selectedAssignment();
 

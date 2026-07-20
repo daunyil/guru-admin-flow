@@ -14,6 +14,7 @@ import {
 } from "../../shared/db/profile-repo";
 import type { AcademicYear, SchoolProfile, TeacherProfile } from "@guru-admin/domain";
 import { formatLongDateID } from "@guru-admin/shared";
+import { LoadingState } from "../../shared/ui";
 
 export function NewYearWizard() {
   const [loading, setLoading] = useState(true);
@@ -92,7 +93,7 @@ export function NewYearWizard() {
     }
   }
 
-  if (loading) return <p className="text-sm text-slate-500">Memuat...</p>;
+  if (loading) return <LoadingState />;
 
   // Precondition check
   if (!school || !teacher) {
