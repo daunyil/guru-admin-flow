@@ -16,7 +16,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Card, CardHeader, Input, Textarea, Button, EmptyState, Badge, Select } from "../../shared/ui";
+import { Card, CardHeader, Input, Textarea, Button, EmptyState, Badge, Select, LoadingState } from "../../shared/ui";
 import { getActiveAcademicYear, getTeacherProfile, getSchoolProfile } from "../../shared/db/profile-repo";
 import {
   listATPEntries,
@@ -44,7 +44,6 @@ import {
   findSchoolDocumentByCompositeKey,
 } from "../../shared/db/school-document-repo";
 import type { SchoolDocOrientation, DocumentStatus } from "@guru-admin/domain";
-import { LoadingState } from "../../shared/ui";
 
 /* ------------------------------------------------------------------ */
 /*  Main Component                                                    */
@@ -636,7 +635,8 @@ Format: sesuaikan dengan standar Kurikulum Merdeka untuk ${entry.grade}.`;
 
       {/* Overlay: Import */}
       {showImport && (
-        <Card className="fixed inset-4 z-50 overflow-y-auto bg-white shadow-xl rounded-lg">
+        <div className="doc-overlay no-print" role="dialog" aria-modal="true" aria-label="Impor Bank TP">
+        <Card className="overflow-y-auto">
           <CardHeader
             title="Impor Bank TP"
             description="Impor TP dari JSON (hasil AI) atau paste dari Excel."
@@ -726,6 +726,7 @@ Format: sesuaikan dengan standar Kurikulum Merdeka untuk ${entry.grade}.`;
             )}
           </div>
         </Card>
+        </div>
       )}
 
       {/* Overlay: AI Prompt */}
@@ -778,8 +779,8 @@ function ATPForm({
     setForm((f) => ({ ...f, [key]: value }));
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={onCancel}>
-      <div className="w-full max-w-lg mx-4 bg-white rounded-lg shadow-xl" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
+    <div className="doc-overlay no-print" onClick={onCancel} role="dialog" aria-modal="true" aria-label={editing ? "Edit TP" : "Tambah TP"}>
+      <div className="doc-overlay-card" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
         <CardHeader title={editing ? "Edit TP" : "Tambah TP"} description="Wajib: Mapel, Kelas, Fase, Elemen, CP, TP, Alokasi JP." />
         <div className="space-y-3 p-4">
           <div className="grid sm:grid-cols-3 gap-3">
@@ -830,11 +831,14 @@ function AIPromptOverlay({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/30"
+      className="doc-overlay no-print"
       onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Prompt AI"
     >
       <div
-        className="w-full max-w-md mx-4 bg-white rounded-lg shadow-xl"
+        className="doc-overlay-card"
         onClick={(e: React.MouseEvent) => e.stopPropagation()}
       >
         <CardHeader

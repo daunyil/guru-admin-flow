@@ -20,7 +20,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Card, CardHeader, Input, Select, Textarea, Button, EmptyState, Badge } from "../../shared/ui";
+import { Card, CardHeader, Input, Select, Textarea, Button, EmptyState, Badge, LoadingState } from "../../shared/ui";
 import {
   listCalendarEvents,
   saveCalendarEvent,
@@ -45,7 +45,6 @@ import {
   findSchoolDocumentByCompositeKey,
 } from "../../shared/db/school-document-repo";
 import type { SchoolDocOrientation, DocumentStatus } from "@guru-admin/domain";
-import { LoadingState } from "../../shared/ui";
 
 /* ------------------------------------------------------------------ */
 /*  Constants                                                         */
@@ -666,7 +665,7 @@ function EventForm({
   }
 
   return (
-    <div className="doc-overlay no-print" onClick={onClose}>
+    <div className="doc-overlay no-print" onClick={onClose} role="dialog" aria-modal="true" aria-label={editing ? "Edit Event" : "Tambah Event"}>
       <div className="doc-overlay-card" onClick={(e) => e.stopPropagation()}>
         <Card>
           <CardHeader title={editing ? "Edit Event" : "Tambah Event"} />
@@ -749,7 +748,7 @@ function ImportModal({
   }
 
   return (
-    <div className="doc-overlay no-print" onClick={onClose}>
+    <div className="doc-overlay no-print" onClick={onClose} role="dialog" aria-modal="true" aria-label="Impor Kalender dari JSON">
       <div className="doc-overlay-card" onClick={(e) => e.stopPropagation()}>
         <Card>
           <CardHeader

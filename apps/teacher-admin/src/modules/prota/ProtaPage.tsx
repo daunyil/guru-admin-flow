@@ -14,7 +14,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Card, CardHeader, Input, Select, Textarea, Button, EmptyState, Badge } from "../../shared/ui";
+import { Card, CardHeader, Input, Select, Textarea, Button, EmptyState, Badge, LoadingState } from "../../shared/ui";
 import {
   listProtaProfiles,
   saveProtaProfile,
@@ -34,7 +34,6 @@ import {
   findSchoolDocumentByCompositeKey,
 } from "../../shared/db/school-document-repo";
 import type { SchoolDocOrientation, DocumentStatus } from "@guru-admin/domain";
-import { LoadingState } from "../../shared/ui";
 
 /* ------------------------------------------------------------------ */
 /*  Constants                                                         */
@@ -533,7 +532,7 @@ function NewProfileForm({
   }
 
   return (
-    <div className="doc-overlay no-print" onClick={onClose}>
+    <div className="doc-overlay no-print" onClick={onClose} role="dialog" aria-modal="true" aria-label="Buat Prota Baru">
       <div className="doc-overlay-card" onClick={(e) => e.stopPropagation()}>
         <Card>
           <CardHeader title="Buat Prota Baru" description="Identitas dasar. Materi/units bisa ditambah setelah ini." />
@@ -696,7 +695,7 @@ function ImportModal({
   }
 
   return (
-    <div className="doc-overlay no-print" onClick={onClose}>
+    <div className="doc-overlay no-print" onClick={onClose} role="dialog" aria-modal="true" aria-label="Impor Prota">
       <div className="doc-overlay-card" onClick={(e) => e.stopPropagation()}>
         <Card>
           <CardHeader
