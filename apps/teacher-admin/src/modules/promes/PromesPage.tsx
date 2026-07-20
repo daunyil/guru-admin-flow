@@ -266,16 +266,14 @@ export function PromesPage() {
     return (
       <div className="doc-wysiwyg-layout">
         {/* ---------- MOBILE BACKDROP ---------- */}
-        {showSidebar && (
-          <div
-            className="doc-sidebar-backdrop no-print"
-            onClick={() => setShowSidebar(false)}
-          />
-        )}
+        <div
+          className={`doc-sidebar-backdrop no-print ${!showSidebar ? "doc-backdrop-hidden" : ""}`}
+          onClick={() => setShowSidebar(false)}
+          aria-hidden="true"
+        />
 
         {/* ---------- SIDEBAR ---------- */}
-        {showSidebar && (
-          <aside className="doc-sidebar no-print">
+        <aside className={`doc-sidebar no-print ${!showSidebar ? "doc-sidebar-hidden" : ""}`}>
             <div className="doc-sidebar-header">
               <h2 className="text-sm font-bold text-slate-900">Program Semester</h2>
               <button
@@ -427,7 +425,6 @@ export function PromesPage() {
               </Button>
             </div>
           </aside>
-        )}
 
         {/* ---------- DOCUMENT AREA ---------- */}
         <div className="doc-document-area">
@@ -482,8 +479,10 @@ export function PromesPage() {
             className="doc-sidebar-toggle no-print"
             onClick={() => setShowSidebar(true)}
             title="Buka panel kontrol"
+            aria-label="Buka panel kontrol"
+            aria-expanded={showSidebar}
           >
-            ⚙
+            ☰
           </button>
         )}
       </div>

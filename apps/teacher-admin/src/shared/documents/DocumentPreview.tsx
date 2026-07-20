@@ -21,7 +21,7 @@
  *   - children       : konten yang dirender di dalam kanvas A4.
  */
 
-import { Component, type ReactNode, useCallback, useEffect, type ErrorInfo } from "react";
+import { Component, type ReactNode, useCallback, useEffect, useState, type ErrorInfo } from "react";
 import {
   useAutoSave,
   type AutoSaveStatus,
@@ -216,13 +216,22 @@ export function DocumentPreview({
     onOrientationChange?.(next);
   }, [orientation, onOrientationChange]);
 
-  // Final handler
+  // Final handler with loading state
+  const [isSettingFinal, setIsSettingFinal] = useState(false);
+
   const handleFinal = useCallback(() => {
-    if (!docId || !onSetFinal) return;
+    if (!docId || !onSetFinal || isSettingFinal) return;
     if (confirm("Tandai dokumen ini sebagai Final? Setelah final, dokumen tidak bisa diedit.")) {
-      void onSetFinal(docId);
+      setIsSettingFinal(true);
+      onSetFinal(docId)
+        .catch((err: unknown) => {
+          console.error("[DocumentPreview] Gagal set final:", err);
+        })
+        .finally(() => {
+          setIsSettingFinal(false);
+        });
     }
-  }, [docId, onSetFinal]);
+  }, [docId, onSetFinal, isSettingFinal]);
 
   const docLabel = SCHOOL_DOC_TYPE_LABELS[docType] ?? "Dokumen";
 
@@ -258,10 +267,22 @@ export function DocumentPreview({
             {status !== "final" && onSetFinal && (
               <button
                 type="button"
-                className="wysiwyg-btn wysiwyg-btn-final"
+                className={`wysiwyg-btn wysiwyg-btn-final ${isSettingFinal ? "wysiwyg-btn-loading" : ""}`}
                 onClick={handleFinal}
+                disabled={isSettingFinal}
+                aria-busy={isSettingFinal}
               >
-                Final
+                {isSettingFinal ? (
+                  <>
+                    <svg className="wysiwyg-mini-spinner" width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+                      <circle cx="7" cy="7" r="5.5" stroke="currentColor" strokeWidth="2" strokeOpacity="0.3" />
+                      <path d="M7 1.5a5.5 5.5 0 0 1 5.5 5.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                    </svg>
+                    Menandai…
+                  </>
+                ) : (
+                  "Final"
+                )}
               </button>
             )}
             <button
