@@ -139,10 +139,11 @@ export interface GradeReportRow {
   no?: number | string;
   nis?: string;
   name: string;
-  kdScores?: Record<string, number | string | undefined>;
-  ptsScore?: number | string;
-  pasScore?: number | string;
-  finalScore?: number | string;
+  /** SA-01: number | null preserves "explicitly empty" vs "not applicable" semantics. */
+  kdScores?: Record<string, number | string | null | undefined>;
+  ptsScore?: number | string | null;
+  pasScore?: number | string | null;
+  finalScore?: number | string | null;
   predicate?: string;
   note?: string;
 }

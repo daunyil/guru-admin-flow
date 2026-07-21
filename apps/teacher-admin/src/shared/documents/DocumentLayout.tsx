@@ -198,6 +198,12 @@ export function DocumentHeader({
         <div className="document-kop-line document-kop-address">
           {schoolAddress || "Alamat sekolah belum tersedia"}
         </div>
+        {/* SA-08: Warning badge when identity data is incomplete */}
+        {!schoolName && (
+          <div className="document-kop-line" style={{ color: "#dc2626", fontSize: "9pt", fontWeight: 600 }}>
+            [DATA BELUM LENGKAP — Nama sekolah belum diisi]
+          </div>
+        )}
       </div>
     </header>
   );
@@ -221,8 +227,9 @@ export function DocumentIdentityTable({
   columns = 2,
   className,
 }: DocumentIdentityTableProps) {
+  // SA-08: Show warning instead of misleading "Belum tersedia" placeholder
   const safeRows =
-    rows.length > 0 ? rows : [{ label: "Keterangan", value: "Belum tersedia" }];
+    rows.length > 0 ? rows : [{ label: "Keterangan", value: <span style={{ color: "#dc2626" }}>[DATA BELUM LENGKAP]</span> }];
 
   if (columns === 1) {
     return (

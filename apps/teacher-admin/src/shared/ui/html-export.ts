@@ -4,9 +4,31 @@
  * PRINT-EXPORT-POLISH-RC1: guru bisa download dokumen sebagai HTML
  * yang bisa dibuka di browser/Word tanpa perlu app berjalan.
  *
- * Tidak PDF (butuh library = roadmap berikutnya).
- * Tidak Word .docx (butuh library = roadmap berikutnya).
+ * SA-03: Semua variabel user di-sanitize via htmlEscape() sebelum
+ * di-interpolasi ke template HTML (XSS prevention).
  */
+
+/** SA-03: HTML entity encoding untuk mencegah XSS. */
+function htmlEscape(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+/**
+ * SA-03: Sanitize innerHTML content sebelum di-embed ke HTML export.
+ * Strips <script> tags dan event handlers (on* attributes).
+ */
+function sanitizeHTML(html: string): string {
+  return html
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
+    .replace(/\bon\w+\s*=\s*"[^"]*"/gi, "")
+    .replace(/\bon\w+\s*=\s*'[^']*'/gi, "")
+    .replace(/\bon\w+\s*=\s*[^\s>]*/gi, "");
+}
 
 /**
  * Generate standalone HTML document dari content + title.
@@ -21,7 +43,12 @@ export function generateStandaloneHTML(args: {
   schoolName?: string;
   orientation?: "portrait" | "landscape";
 }): string {
-  const { title, content, orientation = "portrait" } = args;
+  const { content, orientation = "portrait" } = args;
+  // SA-03: Escape title dan schoolName sebelum interpolasi ke HTML
+  const safeTitle = htmlEscape(args.title);
+  const safeSchoolName = args.schoolName ? htmlEscape(args.schoolName) : "";
+  // SA-03: Sanitize innerHTML content
+  const safeContent = sanitizeHTML(content);
   const maxWidth = orientation === "landscape" ? "29.7cm" : "21cm";
   const padding = orientation === "landscape" ? "1.2cm 1.5cm" : "2cm 2.5cm";
   const pageSize = orientation === "landscape" ? "A4 landscape" : "A4 portrait";
@@ -31,7 +58,7 @@ export function generateStandaloneHTML(args: {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${title}</title>
+  <title>${safeTitle}</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
@@ -142,8 +169,8 @@ export function generateStandaloneHTML(args: {
   </style>
 </head>
 <body>
-${args.schoolName ? `<div class="document-school-name">${args.schoolName}</div>` : ""}
-${content}
+${safeSchoolName ? `<div class="document-school-name">${safeSchoolName}</div>` : ""}
+${safeContent}
 </body>
 </html>`;
 }

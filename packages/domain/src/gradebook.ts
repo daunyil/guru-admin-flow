@@ -36,10 +36,21 @@ export const gradeEntrySchema = z.object({
   kd4: scoreSchema,
   kd5: scoreSchema,
   kd6: scoreSchema,
+  /** SB-01: V3 UH fields — independent from KD. UH1-UH6 for Ulangan Harian. */
+  uh1: scoreSchema,
+  uh2: scoreSchema,
+  uh3: scoreSchema,
+  uh4: scoreSchema,
+  uh5: scoreSchema,
+  uh6: scoreSchema,
   /** V2: Penilaian Tengah Semester. */
   pts: scoreSchema,
   /** V2: Penilaian Akhir Semester. */
   pas: scoreSchema,
+  /** SB-01: V3 UTS — separate from PTS. */
+  uts: scoreSchema,
+  /** SB-01: V3 UAS — separate from PAS. */
+  uas: scoreSchema,
   /** V2: Nilai Akhir (dihitung dari KD + PTS + PAS). */
   finalScore: scoreSchema,
   /** V2: Rata-rata KD. */
@@ -74,7 +85,11 @@ export const gradeBookSchema = baseEntitySchema.extend({
   weightUTS: z.number().min(0).max(100).default(25),
   /** V3: Bobot UAS (0-100). Default 50. */
   weightUAS: z.number().min(0).max(100).default(50),
-});
+}).refine(
+  // SB-03: Validate that weights sum to 100 for UH model
+  (data) => data.gradeModel !== "uh" || (data.weightUH + data.weightUTS + data.weightUAS === 100),
+  { message: "Bobot UH + UTS + UAS harus berjumlah 100%", path: ["weightUAS"] }
+);
 
 export type GradeEntryStatus = z.infer<typeof gradeEntryStatusSchema>;
 export type GradeEntry = z.infer<typeof gradeEntrySchema>;
@@ -109,10 +124,13 @@ function normalizeScore(value: number | null | undefined): number | null {
 export function calculateGradeEntry(
   entry: GradeEntry,
   passingScore: number,
-  options?: { gradeModel?: "kd" | "uh"; uhCount?: number; weightUH?: number; weightUTS?: number; weightUAS?: number }
+  options?: { gradeModel?: "kd" | "uh"; uhCount?: number; weightUH?: number; weightUTS?: number; weightUAS?: number; strictWeightMode?: boolean }
 ): GradeEntry {
   const gradeModel = options?.gradeModel ?? "uh";
   const uhCount = options?.uhCount ?? 2;
+  // SB-02: strictWeightMode — only compute finalScore when all required components are filled.
+  // When false (default), proportional weight normalization is used (legacy behavior).
+  const strictWeightMode = options?.strictWeightMode ?? false;
 
   // Normalize V2 scores
   const kd1 = normalizeScore(entry.kd1);
@@ -123,6 +141,16 @@ export function calculateGradeEntry(
   const kd6 = normalizeScore(entry.kd6);
   const pts = normalizeScore(entry.pts);
   const pas = normalizeScore(entry.pas);
+
+  // SB-01: Normalize separate UH/UTS/UAS fields
+  const uh1 = normalizeScore(entry.uh1);
+  const uh2 = normalizeScore(entry.uh2);
+  const uh3 = normalizeScore(entry.uh3);
+  const uh4 = normalizeScore(entry.uh4);
+  const uh5 = normalizeScore(entry.uh5);
+  const uh6 = normalizeScore(entry.uh6);
+  const uts = normalizeScore(entry.uts);
+  const uas = normalizeScore(entry.uas);
 
   // Normalize legacy scores
   const dailyScore = normalizeScore(entry.dailyScore);
@@ -139,37 +167,61 @@ export function calculateGradeEntry(
     ? Math.round((allKdScores.reduce((sum, s) => sum + s, 0) / allKdScores.length) * 100) / 100
     : null;
 
-  // Hitung rata-rata UH (hanya uhCount kolom pertama)
-  const uhScores = [kd1, kd2, kd3, kd4, kd5, kd6].slice(0, uhCount).filter(
+  // SB-01: Hitung rata-rata UH dari field uh1-uh6 yang terpisah (bukan dari kd1-kd6)
+  // Fallback: jika uh1-uh6 semua null, coba kd1-kdN untuk backward compat data lama
+  const uhScoresNew = [uh1, uh2, uh3, uh4, uh5, uh6].slice(0, uhCount).filter(
     (s): s is number => s !== null
   );
+  const uhScoresLegacy = [kd1, kd2, kd3, kd4, kd5, kd6].slice(0, uhCount).filter(
+    (s): s is number => s !== null
+  );
+  const uhScores = uhScoresNew.length > 0 ? uhScoresNew : uhScoresLegacy;
   const averageUh = uhScores.length > 0
     ? Math.round((uhScores.reduce((sum, s) => sum + s, 0) / uhScores.length) * 100) / 100
     : null;
 
-  // Model UH: avg UH × weightUH% + UTS(pts) × weightUTS% + UAS(pas) × weightUAS%
+  // SB-01: Use separate uts/uas fields, fallback to pts/pas for backward compat
+  const effectiveUts = uts ?? pts;
+  const effectiveUas = uas ?? pas;
+
+  // Model UH: avg UH × weightUH% + UTS × weightUTS% + UAS × weightUAS%
+  // SB-01: Uses separate uts/uas fields (with pts/pas fallback for legacy data)
   if (gradeModel === "uh") {
     const weightUH = options?.weightUH ?? 25;
     const weightUTS = options?.weightUTS ?? 25;
     const weightUAS = options?.weightUAS ?? 50;
-    const hasUHData = averageUh !== null || pts !== null || pas !== null;
+    const hasUHData = averageUh !== null || effectiveUts !== null || effectiveUas !== null;
 
     if (hasUHData) {
       const components: Array<{ score: number | null; weight: number }> = [
         { score: averageUh, weight: weightUH },
-        { score: pts, weight: weightUTS },
-        { score: pas, weight: weightUAS },
+        { score: effectiveUts, weight: weightUTS },
+        { score: effectiveUas, weight: weightUAS },
       ];
-      const availableComponents = components.filter((c) => c.score !== null);
-      const totalWeight = availableComponents.reduce((sum, c) => sum + c.weight, 0);
-      const finalScore = totalWeight > 0
-        ? Math.round(
-            (availableComponents.reduce((sum, c) => sum + (c.score as number) * c.weight, 0) / totalWeight) * 100
-          ) / 100
-        : null;
-      const status: GradeEntryStatus = finalScore !== null
-        ? (finalScore >= passingScore ? "complete" : "remedial")
-        : "incomplete";
+
+      // SB-02: In strictWeightMode, all components must be filled to compute finalScore
+      const allFilled = components.every((c) => c.score !== null);
+
+      let finalScore: number | null;
+      let status: GradeEntryStatus;
+
+      if (strictWeightMode && !allFilled) {
+        // Strict mode: mark as incomplete if not all components are filled
+        finalScore = null;
+        status = "incomplete";
+      } else {
+        // Legacy/proportional mode: normalize weights based on available components
+        const availableComponents = components.filter((c) => c.score !== null);
+        const totalWeight = availableComponents.reduce((sum, c) => sum + c.weight, 0);
+        finalScore = totalWeight > 0
+          ? Math.round(
+              (availableComponents.reduce((sum, c) => sum + (c.score as number) * c.weight, 0) / totalWeight) * 100
+            ) / 100
+          : null;
+        status = finalScore !== null
+          ? (finalScore >= passingScore ? "complete" : "remedial")
+          : "incomplete";
+      }
 
       return {
         ...entry,
@@ -178,7 +230,8 @@ export function calculateGradeEntry(
         averageKd,
         finalScore,
         averageScore: averageUh,
-        remedialScore,
+        // SB-09: Clamp remedialScore to not exceed passingScore (Kemendikbud regulation)
+        remedialScore: remedialScore !== null && remedialScore > passingScore ? passingScore : remedialScore,
         status,
       };
     }
@@ -259,7 +312,7 @@ export function calculateGradeEntry(
 export function calculateGradeBookEntries(
   entries: GradeEntry[],
   passingScore: number,
-  options?: { gradeModel?: "kd" | "uh"; uhCount?: number; weightUH?: number; weightUTS?: number; weightUAS?: number }
+  options?: { gradeModel?: "kd" | "uh"; uhCount?: number; weightUH?: number; weightUTS?: number; weightUAS?: number; strictWeightMode?: boolean }
 ): GradeEntry[] {
   return entries.map((entry) => calculateGradeEntry(entry, passingScore, options));
 }

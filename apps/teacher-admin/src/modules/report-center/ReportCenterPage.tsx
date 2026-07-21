@@ -146,11 +146,15 @@ export function ReportCenterPage() {
         </p>
       </div>
 
-      {/* Tab Navigation */}
-      <div className="flex gap-1 border-b border-slate-200 overflow-x-auto">
+      {/* Tab Navigation — WAI-ARIA tablist */}
+      <div role="tablist" className="flex gap-1 border-b border-slate-200 overflow-x-auto">
         {tabs.map((t) => (
           <button
             key={t.key}
+            role="tab"
+            aria-selected={tab === t.key}
+            aria-controls={`tabpanel-${t.key}`}
+            id={`tab-${t.key}`}
             onClick={() => setTab(t.key)}
             className={`px-4 py-2 text-sm font-medium whitespace-nowrap transition-colors border-b-2 -mb-px ${
               tab === t.key
@@ -165,39 +169,47 @@ export function ReportCenterPage() {
 
       {/* Tab Content */}
       {tab === "piket" && (
-        <PiketReportTab
-          year={year}
-          teacher={teacher}
-          school={school}
-          semester={semester}
-        />
+        <div role="tabpanel" id="tabpanel-piket" aria-labelledby="tab-piket">
+          <PiketReportTab
+            year={year}
+            teacher={teacher}
+            school={school}
+            semester={semester}
+          />
+        </div>
       )}
       {tab === "attendance" && (
-        <AttendanceMatrixTab
-          year={year}
-          teacher={teacher}
-          school={school}
-          assignments={assignments}
-          semester={semester}
-        />
+        <div role="tabpanel" id="tabpanel-attendance" aria-labelledby="tab-attendance">
+          <AttendanceMatrixTab
+            year={year}
+            teacher={teacher}
+            school={school}
+            assignments={assignments}
+            semester={semester}
+          />
+        </div>
       )}
       {tab === "grades" && (
-        <GradeReportTab
-          year={year}
-          teacher={teacher}
-          school={school}
-          assignments={assignments}
-          semester={semester}
-        />
+        <div role="tabpanel" id="tabpanel-grades" aria-labelledby="tab-grades">
+          <GradeReportTab
+            year={year}
+            teacher={teacher}
+            school={school}
+            assignments={assignments}
+            semester={semester}
+          />
+        </div>
       )}
       {tab === "journal" && (
-        <JournalReportTab
-          year={year}
-          teacher={teacher}
-          school={school}
-          assignments={assignments}
-          semester={semester}
-        />
+        <div role="tabpanel" id="tabpanel-journal" aria-labelledby="tab-journal">
+          <JournalReportTab
+            year={year}
+            teacher={teacher}
+            school={school}
+            assignments={assignments}
+            semester={semester}
+          />
+        </div>
       )}
     </div>
   );
@@ -249,15 +261,20 @@ function PiketReportTab({
   });
   const [loadingData, setLoadingData] = useState(false);
   const [showDocument, setShowDocument] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
     if (!year) return;
     setLoadingData(true);
+    setLoadError(null);
     try {
       const [recs] = await Promise.all([
         listDutyRecordsByAcademicYear(year.id),
       ]);
       setRecords(recs);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : "Gagal memuat data piket.");
+      console.error("[PiketReport] loadData error:", err);
     } finally {
       setLoadingData(false);
     }
@@ -490,7 +507,7 @@ function PiketReportTab({
         </Card>
       )}
 
-      {!hasData && !loadingData && (
+      {!hasData && !loadingData && !loadError && (
         <EmptyState
           title="Belum Ada Data Piket"
           description="Tidak ada catatan pelanggaran pada rentang tanggal ini. Ubah filter atau buat laporan piket terlebih dahulu."
@@ -500,6 +517,16 @@ function PiketReportTab({
             </Button>
           }
         />
+      )}
+
+      {loadError && (
+        <Card>
+          <div className="p-4 text-center space-y-2">
+            <p className="text-red-600 font-medium">Gagal Memuat Data</p>
+            <p className="text-sm text-slate-500">{loadError}</p>
+            <Button variant="secondary" onClick={() => void loadData()}>Coba Lagi</Button>
+          </div>
+        </Card>
       )}
     </>
   );
@@ -529,6 +556,7 @@ function AttendanceMatrixTab({
   const [loadingData, setLoadingData] = useState(false);
   const [showDocument, setShowDocument] = useState(false);
   const [dataLoaded, setDataLoaded] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const selectedAssignment = assignments.find((a) => a.id === selectedAssignmentId);
 
@@ -536,16 +564,23 @@ function AttendanceMatrixTab({
     if (!year || !selectedAssignment) return;
     setLoadingData(true);
     setDataLoaded(false);
+    setLoadError(null);
     try {
       const [sess, att, ros] = await Promise.all([
         listLessonSessions(year.id, selectedAssignment.semester),
-        db.attendanceRecords.toArray(),
+        db.attendanceRecords
+          .where("classId")
+          .equals(selectedAssignment.classId)
+          .toArray(),
         findClassRoster(year.id, selectedAssignment.classId),
       ]);
       setSessions(sess);
       setAllAttendance(att);
       setRoster(ros ?? undefined);
       setDataLoaded(true);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : "Gagal memuat data absensi.");
+      console.error("[AttendanceMatrix] loadData error:", err);
     } finally {
       setLoadingData(false);
     }
@@ -583,6 +618,18 @@ function AttendanceMatrixTab({
       date: s.date,
     }));
 
+    // SA-11: Pre-group attendance by sessionId for O(1) lookup instead of O(n) linear search
+    const attendanceBySession = new Map<string, Map<string, AttendanceRecord>>();
+    for (const att of allAttendance) {
+      if (att.deletedAt) continue;
+      let inner = attendanceBySession.get(att.sessionId);
+      if (!inner) {
+        inner = new Map();
+        attendanceBySession.set(att.sessionId, inner);
+      }
+      inner.set(att.studentId, att);
+    }
+
     // Build student rows from roster
     const students = (roster?.students ?? []).map(
       (student, studentIndex): AttendanceStudentRow => {
@@ -592,9 +639,7 @@ function AttendanceMatrixTab({
         let absent = 0;
 
         for (const session of assignmentSessions) {
-          const record = allAttendance.find(
-            (a) => a.sessionId === session.id && a.studentId === student.id && !a.deletedAt,
-          );
+          const record = attendanceBySession.get(session.id)?.get(student.id);
           let code = "";
           if (record) {
             switch (record.status) {
@@ -745,6 +790,16 @@ function AttendanceMatrixTab({
           description="Tidak ada data siswa atau pertemuan untuk kelas dan mapel ini. Pastikan daftar siswa sudah diisi dan sesi mengajar sudah ada."
         />
       )}
+
+      {loadError && (
+        <Card>
+          <div className="p-4 text-center space-y-2">
+            <p className="text-red-600 font-medium">Gagal Memuat Data</p>
+            <p className="text-sm text-slate-500">{loadError}</p>
+            <Button variant="secondary" onClick={() => void loadData()}>Coba Lagi</Button>
+          </div>
+        </Card>
+      )}
     </>
   );
 }
@@ -772,6 +827,7 @@ function GradeReportTab({
   const [loadingData, setLoadingData] = useState(false);
   const [showDocument, setShowDocument] = useState(false);
   const [dataLoaded, setDataLoaded] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const selectedAssignment = assignments.find((a) => a.id === selectedAssignmentId);
 
@@ -779,6 +835,7 @@ function GradeReportTab({
     if (!year || !teacher || !selectedAssignment) return;
     setLoadingData(true);
     setDataLoaded(false);
+    setLoadError(null);
     try {
       const [gb, ros] = await Promise.all([
         findGradeBook({
@@ -793,6 +850,9 @@ function GradeReportTab({
       setGradeBook(gb ?? undefined);
       setRoster(ros ?? undefined);
       setDataLoaded(true);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : "Gagal memuat data nilai.");
+      console.error("[GradeReport] loadData error:", err);
     } finally {
       setLoadingData(false);
     }
@@ -840,17 +900,18 @@ function GradeReportTab({
         no: index + 1,
         nis: student?.nis || entry.studentNumber?.toString() || "—",
         name: entry.studentName,
+        // SA-01: Preserve null semantics — null means "explicitly empty", not "not applicable"
         kdScores: {
-          kd1: entry.kd1 ?? undefined,
-          kd2: entry.kd2 ?? undefined,
-          kd3: entry.kd3 ?? undefined,
-          kd4: entry.kd4 ?? undefined,
-          kd5: entry.kd5 ?? undefined,
-          kd6: entry.kd6 ?? undefined,
+          kd1: entry.kd1,
+          kd2: entry.kd2,
+          kd3: entry.kd3,
+          kd4: entry.kd4,
+          kd5: entry.kd5,
+          kd6: entry.kd6,
         },
-        ptsScore: entry.pts ?? undefined,
-        pasScore: entry.pas ?? undefined,
-        finalScore: entry.finalScore ?? undefined,
+        ptsScore: entry.pts,
+        pasScore: entry.pas,
+        finalScore: entry.finalScore,
         predicate,
         note: entry.status === "remedial" ? "Remedial" : entry.status === "incomplete" ? "Belum Lengkap" : undefined,
       };
@@ -956,7 +1017,7 @@ function GradeReportTab({
         </Card>
       )}
 
-      {dataLoaded && !hasData && (
+      {dataLoaded && !hasData && !loadError && (
         <EmptyState
           title="Belum Ada Data Nilai"
           description="Tidak ada data nilai untuk kelas dan mapel ini. Isi nilai terlebih dahulu di halaman Nilai."
@@ -966,6 +1027,16 @@ function GradeReportTab({
             </Button>
           }
         />
+      )}
+
+      {loadError && (
+        <Card>
+          <div className="p-4 text-center space-y-2">
+            <p className="text-red-600 font-medium">Gagal Memuat Data</p>
+            <p className="text-sm text-slate-500">{loadError}</p>
+            <Button variant="secondary" onClick={() => void loadData()}>Coba Lagi</Button>
+          </div>
+        </Card>
       )}
     </>
   );
@@ -993,6 +1064,7 @@ function JournalReportTab({
   const [loadingData, setLoadingData] = useState(false);
   const [showDocument, setShowDocument] = useState(false);
   const [dataLoaded, setDataLoaded] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const selectedAssignment = assignments.find((a) => a.id === selectedAssignmentId);
 
@@ -1000,10 +1072,14 @@ function JournalReportTab({
     if (!year || !selectedAssignment) return;
     setLoadingData(true);
     setDataLoaded(false);
+    setLoadError(null);
     try {
       const allJournals = await listJournals(year.id, selectedAssignment.semester);
       setJournals(allJournals);
       setDataLoaded(true);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : "Gagal memuat data jurnal.");
+      console.error("[JournalReport] loadData error:", err);
     } finally {
       setLoadingData(false);
     }
@@ -1161,7 +1237,7 @@ function JournalReportTab({
         </Card>
       )}
 
-      {dataLoaded && !hasData && (
+      {dataLoaded && !hasData && !loadError && (
         <EmptyState
           title="Belum Ada Data Jurnal"
           description="Tidak ada jurnal untuk kelas dan mapel ini. Isi jurnal terlebih dahulu."
@@ -1171,6 +1247,16 @@ function JournalReportTab({
             </Button>
           }
         />
+      )}
+
+      {loadError && (
+        <Card>
+          <div className="p-4 text-center space-y-2">
+            <p className="text-red-600 font-medium">Gagal Memuat Data</p>
+            <p className="text-sm text-slate-500">{loadError}</p>
+            <Button variant="secondary" onClick={() => void loadData()}>Coba Lagi</Button>
+          </div>
+        </Card>
       )}
     </>
   );

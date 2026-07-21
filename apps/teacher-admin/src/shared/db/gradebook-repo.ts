@@ -5,19 +5,33 @@
 import { db } from "./schema";
 import { createEntity, updateEntityFields, saveEntity } from "./crud";
 import type { GradeBook, GradeEntry } from "@guru-admin/domain";
-import { calculateGradeBookEntries } from "@guru-admin/domain";
+import { calculateGradeBookEntries, safeParseGradeBook } from "@guru-admin/domain";
+
+/** SA-07: Validate GradeBook data from IndexedDB via safeParse. Logs warning if data is corrupt. */
+function validateBook(raw: unknown): GradeBook | undefined {
+  const result = safeParseGradeBook(raw);
+  if (!result.success) {
+    console.warn("[gradebook-repo] safeParse validation failed for GradeBook:", result.error.issues);
+    return undefined;
+  }
+  return result.data;
+}
 
 export async function listGradeBooks(academicYearId: string): Promise<GradeBook[]> {
   const all = await db.gradeBooks
     .where("academicYearId")
     .equals(academicYearId)
     .toArray();
-  return all.filter((book) => !book.deletedAt) as GradeBook[];
+  return all
+    .filter((book) => !book.deletedAt)
+    .map((book) => validateBook(book))
+    .filter((b): b is GradeBook => b !== undefined);
 }
 
 export async function getGradeBook(id: string): Promise<GradeBook | undefined> {
   const book = await db.gradeBooks.get(id);
-  return book && !book.deletedAt ? (book as GradeBook) : undefined;
+  if (!book || book.deletedAt) return undefined;
+  return validateBook(book);
 }
 
 export async function findGradeBook(params: {

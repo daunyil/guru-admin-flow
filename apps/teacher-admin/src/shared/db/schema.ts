@@ -131,6 +131,46 @@ export class GuruAdminDB extends Dexie {
     this.version(10).stores({
       gradeBooks: "id, academicYearId, teacherId, classId, subject, semester, status, [academicYearId+teacherId+classId+semester]",
     });
+
+    // SB-01: Add separate UH/UTS/UAS fields (uh1-uh6, uts, uas) to GradeEntry.
+    // SB-05: Migration backfills V3 defaults (gradeModel, uhCount, weights) on existing data.
+    this.version(11).stores({
+      gradeBooks: "id, academicYearId, teacherId, classId, subject, semester, status, [academicYearId+teacherId+classId+semester]",
+    }).upgrade((tx) => {
+      // SB-05: Backfill V3 fields on existing GradeBook data
+      return tx.table("gradeBooks").toCollection().modify((book: Record<string, unknown>) => {
+        // Backfill V3 top-level fields with safe defaults
+        if (book.gradeModel === undefined) book.gradeModel = "uh";
+        if (book.uhCount === undefined) book.uhCount = 2;
+        if (book.weightUH === undefined) book.weightUH = 25;
+        if (book.weightUTS === undefined) book.weightUTS = 25;
+        if (book.weightUAS === undefined) book.weightUAS = 50;
+
+        // SB-01: Migrate existing KD data in UH model → copy kd1-kdN to uh1-uhN
+        // Only if uh1 is still empty (first migration)
+        if (book.gradeModel === "uh" && Array.isArray(book.entries)) {
+          for (const entry of book.entries as Array<Record<string, unknown>>) {
+            if (entry.uh1 === undefined) {
+              const uhCount = (book.uhCount as number) ?? 2;
+              for (let i = 1; i <= Math.min(uhCount, 6); i++) {
+                const kdKey = `kd${i}`;
+                const uhKey = `uh${i}`;
+                if (entry[kdKey] != null && entry[uhKey] == null) {
+                  entry[uhKey] = entry[kdKey];
+                }
+              }
+            }
+            // SB-01: Copy pts→uts, pas→uas if not already set
+            if (entry.uts === undefined && entry.pts != null) {
+              entry.uts = entry.pts;
+            }
+            if (entry.uas === undefined && entry.pas != null) {
+              entry.uas = entry.pas;
+            }
+          }
+        }
+      });
+    });
   }
 }
 
