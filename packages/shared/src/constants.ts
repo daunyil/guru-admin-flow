@@ -21,8 +21,12 @@ export const APP_VERSION = "1.0.0";
  *   Backup lama (v5) tetap bisa di-restore karena field baru default=[].
  * v1.0.0 adalah release lock aplikasi harian. Tidak ada perubahan schema;
  *   DATA_SCHEMA_VERSION tetap 7.
+ * v1.1 (WYSIWYG-DOC-01) menaikkan versi karena menambah schoolDocuments ke Dexie + Backup JSON.
+ * v1.2 (GRADEBOOK-V3-UH) menaikkan versi karena menambah gradeModel/uhCount/weights ke GradeBook + uh/uts/uas ke GradeEntry.
+ * v1.3 (AUDIT-FIX) menaikkan versi karena schoolDocuments sekarang masuk backup/restore.
+ *   DATA_SCHEMA_VERSION diselaraskan ke Dexie version 11.
  */
-export const DATA_SCHEMA_VERSION = 9;
+export const DATA_SCHEMA_VERSION = 11;
 
 /** Timezone default untuk MVP v1 (Asia/Jakarta). */
 export const DEFAULT_TIMEZONE = "Asia/Jakarta";

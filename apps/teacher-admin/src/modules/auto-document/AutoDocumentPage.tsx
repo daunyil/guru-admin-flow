@@ -330,7 +330,7 @@ export function AutoDocumentPage() {
           </Card>
 
           {/* Tombol Cetak */}
-          <Card>
+          <Card className="no-print">
             <div className="flex gap-2 flex-wrap">
               <Button onClick={() => setShowDocument(!showDocument)}>
                 {showDocument ? "Mode Ringkasan" : "Mode Dokumen (Cetak)"}

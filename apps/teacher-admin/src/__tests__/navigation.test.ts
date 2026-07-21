@@ -10,6 +10,7 @@ describe("NAV-DAILY-GATE-01 — Kontrak menu utama", () => {
   it("Sidebar menampilkan Nilai", () => { expect(getPrimaryNavLabels()).toContain("Nilai"); });
   it("Sidebar menampilkan Guru Piket", () => { expect(getPrimaryNavLabels()).toContain("Guru Piket"); });
   it("Sidebar menampilkan Paket Admin", () => { expect(getPrimaryNavLabels()).toContain("Paket Admin"); });
+  it("Sidebar menampilkan Pusat Laporan", () => { expect(getPrimaryNavLabels()).toContain("Pusat Laporan"); });
   it("Sidebar TIDAK menampilkan modul besar langsung", () => {
     const labels = getPrimaryNavLabels();
     expect(labels).not.toContain("Prota Resmi");
@@ -18,10 +19,10 @@ describe("NAV-DAILY-GATE-01 — Kontrak menu utama", () => {
     expect(labels).not.toContain("LKPD");
     expect(labels).not.toContain("Remedial");
   });
-  it("Menu utama tepat 5 item", () => {
-    expect(getPrimaryNavLabels()).toEqual(["Absen", "Jurnal", "Nilai", "Guru Piket", "Paket Admin"]);
+  it("Menu utama tepat 6 item", () => {
+    expect(getPrimaryNavLabels()).toEqual(["Absen", "Jurnal", "Nilai", "Guru Piket", "Paket Admin", "Pusat Laporan"]);
   });
-  it("Mobile nav maksimal 5 item", () => { expect(getMobileNavLabels().length).toBeLessThanOrEqual(5); });
+  it("Mobile nav maksimal 5 item", () => { expect(getMobileNavLabels().length).toBeLessThanOrEqual(5); }); // Catatan: Pusat Laporan hanya di desktop sidebar, bukan mobile nav
   it("Mobile nav tidak ada Lainnya", () => { expect(getMobileNavLabels()).not.toContain("Lainnya"); });
 });
 

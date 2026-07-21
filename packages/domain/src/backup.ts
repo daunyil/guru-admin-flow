@@ -21,6 +21,7 @@ import { rppDocumentSchema } from "./rpp-document";
 import { remedialProgramSchema } from "./remedial-program";
 import { enrichmentProgramSchema } from "./enrichment-program";
 import { documentSnapshotSchema } from "./snapshot-sync";
+import { schoolDocumentSchema } from "./school-document";
 import { dutyRuleSchema, dutyReportSchema, dutyRecordSchema } from "./daily-duty";
 import { DATA_SCHEMA_VERSION } from "@guru-admin/shared";
 
@@ -52,6 +53,8 @@ export const backupFileSchema = z.object({
     dutyRules: z.array(dutyRuleSchema).default([]),
     dutyReports: z.array(dutyReportSchema).default([]),
     dutyRecords: z.array(dutyRecordSchema).default([]),
+    // WYSIWYG-DOC-01: dokumen WYSIWYG (backward compat: default [])
+    schoolDocuments: z.array(schoolDocumentSchema).default([]),
   }),
 });
 
@@ -108,6 +111,7 @@ export function validateBackup(input: unknown):
       remedialPrograms: backup.data.remedialPrograms.length,
       enrichmentPrograms: backup.data.enrichmentPrograms.length,
       documentSnapshots: backup.data.documentSnapshots.length,
+      schoolDocuments: backup.data.schoolDocuments?.length ?? 0,
     },
     hasSchoolProfile: backup.data.schoolProfile !== null,
     hasTeacherProfile: backup.data.teacherProfile !== null,
@@ -138,6 +142,7 @@ export type BackupSummary = {
     remedialPrograms: number;
     enrichmentPrograms: number;
     documentSnapshots: number;
+    schoolDocuments: number;
   };
   hasSchoolProfile: boolean;
   hasTeacherProfile: boolean;

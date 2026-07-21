@@ -57,6 +57,7 @@ export function BackupPage() {
           remedialPrograms: backup.data.remedialPrograms.length,
           enrichmentPrograms: backup.data.enrichmentPrograms.length,
           documentSnapshots: backup.data.documentSnapshots.length,
+          schoolDocuments: backup.data.schoolDocuments?.length ?? 0,
         },
         hasSchoolProfile: backup.data.schoolProfile !== null,
         hasTeacherProfile: backup.data.teacherProfile !== null,

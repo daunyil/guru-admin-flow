@@ -29,6 +29,7 @@ import {
   type RemedialProgram,
   type EnrichmentProgram,
   type DocumentSnapshot,
+  type SchoolDocument,
 } from "@guru-admin/domain";
 import { APP_VERSION, DATA_SCHEMA_VERSION, nowTimestamp } from "@guru-admin/shared";
 
@@ -61,6 +62,7 @@ export async function exportBackup(): Promise<BackupFile> {
     dutyRules,
     dutyReports,
     dutyRecords,
+    schoolDocuments,
   ] = await Promise.all([
     listEntities<AcademicYear>("academicYears"),
     listEntities<SchoolProfile>("schoolProfile"),
@@ -85,6 +87,7 @@ export async function exportBackup(): Promise<BackupFile> {
     db.dailyDutyRules.toArray().then(r => r.filter(x => !x.deletedAt)),
     db.dailyDutyReports.toArray().then(r => r.filter(x => !x.deletedAt)),
     db.dailyDutyRecords.toArray().then(r => r.filter(x => !x.deletedAt)),
+    listEntities<SchoolDocument>("schoolDocuments"),
   ]);
 
   // Re-attach units ke ProtaProfile
@@ -120,6 +123,7 @@ export async function exportBackup(): Promise<BackupFile> {
       dutyRules,
       dutyReports,
       dutyRecords,
+      schoolDocuments,
     },
   };
 }
@@ -183,6 +187,7 @@ export async function restoreBackup(input: unknown): Promise<BackupSummary> {
       db.dailyDutyReports,
       db.dailyDutyRecords,
       db.syncQueue,
+      db.schoolDocuments,
     ],
     async () => {
       // Clear semua tabel
@@ -211,6 +216,7 @@ export async function restoreBackup(input: unknown): Promise<BackupSummary> {
         db.dailyDutyReports.clear(),
         db.dailyDutyRecords.clear(),
         db.syncQueue.clear(),
+        db.schoolDocuments.clear(),
       ]);
 
       // Insert data baru
@@ -256,6 +262,9 @@ export async function restoreBackup(input: unknown): Promise<BackupSummary> {
       await db.dailyDutyRules.bulkPut(backup.data.dutyRules ?? []);
       await db.dailyDutyReports.bulkPut(backup.data.dutyReports ?? []);
       await db.dailyDutyRecords.bulkPut(backup.data.dutyRecords ?? []);
+      // WYSIWYG-DOC-01: restore schoolDocuments (backward compat: default [])
+      const schoolDocuments = backup.data.schoolDocuments ?? [];
+      await db.schoolDocuments.bulkPut(schoolDocuments);
     }
   );
 
