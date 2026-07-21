@@ -124,6 +124,13 @@ export class GuruAdminDB extends Dexie {
       schoolDocuments:
         "id, docType, semester, tahunAjaran, kodeMapel, kodeKelas, status, teacherId, academicYearId, updatedAt",
     });
+
+    // GRADEBOOK-V3-UH-UTS-UAS: new GradeBook fields (gradeModel, uhCount, weightUH/UTS/UAS).
+    // No index changes needed — these are data fields, not indexed columns.
+    // Bump version so Dexie opens the DB with the updated schema.
+    this.version(10).stores({
+      gradeBooks: "id, academicYearId, teacherId, classId, subject, semester, status, [academicYearId+teacherId+classId+semester]",
+    });
   }
 }
 

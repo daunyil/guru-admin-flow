@@ -1,5 +1,5 @@
 /**
- * GradeBook — Nilai per kelas dengan KD1-KD6, PTS, PAS.
+ * GradeBook — Nilai per kelas.
  *
  * V2 (GRADEBOOK-V2-KD-IMPORT-RC1):
  *   - Field nilai: KD1, KD2, KD3, KD4, KD5, KD6, PTS, PAS, Nilai Akhir.
@@ -7,6 +7,14 @@
  *   - Nilai Akhir dihitung dari rata-rata KD + PTS + PAS (bobot configurable).
  *   - Field lama (dailyScore, assignmentScore, summativeScore) tetap ada
  *     untuk backward compat, tapi UI V2 pakai KD1-KD6.
+ *
+ * V3 (GRADEBOOK-V3-UH-UTS-UAS):
+ *   - gradeModel: "kd" | "uh" — model penilaian.
+ *   - Model UH: kd1-uhCount dipakai sebagai UH1-UHn,
+ *     pts → UTS, pas → UAS.
+ *   - Bobot configurable: weightUH, weightUTS, weightUAS.
+ *   - Rumus: avg(UH) × weightUH% + UTS × weightUTS% + UAS × weightUAS%.
+ *   - uhCount: jumlah kolom UH yang ditampilkan (2-6, default 2).
  */
 
 import { z } from "zod";
@@ -56,6 +64,16 @@ export const gradeBookSchema = baseEntitySchema.extend({
   passingScore: z.number().min(0).max(100),
   entries: z.array(gradeEntrySchema),
   status: documentStatusSchema,
+  /** V3: Model penilaian — "uh" (Ulangan Harian) atau "kd" (Kompetensi Dasar). Default "uh". */
+  gradeModel: z.enum(["uh", "kd"]).default("uh"),
+  /** V3: Jumlah kolom UH yang ditampilkan (2-6). Default 2. Hanya relevan jika gradeModel="uh". */
+  uhCount: z.number().int().min(2).max(6).default(2),
+  /** V3: Bobot UH (0-100). Default 25. Hanya relevan jika gradeModel="uh". */
+  weightUH: z.number().min(0).max(100).default(25),
+  /** V3: Bobot UTS (0-100). Default 25. */
+  weightUTS: z.number().min(0).max(100).default(25),
+  /** V3: Bobot UAS (0-100). Default 50. */
+  weightUAS: z.number().min(0).max(100).default(50),
 });
 
 export type GradeEntryStatus = z.infer<typeof gradeEntryStatusSchema>;
@@ -78,16 +96,24 @@ function normalizeScore(value: number | null | undefined): number | null {
 /**
  * Hitung Nilai Akhir.
  *
- * Strategi:
- *   1. Jika ada KD/PTS/PAS → pakai rumus V2 (avg KD 40% + PTS 25% + PAS 35%).
- *   2. Jika tidak ada KD/PTS/PAS tapi ada finalScore lama → gunakan finalScore lama.
+ * V3: Mendukung dua model:
+ *   - gradeModel="kd": rumus V2 (avg KD 40% + PTS 25% + PAS 35%).
+ *   - gradeModel="uh": rumus V3 (avg UH × weightUH% + UTS × weightUTS% + UAS × weightUAS%).
+ *
+ * Strategi fallback:
+ *   1. Jika ada komponen sesuai model → pakai rumus model.
+ *   2. Jika tidak ada komponen model tapi ada finalScore lama → gunakan finalScore lama.
  *   3. Jika tidak ada finalScore lama tapi ada daily/summative/assignment → pakai rata-rata legacy.
  *   4. Jika semua kosong → incomplete.
  */
 export function calculateGradeEntry(
   entry: GradeEntry,
-  passingScore: number
+  passingScore: number,
+  options?: { gradeModel?: "kd" | "uh"; uhCount?: number; weightUH?: number; weightUTS?: number; weightUAS?: number }
 ): GradeEntry {
+  const gradeModel = options?.gradeModel ?? "uh";
+  const uhCount = options?.uhCount ?? 2;
+
   // Normalize V2 scores
   const kd1 = normalizeScore(entry.kd1);
   const kd2 = normalizeScore(entry.kd2);
@@ -105,40 +131,84 @@ export function calculateGradeEntry(
   const remedialScore = normalizeScore(entry.remedialScore);
   const legacyFinalScore = normalizeScore(entry.finalScore);
 
-  // Hitung rata-rata KD
-  const kdScores = [kd1, kd2, kd3, kd4, kd5, kd6].filter(
+  // Hitung rata-rata KD (semua 6 kolom)
+  const allKdScores = [kd1, kd2, kd3, kd4, kd5, kd6].filter(
     (s): s is number => s !== null
   );
-  const averageKd = kdScores.length > 0
-    ? Math.round((kdScores.reduce((sum, s) => sum + s, 0) / kdScores.length) * 100) / 100
+  const averageKd = allKdScores.length > 0
+    ? Math.round((allKdScores.reduce((sum, s) => sum + s, 0) / allKdScores.length) * 100) / 100
     : null;
 
-  // Coba V2: KD + PTS + PAS
-  const hasV2Data = averageKd !== null || pts !== null || pas !== null;
+  // Hitung rata-rata UH (hanya uhCount kolom pertama)
+  const uhScores = [kd1, kd2, kd3, kd4, kd5, kd6].slice(0, uhCount).filter(
+    (s): s is number => s !== null
+  );
+  const averageUh = uhScores.length > 0
+    ? Math.round((uhScores.reduce((sum, s) => sum + s, 0) / uhScores.length) * 100) / 100
+    : null;
 
-  if (hasV2Data) {
-    // Bobot: KD avg 40%, PTS 25%, PAS 35%
-    const components: Array<{ score: number | null; weight: number }> = [
-      { score: averageKd, weight: 40 },
-      { score: pts, weight: 25 },
-      { score: pas, weight: 35 },
-    ];
-    const availableComponents = components.filter((c) => c.score !== null);
-    const totalWeight = availableComponents.reduce((sum, c) => sum + c.weight, 0);
-    const finalScore = Math.round(
-      (availableComponents.reduce((sum, c) => sum + (c.score as number) * c.weight, 0) / totalWeight) * 100
-    ) / 100;
-    const status: GradeEntryStatus = finalScore >= passingScore ? "complete" : "remedial";
+  // Model UH: avg UH × weightUH% + UTS(pts) × weightUTS% + UAS(pas) × weightUAS%
+  if (gradeModel === "uh") {
+    const weightUH = options?.weightUH ?? 25;
+    const weightUTS = options?.weightUTS ?? 25;
+    const weightUAS = options?.weightUAS ?? 50;
+    const hasUHData = averageUh !== null || pts !== null || pas !== null;
 
-    return {
-      ...entry,
-      kd1, kd2, kd3, kd4, kd5, kd6,
-      pts, pas,
-      averageKd,
-      finalScore,
-      averageScore: averageKd,
-      status,
-    };
+    if (hasUHData) {
+      const components: Array<{ score: number | null; weight: number }> = [
+        { score: averageUh, weight: weightUH },
+        { score: pts, weight: weightUTS },
+        { score: pas, weight: weightUAS },
+      ];
+      const availableComponents = components.filter((c) => c.score !== null);
+      const totalWeight = availableComponents.reduce((sum, c) => sum + c.weight, 0);
+      const finalScore = totalWeight > 0
+        ? Math.round(
+            (availableComponents.reduce((sum, c) => sum + (c.score as number) * c.weight, 0) / totalWeight) * 100
+          ) / 100
+        : null;
+      const status: GradeEntryStatus = finalScore !== null
+        ? (finalScore >= passingScore ? "complete" : "remedial")
+        : "incomplete";
+
+      return {
+        ...entry,
+        kd1, kd2, kd3, kd4, kd5, kd6,
+        pts, pas,
+        averageKd,
+        finalScore,
+        averageScore: averageUh,
+        remedialScore,
+        status,
+      };
+    }
+  } else {
+    // Model KD: avg KD 40% + PTS 25% + PAS 35% (V2 original)
+    const hasV2Data = averageKd !== null || pts !== null || pas !== null;
+
+    if (hasV2Data) {
+      const components: Array<{ score: number | null; weight: number }> = [
+        { score: averageKd, weight: 40 },
+        { score: pts, weight: 25 },
+        { score: pas, weight: 35 },
+      ];
+      const availableComponents = components.filter((c) => c.score !== null);
+      const totalWeight = availableComponents.reduce((sum, c) => sum + c.weight, 0);
+      const finalScore = Math.round(
+        (availableComponents.reduce((sum, c) => sum + (c.score as number) * c.weight, 0) / totalWeight) * 100
+      ) / 100;
+      const status: GradeEntryStatus = finalScore >= passingScore ? "complete" : "remedial";
+
+      return {
+        ...entry,
+        kd1, kd2, kd3, kd4, kd5, kd6,
+        pts, pas,
+        averageKd,
+        finalScore,
+        averageScore: averageKd,
+        status,
+      };
+    }
   }
 
   // Fallback 1: finalScore lama (dari Apps Script import)
@@ -188,13 +258,21 @@ export function calculateGradeEntry(
 
 export function calculateGradeBookEntries(
   entries: GradeEntry[],
-  passingScore: number
+  passingScore: number,
+  options?: { gradeModel?: "kd" | "uh"; uhCount?: number; weightUH?: number; weightUTS?: number; weightUAS?: number }
 ): GradeEntry[] {
-  return entries.map((entry) => calculateGradeEntry(entry, passingScore));
+  return entries.map((entry) => calculateGradeEntry(entry, passingScore, options));
 }
 
 export function summarizeGradeBook(gradeBook: GradeBook): GradeBookSummary {
-  const entries = calculateGradeBookEntries(gradeBook.entries, gradeBook.passingScore);
+  const options = {
+    gradeModel: gradeBook.gradeModel ?? "uh",
+    uhCount: gradeBook.uhCount ?? 2,
+    weightUH: gradeBook.weightUH ?? 25,
+    weightUTS: gradeBook.weightUTS ?? 25,
+    weightUAS: gradeBook.weightUAS ?? 50,
+  };
+  const entries = calculateGradeBookEntries(gradeBook.entries, gradeBook.passingScore, options);
   const finalScores = entries
     .map((entry) => entry.finalScore)
     .filter((score): score is number => typeof score === "number");
@@ -301,6 +379,25 @@ export function parseExcelPaste(
 
 /** Target kolom untuk import CBT. */
 export type CbtImportTarget = "kd1" | "kd2" | "kd3" | "kd4" | "kd5" | "kd6" | "pts" | "pas";
+
+/** Label untuk target CBT sesuai model penilaian. */
+export function getCbtTargetLabels(gradeModel: "kd" | "uh", uhCount: number): Array<{ value: CbtImportTarget; label: string }> {
+  if (gradeModel === "uh") {
+    const uhLabels: Array<{ value: CbtImportTarget; label: string }> = [];
+    for (let i = 1; i <= Math.min(uhCount, 6); i++) {
+      uhLabels.push({ value: `kd${i}` as CbtImportTarget, label: `UH${i}` });
+    }
+    uhLabels.push({ value: "pts", label: "UTS" });
+    uhLabels.push({ value: "pas", label: "UAS" });
+    return uhLabels;
+  }
+  return [
+    { value: "kd1", label: "KD1" }, { value: "kd2", label: "KD2" },
+    { value: "kd3", label: "KD3" }, { value: "kd4", label: "KD4" },
+    { value: "kd5", label: "KD5" }, { value: "kd6", label: "KD6" },
+    { value: "pts", label: "PTS" }, { value: "pas", label: "PAS" },
+  ];
+}
 
 /** Format JSON CBT yang diterima. */
 export const cbtImportSchema = z.object({

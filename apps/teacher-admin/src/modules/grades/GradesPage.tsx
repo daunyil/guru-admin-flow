@@ -1,5 +1,13 @@
 /**
- * Nilai V2 — KD1-KD6, PTS, PAS, Nilai Akhir.
+ * Nilai V3 — UH/UTS/UAS (default) atau KD/PTS/PAS (legacy).
+ *
+ * GRADEBOOK-V3-UH-UTS-UAS:
+ *   - Model UH (default): UH1-UHn, UTS, UAS, Nilai Akhir.
+ *   - Model KD (legacy): KD1-KD6, PTS, PAS, Nilai Akhir.
+ *   - gradeModel: "uh" | "kd" — dipilih per GradeBook.
+ *   - uhCount: 2-6 (jumlah kolom UH, default 2).
+ *   - Bobot configurable: weightUH, weightUTS, weightUAS.
+ *   - Nilai Akhir UH: avg(UH) × wUH% + UTS × wUTS% + UAS × wUAS%.
  *
  * WYSIWYG-DOC-FASE8: Daftar Nilai sebagai dokumen WYSIWYG.
  *   - Layout always-on: sidebar (konteks, KKTP, aksi) + DocumentPreview (tabel nilai).
@@ -8,9 +16,8 @@
  *   - Auto-save ke schoolDocuments (docType: "daftar-nilai").
  *   - ensureDoc pattern: find-or-create saat assignment dipilih.
  *
- * GRADEBOOK-V2-KD-IMPORT-RC1:
+ * GRADEBOOK-V2-KD-IMPORT-RC1 (legacy, masih didukung):
  *   - Kolom: KD1, KD2, KD3, KD4, KD5, KD6, PTS, PAS, Nilai Akhir.
- *   - KD1 = Bab 1, dst.
  *   - Nilai Akhir = rata-rata KD (40%) + PTS (25%) + PAS (35%).
  *   - Paste Excel multi-kolom + Import CBT JSON.
  */
@@ -30,6 +37,7 @@ import { LoadingState } from "../../shared/ui";
 import {
   calculateGradeBookEntries, buildContextInfo, parseExcelPaste,
   validateCbtImport, previewCbtMatch, applyCbtToEntries,
+  getCbtTargetLabels,
   type CbtImportTarget, type CbtMatchPreview,
 } from "@guru-admin/domain";
 // WYSIWYG-DOC-FASE8
@@ -43,17 +51,28 @@ import {
 } from "../../shared/db/school-document-repo";
 import type { SchoolDocOrientation, DocumentStatus } from "@guru-admin/domain";
 
-/** Kolom nilai yang bisa diisi. */
-const SCORE_COLUMNS: Array<{ key: keyof GradeEntry; label: string; width: string }> = [
-  { key: "kd1", label: "KD1", width: "w-16" },
-  { key: "kd2", label: "KD2", width: "w-16" },
-  { key: "kd3", label: "KD3", width: "w-16" },
-  { key: "kd4", label: "KD4", width: "w-16" },
-  { key: "kd5", label: "KD5", width: "w-16" },
-  { key: "kd6", label: "KD6", width: "w-16" },
-  { key: "pts", label: "PTS", width: "w-16" },
-  { key: "pas", label: "PAS", width: "w-16" },
-];
+/** Kolom nilai yang bisa diisi, dinamis berdasarkan gradeModel dan uhCount. */
+function getScoreColumns(gradeModel: "kd" | "uh", uhCount: number): Array<{ key: keyof GradeEntry; label: string; width: string }> {
+  if (gradeModel === "uh") {
+    const cols: Array<{ key: keyof GradeEntry; label: string; width: string }> = [];
+    for (let i = 1; i <= Math.min(uhCount, 6); i++) {
+      cols.push({ key: `kd${i}` as keyof GradeEntry, label: `UH${i}`, width: "w-16" });
+    }
+    cols.push({ key: "pts", label: "UTS", width: "w-16" });
+    cols.push({ key: "pas", label: "UAS", width: "w-16" });
+    return cols;
+  }
+  return [
+    { key: "kd1", label: "KD1", width: "w-16" },
+    { key: "kd2", label: "KD2", width: "w-16" },
+    { key: "kd3", label: "KD3", width: "w-16" },
+    { key: "kd4", label: "KD4", width: "w-16" },
+    { key: "kd5", label: "KD5", width: "w-16" },
+    { key: "kd6", label: "KD6", width: "w-16" },
+    { key: "pts", label: "PTS", width: "w-16" },
+    { key: "pas", label: "PAS", width: "w-16" },
+  ];
+}
 
 export function GradesPage() {
   const [loading, setLoading] = useState(true);
@@ -68,6 +87,13 @@ export function GradesPage() {
   const [dirty, setDirty] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [pasteText, setPasteText] = useState("");
+
+  // V3: Model penilaian
+  const [gradeModel, setGradeModel] = useState<"uh" | "kd">("uh");
+  const [uhCount, setUhCount] = useState(2);
+  const [weightUH, setWeightUH] = useState(25);
+  const [weightUTS, setWeightUTS] = useState(25);
+  const [weightUAS, setWeightUAS] = useState(50);
 
   // CBT import
   const [cbtJsonInput, setCbtJsonInput] = useState("");
@@ -171,6 +197,12 @@ export function GradesPage() {
         setGradeBook(existing);
         setKktp(String(existing.passingScore));
         setEntries(existing.entries.slice().sort((a, b) => (a.studentNumber ?? 0) - (b.studentNumber ?? 0)));
+        // V3: restore model settings from saved gradebook
+        if (existing.gradeModel) setGradeModel(existing.gradeModel);
+        if (existing.uhCount) setUhCount(existing.uhCount);
+        if (existing.weightUH != null) setWeightUH(existing.weightUH);
+        if (existing.weightUTS != null) setWeightUTS(existing.weightUTS);
+        if (existing.weightUAS != null) setWeightUAS(existing.weightUAS);
       } else {
         setGradeBook(null);
         const newEntries: GradeEntry[] = roster.students.map((s) => ({
@@ -287,19 +319,19 @@ export function GradesPage() {
   }
 
   function handleFillAll80() {
-    setEntries(entries.map((e) => ({
-      ...e,
-      kd1: 80, kd2: 80, kd3: 80, kd4: 80, kd5: 80, kd6: 80,
-      pts: 80, pas: 80,
-    })));
+    const cols = getScoreColumns(gradeModel, uhCount);
+    const fillCols = Object.fromEntries(cols.map((c) => [c.key, 80])) as Record<string, number>;
+    setEntries(entries.map((e) => ({ ...e, ...fillCols })));
     setDirty(true);
     setMessage("Semua diisi 80. Klik Simpan.");
   }
 
   function handleRandomControlled() {
+    const cols = getScoreColumns(gradeModel, uhCount);
     setEntries(entries.map((e) => {
       const base = 75 + Math.floor(Math.random() * 20);
-      return { ...e, kd1: base, kd2: base, kd3: base, kd4: base, kd5: base, kd6: base, pts: base, pas: base };
+      const fillCols = Object.fromEntries(cols.map((c) => [c.key, base])) as Record<string, number>;
+      return { ...e, ...fillCols };
     }));
     setDirty(true);
     setMessage("Nilai diacak terkontrol (75-94). Klik Simpan.");
@@ -423,7 +455,10 @@ export function GradesPage() {
 
     try {
       if (gradeBook) {
-        const updated = await updateGradeBook(gradeBook.id, { passingScore: Number(kktp) || 75, entries });
+        const updated = await updateGradeBook(gradeBook.id, {
+          passingScore: Number(kktp) || 75, entries,
+          gradeModel, uhCount, weightUH, weightUTS, weightUAS,
+        });
         if (updated) {
           setGradeBook(updated);
           setEntries(updated.entries.slice().sort((a, b) => (a.studentNumber ?? 0) - (b.studentNumber ?? 0)));
@@ -441,6 +476,7 @@ export function GradesPage() {
           passingScore: Number(kktp) || 75,
           entries,
           status: "draft",
+          gradeModel, uhCount, weightUH, weightUTS, weightUAS,
         });
         setGradeBook(created);
         setEntries(created.entries.slice().sort((a, b) => (a.studentNumber ?? 0) - (b.studentNumber ?? 0)));
@@ -457,8 +493,8 @@ export function GradesPage() {
   /* ---------------------------------------------------------------- */
 
   const calculated = useMemo(
-    () => calculateGradeBookEntries(entries, Number(kktp) || 75),
-    [entries, kktp]
+    () => calculateGradeBookEntries(entries, Number(kktp) || 75, { gradeModel, uhCount, weightUH, weightUTS, weightUAS }),
+    [entries, kktp, gradeModel, uhCount, weightUH, weightUTS, weightUAS]
   );
 
   const assignment = selectedAssignment();
@@ -530,11 +566,46 @@ export function GradesPage() {
           )}
         </div>
 
-        {/* -- KKTP -- */}
+        {/* -- KKTP & Model -- */}
         {assignment && (
           <div className="doc-sidebar-section">
-            <h3 className="doc-sidebar-section-title">KKTP & Aksi</h3>
+            <h3 className="doc-sidebar-section-title">KKTP & Model</h3>
             <Input label="KKTP" id="g-kktp" type="number" value={kktp} onChange={(v) => { setKktp(v); setDirty(true); }} />
+            <Select
+              label="Model Penilaian"
+              id="g-model"
+              value={gradeModel}
+              onChange={(v) => { setGradeModel(v as "uh" | "kd"); setDirty(true); }}
+              options={[
+                { value: "uh", label: "UH / UTS / UAS" },
+                { value: "kd", label: "KD / PTS / PAS (legacy)" },
+              ]}
+            />
+            {gradeModel === "uh" && (
+              <>
+                <Select
+                  label="Jumlah UH"
+                  id="g-uhcount"
+                  value={String(uhCount)}
+                  onChange={(v) => { setUhCount(Number(v)); setDirty(true); }}
+                  options={[
+                    { value: "2", label: "2 UH" },
+                    { value: "3", label: "3 UH" },
+                    { value: "4", label: "4 UH" },
+                    { value: "5", label: "5 UH" },
+                    { value: "6", label: "6 UH" },
+                  ]}
+                />
+                <div className="space-y-1 mt-1">
+                  <Input label={`Bobot UH (${weightUH}%)`} id="g-wuh" type="number" value={String(weightUH)} onChange={(v) => { setWeightUH(Number(v) || 0); setDirty(true); }} />
+                  <Input label={`Bobot UTS (${weightUTS}%)`} id="g-wuts" type="number" value={String(weightUTS)} onChange={(v) => { setWeightUTS(Number(v) || 0); setDirty(true); }} />
+                  <Input label={`Bobot UAS (${weightUAS}%)`} id="g-wuas" type="number" value={String(weightUAS)} onChange={(v) => { setWeightUAS(Number(v) || 0); setDirty(true); }} />
+                  {(weightUH + weightUTS + weightUAS) !== 100 && (
+                    <p className="text-xs text-amber-600">Total bobot = {weightUH + weightUTS + weightUAS}% (disarankan 100%)</p>
+                  )}
+                </div>
+              </>
+            )}
             <div className="flex flex-col gap-2 mt-2">
               <Button onClick={handleSave} disabled={!dirty} className="w-full text-sm">
                 {dirty ? "Simpan" : "Tersimpan"}
@@ -575,12 +646,7 @@ export function GradesPage() {
                   setCbtPreview(null);
                   setCbtSourceWarning(null);
                 }}
-                options={[
-                  { value: "kd1", label: "KD1" }, { value: "kd2", label: "KD2" },
-                  { value: "kd3", label: "KD3" }, { value: "kd4", label: "KD4" },
-                  { value: "kd5", label: "KD5" }, { value: "kd6", label: "KD6" },
-                  { value: "pts", label: "PTS" }, { value: "pas", label: "PAS" },
-                ]}
+                options={getCbtTargetLabels(gradeModel, uhCount)}
               />
               <Button variant="secondary" className="text-xs" onClick={() => setShowCbtImport(!showCbtImport)}>
                 {showCbtImport ? "Tutup" : "CBT"}
@@ -689,6 +755,8 @@ export function GradesPage() {
               teacherName={teacher?.name ?? ""}
               editable
               onSetScore={setScore}
+              gradeModel={gradeModel}
+              uhCount={uhCount}
             />
           )}
         </DocumentPreview>
@@ -709,6 +777,8 @@ function GradeDocument({
   teacherName,
   editable,
   onSetScore,
+  gradeModel,
+  uhCount,
 }: {
   calculated: GradeEntry[];
   kktp: string;
@@ -717,7 +787,10 @@ function GradeDocument({
   teacherName: string;
   editable?: boolean;
   onSetScore?: (idx: number, field: keyof GradeEntry, value: string) => void;
+  gradeModel: "uh" | "kd";
+  uhCount: number;
 }) {
+  const scoreColumns = getScoreColumns(gradeModel, uhCount);
   return (
     <div className="document-page document-landscape">
       <div className="document-title">DAFTAR NILAI</div>
@@ -734,8 +807,9 @@ function GradeDocument({
           <tr>
             <th style={{ width: "4%" }}>No</th>
             <th style={{ width: "20%" }}>Nama</th>
-            <th>KD1</th><th>KD2</th><th>KD3</th><th>KD4</th><th>KD5</th><th>KD6</th>
-            <th>PTS</th><th>PAS</th>
+            {scoreColumns.map((col) => (
+              <th key={col.key}>{col.label}</th>
+            ))}
             <th style={{ width: "7%" }}>Akhir</th>
             <th style={{ width: "9%" }}>Status</th>
           </tr>
@@ -745,7 +819,7 @@ function GradeDocument({
             <tr key={e.studentId}>
               <td className="text-center">{i + 1}</td>
               <td>{e.studentName}</td>
-              {SCORE_COLUMNS.map((col) => (
+              {scoreColumns.map((col) => (
                 <td key={col.key} className="text-center">
                   {editable && onSetScore ? (
                     <input

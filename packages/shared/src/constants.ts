@@ -22,7 +22,7 @@ export const APP_VERSION = "1.0.0";
  * v1.0.0 adalah release lock aplikasi harian. Tidak ada perubahan schema;
  *   DATA_SCHEMA_VERSION tetap 7.
  */
-export const DATA_SCHEMA_VERSION = 8;
+export const DATA_SCHEMA_VERSION = 9;
 
 /** Timezone default untuk MVP v1 (Asia/Jakarta). */
 export const DEFAULT_TIMEZONE = "Asia/Jakarta";

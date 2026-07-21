@@ -419,6 +419,11 @@ async function importNilaiFromAppsScript(
           passingScore: n.kktp,
           entries,
           status: "draft",
+          gradeModel: "uh",
+          uhCount: 2,
+          weightUH: 25,
+          weightUTS: 25,
+          weightUAS: 50,
         });
         summary.nilai.new++;
       }

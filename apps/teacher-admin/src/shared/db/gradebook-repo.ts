@@ -1,5 +1,5 @@
 /**
- * Repository untuk GradeBook (Nilai Ringan v0.6).
+ * Repository untuk GradeBook (Nilai Ringan v0.6 + V3 UH/UTS/UAS).
  */
 
 import { db } from "./schema";
@@ -37,12 +37,26 @@ export async function findGradeBook(params: {
   );
 }
 
+/** Build calculation options from GradeBook fields. */
+function calcOptions(
+  book: Partial<Pick<GradeBook, "gradeModel" | "uhCount" | "weightUH" | "weightUTS" | "weightUAS">>
+) {
+  return {
+    gradeModel: book.gradeModel ?? "uh",
+    uhCount: book.uhCount ?? 2,
+    weightUH: book.weightUH ?? 25,
+    weightUTS: book.weightUTS ?? 25,
+    weightUAS: book.weightUAS ?? 50,
+  };
+}
+
 export async function saveGradeBook(
-  data: Omit<GradeBook, "id" | "createdAt" | "updatedAt" | "deletedAt" | "syncStatus">
+  data: Omit<GradeBook, "id" | "createdAt" | "updatedAt" | "deletedAt" | "syncStatus"> & Partial<Pick<GradeBook, "gradeModel" | "uhCount" | "weightUH" | "weightUTS" | "weightUAS">>
 ): Promise<GradeBook> {
+  const options = calcOptions(data);
   const entity = createEntity({
     ...data,
-    entries: calculateGradeBookEntries(data.entries, data.passingScore),
+    entries: calculateGradeBookEntries(data.entries, data.passingScore, options),
   }) as GradeBook;
   await saveEntity("gradeBooks", entity);
   return entity;
@@ -56,10 +70,12 @@ export async function updateGradeBook(
   if (!existing) return undefined;
   const passingScore = patch.passingScore ?? existing.passingScore;
   const entries = patch.entries ?? existing.entries;
+  const merged = { ...existing, ...patch };
+  const options = calcOptions(merged);
   const updated = updateEntityFields(existing, {
     ...patch,
     passingScore,
-    entries: calculateGradeBookEntries(entries as GradeEntry[], passingScore),
+    entries: calculateGradeBookEntries(entries as GradeEntry[], passingScore, options),
   }) as GradeBook;
   await saveEntity("gradeBooks", updated);
   return updated;

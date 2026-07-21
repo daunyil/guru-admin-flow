@@ -146,6 +146,7 @@ export {
   validateCbtImport,
   previewCbtMatch,
   applyCbtToEntries,
+  getCbtTargetLabels,
   type GradeBook,
   type GradeEntry,
   type GradeEntryStatus,
