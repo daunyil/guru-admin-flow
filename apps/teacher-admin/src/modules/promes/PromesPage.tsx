@@ -1042,14 +1042,14 @@ function PromesLandscapeMatrixDocument({
         }}
       >
         <colgroup>
-          <col style={{ width: '3%' }} />   {/* No */}
-          <col style={{ width: '10%' }} />  {/* Elemen/TP */}
-          <col style={{ width: '14%' }} />  {/* Materi Pokok */}
-          <col style={{ width: '3%' }} />   {/* Intra JP */}
-          <col style={{ width: '3%' }} />   {/* Koku JP */}
-          <col style={{ width: '3%' }} />   {/* Total JP */}
+          <col style={{ width: '2.5%' }} />   {/* No */}
+          <col style={{ width: '8%' }} />  {/* Elemen/TP */}
+          <col style={{ width: '12%' }} />  {/* Materi Pokok */}
+          <col style={{ width: '2.5%' }} />   {/* Intra JP */}
+          <col style={{ width: '2.5%' }} />   {/* Koku JP */}
+          <col style={{ width: '2.5%' }} />   {/* Total JP */}
           {weekColumns.map((week) => (
-            <col key={`col-${week.weekNumber}`} style={{ width: `${((100 - 36) / weekColumns.length).toFixed(2)}%` }} />
+            <col key={`col-${week.weekNumber}`} style={{ width: `${((100 - 30) / weekColumns.length).toFixed(2)}%` }} />
           ))}
         </colgroup>
         <thead>

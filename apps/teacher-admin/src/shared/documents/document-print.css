@@ -504,10 +504,10 @@
   width: 29.7cm;
   max-width: 29.7cm;
   min-height: 21cm;
-  padding: 0.55cm 0.65cm;
+  padding: 0.4cm 0.5cm;
   font-family: Arial, Helvetica, sans-serif;
-  font-size: 8pt;
-  line-height: 1.15;
+  font-size: 7.5pt;
+  line-height: 1.1;
 }
 
 @media screen {
@@ -529,9 +529,9 @@
 .promes-title {
   text-align: center;
   font-weight: 700;
-  font-size: 11pt;
+  font-size: 9.5pt;
   text-transform: uppercase;
-  margin-bottom: 4pt;
+  margin-bottom: 2pt;
 }
 
 /* --- Promes Identity (screen / WYSIWYG canvas) --- */
@@ -539,8 +539,8 @@
 .promes-identity-table {
   width: 100%;
   border-collapse: collapse;
-  margin-bottom: 4pt;
-  font-size: 7.5pt;
+  margin-bottom: 2pt;
+  font-size: 7pt;
 }
 
 .promes-identity-table td {
@@ -557,9 +557,9 @@
 }
 
 .promes-identity-text {
-  margin-bottom: 4pt;
-  font-size: 7.5pt;
-  line-height: 1.3;
+  margin-bottom: 2pt;
+  font-size: 7pt;
+  line-height: 1.2;
 }
 
 .promes-identity-text p {
@@ -627,10 +627,11 @@
 }
 
 .promes-vertical-event-table .promes-event-cell {
-  padding: 0;
+  padding: 0 !important;
   vertical-align: middle;
   text-align: center;
-  overflow: hidden;
+  overflow: hidden !important;
+  position: relative;
 }
 
 .promes-vertical-event-table .promes-learning-row {
@@ -665,7 +666,7 @@
    Struktur: No | Elemen/TP | Materi | Intra JP | Koku JP | Total JP | minggu×bulan */
 
 .promes-matrix-table {
-  font-size: 8pt;
+  font-size: 7pt;
   table-layout: fixed;
   border-collapse: collapse;
   width: 100%;
@@ -673,8 +674,8 @@
 
 .promes-matrix-table th,
 .promes-matrix-table td {
-  padding: 2px 3px;
-  line-height: 1.2;
+  padding: 1px 2px;
+  line-height: 1.1;
   border: 1px solid var(--document-border);
   vertical-align: middle;
 }
@@ -685,58 +686,60 @@
   text-align: center;
 }
 
-.promes-matrix-table .col-no-merdeka { width: 3%; }
-.promes-matrix-table .col-elemen-merdeka { width: 10%; }
-.promes-matrix-table .col-materi-merdeka { width: 14%; text-align: left !important; }
+.promes-matrix-table .col-no-merdeka { width: 2.5%; }
+.promes-matrix-table .col-elemen-merdeka { width: 8%; }
+.promes-matrix-table .col-materi-merdeka { width: 12%; text-align: left !important; }
 .promes-matrix-table .col-jp-group-merdeka { text-align: center; }
 .promes-matrix-table .col-intra-jp-merdeka,
 .promes-matrix-table .col-koku-jp-merdeka,
-.promes-matrix-table .col-total-jp-merdeka { width: 3%; font-size: 7.5pt; }
+.promes-matrix-table .col-total-jp-merdeka { width: 2.5%; font-size: 7pt; }
 
 .promes-matrix-table .no-cell {
-  font-size: 7.5pt;
+  font-size: 7pt;
   text-align: center;
 }
 
 .promes-matrix-table .elemen-cell {
-  font-size: 7.5pt;
+  font-size: 7pt;
   text-align: left;
 }
 
 .promes-matrix-table .materi-cell {
-  font-size: 7.5pt;
+  font-size: 7pt;
   text-align: left;
-  line-height: 1.2;
+  line-height: 1.1;
 }
 
 .promes-matrix-table .jp-cell {
-  font-size: 7.5pt;
+  font-size: 7pt;
   text-align: center;
   font-weight: 600;
 }
 
 .promes-matrix-table .koku-jp-cell {
-  font-size: 7.5pt;
+  font-size: 7pt;
   text-align: center;
 }
 
 .promes-matrix-table .total-jp-cell {
-  font-size: 7.5pt;
+  font-size: 7pt;
   text-align: center;
   font-weight: 700;
 }
 
 .promes-matrix-table .week-head,
 .promes-matrix-table .week-cell {
-  font-size: 7pt;
+  font-size: 6.5pt;
   text-align: center;
-  padding: 1px 2px;
+  padding: 0 1px;
 }
 
 .promes-matrix-table .promes-event-cell {
   text-align: center;
   vertical-align: middle;
   font-weight: 700;
+  padding: 0 !important;
+  overflow: hidden !important;
 }
 
 .promes-koku-row td {
@@ -747,10 +750,13 @@
   writing-mode: vertical-rl;
   text-orientation: mixed;
   transform: rotate(180deg);
-  font-size: 7pt;
-  letter-spacing: 0.3pt;
+  font-size: 6.5pt;
+  letter-spacing: 0;
   white-space: nowrap;
   text-transform: uppercase;
+  line-height: 1;
+  display: inline-block;
+  max-height: 100%;
 }
 
 .promes-legend-block {
@@ -1233,8 +1239,8 @@
     width: 100% !important;
     max-width: 100% !important;
     min-height: auto !important;
-    font-size: 8pt !important;
-    line-height: 1.1 !important;
+    font-size: 7pt !important;
+    line-height: 1.05 !important;
     overflow: hidden !important;
   }
 
@@ -1246,38 +1252,38 @@
   }
 
   .promes-title {
-    font-size: 10pt !important;
-    margin-bottom: 3pt !important;
+    font-size: 9pt !important;
+    margin-bottom: 2pt !important;
   }
 
   .promes-identity-table {
-    font-size: 7pt !important;
-    margin-bottom: 3pt !important;
+    font-size: 6.5pt !important;
+    margin-bottom: 2pt !important;
   }
 
   .promes-identity-table td {
-    padding: 1.5pt 3pt !important;
+    padding: 1pt 2pt !important;
   }
 
   .promes-matrix-table {
-    font-size: 7pt !important;
+    font-size: 6.5pt !important;
   }
 
   .promes-matrix-table th,
   .promes-matrix-table td {
-    padding: 1pt 2pt !important;
+    padding: 0.5pt 1pt !important;
   }
 
   .promes-matrix-table .materi-cell {
-    font-size: 6.5pt !important;
-    line-height: 1.1 !important;
+    font-size: 6pt !important;
+    line-height: 1.05 !important;
   }
 
   .promes-matrix-table .week-head,
   .promes-matrix-table .week-cell,
   .promes-matrix-table .calendar-cell {
-    font-size: 6.5pt !important;
-    padding: 0.5pt 1pt !important;
+    font-size: 6pt !important;
+    padding: 0 0.5pt !important;
   }
 
   .promes-note,
@@ -1321,31 +1327,31 @@
   }
 
   .promes-vertical-event-table .col-no-merdeka {
-    width: 3% !important;
+    width: 2.5% !important;
   }
 
   .promes-vertical-event-table .col-elemen-merdeka {
-    width: 10% !important;
+    width: 8% !important;
   }
 
   .promes-vertical-event-table .col-materi-merdeka {
-    width: 14% !important;
+    width: 12% !important;
   }
 
   .promes-vertical-event-table .col-intra-jp-merdeka,
   .promes-vertical-event-table .col-koku-jp-merdeka,
   .promes-vertical-event-table .col-total-jp-merdeka {
-    width: 3% !important;
+    width: 2.5% !important;
   }
 
   .promes-vertical-event-table .promes-learning-row {
-    height: 16pt !important;
-    min-height: 16pt !important;
+    height: 14pt !important;
+    min-height: 14pt !important;
   }
 
   .promes-vertical-event-table .promes-summary-row {
-    height: 18pt !important;
-    min-height: 18pt !important;
+    height: 16pt !important;
+    min-height: 16pt !important;
   }
 
   .promes-vertical-event-table .no-cell,
@@ -1354,27 +1360,33 @@
   .promes-vertical-event-table .jp-cell,
   .promes-vertical-event-table .koku-jp-cell,
   .promes-vertical-event-table .total-jp-cell {
-    padding: 1pt 2pt !important;
-    font-size: 7pt !important;
-    line-height: 1.15 !important;
+    padding: 0.5pt 1pt !important;
+    font-size: 6.5pt !important;
+    line-height: 1.1 !important;
   }
 
   .promes-vertical-event-table .week-cell {
     width: auto !important;
     min-width: auto !important;
     max-width: none !important;
-    height: 16pt !important;
-    font-size: 6.5pt !important;
+    height: 14pt !important;
+    font-size: 6pt !important;
   }
 
   .promes-vertical-label {
-    font-size: 6.5pt !important;
-    letter-spacing: 0.3pt !important;
+    font-size: 6pt !important;
+    letter-spacing: 0 !important;
+    line-height: 1 !important;
+  }
+
+  .promes-vertical-event-table .promes-event-cell {
+    padding: 0 !important;
+    overflow: hidden !important;
   }
 
   .promes-legend-block {
-    margin-top: 6pt !important;
-    font-size: 7pt !important;
+    margin-top: 4pt !important;
+    font-size: 6.5pt !important;
   }
 
   .promes-legend-grid {
