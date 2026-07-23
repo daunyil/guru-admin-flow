@@ -230,6 +230,28 @@ export async function updateAttendanceRecord(
   return updated;
 }
 
+/**
+ * Hitung jumlah sesi yang sudah ada absensi, dari daftar sessionId.
+ * Lebih efisien daripada memuat seluruh tabel attendanceRecords.
+ * Dipakai TodayPage untuk menghitung status absensi per assignment.
+ */
+export async function countSessionsWithAttendance(sessionIds: string[]): Promise<number> {
+  if (sessionIds.length === 0) return 0;
+  // Query by index, filter in-memory untuk menghindari full table scan
+  let count = 0;
+  for (const sid of sessionIds) {
+    const records = await db.attendanceRecords
+      .where("sessionId")
+      .equals(sid)
+      .limit(1)
+      .toArray();
+    if (records.length > 0 && !records[0].deletedAt) {
+      count++;
+    }
+  }
+  return count;
+}
+
 /** Hapus semua absensi untuk sesi (sebelum re-init). */
 export async function clearAttendanceForSession(sessionId: string): Promise<void> {
   const all = await db.attendanceRecords

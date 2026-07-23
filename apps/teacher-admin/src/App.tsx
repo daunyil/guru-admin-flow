@@ -46,6 +46,7 @@ const EvaluationDocsPage = lazy(() => import("./modules/evaluation-docs/Evaluati
 const DailyDutyPage = lazy(() => import("./modules/daily-duty/DailyDutyPage").then((m) => ({ default: m.DailyDutyPage })));
 const LainnyaPage = lazy(() => import("./modules/lainnya/LainnyaPage").then((m) => ({ default: m.LainnyaPage })));
 const ReportCenterPage = lazy(() => import("./modules/report-center/ReportCenterPage").then((m) => ({ default: m.ReportCenterPage })));
+const TestPrintPage = lazy(() => import("./shared/documents/DocumentPrintPreviewExample").then((m) => ({ default: m.DocumentPrintPreviewExample })));
 
 /* ------------------------------------------------------------------ */
 /*  App                                                               */
@@ -87,6 +88,7 @@ export function App() {
               <Route path="/piket" element={<DailyDutyPage />} />
               <Route path="/lainnya" element={<LainnyaPage />} />
               <Route path="/report-center" element={<ReportCenterPage />} />
+              <Route path="/test-print" element={<TestPrintPage />} />
               <Route path="*" element={<TodayPage />} />
             </Routes>
           </Suspense>

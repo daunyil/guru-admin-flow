@@ -23,7 +23,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Card, CardHeader, Input, Textarea, Button, EmptyState, Badge, Select } from "../../shared/ui";
+import { Input, Textarea, Button, Badge, Select, Card, EmptyState, LoadingState } from "../../shared/ui";
 import { ContextCard } from "../../shared/ui/ContextCard";
 import {
   getLessonSessionsByDate,
@@ -66,7 +66,7 @@ import {
   JOURNAL_FOLLOWUP_CHOICES,
 } from "@guru-admin/domain";
 import { formatLongDateID, todayISODate } from "@guru-admin/shared";
-import { LoadingState } from "../../shared/ui";
+
 // WYSIWYG-DOC-FASE9
 import { DocumentPreview } from "../../shared/documents";
 import {
@@ -154,26 +154,32 @@ export function QuickJournalPage() {
 
   useEffect(() => {
     void (async () => {
-      const [y, sp, tp] = await Promise.all([getActiveAcademicYear(), getSchoolProfile(), getTeacherProfile()]);
-      setActiveYear(y ?? null);
-      setSchool(sp);
-      setTeacher(tp);
-      if (y && tp) {
-        const todayISO = todayISODate();
-        const sem: 1 | 2 =
-          y.semester2Start <= todayISO && todayISO <= y.semester2End ? 2 : 1;
-        setAssignments(await listAssignmentsByTeacher(tp.id, y.id, sem));
+      try {
+        const [y, sp, tp] = await Promise.all([getActiveAcademicYear(), getSchoolProfile(), getTeacherProfile()]);
+        setActiveYear(y ?? null);
+        setSchool(sp);
+        setTeacher(tp);
+        if (y && tp) {
+          const todayISO = todayISODate();
+          const sem: 1 | 2 =
+            y.semester2Start <= todayISO && todayISO <= y.semester2End ? 2 : 1;
+          setAssignments(await listAssignmentsByTeacher(tp.id, y.id, sem));
+        }
+        const urlSessionId = searchParams.get("sessionId");
+        if (urlSessionId) setSelectedSessionId(urlSessionId);
+        // UX-DAILY-06: baca ?mode=manual dari URL (dari tombol Today "Jurnal Manual")
+        const urlMode = searchParams.get("mode");
+        if (urlMode === "manual") {
+          setMode("manual");
+        } else if (urlMode === "susulan") {
+          setMode("susulan");
+        }
+      } catch (err) {
+        console.error("[QuickJournal] Gagal init:", err);
+        setMessage({ type: "error", text: "Gagal memuat data. Coba muat ulang." });
+      } finally {
+        setLoading(false);
       }
-      const urlSessionId = searchParams.get("sessionId");
-      if (urlSessionId) setSelectedSessionId(urlSessionId);
-      // UX-DAILY-06: baca ?mode=manual dari URL (dari tombol Today "Jurnal Manual")
-      const urlMode = searchParams.get("mode");
-      if (urlMode === "manual") {
-        setMode("manual");
-      } else if (urlMode === "susulan") {
-        setMode("susulan");
-      }
-      setLoading(false);
     })();
   }, []);
 
@@ -197,30 +203,35 @@ export function QuickJournalPage() {
       setJournals([]);
       return;
     }
-    const allToday = await getLessonSessionsByDate(teacher.id, date);
-    const todayForAssignment = allToday.filter(
-      (s) => s.classId === assignment.classId && s.subject === assignment.subject
-    );
-    setSessions(todayForAssignment);
+    try {
+      const allToday = await getLessonSessionsByDate(teacher.id, date);
+      const todayForAssignment = allToday.filter(
+        (s) => s.classId === assignment.classId && s.subject === assignment.subject
+      );
+      setSessions(todayForAssignment);
 
-    const allSessions = await listLessonSessions(year.id, assignment.semester);
-    const assignmentSessions = allSessions.filter(
-      (s) =>
-        s.classId === assignment.classId &&
-        s.subject === assignment.subject &&
-        s.teacherId === assignment.teacherId &&
-        !s.deletedAt
-    );
-    setAllAssignmentSessions(assignmentSessions);
+      const allSessions = await listLessonSessions(year.id, assignment.semester);
+      const assignmentSessions = allSessions.filter(
+        (s) =>
+          s.classId === assignment.classId &&
+          s.subject === assignment.subject &&
+          s.teacherId === assignment.teacherId &&
+          !s.deletedAt
+      );
+      setAllAssignmentSessions(assignmentSessions);
 
-    const allJournals = await listJournals(year.id, assignment.semester);
-    const assignmentJournals = allJournals.filter(
-      (j) =>
-        j.classId === assignment.classId &&
-        j.subject === assignment.subject &&
-        j.teacherId === assignment.teacherId
-    );
-    setJournals(assignmentJournals);
+      const allJournals = await listJournals(year.id, assignment.semester);
+      const assignmentJournals = allJournals.filter(
+        (j) =>
+          j.classId === assignment.classId &&
+          j.subject === assignment.subject &&
+          j.teacherId === assignment.teacherId
+      );
+      setJournals(assignmentJournals);
+    } catch (err) {
+      console.error("[QuickJournal] Gagal memuat data assignment:", err);
+      setMessage({ type: "error", text: "Gagal memuat data jurnal." });
+    }
   }
 
   useEffect(() => {
@@ -292,6 +303,8 @@ export function QuickJournalPage() {
         setDocStatus("draft");
         setFormatDokumen("portrait");
       }
+    } catch (err) {
+      console.error("[QuickJournal] Gagal ensureDoc:", err);
     } finally {
       ensuringRef.current = false;
     }
@@ -342,6 +355,17 @@ export function QuickJournalPage() {
 
   if (loading) return <LoadingState />;
 
+  if (!year) {
+    return (
+      <Card>
+        <EmptyState
+          title="Belum ada tahun pelajaran aktif"
+          description="Buat tahun pelajaran baru atau gunakan data contoh terlebih dahulu."
+        />
+      </Card>
+    );
+  }
+
   const assignment = selectedAssignment();
   const recap = assignment
     ? recapJournalsForAssignment({
@@ -352,57 +376,7 @@ export function QuickJournalPage() {
     : null;
 
   /* ================================================================ */
-  /*  No assignment selected — show assignment picker                  */
-  /* ================================================================ */
-  if (!assignment) {
-    return (
-      <div className="space-y-4">
-        <div className="page-header">
-          <h1 className="text-2xl font-bold text-slate-900">Jurnal Mengajar</h1>
-          <p className="text-sm text-slate-500 mt-1">
-            {year ? `TP ${year.label}` : ""} · {formatLongDateID(date)}
-          </p>
-        </div>
-
-        {message && (
-          <div className={`info-banner-${message.type === "success" ? "success" : "error"}`}>
-            {message.text}
-          </div>
-        )}
-
-        <Card>
-          <CardHeader
-            title="Pilih Kelas dan Mapel"
-            description="Pilih paket mengajar. Mapel+kelas+guru otomatis terikat."
-          />
-          {assignments.length === 0 ? (
-            <EmptyState
-              title="Belum ada Kelas dan Mapel"
-              description="Buka menu 'Kelas dan Mapel' untuk membuat assignment dulu."
-              action={<Button variant="secondary" onClick={() => (window.location.hash = "#/assignments")}>Buka Kelas dan Mapel</Button>}
-            />
-          ) : (
-            <Select
-              label="Kelas dan Mapel"
-              id="jrn-assignment"
-              value={selectedAssignmentId}
-              onChange={handleAssignmentChange}
-              options={[
-                { value: "", label: "-- Pilih --" },
-                ...assignments.map((a) => ({
-                  value: a.id,
-                  label: `${a.classLabel} · ${a.subject} · ${a.teacherName}`,
-                })),
-              ]}
-            />
-          )}
-        </Card>
-      </div>
-    );
-  }
-
-  /* ================================================================ */
-  /*  WYSIWYG VIEW — assignment selected, sidebar + document           */
+  /*  WYSIWYG VIEW — always sidebar + document, with hints when empty  */
   /* ================================================================ */
 
   return (
@@ -431,6 +405,12 @@ export function QuickJournalPage() {
         {/* -- Konteks -- */}
         <div className="doc-sidebar-section">
           <h3 className="doc-sidebar-section-title">Konteks</h3>
+          {!assignment && (
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded-md mb-3">
+              <p className="font-semibold text-amber-900">Pilih Kelas dan Mapel</p>
+              <p className="text-sm text-amber-800 mt-1">Pilih assignment terlebih dahulu untuk mulai mengisi jurnal mengajar.</p>
+            </div>
+          )}
           <Select
             label="Kelas dan Mapel"
             id="jrn-assignment-wys"
@@ -444,7 +424,7 @@ export function QuickJournalPage() {
               })),
             ]}
           />
-          {year && <ContextCard info={buildContextInfo({ assignment, academicYear: year })} />}
+          {assignment && year && <ContextCard info={buildContextInfo({ assignment, academicYear: year })} />}
           <div className="mt-2">
             <Input label="Tanggal" id="jrn-date-wys" type="date" value={date} onChange={handleDateChange} />
           </div>
@@ -479,17 +459,19 @@ export function QuickJournalPage() {
         </div>
 
         {/* -- Rekap jurnal -- */}
-        {recap && (
-          <div className="doc-sidebar-section">
-            <h3 className="doc-sidebar-section-title">Rekap</h3>
+        <div className="doc-sidebar-section">
+          <h3 className="doc-sidebar-section-title">Rekap</h3>
+          {recap ? (
             <dl className="doc-summary-dl">
               <div><dt>Total Pertemuan</dt><dd>{recap.total}</dd></div>
               <div><dt>Sudah Jurnal</dt><dd className="kme-effective-text">{recap.done}</dd></div>
               <div><dt>Belum Jurnal</dt><dd className="kme-ineffective-text">{recap.pending}</dd></div>
               <div><dt>Batal</dt><dd>{recap.cancelled}</dd></div>
             </dl>
-          </div>
-        )}
+          ) : (
+            <p className="text-xs text-slate-400 italic">Pilih Kelas dan Mapel untuk melihat rekap.</p>
+          )}
+        </div>
 
         {/* -- Daftar Pertemuan: Mode Hari Ini -- */}
         {mode === "pertemuan" && (
@@ -539,13 +521,15 @@ export function QuickJournalPage() {
         )}
 
         {/* -- Daftar Pertemuan: Mode Susulan -- */}
-        {mode === "susulan" && recap && (
+        {mode === "susulan" && (
           <div className="doc-sidebar-section">
             <h3 className="doc-sidebar-section-title">
               Jurnal Susulan
-              <span className="font-normal text-slate-400 ml-1">({recap.pending} belum)</span>
+              {recap && <span className="font-normal text-slate-400 ml-1">({recap.pending} belum)</span>}
             </h3>
-            {allAssignmentSessions.length === 0 ? (
+            {!recap ? (
+              <p className="text-xs text-slate-400 italic">Pilih Kelas dan Mapel untuk melihat jurnal susulan.</p>
+            ) : allAssignmentSessions.length === 0 ? (
               <p className="text-xs text-slate-400 italic">Belum ada pertemuan.</p>
             ) : (
               <ul className="doc-sidebar-list" style={{ maxHeight: 320 }}>
@@ -592,16 +576,22 @@ export function QuickJournalPage() {
         {showEmergencyOptions && (
           <div className="doc-sidebar-section">
             <h3 className="doc-sidebar-section-title">Opsi Darurat</h3>
-            <p className="text-xs text-amber-800 mb-2">
-              Hanya untuk kondisi darurat bila sesi tidak tersedia di jadwal.
-            </p>
-            <Button
-              variant={mode === "manual" ? "primary" : "secondary"}
-              onClick={() => setMode("manual")}
-              className="text-xs w-full"
-            >
-              Buat Jurnal di Luar Jadwal
-            </Button>
+            {!assignment ? (
+              <p className="text-xs text-slate-400 italic">Pilih Kelas dan Mapel terlebih dahulu.</p>
+            ) : (
+              <>
+                <p className="text-xs text-amber-800 mb-2">
+                  Hanya untuk kondisi darurat bila sesi tidak tersedia di jadwal.
+                </p>
+                <Button
+                  variant={mode === "manual" ? "primary" : "secondary"}
+                  onClick={() => setMode("manual")}
+                  className="text-xs w-full"
+                >
+                  Buat Jurnal di Luar Jadwal
+                </Button>
+              </>
+            )}
           </div>
         )}
 
@@ -609,15 +599,21 @@ export function QuickJournalPage() {
         {mode === "manual" && (
           <div className="doc-sidebar-section">
             <h3 className="doc-sidebar-section-title">Jurnal Darurat</h3>
-            <p className="text-xs text-amber-800 mb-2">
-              {assignmentShortLabel(assignment)} · {formatLongDateID(date)}
-            </p>
-            <Button onClick={handleStartManualJournal} className="text-xs w-full">
-              Mulai Jurnal Darurat
-            </Button>
-            <p className="text-[10px] text-slate-400 mt-1">
-              Sesi manual yang sudah ada akan dipakai ulang.
-            </p>
+            {!assignment ? (
+              <p className="text-xs text-slate-400 italic">Pilih Kelas dan Mapel terlebih dahulu untuk membuat jurnal darurat.</p>
+            ) : (
+              <>
+                <p className="text-xs text-amber-800 mb-2">
+                  {assignmentShortLabel(assignment)} · {formatLongDateID(date)}
+                </p>
+                <Button onClick={handleStartManualJournal} className="text-xs w-full">
+                  Mulai Jurnal Darurat
+                </Button>
+                <p className="text-[10px] text-slate-400 mt-1">
+                  Sesi manual yang sudah ada akan dipakai ulang.
+                </p>
+              </>
+            )}
           </div>
         )}
 
@@ -682,14 +678,302 @@ export function QuickJournalPage() {
               }}
               onError={(msg) => setMessage({ type: "error", text: msg })}
             />
+          ) : !assignment ? (
+            <JournalUnfilledList
+              hasAssignment={false}
+              assignments={assignments}
+              sessions={sessions}
+              allAssignmentSessions={allAssignmentSessions}
+              journals={journals}
+              date={date}
+              mode={mode}
+              onSelectSession={(sid) => setSelectedSessionId(sid)}
+            />
           ) : (
-            <div className="flex flex-col items-center justify-center h-full text-slate-400 py-20">
-              <p className="text-lg font-medium">Pilih Pertemuan</p>
-              <p className="text-sm mt-1">Buka sidebar untuk memilih sesi.</p>
-            </div>
+            <JournalUnfilledList
+              hasAssignment={true}
+              assignments={assignments}
+              sessions={sessions}
+              allAssignmentSessions={allAssignmentSessions}
+              journals={journals}
+              date={date}
+              mode={mode}
+              onSelectSession={(sid) => setSelectedSessionId(sid)}
+            />
           )}
         </DocumentPreview>
       </div>
+    </div>
+  );
+}
+
+/* ================================================================== */
+/*  JournalUnfilledList — daftar sesi yang belum diisi jurnal          */
+/* ================================================================== */
+
+function JournalUnfilledList({
+  hasAssignment,
+  assignments,
+  sessions,
+  allAssignmentSessions,
+  journals,
+  date,
+  mode,
+  onSelectSession,
+}: {
+  hasAssignment: boolean;
+  assignments: TeachingAssignment[];
+  sessions: LessonSession[];
+  allAssignmentSessions: LessonSession[];
+  journals: TeachingJournal[];
+  date: string;
+  mode: JournalMode;
+  onSelectSession: (sid: string) => void;
+}) {
+  // Tidak ada assignment dipilih
+  if (!hasAssignment) {
+    return (
+      <div className="py-10 px-4 text-center">
+        <p className="text-lg font-medium text-slate-500">Pilih Kelas dan Mapel</p>
+        <p className="text-sm text-slate-400 mt-1">Buka sidebar atau pilih kelas dan mapel untuk melihat daftar jurnal.</p>
+        {assignments.length === 0 && (
+          <p className="text-sm text-amber-600 mt-3">Belum ada Kelas dan Mapel. Buat dulu di menu Kelas dan Mapel.</p>
+        )}
+      </div>
+    );
+  }
+
+  // Mode pertemuan: tampilkan sesi hari ini
+  if (mode === "pertemuan") {
+    const journalSessionIds = new Set(journals.map((j) => j.sessionId));
+    const unfilled = sessions.filter((s) => !journalSessionIds.has(s.id) && s.status !== "cancelled");
+    const draftJournals = journals.filter((j) => !j.locked);
+    const finalJournals = journals.filter((j) => j.locked);
+    const cancelled = sessions.filter((s) => s.status === "cancelled");
+
+    return (
+      <div className="py-6 px-4">
+        <h3 className="text-lg font-bold text-slate-900 mb-1">Daftar Jurnal</h3>
+        <p className="text-sm text-slate-500 mb-4">{formatLongDateID(date)} · {sessions.length} sesi</p>
+
+        {/* Perlu Finalisasi */}
+        {draftJournals.length > 0 && (
+          <div className="mb-4">
+            <h4 className="text-sm font-semibold text-amber-700 mb-2 flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-amber-500" />
+              Perlu Finalisasi ({draftJournals.length})
+            </h4>
+            <div className="space-y-2">
+              {draftJournals.map((j) => {
+                return (
+                  <div key={j.id} className="p-3 border border-amber-200 bg-amber-50 rounded-lg flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-slate-900 truncate">{j.subject} — {j.classLabel}</p>
+                      <p className="text-xs text-slate-500">{formatLongDateID(j.date)} · Draft</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => j.sessionId && onSelectSession(j.sessionId)}
+                      className="shrink-0 px-3 py-1.5 text-xs font-medium rounded-md bg-amber-500 text-white hover:bg-amber-600 transition-colors"
+                    >
+                      Finalisasi
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Belum diisi */}
+        {unfilled.length > 0 && (
+          <div className="mb-4">
+            <h4 className="text-sm font-semibold text-rose-700 mb-2 flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-rose-500" />
+              Belum Diisi ({unfilled.length})
+            </h4>
+            <div className="space-y-2">
+              {unfilled.map((s) => (
+                <div key={s.id} className="p-3 border border-rose-200 bg-rose-50 rounded-lg flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-slate-900 truncate">{s.subject} — {s.classLabel}</p>
+                    <p className="text-xs text-slate-500">{s.startTime}–{s.endTime} · Jam {s.startPeriod}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => onSelectSession(s.id)}
+                    className="shrink-0 px-3 py-1.5 text-xs font-medium rounded-md bg-rose-600 text-white hover:bg-rose-700 transition-colors"
+                  >
+                    Isi Jurnal
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Sudah final */}
+        {finalJournals.length > 0 && (
+          <div className="mb-4">
+            <h4 className="text-sm font-semibold text-emerald-700 mb-2 flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-500" />
+              Sudah Final ({finalJournals.length})
+            </h4>
+            <div className="space-y-2">
+              {finalJournals.map((j) => {
+                return (
+                  <div key={j.id} className="p-3 border border-emerald-200 bg-emerald-50 rounded-lg flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-slate-900 truncate">{j.subject} — {j.classLabel}</p>
+                      <p className="text-xs text-slate-500">{formatLongDateID(j.date)}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => j.sessionId && onSelectSession(j.sessionId)}
+                      className="shrink-0 px-3 py-1.5 text-xs font-medium rounded-md border border-emerald-300 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 transition-colors"
+                    >
+                      Lihat
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Batal */}
+        {cancelled.length > 0 && (
+          <div className="mb-4">
+            <h4 className="text-sm font-semibold text-slate-500 mb-2 flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-slate-400" />
+              Dibatalkan ({cancelled.length})
+            </h4>
+            <div className="space-y-2">
+              {cancelled.map((s) => (
+                <div key={s.id} className="p-3 border border-slate-200 bg-slate-50 rounded-lg opacity-60">
+                  <p className="text-sm font-medium text-slate-500 truncate">{s.subject} — {s.classLabel}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {sessions.length === 0 && (
+          <div className="text-center py-8 text-slate-400">
+            <p className="text-base font-medium">Tidak ada sesi di tanggal ini</p>
+            <p className="text-sm mt-1">Coba pilih tanggal lain atau gunakan mode Susulan.</p>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Mode susulan: tampilkan semua sesi assignment
+  if (allAssignmentSessions.length === 0) {
+    return (
+      <div className="py-10 px-4 text-center">
+        <p className="text-lg font-medium text-slate-500">Belum ada sesi</p>
+        <p className="text-sm text-slate-400 mt-1">Buat jadwal mengajar terlebih dahulu agar sesi muncul di sini.</p>
+      </div>
+    );
+  }
+
+  const journalSessionIds = new Set(journals.map((j) => j.sessionId));
+  const draftJournals = journals.filter((j) => !j.locked);
+  const draftSessionIds = new Set(draftJournals.map((j) => j.sessionId));
+  const finalSessionIds = new Set(journals.filter((j) => j.locked).map((j) => j.sessionId));
+
+  const unfilled = allAssignmentSessions.filter((s) => !journalSessionIds.has(s.id));
+  const needsFinal = allAssignmentSessions.filter((s) => draftSessionIds.has(s.id));
+  const done = allAssignmentSessions.filter((s) => finalSessionIds.has(s.id));
+
+  return (
+    <div className="py-6 px-4">
+      <h3 className="text-lg font-bold text-slate-900 mb-1">Daftar Jurnal</h3>
+      <p className="text-sm text-slate-500 mb-4">
+        {done.length} final · {needsFinal.length} draft · {unfilled.length} belum · Total {allAssignmentSessions.length} pertemuan
+      </p>
+
+      {/* Perlu Finalisasi */}
+      {needsFinal.length > 0 && (
+        <div className="mb-4">
+          <h4 className="text-sm font-semibold text-amber-700 mb-2 flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-amber-500" />
+            Perlu Finalisasi ({needsFinal.length})
+          </h4>
+          <div className="space-y-1.5 max-h-64 overflow-y-auto">
+            {needsFinal.map((s, i) => (
+              <div key={s.id} className="p-2.5 border border-amber-200 bg-amber-50 rounded-lg flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-slate-900">P{i + 1} · {formatLongDateID(s.date)}</p>
+                  <p className="text-xs text-slate-500">{s.subject} · {s.classLabel}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => onSelectSession(s.id)}
+                  className="shrink-0 px-3 py-1.5 text-xs font-medium rounded-md bg-amber-500 text-white hover:bg-amber-600 transition-colors"
+                >
+                  Finalisasi
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Belum diisi — prioritas utama */}
+      {unfilled.length > 0 && (
+        <div className="mb-4">
+          <h4 className="text-sm font-semibold text-rose-700 mb-2 flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-rose-500" />
+            Belum Diisi ({unfilled.length})
+          </h4>
+          <div className="space-y-1.5 max-h-96 overflow-y-auto">
+            {unfilled.map((s, i) => (
+              <div key={s.id} className="p-2.5 border border-rose-200 bg-rose-50 rounded-lg flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-slate-900">P{i + 1} · {formatLongDateID(s.date)}</p>
+                  <p className="text-xs text-slate-500">{s.subject} · {s.classLabel}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => onSelectSession(s.id)}
+                  className="shrink-0 px-3 py-1.5 text-xs font-medium rounded-md bg-rose-600 text-white hover:bg-rose-700 transition-colors"
+                >
+                  Isi Jurnal
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Sudah final */}
+      {done.length > 0 && (
+        <div>
+          <h4 className="text-sm font-semibold text-emerald-700 mb-2 flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-emerald-500" />
+            Sudah Final ({done.length})
+          </h4>
+          <div className="space-y-1.5 max-h-64 overflow-y-auto">
+            {done.map((s, i) => (
+              <div key={s.id} className="p-2.5 border border-emerald-200 bg-emerald-50 rounded-lg flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-slate-900">P{i + 1} · {formatLongDateID(s.date)}</p>
+                  <p className="text-xs text-slate-500">{s.subject} · {s.classLabel}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => onSelectSession(s.id)}
+                  className="shrink-0 px-3 py-1.5 text-xs font-medium rounded-md border border-emerald-300 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 transition-colors"
+                >
+                  Lihat
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -752,44 +1036,50 @@ function QuickJournalEditor({
 
   useEffect(() => {
     void (async () => {
-      const sess = await getLessonSession(sessionId);
-      if (!sess) { onError("Sesi tidak ditemukan"); setLoading(false); return; }
-      setSession(sess);
+      try {
+        const sess = await getLessonSession(sessionId);
+        if (!sess) { onError("Sesi tidak ditemukan"); setLoading(false); return; }
+        setSession(sess);
 
-      const roster = academicYearId ? await findClassRoster(academicYearId, sess.classId) : null;
+        const roster = academicYearId ? await findClassRoster(academicYearId, sess.classId) : null;
 
-      if (academicYearId) {
-        const ps = await listProtaProfiles(academicYearId);
-        const matchingProta = ps.find((p) => p.subject === sess.subject);
-        if (matchingProta) {
-          const units = matchingProta.units.filter((u) => u.semester === sess.semester);
-          setAvailableUnits(units);
+        if (academicYearId) {
+          const ps = await listProtaProfiles(academicYearId);
+          const matchingProta = ps.find((p) => p.subject === sess.subject);
+          if (matchingProta) {
+            const units = matchingProta.units.filter((u) => u.semester === sess.semester);
+            setAvailableUnits(units);
+          }
         }
-      }
 
-      // PATCH-FLOW-RC2D: jangan auto-create absensi
-      const result = await initJournalForSessionFull({
-        session: sess,
-        roster: roster ?? null,
-        plannedUnit: null,
-      });
-      if (result) {
-        setJournal(result.journal);
-        setNeedsAttendance(result.needsAttendance);
-        setRealizationStatus(result.journal.realizationStatus);
-        setActualMaterialTitle(result.journal.actualMaterialTitle ?? "");
-        setFollowUp(result.journal.followUp ?? "");
-        // JOURNAL-REVIEW-NARRATIVE-03: unpack structured note
-        const structured = unpackStructuredNote(result.journal.note);
-        setActivities(structured.activities);
-        setStudentResponse(structured.studentResponse);
-        setObstacle(structured.obstacle);
-        setFreeNote(structured.freeNote);
-        if (result.journal.plannedUnitId) setSelectedUnitId(result.journal.plannedUnitId);
-        // Review dimulai tertutup. Bila jurnal sudah final, anggap review sudah dilakukan.
-        setReviewOpened(result.journal.locked);
+        // PATCH-FLOW-RC2D: jangan auto-create absensi
+        const result = await initJournalForSessionFull({
+          session: sess,
+          roster: roster ?? null,
+          plannedUnit: null,
+        });
+        if (result) {
+          setJournal(result.journal);
+          setNeedsAttendance(result.needsAttendance);
+          setRealizationStatus(result.journal.realizationStatus);
+          setActualMaterialTitle(result.journal.actualMaterialTitle ?? "");
+          setFollowUp(result.journal.followUp ?? "");
+          // JOURNAL-REVIEW-NARRATIVE-03: unpack structured note
+          const structured = unpackStructuredNote(result.journal.note);
+          setActivities(structured.activities);
+          setStudentResponse(structured.studentResponse);
+          setObstacle(structured.obstacle);
+          setFreeNote(structured.freeNote);
+          if (result.journal.plannedUnitId) setSelectedUnitId(result.journal.plannedUnitId);
+          // Review dimulai tertutup. Bila jurnal sudah final, anggap review sudah dilakukan.
+          setReviewOpened(result.journal.locked);
+        }
+      } catch (err) {
+        console.error("[QuickJournalEditor] Gagal memuat jurnal:", err);
+        onError(err instanceof Error ? err.message : "Gagal memuat jurnal.");
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     })();
   // RELEASE-FIXPACK-P1-P2-01: tambah academicYearId ke deps untuk hindari stale closure
   }, [sessionId, academicYearId]);
@@ -911,7 +1201,7 @@ function QuickJournalEditor({
         onError("Tidak ada jurnal sebelumnya untuk kelas+mapel ini.");
       }
     } catch (e) {
-      void e;
+      console.error("[QuickJournalEditor] Gagal salin jurnal sebelumnya:", e);
       onError("Gagal salin jurnal sebelumnya.");
     }
   }
@@ -934,7 +1224,16 @@ function QuickJournalEditor({
   }
 
   if (loading) return <LoadingState message="Memuat jurnal..." />;
-  if (!session || !journal) return null;
+  if (!session || !journal) {
+    return (
+      <Card>
+        <EmptyState
+          title="Jurnal tidak tersedia"
+          description="Sesi tidak ditemukan atau jurnal gagal dimuat. Coba pilih sesi lain."
+        />
+      </Card>
+    );
+  }
 
   const isLocked = journal.locked;
   const isManualSession = session.teachingScheduleId === "manual" || session.teachingScheduleId === "susulan";
@@ -1166,10 +1465,10 @@ function QuickJournalEditor({
       </div>
 
       {/* ========== DOCUMENT SECTION (always visible, printed) ========== */}
-      <div className="document-page document-portrait">
+      <div className="document-page document-portrait" style={{ fontFamily: 'Arial, Helvetica, sans-serif', fontSize: '11pt', lineHeight: '1.25', width: '100%', boxSizing: 'border-box' }}>
         <div className="document-title">JURNAL MENGAJAR</div>
         <div className="document-subtitle">{schoolName}</div>
-        <table className="document-identity">
+        <table className="document-identity" style={{ fontFamily: 'Arial, Helvetica, sans-serif', width: '100%', borderCollapse: 'collapse', boxSizing: 'border-box' }}>
           <tbody>
             <tr>
               <td>Mata Pelajaran</td><td>{journal.subject}</td>
@@ -1185,7 +1484,7 @@ function QuickJournalEditor({
             </tr>
           </tbody>
         </table>
-        <table className="document-table">
+        <table className="document-table" style={{ fontFamily: 'Arial, Helvetica, sans-serif', width: '100%', tableLayout: 'fixed', borderCollapse: 'collapse', boxSizing: 'border-box' }}>
           <tbody>
             <tr><td style={{ fontWeight: "bold", background: "#f5f5f5" }}>Materi</td><td>{effectiveMaterial || "-"}</td></tr>
             <tr><td style={{ fontWeight: "bold", background: "#f5f5f5" }}>Tujuan Pembelajaran</td><td>{journal.plannedLearningOutcome ?? "-"}</td></tr>

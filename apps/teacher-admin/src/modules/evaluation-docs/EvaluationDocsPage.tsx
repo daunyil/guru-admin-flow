@@ -4,10 +4,12 @@
  * AI-PROMPT-BRIDGE-RC1: bridge untuk perangkat evaluasi via prompt AI.
  * Flow: App data → Generate Prompt → guru copy ke Claude → paste JSON → validasi → preview → cetak.
  *
- * 3 modul:
+ * 5 modul:
  *   1. Rincian Minggu Efektif
- *   2. Kisi-kisi Soal (Blueprint)
- *   3. Kartu Soal (Question Card)
+ *   2. Analisis KKTP
+ *   3. Kisi-kisi Soal (Blueprint)
+ *   4. Kartu Soal (Question Card)
+ *   5. Kisi-Kisi Penulisan Soal (Assessment Grid)
  */
 
 import { useEffect, useState } from "react";
@@ -33,8 +35,17 @@ import { filterATPForAssignment } from "@guru-admin/domain";
 import type { AcademicYear, TeacherProfile, SchoolProfile, TeachingAssignment, ATPEntry } from "@guru-admin/domain";
 import { formatLongDateID, todayISODate } from "@guru-admin/shared";
 import { LoadingState } from "../../shared/ui";
+import {
+  EffectiveWeeksDocument,
+  KktpAnalysisDocument,
+  AssessmentGridDocument,
+  QuestionCardDocument,
+  type KktpAnalysisRow,
+  type AssessmentGridRow,
+  type QuestionCardItem,
+} from "../../shared/documents";
 
-type Tab = "minggu-efektif" | "kisi-kisi" | "kartu-soal";
+type Tab = "minggu-efektif" | "kktp-analisis" | "kisi-kisi" | "kartu-soal" | "kisi-kisi-soal";
 
 export function EvaluationDocsPage() {
   const [loading, setLoading] = useState(true);
@@ -67,6 +78,14 @@ export function EvaluationDocsPage() {
 
   // Effective weeks
   const [effectiveWeeks, setEffectiveWeeks] = useState<EffectiveWeekItem[]>([]);
+
+  // KKTP Analysis rows
+  const [kktpRows, setKktpRows] = useState<KktpAnalysisRow[]>([]);
+  const [kktpValue, setKktpValue] = useState(75);
+
+  // Assessment Grid rows
+  const [assessmentGridRows, setAssessmentGridRows] = useState<AssessmentGridRow[]>([]);
+  const [assessmentGridTitle, setAssessmentGridTitle] = useState("");
 
   // Document mode
   const [showDocument, setShowDocument] = useState(false);
@@ -250,9 +269,11 @@ export function EvaluationDocsPage() {
           {/* Tab selector */}
           <Card>
             <div className="flex gap-2 flex-wrap">
-              <Button variant={tab === "minggu-efektif" ? "primary" : "secondary"} className="text-sm" onClick={() => setTab("minggu-efektif")}>Minggu Efektif</Button>
-              <Button variant={tab === "kisi-kisi" ? "primary" : "secondary"} className="text-sm" onClick={() => setTab("kisi-kisi")}>Kisi-kisi Soal</Button>
-              <Button variant={tab === "kartu-soal" ? "primary" : "secondary"} className="text-sm" onClick={() => setTab("kartu-soal")} disabled={!blueprintResult?.success}>Kartu Soal</Button>
+              <Button variant={tab === "minggu-efektif" ? "primary" : "secondary"} className="text-sm" onClick={() => { setTab("minggu-efektif"); setShowDocument(false); }}>Minggu Efektif</Button>
+              <Button variant={tab === "kktp-analisis" ? "primary" : "secondary"} className="text-sm" onClick={() => { setTab("kktp-analisis"); setShowDocument(false); }}>Analisis KKTP</Button>
+              <Button variant={tab === "kisi-kisi" ? "primary" : "secondary"} className="text-sm" onClick={() => { setTab("kisi-kisi"); setShowDocument(false); }}>Kisi-kisi Soal</Button>
+              <Button variant={tab === "kartu-soal" ? "primary" : "secondary"} className="text-sm" onClick={() => { setTab("kartu-soal"); setShowDocument(false); }} disabled={!blueprintResult?.success}>Kartu Soal</Button>
+              <Button variant={tab === "kisi-kisi-soal" ? "primary" : "secondary"} className="text-sm" onClick={() => { setTab("kisi-kisi-soal"); setShowDocument(false); }}>Kisi-Kisi Penulisan Soal</Button>
             </div>
           </Card>
 
@@ -298,45 +319,153 @@ export function EvaluationDocsPage() {
                     </table>
                   </div>
                   <div className="flex gap-2">
-                    <Button variant="secondary" onClick={() => setShowDocument(!showDocument)}>{showDocument ? "Mode Tabel" : "Mode Dokumen"}</Button>
+                    <Button variant="secondary" onClick={() => setShowDocument(!showDocument)}>{showDocument ? "Mode Tabel" : "Cetak Dokumen"}</Button>
                     {showDocument && (
                       <PrintExportButtons filename="minggu-efektif" title="Rincian Minggu Efektif" schoolName={school?.name} />
                     )}
                   </div>
                   {showDocument && (
-                    <div className="print-area">
-                      <div className="document-page document-portrait">
-                        <div className="document-title">RINCIAN MINGGU EFEKTIF</div>
-                        <div className="document-subtitle">{school?.name ?? "Sekolah"}</div>
-                        <div className="document-subtitle">TP {year?.label} — Semester {assignment.semester === 1 ? "Ganjil" : "Genap"}</div>
-                        <table className="document-identity">
-                          <tbody>
-                            <tr><td>Mata Pelajaran</td><td>{assignment.subject}</td><td>Kelas</td><td>{assignment.classLabel}</td></tr>
-                            <tr><td>Total Minggu</td><td>{effectiveWeeks.length}</td><td>Minggu Efektif</td><td>{effectiveWeeksTotal}</td></tr>
-                            <tr><td>Total JP Efektif</td><td>{effectiveJPTotal}</td><td>Tanggal</td><td>{formatLongDateID(todayISODate())}</td></tr>
-                          </tbody>
-                        </table>
-                        <table className="document-table">
-                          <thead><tr><th>No</th><th>Tanggal</th><th>Keterangan</th><th>Efektif</th><th>Hari</th><th>JP</th></tr></thead>
-                          <tbody>
-                            {effectiveWeeks.map((w) => (
-                              <tr key={w.weekNumber}>
-                                <td className="text-center">{w.weekNumber}</td>
-                                <td>{w.startDate} - {w.endDate}</td>
-                                <td>{w.description}</td>
-                                <td className="text-center">{w.isEffective ? "Ya" : "Tidak"}</td>
-                                <td className="text-center">{w.effectiveDays}</td>
-                                <td className="text-center">{w.effectiveJP}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
+                    <EffectiveWeeksDocument
+                      withPrintArea={true}
+                      data={{
+                        context: {
+                          schoolName: school?.name,
+                          schoolAddress: school?.address,
+                          schoolOffice: "Dinas Pendidikan",
+                          institutionName: "",
+                          academicYear: year?.label,
+                          semester: assignment.semester === 1 ? "Ganjil" : "Genap",
+                          teacherName: assignment.teacherName,
+                          subject: assignment.subject,
+                          classLabel: assignment.classLabel,
+                          headmasterName: school?.headmasterName,
+                          headmasterNip: school?.headmasterNip,
+                          place: school?.regency ?? "",
+                          dateLabel: formatLongDateID(todayISODate()),
+                        },
+                        rows: effectiveWeeks.map((w) => ({
+                          month: w.description || `Minggu ${w.weekNumber}`,
+                          totalWeeks: w.isEffective ? 1 : 0,
+                          nonEffectiveWeeks: w.isEffective ? 0 : 1,
+                          effectiveWeeks: w.isEffective ? 1 : 0,
+                          activities: w.notes || w.description || "",
+                        })),
+                        allocations: [{
+                          component: `${assignment.subject} — ${assignment.classLabel}`,
+                          jpPerWeek,
+                          totalWeeks: effectiveWeeksTotal,
+                          totalJp: effectiveJPTotal,
+                        }],
+                        totalEffectiveWeeks: effectiveWeeksTotal,
+                        totalJp: effectiveJPTotal,
+                      }}
+                    />
                   )}
                 </div>
               )}
             </Card>
+          )}
+
+          {/* TAB: KKTP Analisis */}
+          {tab === "kktp-analisis" && (
+            <>
+              <Card>
+                <CardHeader title="Analisis KKTP" description="Pemetaan kriteria ketercapaian tujuan pembelajaran berdasarkan interval nilai/rubrik." />
+                <div className="space-y-3">
+                  <Input label="KKTP / KKM" id="ev-kktp" type="number" value={String(kktpValue)} onChange={(v) => setKktpValue(Number(v) || 75)} hint="Nilai batas ketuntasan (default 75)." />
+                  <div>
+                    <p className="label">Pilih TP & tentukan interval ketercapaian:</p>
+                    <div className="space-y-1 max-h-48 overflow-y-auto">
+                      {filteredATP().length === 0 ? (
+                        <p className="text-sm text-slate-500">Belum ada TP untuk assignment ini.</p>
+                      ) : (
+                        filteredATP().map((tp) => (
+                          <label key={tp.id} className="flex items-center gap-2 p-2 border border-slate-200 rounded">
+                            <input type="checkbox" checked={selectedTpIds.has(tp.id)} onChange={() => toggleTp(tp.id)} className="mt-0.5" />
+                            <div className="flex-1 text-sm">
+                              <span className="font-medium">{tp.tp}</span>
+                              <span className="text-xs text-slate-500 ml-2">Elemen: {tp.elemen ?? "-"}</span>
+                            </div>
+                            <Select
+                              label=""
+                              id={`interval-${tp.id}`}
+                              value={String(kktpRows.find(r => r.learningObjective === tp.tp)?.intervalIndex ?? -1)}
+                              onChange={(v) => {
+                                const idx = Number(v);
+                                setKktpRows(prev => {
+                                  const existing = prev.findIndex(r => r.learningObjective === tp.tp);
+                                  if (existing >= 0) {
+                                    const next = [...prev];
+                                    next[existing] = { ...next[existing], intervalIndex: idx >= 0 ? idx : undefined };
+                                    return next;
+                                  }
+                                  return [...prev, { element: tp.elemen ?? "", learningObjective: tp.tp, intervalIndex: idx >= 0 ? idx : undefined }];
+                                });
+                              }}
+                              options={[
+                                { value: "-1", label: "— belum ditentukan —" },
+                                { value: "0", label: "0–60% (Perlu Bimbingan)" },
+                                { value: "1", label: "61–70% (Cukup)" },
+                                { value: "2", label: "71–80% (Baik)" },
+                                { value: "3", label: "81–100% (Sangat Baik)" },
+                              ]}
+                            />
+                          </label>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                  <Button onClick={() => {
+                    const rows = filteredATP().filter(t => selectedTpIds.has(t.id)).map(t => {
+                      const existing = kktpRows.find(r => r.learningObjective === t.tp);
+                      return existing ?? { element: t.elemen ?? "", learningObjective: t.tp, intervalIndex: undefined };
+                    });
+                    setKktpRows(rows);
+                    setMessage({ type: "success", text: `${rows.length} TP dimasukkan ke tabel KKTP.` });
+                  }} disabled={selectedTpIds.size === 0}>
+                    Buat Tabel KKTP
+                  </Button>
+                </div>
+              </Card>
+
+              {kktpRows.length > 0 && (
+                <>
+                  <Card>
+                    <div className="flex gap-2">
+                      <Button variant="secondary" onClick={() => setShowDocument(!showDocument)}>
+                        {showDocument ? "Mode Input" : "Cetak Dokumen"}
+                      </Button>
+                      {showDocument && (
+                        <PrintExportButtons filename="analisis-kktp" title="Analisis KKTP" schoolName={school?.name} />
+                      )}
+                    </div>
+                  </Card>
+                  {showDocument && (
+                    <KktpAnalysisDocument
+                      withPrintArea={true}
+                      data={{
+                        context: {
+                          schoolName: school?.name,
+                          schoolAddress: school?.address,
+                          schoolOffice: "Dinas Pendidikan",
+                          academicYear: year?.label,
+                          semester: assignment.semester === 1 ? "Ganjil" : "Genap",
+                          teacherName: assignment.teacherName,
+                          subject: assignment.subject,
+                          classLabel: assignment.classLabel,
+                          headmasterName: school?.headmasterName,
+                          headmasterNip: school?.headmasterNip,
+                          place: school?.regency ?? "",
+                          dateLabel: formatLongDateID(todayISODate()),
+                        },
+                        kktp: kktpValue,
+                        rows: kktpRows,
+                      }}
+                    />
+                  )}
+                </>
+              )}
+            </>
           )}
 
           {/* TAB: Kisi-kisi */}
@@ -486,44 +615,168 @@ export function EvaluationDocsPage() {
                   </Card>
 
                   {showDocument && (
-                    <Card>
-                      <div className="print-area">
-                        <div className="document-page document-portrait">
-                          <div className="document-title">KARTU SOAL</div>
-                          <div className="document-subtitle">{school?.name ?? "Sekolah"}</div>
-                          <div className="document-subtitle">{assignment.subject} — {assignment.classLabel} — {title || assessmentType.toUpperCase()}</div>
-                          <table className="document-identity">
-                            <tbody>
-                              <tr><td>Guru</td><td>{assignment.teacherName}</td><td>Semester</td><td>{assignment.semester === 1 ? "Ganjil" : "Genap"}</td></tr>
-                              <tr><td>Tanggal</td><td>{formatLongDateID(todayISODate())}</td><td>Total Soal</td><td>{cardResult.questions.length}</td></tr>
-                            </tbody>
-                          </table>
-                          {cardResult.questions.map((q) => (
-                            <div key={q.questionNumber} style={{ marginBottom: "12pt", pageBreakInside: "avoid" }}>
-                              <table className="document-table">
-                                <tbody>
-                                  <tr><td style={{ fontWeight: "bold", width: "15%", background: "#f5f5f5" }}>No. {q.questionNumber}</td><td style={{ fontWeight: "bold", width: "15%", background: "#f5f5f5" }}>{q.questionType.toUpperCase()}</td><td style={{ fontWeight: "bold", width: "15%", background: "#f5f5f5" }}>{q.cognitiveLevel}</td><td style={{ fontWeight: "bold", width: "15%", background: "#f5f5f5" }}>Skor: {q.score}</td></tr>
-                                  <tr><td style={{ fontWeight: "bold", background: "#f5f5f5" }}>Soal</td><td colSpan={3}>{q.stem}</td></tr>
-                                  {q.options && (
-                                    <>
-                                      <tr><td style={{ fontWeight: "bold", background: "#f5f5f5" }}>Opsi A</td><td colSpan={3}>{q.options.A} {q.answerKey === "A" ? "✓ KUNCI" : ""}</td></tr>
-                                      <tr><td style={{ fontWeight: "bold", background: "#f5f5f5" }}>Opsi B</td><td colSpan={3}>{q.options.B} {q.answerKey === "B" ? "✓ KUNCI" : ""}</td></tr>
-                                      <tr><td style={{ fontWeight: "bold", background: "#f5f5f5" }}>Opsi C</td><td colSpan={3}>{q.options.C} {q.answerKey === "C" ? "✓ KUNCI" : ""}</td></tr>
-                                      <tr><td style={{ fontWeight: "bold", background: "#f5f5f5" }}>Opsi D</td><td colSpan={3}>{q.options.D} {q.answerKey === "D" ? "✓ KUNCI" : ""}</td></tr>
-                                    </>
-                                  )}
-                                  {q.essayAnswerGuide && (
-                                    <tr><td style={{ fontWeight: "bold", background: "#f5f5f5" }}>Pedoman</td><td colSpan={3}>{q.essayAnswerGuide}</td></tr>
-                                  )}
-                                </tbody>
-                              </table>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </Card>
+                    <QuestionCardDocument
+                      withPrintArea={true}
+                      data={{
+                        context: {
+                          schoolName: school?.name,
+                          schoolAddress: school?.address,
+                          schoolOffice: "Dinas Pendidikan",
+                          academicYear: year?.label,
+                          semester: assignment.semester === 1 ? "Ganjil" : "Genap",
+                          teacherName: assignment.teacherName,
+                          subject: assignment.subject,
+                          classLabel: assignment.classLabel,
+                          headmasterName: school?.headmasterName,
+                          headmasterNip: school?.headmasterNip,
+                          place: school?.regency ?? "",
+                          dateLabel: formatLongDateID(todayISODate()),
+                        },
+                        assessmentTitle: `${title || assessmentType.toUpperCase()} — ${assignment.subject} ${assignment.classLabel}`,
+                        items: cardResult.questions.map((q): QuestionCardItem => ({
+                          number: q.questionNumber,
+                          competency: "—",
+                          material: "—",
+                          indicator: "—",
+                          cognitiveLevel: q.cognitiveLevel,
+                          questionForm: q.questionType === "pg" ? "Pilihan Ganda" : "Esai",
+                          questionText: q.stem,
+                          options: q.options ? [
+                            { label: "A", text: q.options.A },
+                            { label: "B", text: q.options.B },
+                            { label: "C", text: q.options.C },
+                            { label: "D", text: q.options.D },
+                          ] : undefined,
+                          answerKey: q.answerKey,
+                          scoringGuide: q.essayAnswerGuide,
+                        })),
+                      }}
+                    />
                   )}
                 </>
+              )}
+            </>
+          )}
+
+          {/* TAB: Kisi-Kisi Penulisan Soal (Assessment Grid) */}
+          {tab === "kisi-kisi-soal" && (
+            <>
+              <Card>
+                <CardHeader title="Kisi-Kisi Penulisan Soal" description="Matriks pemetaan kisi-kisi penyusunan soal asesmen (STS/SAS)." />
+                <div className="space-y-3">
+                  <Input label="Judul Asesmen" id="ev-grid-title" value={assessmentGridTitle} onChange={setAssessmentGridTitle} placeholder="Sumatif Akhir Semester (SAS) Ganjil 2025/2026" />
+                  <div>
+                    <p className="label">Pilih TP untuk kisi-kisi:</p>
+                    <div className="space-y-1 max-h-48 overflow-y-auto">
+                      {filteredATP().length === 0 ? (
+                        <p className="text-sm text-slate-500">Belum ada TP untuk assignment ini.</p>
+                      ) : (
+                        filteredATP().map((tp) => (
+                          <label key={tp.id} className="flex items-start gap-2 p-2 border border-slate-200 rounded cursor-pointer hover:bg-slate-50">
+                            <input type="checkbox" checked={selectedTpIds.has(tp.id)} onChange={() => toggleTp(tp.id)} className="mt-1" />
+                            <div className="text-sm">
+                              <p className="font-medium">{tp.tp}</p>
+                              <p className="text-xs text-slate-500">Bab {tp.bab ?? "-"} · {tp.elemen ?? "-"}</p>
+                            </div>
+                          </label>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                  <Button onClick={() => {
+                    const rows: AssessmentGridRow[] = filteredATP().filter(t => selectedTpIds.has(t.id)).map((t, i) => ({
+                      no: i + 1,
+                      element: t.elemen ?? "—",
+                      material: t.bab ?? "—",
+                      indicator: t.tp ?? "—",
+                      questionForm: "—",
+                      cognitiveLevel: "—",
+                      questionNumbers: "—",
+                    }));
+                    setAssessmentGridRows(rows);
+                    setMessage({ type: "success", text: `${rows.length} baris kisi-kisi dibuat. Isi detail per baris di tabel di bawah.` });
+                  }} disabled={selectedTpIds.size === 0}>
+                    Buat Kisi-Kisi dari TP
+                  </Button>
+                </div>
+              </Card>
+
+              {assessmentGridRows.length > 0 && (
+                <Card>
+                  <CardHeader title="Edit Detail Kisi-Kisi" description="Isi indikator soal, bentuk soal, level kognitif, dan nomor soal per baris." />
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm border-collapse">
+                      <thead>
+                        <tr className="border-b border-slate-200 text-left">
+                          <th className="py-2 px-2">No</th><th className="py-2 px-2">Elemen</th><th className="py-2 px-2">Materi</th>
+                          <th className="py-2 px-2">Indikator Soal</th><th className="py-2 px-2">Bentuk Soal</th>
+                          <th className="py-2 px-2">Level</th><th className="py-2 px-2">No. Soal</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {assessmentGridRows.map((row, i) => (
+                          <tr key={i} className="border-b border-slate-100">
+                            <td className="py-1.5 px-2 text-center">{row.no}</td>
+                            <td className="py-1.5 px-2 text-xs">{row.element}</td>
+                            <td className="py-1.5 px-2 text-xs">{row.material}</td>
+                            <td className="py-1.5 px-2">
+                              <Input label="Indikator" id={`grid-ind-${i}`} value={row.indicator ?? "—"} onChange={(v) => {
+                                setAssessmentGridRows(prev => { const next = [...prev]; next[i] = { ...next[i], indicator: v }; return next; });
+                              }} />
+                            </td>
+                            <td className="py-1.5 px-2">
+                              <Select label="Bentuk" id={`grid-form-${i}`} value={row.questionForm ?? "—"} onChange={(v) => {
+                                setAssessmentGridRows(prev => { const next = [...prev]; next[i] = { ...next[i], questionForm: v }; return next; });
+                              }} options={[{value:"Pilihan Ganda",label:"Pilihan Ganda"},{value:"Esai",label:"Esai"},{value:"Uraian",label:"Uraian"},{value:"—",label:"—"}]} />
+                            </td>
+                            <td className="py-1.5 px-2">
+                              <Select label="Level" id={`grid-level-${i}`} value={row.cognitiveLevel ?? "—"} onChange={(v) => {
+                                setAssessmentGridRows(prev => { const next = [...prev]; next[i] = { ...next[i], cognitiveLevel: v }; return next; });
+                              }} options={[{value:"C1",label:"C1 (Mengingat)"},{value:"C2",label:"C2 (Memahami)"},{value:"C3",label:"C3 (Menerapkan)"},{value:"C4",label:"C4 (Menganalisis)"},{value:"C5",label:"C5 (Mengevaluasi)"},{value:"C6",label:"C6 (Mencipta)"},{value:"L1",label:"L1"},{value:"L2",label:"L2"},{value:"L3",label:"L3"},{value:"—",label:"—"}]} />
+                            </td>
+                            <td className="py-1.5 px-2">
+                              <Input label="No. Soal" id={`grid-num-${i}`} value={row.questionNumbers ?? "—"} onChange={(v) => {
+                                setAssessmentGridRows(prev => { const next = [...prev]; next[i] = { ...next[i], questionNumbers: v }; return next; });
+                              }} />
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div className="mt-3 flex gap-2">
+                    <Button variant="secondary" onClick={() => setShowDocument(!showDocument)}>
+                      {showDocument ? "Mode Edit" : "Cetak Dokumen"}
+                    </Button>
+                    {showDocument && (
+                      <PrintExportButtons filename="kisi-kisi-penulisan-soal" title="Kisi-Kisi Penulisan Soal" schoolName={school?.name} />
+                    )}
+                  </div>
+                </Card>
+              )}
+
+              {showDocument && assessmentGridRows.length > 0 && (
+                <AssessmentGridDocument
+                  withPrintArea={true}
+                  data={{
+                    context: {
+                      schoolName: school?.name,
+                      schoolAddress: school?.address,
+                      schoolOffice: "Dinas Pendidikan",
+                      academicYear: year?.label,
+                      semester: assignment.semester === 1 ? "Ganjil" : "Genap",
+                      teacherName: assignment.teacherName,
+                      subject: assignment.subject,
+                      classLabel: assignment.classLabel,
+                      headmasterName: school?.headmasterName,
+                      headmasterNip: school?.headmasterNip,
+                      place: school?.regency ?? "",
+                      dateLabel: formatLongDateID(todayISODate()),
+                    },
+                    assessmentTitle: assessmentGridTitle || `Asesmen ${assignment.subject} ${assignment.classLabel}`,
+                    rows: assessmentGridRows,
+                  }}
+                />
               )}
             </>
           )}

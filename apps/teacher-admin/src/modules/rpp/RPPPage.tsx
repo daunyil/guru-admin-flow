@@ -10,7 +10,8 @@
  */
 
 import { useEffect, useState } from "react";
-import { Card, CardHeader, Input, Select, Button, EmptyState } from "../../shared/ui";
+import { Link } from "react-router-dom";
+import { Card, CardHeader, Input, Select, Button } from "../../shared/ui";
 import { InfoCard } from "../../shared/ui/ContextCard";
 import { getActiveAcademicYear, getSchoolProfile, getTeacherProfile } from "../../shared/db/profile-repo";
 import type { AcademicYear, SchoolProfile, TeacherProfile } from "@guru-admin/domain";
@@ -113,25 +114,6 @@ ${placeholders[7].key}, ........................`;
 
   if (loading) return <LoadingState />;
 
-  // DOCUMENT-OUTPUT-FIXPACK-01: empty state bila tahun/guru belum ada
-  if (!year || !teacher) {
-    return (
-      <div className="space-y-4">
-        <div className="page-header">
-          <h1 className="text-2xl font-bold text-slate-900">Template / Helper RPP</h1>
-          <p className="text-sm text-slate-500 mt-1">Buat placeholder untuk Word.</p>
-        </div>
-        <Card>
-          <EmptyState
-            title="Belum siap pakai template RPP"
-            description="Template RPP butuh tahun pelajaran aktif + profil guru lengkap. Buka menu Profil untuk mengisi data dasar terlebih dahulu."
-            action={<Button variant="secondary" onClick={() => (window.location.hash = "#/profile")}>Buka Profil</Button>}
-          />
-        </Card>
-      </div>
-    );
-  }
-
   const hasSubjects = (teacher?.subjects ?? []).length > 0;
 
   return (
@@ -140,6 +122,20 @@ ${placeholders[7].key}, ........................`;
         <h1 className="text-2xl font-bold text-slate-900">Template / Helper RPP</h1>
         <p className="text-sm text-slate-500 mt-1">Buat placeholder identitas untuk Word. RPP tetap dibuat di Word, app hanya membantu identitas.</p>
       </div>
+
+      {/* UX-FIX-ALWAYS-SHOW: notice banner bila tahun/guru belum ada, bukan early return */}
+      {(!year || !teacher) && (
+        <Card className="border-amber-200 bg-amber-50">
+          <div className="flex items-start gap-3">
+            <span className="text-amber-600 text-xl">⚠</span>
+            <div>
+              <p className="font-semibold text-amber-900">Profil/tahun belum lengkap</p>
+              <p className="text-sm text-amber-800 mt-1">Lengkapi profil sekolah dan guru terlebih dahulu agar bisa menggunakan fitur RPP.</p>
+              <Link to="/profile"><Button variant="secondary" className="text-sm mt-2">Lengkapi Profil</Button></Link>
+            </div>
+          </div>
+        </Card>
+      )}
 
       {message && (
         <div className={`info-banner-${message.type === "success" ? "success" : "error"}`}>

@@ -158,25 +158,6 @@ export function LKPDPage() {
 
   if (loading) return <LoadingState />;
 
-  // DOCUMENT-OUTPUT-FIXPACK-01: empty state bila tahun/guru belum ada
-  if (!year || !teacher) {
-    return (
-      <div className="space-y-4">
-        <div className="page-header">
-          <h1 className="text-2xl font-bold text-slate-900">LKPD</h1>
-          <p className="text-sm text-slate-500 mt-1">Lembar Kerja Peserta Didik</p>
-        </div>
-        <Card>
-          <EmptyState
-            title="Belum ada tahun pelajaran aktif"
-            description="Buka menu Profil untuk mengaktifkan tahun pelajaran, atau buat tahun baru di menu Tahun Baru. LKPD butuh tahun aktif + profil guru untuk dibuat."
-            action={<Button variant="secondary" onClick={() => (window.location.hash = "#/profile")}>Buka Profil</Button>}
-          />
-        </Card>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-4">
       <div className="page-header">
@@ -185,6 +166,19 @@ export function LKPDPage() {
           Lembar Kerja Peserta Didik · {year ? `TP ${year.label}` : "Belum ada tahun aktif"}
         </p>
       </div>
+
+      {(!year || !teacher) && (
+        <Card className="border-amber-200 bg-amber-50">
+          <div className="flex items-start gap-3">
+            <span className="text-amber-600 text-xl">⚠</span>
+            <div>
+              <p className="font-semibold text-amber-900">Profil/tahun belum lengkap</p>
+              <p className="text-sm text-amber-800 mt-1">Lengkapi profil sekolah dan guru terlebih dahulu untuk menggunakan fitur LKPD.</p>
+              <Button variant="secondary" className="text-sm mt-2" onClick={() => (window.location.hash = "#/profile")}>Lengkapi Profil</Button>
+            </div>
+          </div>
+        </Card>
+      )}
 
       {message && (
         <div className={`info-banner-${message.type === "success" ? "success" : "error"}`}>
@@ -197,7 +191,7 @@ export function LKPDPage() {
           <p className="text-sm text-slate-600">
             Buat LKPD dari TP. LKPD wajib terikat ke Tujuan Pembelajaran.
           </p>
-          <Button onClick={() => { setEditing(null); setShowForm(true); }} disabled={atpEntries.length === 0}>
+          <Button onClick={() => { setEditing(null); setShowForm(true); }} disabled={!year || !teacher || atpEntries.length === 0}>
             + Buat LKPD
           </Button>
         </div>

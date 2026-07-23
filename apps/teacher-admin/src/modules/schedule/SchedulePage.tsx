@@ -12,6 +12,7 @@
 
 import { useEffect, useState } from "react";
 import { Card, CardHeader, Input, Select, Button, EmptyState, Badge } from "../../shared/ui";
+import { Link } from "react-router-dom";
 import {
   listTeachingSchedules,
   saveTeachingSchedule,
@@ -84,23 +85,22 @@ export function SchedulePage() {
 
   if (loading) return <LoadingState />;
 
-  if (!activeYear) {
-    return (
-      <div className="space-y-4">
-        <Header />
-        <Card>
-          <EmptyState
-            title="Belum ada tahun pelajaran aktif"
-            description="Buat tahun pelajaran aktif dulu di menu Profil."
-          />
-        </Card>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-4">
-      <Header yearLabel={activeYear.label} scheduleCount={schedules.length} sessionCount={sessions.length} />
+      <Header yearLabel={activeYear?.label} scheduleCount={schedules.length} sessionCount={sessions.length} />
+
+      {!activeYear && (
+        <Card className="border-amber-200 bg-amber-50">
+          <div className="flex items-start gap-3">
+            <span className="text-amber-600 text-xl">⚠</span>
+            <div>
+              <p className="font-semibold text-amber-900">Belum ada tahun pelajaran aktif</p>
+              <p className="text-sm text-amber-800 mt-1">Lengkapi tahun pelajaran terlebih dahulu agar bisa mengelola jadwal.</p>
+              <Link to="/profile"><Button variant="secondary" className="text-sm mt-2">Lengkapi Profil</Button></Link>
+            </div>
+          </div>
+        </Card>
+      )}
 
       {error && <div className="p-3 rounded-md bg-rose-50 border border-rose-200 text-sm text-rose-700" role="status" aria-live="polite">{error}</div>}
       {success && <div className="p-3 rounded-md bg-brand-50 border border-brand-200 text-sm text-brand-700" role="status" aria-live="polite">{success}</div>}
@@ -113,11 +113,11 @@ export function SchedulePage() {
           onChange={(v) => setSemester(Number(v) as 1 | 2)}
           options={[{value:"1",label:"Semester 1"},{value:"2",label:"Semester 2"}]}
         />
-        <Button onClick={() => { setEditing(null); setShowForm(true); }}>+ Tambah Jadwal</Button>
-        <Button variant="secondary" onClick={() => setShowImport(true)}>Impor dari Smart Roster</Button>
+        <Button onClick={() => { setEditing(null); setShowForm(true); }} disabled={!activeYear}>+ Tambah Jadwal</Button>
+        <Button variant="secondary" onClick={() => setShowImport(true)} disabled={!activeYear}>Impor dari Smart Roster</Button>
       </div>
 
-      {showForm && (
+      {showForm && activeYear && (
         <ScheduleForm
           academicYearId={activeYear.id}
           semester={semester}
@@ -127,7 +127,7 @@ export function SchedulePage() {
         />
       )}
 
-      {showImport && (
+      {showImport && activeYear && (
         <ImportModal
           academicYearId={activeYear.id}
           onClose={() => setShowImport(false)}
@@ -143,7 +143,7 @@ export function SchedulePage() {
       <Card>
         <CardHeader
           title={`Daftar Jadwal Semester ${semester}`}
-          description={`${schedules.length} jadwal untuk tahun pelajaran ${activeYear.label}`}
+          description={`${schedules.length} jadwal untuk tahun pelajaran ${activeYear?.label ?? "-"}`}
         />
         {schedules.length === 0 ? (
           <EmptyState
@@ -193,6 +193,7 @@ export function SchedulePage() {
         <div className="flex items-center gap-3 flex-wrap">
           <Button
             onClick={async () => {
+              if (!activeYear) return;
               setGenerating(true);
               setError(null);
               try {
@@ -225,13 +226,14 @@ export function SchedulePage() {
                 setGenerating(false);
               }
             }}
-            disabled={generating || schedules.length === 0}
+            disabled={generating || schedules.length === 0 || !activeYear}
           >
             {generating ? "Generating..." : `Generate Sesi Semester ${semester}`}
           </Button>
           <Button
             variant="secondary"
             onClick={async () => {
+              if (!activeYear) return;
               if (window.confirm(`Hapus semua sesi semester ${semester}?`)) {
                 await clearLessonSessions(activeYear.id, semester);
                 setSuccess("Sesi dihapus.");
@@ -245,12 +247,14 @@ export function SchedulePage() {
       </Card>
 
       {/* Sprint 5: Linker Promes-Lesson — assign plannedUnitId massal */}
-      <LinkerSection
-        academicYearId={activeYear.id}
-        semester={semester}
-        onError={(msg) => setError(msg)}
-        onSuccess={(msg) => { setSuccess(msg); void reload(); }}
-      />
+      {activeYear && (
+        <LinkerSection
+          academicYearId={activeYear.id}
+          semester={semester}
+          onError={(msg) => setError(msg)}
+          onSuccess={(msg) => { setSuccess(msg); void reload(); }}
+        />
+      )}
 
       {sessions.length > 0 && (
         <Card>

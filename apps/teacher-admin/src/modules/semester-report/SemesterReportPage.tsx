@@ -12,6 +12,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Card, Select, Button, EmptyState, Badge, LoadingState } from "../../shared/ui";
+import { Link } from "react-router-dom";
 import {
   generateAndSaveSemesterReport,
   finalizeSemesterReport,
@@ -294,15 +295,6 @@ export function SemesterReportPage() {
 
   if (loading) return <LoadingState />;
 
-  if (!activeYear || !teacher) {
-    return (
-      <div className="space-y-4">
-        <Header />
-        <Card><EmptyState title="Profil/tahun belum lengkap" description="Lengkapi profil guru + tahun pelajaran aktif dulu." /></Card>
-      </div>
-    );
-  }
-
   /* ================================================================ */
   /*  WYSIWYG VIEW — sidebar + document                                */
   /* ================================================================ */
@@ -358,7 +350,7 @@ export function SemesterReportPage() {
             <dl className="doc-summary-dl mt-2">
               <div><dt>Semester</dt><dd>{docSemester === 1 ? "Ganjil" : "Genap"}</dd></div>
               <div><dt>Guru</dt><dd>{selectedAssignment.teacherName}</dd></div>
-              <div><dt>Tahun</dt><dd>{activeYear.label}</dd></div>
+              <div><dt>Tahun</dt><dd>{activeYear?.label ?? "-"}</dd></div>
             </dl>
           )}
         </div>
@@ -434,6 +426,18 @@ export function SemesterReportPage() {
 
       {/* ---------- DOCUMENT AREA ---------- */}
       <div className="doc-document-area">
+        {(!activeYear || !teacher) && (
+          <Card className="border-amber-200 bg-amber-50 mb-3 no-print">
+            <div className="flex items-start gap-3">
+              <span className="text-amber-600 text-xl">⚠</span>
+              <div>
+                <p className="font-semibold text-amber-900">Profil/tahun belum lengkap</p>
+                <p className="text-sm text-amber-800 mt-1">Lengkapi profil dan tahun pelajaran terlebih dahulu.</p>
+                <Link to="/profile"><Button variant="secondary" className="text-sm mt-2">Lengkapi Profil</Button></Link>
+              </div>
+            </div>
+          </Card>
+        )}
         {error && <div className="p-3 rounded-md bg-rose-50 border border-rose-200 text-sm text-rose-700 mb-3 no-print" role="status" aria-live="polite">{error}</div>}
         {success && <div className="p-3 rounded-md bg-brand-50 border border-brand-200 text-sm text-brand-700 mb-3 no-print" role="status" aria-live="polite">{success}</div>}
 
@@ -447,8 +451,13 @@ export function SemesterReportPage() {
           onSetFinal={handleSetFinal}
           onOrientationChange={handleOrientationChange}
         >
-          {/* If no assignment selected, show empty state inside canvas */}
-          {!selectedAssignment ? (
+          {/* If profile/year not set, show notice inside canvas */}
+          {!activeYear || !teacher ? (
+            <div className="flex flex-col items-center justify-center h-full text-slate-400 py-20">
+              <p className="text-lg font-medium">Profil/Tahun Belum Lengkap</p>
+              <p className="text-sm mt-1">Lengkapi profil dan tahun pelajaran terlebih dahulu.</p>
+            </div>
+          ) : !selectedAssignment ? (
             <div className="flex flex-col items-center justify-center h-full text-slate-400 py-20">
               <p className="text-lg font-medium">Pilih Kelas dan Mapel</p>
               <p className="text-sm mt-1">Buka sidebar untuk memilih assignment.</p>
@@ -462,27 +471,12 @@ export function SemesterReportPage() {
             <SemesterReportDocument
               report={report}
               school={school}
-              teacher={teacher}
-              academicYear={activeYear}
+              teacher={teacher!}
+              academicYear={activeYear!}
             />
           )}
         </DocumentPreview>
       </div>
-    </div>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/*  Header (for non-WYSIWYG empty states)                             */
-/* ------------------------------------------------------------------ */
-
-function Header() {
-  return (
-    <div>
-      <h1 className="text-2xl font-bold text-slate-900">Laporan Akhir Semester</h1>
-      <p className="text-sm text-slate-500 mt-1">
-        Rekap dari jurnal + absensi + sesi per Kelas dan Mapel.
-      </p>
     </div>
   );
 }
@@ -503,12 +497,12 @@ function SemesterReportDocument({
   academicYear: AcademicYear;
 }) {
   return (
-    <div className="document-page document-portrait">
+    <div className="document-page document-portrait" style={{ fontFamily: 'Arial, Helvetica, sans-serif', fontSize: '11pt', lineHeight: '1.25', width: '100%', boxSizing: 'border-box' }}>
       <div className="document-title">LAPORAN AKHIR SEMESTER {report.semester === 1 ? "GANJIL" : "GENAP"}</div>
       <div className="document-subtitle">{school?.name ?? "Sekolah"} — {school?.address ?? ""}</div>
       <div className="document-subtitle">Tahun Pelajaran {academicYear.label}</div>
 
-      <table className="document-identity">
+      <table className="document-identity" style={{ fontFamily: 'Arial, Helvetica, sans-serif', width: '100%', borderCollapse: 'collapse', boxSizing: 'border-box' }}>
         <tbody>
           <tr>
             <td>Mata Pelajaran</td><td>{report.subject}</td>
@@ -522,7 +516,7 @@ function SemesterReportDocument({
       </table>
 
       <div className="document-section-title">A. REKAP PERTEMUAN</div>
-      <table className="document-table">
+      <table className="document-table" style={{ fontFamily: 'Arial, Helvetica, sans-serif', width: '100%', tableLayout: 'fixed', borderCollapse: 'collapse', boxSizing: 'border-box' }}>
         <thead>
           <tr><th style={{ width: "5%" }}>No</th><th>Uraian</th><th style={{ width: "15%" }}>Jumlah</th></tr>
         </thead>
@@ -535,7 +529,7 @@ function SemesterReportDocument({
       </table>
 
       <div className="document-section-title">B. REKAP MATERI</div>
-      <table className="document-table">
+      <table className="document-table" style={{ fontFamily: 'Arial, Helvetica, sans-serif', width: '100%', tableLayout: 'fixed', borderCollapse: 'collapse', boxSizing: 'border-box' }}>
         <thead>
           <tr><th style={{ width: "5%" }}>No</th><th>Status Materi</th><th style={{ width: "15%" }}>Jumlah</th></tr>
         </thead>
@@ -548,7 +542,7 @@ function SemesterReportDocument({
       </table>
 
       <div className="document-section-title">C. REKAP KEHADIRAN SISWA — KELAS {report.classLabel || report.grade}</div>
-      <table className="document-table">
+      <table className="document-table" style={{ fontFamily: 'Arial, Helvetica, sans-serif', width: '100%', tableLayout: 'fixed', borderCollapse: 'collapse', boxSizing: 'border-box' }}>
         <thead>
           <tr>
             <th>Kelas</th>
@@ -585,7 +579,7 @@ function SemesterReportDocument({
       </table>
 
       <div className="document-section-title">D. REKAP JURNAL</div>
-      <table className="document-table">
+      <table className="document-table" style={{ fontFamily: 'Arial, Helvetica, sans-serif', width: '100%', tableLayout: 'fixed', borderCollapse: 'collapse', boxSizing: 'border-box' }}>
         <thead>
           <tr><th>No</th><th>Uraian</th><th>Jumlah</th></tr>
         </thead>

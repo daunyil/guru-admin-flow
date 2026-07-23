@@ -13,7 +13,8 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Input, Textarea, Select, Button, EmptyState, Badge, LoadingState } from "../../shared/ui";
+import { Card, Input, Textarea, Select, Button, EmptyState, Badge, LoadingState } from "../../shared/ui";
+import { Link } from "react-router-dom";
 import { listAssignmentsByTeacher } from "../../shared/db/teaching-assignment-repo";
 import { getActiveAcademicYear, getTeacherProfile, getSchoolProfile } from "../../shared/db/profile-repo";
 import type {
@@ -208,15 +209,6 @@ export function LainnyaPage() {
 
   if (loading) return <LoadingState />;
 
-  if (!activeYear || !teacher) {
-    return (
-      <div className="space-y-4">
-        <Header />
-        <EmptyState title="Profil/tahun belum lengkap" description="Lengkapi profil guru + tahun pelajaran aktif dulu." />
-      </div>
-    );
-  }
-
   /* ================================================================ */
   /*  WYSIWYG VIEW — sidebar + document                                */
   /* ================================================================ */
@@ -272,7 +264,7 @@ export function LainnyaPage() {
             <dl className="doc-summary-dl mt-2">
               <div><dt>Semester</dt><dd>{docSemester === 1 ? "Ganjil" : "Genap"}</dd></div>
               <div><dt>Guru</dt><dd>{selectedAssignment.teacherName}</dd></div>
-              <div><dt>Tahun</dt><dd>{activeYear.label}</dd></div>
+              <div><dt>Tahun</dt><dd>{activeYear?.label ?? "-"}</dd></div>
             </dl>
           )}
         </div>
@@ -328,6 +320,18 @@ export function LainnyaPage() {
 
       {/* ---------- DOCUMENT AREA ---------- */}
       <div className="doc-document-area">
+        {(!activeYear || !teacher) && (
+          <Card className="border-amber-200 bg-amber-50 mb-3 no-print">
+            <div className="flex items-start gap-3">
+              <span className="text-amber-600 text-xl">⚠</span>
+              <div>
+                <p className="font-semibold text-amber-900">Profil/tahun belum lengkap</p>
+                <p className="text-sm text-amber-800 mt-1">Lengkapi profil dan tahun pelajaran terlebih dahulu.</p>
+                <Link to="/profile"><Button variant="secondary" className="text-sm mt-2">Lengkapi Profil</Button></Link>
+              </div>
+            </div>
+          </Card>
+        )}
         {error && <div className="p-3 rounded-md bg-rose-50 border border-rose-200 text-sm text-rose-700 mb-3 no-print" role="status" aria-live="polite">{error}</div>}
         {success && <div className="p-3 rounded-md bg-emerald-50 border border-emerald-200 text-sm text-emerald-700 mb-3 no-print" role="status" aria-live="polite">{success}</div>}
 
@@ -341,7 +345,12 @@ export function LainnyaPage() {
           onSetFinal={handleSetFinal}
           onOrientationChange={handleOrientationChange}
         >
-          {!selectedAssignment ? (
+          {!activeYear || !teacher ? (
+            <div className="flex flex-col items-center justify-center h-full text-slate-400 py-20">
+              <p className="text-lg font-medium">Profil/Tahun Belum Lengkap</p>
+              <p className="text-sm mt-1">Lengkapi profil dan tahun pelajaran terlebih dahulu.</p>
+            </div>
+          ) : !selectedAssignment ? (
             <div className="flex flex-col items-center justify-center h-full text-slate-400 py-20">
               <p className="text-lg font-medium">Pilih Kelas dan Mapel</p>
               <p className="text-sm mt-1">Buka sidebar untuk memilih assignment.</p>
@@ -351,29 +360,14 @@ export function LainnyaPage() {
               title={docTitle}
               content={docContent}
               school={school}
-              teacher={teacher}
-              academicYear={activeYear}
+              teacher={teacher!}
+              academicYear={activeYear!}
               semester={docSemester}
               assignment={selectedAssignment}
             />
           )}
         </DocumentPreview>
       </div>
-    </div>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/*  Header (for non-WYSIWYG empty states)                             */
-/* ------------------------------------------------------------------ */
-
-function Header() {
-  return (
-    <div>
-      <h1 className="text-2xl font-bold text-slate-900">Dokumen Lainnya</h1>
-      <p className="text-sm text-slate-500 mt-1">
-        Buat dokumen administrasi lain yang tidak masuk kategori spesifik.
-      </p>
     </div>
   );
 }

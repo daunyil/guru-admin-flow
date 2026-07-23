@@ -14,6 +14,8 @@ import {
   ClipboardList,
   BookMarked,
   Printer,
+  Home,
+  Library,
 } from "./icons";
 
 export interface NavItem {
@@ -30,6 +32,12 @@ export interface NavGroup {
 /** Sidebar desktop — menu ringkas berbasis kerja guru. */
 export const NAV_GROUPS: NavGroup[] = [
   {
+    title: "Menu Utama",
+    items: [
+      { to: "/", label: "Hari Ini", icon: Home },
+    ],
+  },
+  {
     title: "Harian",
     items: [
       { to: "/attendance", label: "Absen", icon: CheckCircle },
@@ -41,8 +49,9 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    title: "Administrasi",
+    title: "Data & Administrasi",
     items: [
+      { to: "/assignments", label: "Kelas dan Mapel", icon: Library },
       { to: "/admin-package", label: "Paket Admin", icon: BookMarked },
       { to: "/report-center", label: "Pusat Laporan", icon: Printer },
     ],

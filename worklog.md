@@ -854,3 +854,26 @@ Stage Summary:
 - PDF audit report: /home/z/my-project/download/guru-admin-audit-sprint-a-b.pdf (125.1 KB, 22 halaman)
 - Temuan: 3 Kritis, 5 Tinggi, 7 Sedang, 4 Rendah (Sprint A); 1 Kritis, 4 Tinggi, 4 Sedang, 3 Rendah+Info (Sprint B)
 - Temuan kritis: (1) null-to-undefined coercion menghilangkan semantik penilaian, (2) missing error handling pada data loading, (3) HTML export tanpa sanitization, (4) KD-to-UH remapping tanpa pemisahan data
+
+---
+Task ID: print-css-consolidation
+Agent: Main Agent
+Task: Refactor Print CSS & Fix Table Layout — consolidate @media print rules and fix broken print formatting
+
+Work Log:
+- STEP 1a: Removed entire @media print block from index.css (the "smoking gun" — global th/td font-size:10pt, .document-page padding:0, visibility:hidden)
+- STEP 1b: Removed @media print block from wysiwyg-canvas.css, replaced with comment pointing to document-print.css
+- STEP 1c: Rewrote document-print.css as Single Source of Truth with consolidated print rules from all 3 files
+  - Key fixes: NO global th/td override (only .document-table scoped), RESTORED .document-page padding, unified visibility strategy
+- STEP 2: Updated DocumentLayout.tsx — added <colgroup> auto-generation from leaf header row style.width, added footer?: DocumentCell[][] prop for <tfoot>, improved renderCell key prefixes
+- STEP 3: Verified all 15 DocumentTable call sites — none use style.width yet (colgroup will activate automatically when they do)
+- Added document-print.css import to main.tsx so print styles are globally available
+- Fixed no-print class @apply error in index.css (Tailwind doesn't know custom class)
+- Build succeeded, deployed to public/teacher-admin/
+
+Stage Summary:
+- Root cause fixed: global th/td font-size:10pt !important in index.css was overriding compact tables (Promes 6.2pt, Absensi 7.6pt)
+- Root cause fixed: .document-page padding:0 !important was stripping page margins
+- Print CSS consolidated from 3 conflicting files into 1 (document-print.css)
+- DocumentTable now supports <colgroup> (auto from header widths) and <tfoot> (new footer prop)
+- No breaking changes — existing DocumentTable calls work without modification

@@ -32,13 +32,14 @@ import {
 } from "../../shared/db/school-document-repo";
 import type { SchoolDocOrientation, DocumentStatus } from "@guru-admin/domain";
 
-type Status = "present" | "sick" | "excused" | "absent";
+type Status = "present" | "sick" | "excused" | "absent" | "late";
 type Mode = "jadwal" | "susulan";
 type SaveInfo = { sessionId: string; subject: string; classLabel: string; date: string; summary: ReturnType<typeof summarizeAttendance> };
 const statusButtons: Array<{ value: Status; short: string; active: string }> = [
   { value: "present", short: "H", active: "bg-brand-600 text-white" },
   { value: "sick", short: "S", active: "bg-amber-500 text-white" },
   { value: "excused", short: "I", active: "bg-slate-500 text-white" },
+  { value: "late", short: "T", active: "bg-orange-500 text-white" },
   { value: "absent", short: "A", active: "bg-rose-600 text-white" },
 ];
 
@@ -76,19 +77,25 @@ export function QuickAttendancePage() {
   useEffect(() => { void init(); }, []);
 
   async function init() {
-    const [activeYear, profile] = await Promise.all([getActiveAcademicYear(), getTeacherProfile()]);
-    setYear(activeYear ?? null); setTeacher(profile);
-    if (activeYear && profile) {
-      const today = todayISODate();
-      const sem: 1 | 2 = activeYear.semester2Start <= today && today <= activeYear.semester2End ? 2 : 1;
-      setDocSemester(sem);
-      const list = await listAssignmentsByTeacher(profile.id, activeYear.id, sem);
-      setAssignments(list); if (list[0]) setAssignmentId(list[0].id);
+    try {
+      const [activeYear, profile] = await Promise.all([getActiveAcademicYear(), getTeacherProfile()]);
+      setYear(activeYear ?? null); setTeacher(profile);
+      if (activeYear && profile) {
+        const today = todayISODate();
+        const sem: 1 | 2 = activeYear.semester2Start <= today && today <= activeYear.semester2End ? 2 : 1;
+        setDocSemester(sem);
+        const list = await listAssignmentsByTeacher(profile.id, activeYear.id, sem);
+        setAssignments(list); if (list[0]) setAssignmentId(list[0].id);
+      }
+      const sid = searchParams.get("sessionId");
+      if (sid) setSelectedSessionId(sid);
+      if (searchParams.get("mode") === "susulan") setMode("susulan");
+    } catch (err) {
+      console.error("[QuickAttendance] Gagal init:", err);
+      setNotice("Gagal memuat data. Coba muat ulang.");
+    } finally {
+      setLoading(false);
     }
-    const sid = searchParams.get("sessionId");
-    if (sid) setSelectedSessionId(sid);
-    if (searchParams.get("mode") === "susulan") setMode("susulan");
-    setLoading(false);
   }
 
   useEffect(() => { void loadTodaySessions(); }, [date, teacher?.id]);
@@ -100,14 +107,18 @@ export function QuickAttendancePage() {
 
   async function loadTodaySessions() {
     if (!teacher) return;
-    const todaySessions = await getLessonSessionsByDate(teacher.id, date);
-    setSessions(todaySessions);
-    const doneSet = new Set<string>();
-    for (const s of todaySessions) {
-      const records = await getAttendanceBySession(s.id);
-      if (records.length > 0) doneSet.add(s.id);
+    try {
+      const todaySessions = await getLessonSessionsByDate(teacher.id, date);
+      setSessions(todaySessions);
+      const doneSet = new Set<string>();
+      for (const s of todaySessions) {
+        const records = await getAttendanceBySession(s.id);
+        if (records.length > 0) doneSet.add(s.id);
+      }
+      setTodayDoneIds(doneSet);
+    } catch (err) {
+      console.error("[QuickAttendance] Gagal memuat sesi:", err);
     }
-    setTodayDoneIds(doneSet);
   }
 
   function assignment(): TeachingAssignment | undefined {
@@ -117,11 +128,15 @@ export function QuickAttendancePage() {
   async function loadSusulan() {
     if (!year || !assignment()) { setAllSessions([]); setAllRecords([]); return; }
     const a = assignment(); if (!a) return;
-    const sess = (await listLessonSessions(year.id, a.semester)).filter((s) => !s.deletedAt && s.classId === a.classId && s.subject === a.subject && s.teacherId === a.teacherId).sort((x, y) => x.date.localeCompare(y.date) || x.startPeriod - y.startPeriod);
-    setAllSessions(sess);
-    const ids = new Set(sess.map((s) => s.id));
-    const rows = await db.attendanceRecords.where("classId").equals(a.classId).toArray();
-    setAllRecords(rows.filter((r) => !r.deletedAt && ids.has(r.sessionId)) as AttendanceRecord[]);
+    try {
+      const sess = (await listLessonSessions(year.id, a.semester)).filter((s) => !s.deletedAt && s.classId === a.classId && s.subject === a.subject && s.teacherId === a.teacherId).sort((x, y) => x.date.localeCompare(y.date) || x.startPeriod - y.startPeriod);
+      setAllSessions(sess);
+      const ids = new Set(sess.map((s) => s.id));
+      const rows = await db.attendanceRecords.where("classId").equals(a.classId).toArray();
+      setAllRecords(rows.filter((r) => !r.deletedAt && ids.has(r.sessionId)) as AttendanceRecord[]);
+    } catch (err) {
+      console.error("[QuickAttendance] Gagal memuat susulan:", err);
+    }
   }
 
   async function afterSave(info: SaveInfo) { setNotice("Absensi tersimpan."); setSaved(info); await loadTodaySessions(); await loadSusulan(); }
@@ -166,6 +181,8 @@ export function QuickAttendancePage() {
         setDocStatus("draft");
         setFormatDokumen("portrait");
       }
+    } catch (err) {
+      console.error("[QuickAttendance] Gagal ensureDoc:", err);
     } finally {
       ensuringRef.current = false;
     }
@@ -226,6 +243,17 @@ export function QuickAttendancePage() {
   /* ---------------------------------------------------------------- */
 
   if (loading) return <LoadingState />;
+
+  if (!year) {
+    return (
+      <Card>
+        <EmptyState
+          title="Belum ada tahun pelajaran aktif"
+          description="Buat tahun pelajaran baru atau gunakan data contoh terlebih dahulu."
+        />
+      </Card>
+    );
+  }
 
   /* ================================================================ */
   /*  WYSIWYG VIEW — sidebar + document                                */
@@ -297,12 +325,12 @@ export function QuickAttendancePage() {
           </div>
         )}
 
-        {/* -- Daftar Pertemuan (Susulan) -- */}
+        {/* -- Daftar Pertemuan (Susulan) -- SELALU TAMPIL */}
         {mode === "susulan" && (
           <div className="doc-sidebar-section">
             <h3 className="doc-sidebar-section-title">Susulan</h3>
             {assignments.length === 0 ? (
-              <p className="text-xs text-slate-400 italic">Belum ada Kelas dan Mapel.</p>
+              <p className="text-xs text-slate-400 italic">Belum ada Kelas dan Mapel. Buat dulu di menu Kelas dan Mapel atau gunakan data contoh.</p>
             ) : (
               <Select label="Kelas dan Mapel" id="susulan-asg" value={assignmentId} onChange={(v) => { setAssignmentId(v); setSelectedSessionId(null); }} options={[{ value: "", label: "-- Pilih --" }, ...assignments.map((a) => ({ value: a.id, label: `${a.classLabel} · ${a.subject}` }))]} />
             )}
@@ -323,6 +351,9 @@ export function QuickAttendancePage() {
                   );
                 })}
               </div>
+            )}
+            {assignmentId && allSessions.length === 0 && (
+              <p className="text-xs text-amber-600 italic mt-2">Belum ada sesi untuk kelas dan mapel ini. Buat jadwal mengajar terlebih dahulu.</p>
             )}
           </div>
         )}
@@ -355,26 +386,33 @@ export function QuickAttendancePage() {
           onOrientationChange={handleOrientationChange}
         >
           {!selectedSessionId ? (
-            <div className="flex flex-col items-center justify-center h-full text-slate-400 py-20">
-              <p className="text-lg font-medium">Pilih Pertemuan</p>
-              <p className="text-sm mt-1">Buka sidebar untuk memilih sesi.</p>
-            </div>
+            <AttendanceUnfilledList
+              mode={mode}
+              date={date}
+              sessions={sessions}
+              allSessions={allSessions}
+              todayDoneIds={todayDoneIds}
+              doneIds={doneIds}
+              assignmentId={assignmentId}
+              assignments={assignments}
+              onPickSession={handlePickSession}
+            />
           ) : (
             <AttendanceEditor sessionId={selectedSessionId} date={date} year={year} onSaved={afterSave} onError={setNotice} />
           )}
 
           {/* Rekap Absensi Document (shown when susulan mode has data) */}
           {mode === "susulan" && assignmentId && allSessions.length > 0 && (
-            <div className="document-page document-portrait mt-6">
+            <div className="document-page document-portrait mt-6" style={{ fontFamily: 'Arial, Helvetica, sans-serif', fontSize: '11pt', lineHeight: '1.25', width: '100%', boxSizing: 'border-box' }}>
               <div className="document-title">REKAP ABSENSI</div>
               <div className="document-subtitle">{year?.label ?? ""} — Semester {assignment()?.semester === 1 ? "Ganjil" : "Genap"}</div>
-              <table className="document-identity">
+              <table className="document-identity" style={{ fontFamily: 'Arial, Helvetica, sans-serif', width: '100%', borderCollapse: 'collapse', boxSizing: 'border-box' }}>
                 <tbody>
                   <tr><td>Kelas</td><td>{assignment()?.classLabel ?? "-"}</td><td>Mapel</td><td>{assignment()?.subject ?? "-"}</td></tr>
                   <tr><td>Guru</td><td>{assignment()?.teacherName ?? "-"}</td><td>Total Pertemuan</td><td>{allSessions.length}</td></tr>
                 </tbody>
               </table>
-              <table className="document-table">
+              <table className="document-table" style={{ fontFamily: 'Arial, Helvetica, sans-serif', width: '100%', tableLayout: 'fixed', borderCollapse: 'collapse', boxSizing: 'border-box' }}>
                 <thead>
                   <tr>
                     <th style={{ width: "5%" }}>No</th>
@@ -412,6 +450,219 @@ export function QuickAttendancePage() {
               <Button onClick={() => { window.location.hash = `#/journal?sessionId=${saved.sessionId}`; }}>Lanjut Isi Jurnal</Button>
               <Button variant="secondary" onClick={closeSaved}>Tutup</Button>
             </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  AttendanceUnfilledList — daftar sesi yang belum diisi absensi      */
+/* ------------------------------------------------------------------ */
+
+function AttendanceUnfilledList({
+  mode,
+  date,
+  sessions,
+  allSessions,
+  todayDoneIds,
+  doneIds,
+  assignmentId,
+  assignments,
+  onPickSession,
+}: {
+  mode: Mode;
+  date: string;
+  sessions: LessonSession[];
+  allSessions: LessonSession[];
+  todayDoneIds: Set<string>;
+  doneIds: Set<string>;
+  assignmentId: string;
+  assignments: TeachingAssignment[];
+  onPickSession: (sid: string) => void;
+}) {
+  // Mode Jadwal: tampilkan sesi hari ini
+  if (mode === "jadwal") {
+    const unfilled = sessions.filter((s) => !todayDoneIds.has(s.id) && s.status !== "cancelled");
+    const filled = sessions.filter((s) => todayDoneIds.has(s.id));
+    const cancelled = sessions.filter((s) => s.status === "cancelled");
+
+    return (
+      <div className="py-6 px-4">
+        <h3 className="text-lg font-bold text-slate-900 mb-1">Daftar Absensi</h3>
+        <p className="text-sm text-slate-500 mb-4">{formatLongDateID(date)} · {sessions.length} sesi</p>
+
+        {/* Belum diisi */}
+        {unfilled.length > 0 && (
+          <div className="mb-4">
+            <h4 className="text-sm font-semibold text-rose-700 mb-2 flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-rose-500" />
+              Belum Diisi ({unfilled.length})
+            </h4>
+            <div className="space-y-2">
+              {unfilled.map((s) => (
+                <div key={s.id} className="p-3 border border-rose-200 bg-rose-50 rounded-lg flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-slate-900 truncate">{s.subject} — {s.classLabel}</p>
+                    <p className="text-xs text-slate-500">{s.startTime}–{s.endTime} · Jam {s.startPeriod}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => onPickSession(s.id)}
+                    className="shrink-0 px-3 py-1.5 text-xs font-medium rounded-md bg-rose-600 text-white hover:bg-rose-700 transition-colors"
+                  >
+                    Isi Absen
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Sudah diisi */}
+        {filled.length > 0 && (
+          <div className="mb-4">
+            <h4 className="text-sm font-semibold text-emerald-700 mb-2 flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-500" />
+              Sudah Diisi ({filled.length})
+            </h4>
+            <div className="space-y-2">
+              {filled.map((s) => (
+                <div key={s.id} className="p-3 border border-emerald-200 bg-emerald-50 rounded-lg flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-slate-900 truncate">{s.subject} — {s.classLabel}</p>
+                    <p className="text-xs text-slate-500">{s.startTime}–{s.endTime} · Jam {s.startPeriod}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => onPickSession(s.id)}
+                    className="shrink-0 px-3 py-1.5 text-xs font-medium rounded-md border border-emerald-300 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 transition-colors"
+                  >
+                    Lihat
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Batal */}
+        {cancelled.length > 0 && (
+          <div className="mb-4">
+            <h4 className="text-sm font-semibold text-slate-500 mb-2 flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-slate-400" />
+              Dibatalkan ({cancelled.length})
+            </h4>
+            <div className="space-y-2">
+              {cancelled.map((s) => (
+                <div key={s.id} className="p-3 border border-slate-200 bg-slate-50 rounded-lg opacity-60">
+                  <p className="text-sm font-medium text-slate-500 truncate">{s.subject} — {s.classLabel}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {sessions.length === 0 && (
+          <div className="text-center py-8 text-slate-400">
+            <p className="text-base font-medium">Tidak ada sesi di tanggal ini</p>
+            <p className="text-sm mt-1">Coba pilih tanggal lain atau gunakan mode Susulan.</p>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Mode Susulan: tampilkan semua sesi per assignment
+  if (!assignmentId) {
+    return (
+      <div className="py-10 px-4 text-center">
+        <p className="text-lg font-medium text-slate-500">Pilih Kelas dan Mapel</p>
+        <p className="text-sm text-slate-400 mt-1">Buka sidebar atau pilih kelas dan mapel untuk melihat daftar pertemuan.</p>
+        {assignments.length === 0 && (
+          <p className="text-sm text-amber-600 mt-3">Belum ada Kelas dan Mapel. Buat dulu di menu Kelas dan Mapel.</p>
+        )}
+      </div>
+    );
+  }
+
+  if (allSessions.length === 0) {
+    return (
+      <div className="py-10 px-4 text-center">
+        <p className="text-lg font-medium text-slate-500">Belum ada sesi</p>
+        <p className="text-sm text-slate-400 mt-1">Buat jadwal mengajar terlebih dahulu agar sesi muncul di sini.</p>
+      </div>
+    );
+  }
+
+  const unfilled = allSessions.filter((s) => !doneIds.has(s.id));
+  const filled = allSessions.filter((s) => doneIds.has(s.id));
+  const asg = assignments.find((a) => a.id === assignmentId);
+
+  return (
+    <div className="py-6 px-4">
+      <h3 className="text-lg font-bold text-slate-900 mb-1">
+        Daftar Absensi {asg ? `${asg.classLabel} · ${asg.subject}` : ""}
+      </h3>
+      <p className="text-sm text-slate-500 mb-4">
+        {filled.length} diisi · {unfilled.length} belum diisi · Total {allSessions.length} pertemuan
+      </p>
+
+      {/* Belum diisi — prioritas utama */}
+      {unfilled.length > 0 && (
+        <div className="mb-4">
+          <h4 className="text-sm font-semibold text-rose-700 mb-2 flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-rose-500" />
+            Belum Diisi ({unfilled.length})
+          </h4>
+          <div className="space-y-1.5 max-h-96 overflow-y-auto">
+            {unfilled.map((s, i) => (
+              <div key={s.id} className="p-2.5 border border-rose-200 bg-rose-50 rounded-lg flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-slate-900">
+                    P{i + 1} · {formatLongDateID(s.date)}
+                  </p>
+                  <p className="text-xs text-slate-500">{s.subject} · {s.classLabel}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => onPickSession(s.id)}
+                  className="shrink-0 px-3 py-1.5 text-xs font-medium rounded-md bg-rose-600 text-white hover:bg-rose-700 transition-colors"
+                >
+                  Isi Absen
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Sudah diisi */}
+      {filled.length > 0 && (
+        <div>
+          <h4 className="text-sm font-semibold text-emerald-700 mb-2 flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-emerald-500" />
+            Sudah Diisi ({filled.length})
+          </h4>
+          <div className="space-y-1.5 max-h-64 overflow-y-auto">
+            {filled.map((s, i) => (
+              <div key={s.id} className="p-2.5 border border-emerald-200 bg-emerald-50 rounded-lg flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-slate-900">
+                    P{i + 1} · {formatLongDateID(s.date)}
+                  </p>
+                  <p className="text-xs text-slate-500">{s.subject} · {s.classLabel}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => onPickSession(s.id)}
+                  className="shrink-0 px-3 py-1.5 text-xs font-medium rounded-md border border-emerald-300 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 transition-colors"
+                >
+                  Lihat
+                </button>
+              </div>
+            ))}
           </div>
         </div>
       )}
@@ -474,10 +725,11 @@ function AttendanceEditor({ sessionId, date, year, onSaved, onError }: { session
         <h3 className="text-sm font-bold text-slate-900">Absensi — {roster.classLabel}</h3>
         <p className="text-xs text-slate-500">{session?.subject ?? "Mapel"} · {formatLongDateID(session?.date ?? date)}</p>
       </div>
-      <div className="grid grid-cols-4 gap-2 mb-4 text-center no-print">
+      <div className="grid grid-cols-5 gap-2 mb-4 text-center no-print">
         <div className="p-2 bg-brand-50 rounded"><span className="font-bold text-brand-700">H {summary.present}</span></div>
         <div className="p-2 bg-amber-50 rounded"><span className="font-bold text-amber-700">S {summary.sick}</span></div>
         <div className="p-2 bg-slate-100 rounded"><span className="font-bold text-slate-600">I {summary.excused}</span></div>
+        <div className="p-2 bg-orange-50 rounded"><span className="font-bold text-orange-700">T {summary.late}</span></div>
         <div className="p-2 bg-rose-50 rounded"><span className="font-bold text-rose-700">A {summary.absent}</span></div>
       </div>
       <div className="space-y-2 max-h-96 overflow-y-auto no-print">
@@ -499,7 +751,7 @@ function AttendanceEditor({ sessionId, date, year, onSaved, onError }: { session
         ))}
       </div>
       <div className="sticky bottom-0 mt-4 pt-3 bg-white border-t no-print">
-        <Button onClick={save} className="w-full">Simpan Absensi</Button>
+        <Button onClick={save} disabled={changes.size === 0} className="w-full">{changes.size === 0 ? "Tidak Ada Perubahan" : "Simpan Absensi"}</Button>
       </div>
     </div>
   );

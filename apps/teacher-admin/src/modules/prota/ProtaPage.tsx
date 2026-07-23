@@ -823,14 +823,14 @@ function ProtaDocument({
 
   return (
     <div className="print-area">
-      <div className="document-page document-portrait">
+      <div className="document-page document-portrait" style={{ fontFamily: 'Arial, Helvetica, sans-serif', fontSize: '11pt', lineHeight: '1.25', width: '100%', boxSizing: 'border-box' }}>
         <div className="document-title">PROGRAM TAHUNAN</div>
         <div className="document-subtitle">
           SEMESTER {semester === 1 ? "1 (GANJIL)" : "2 (GENAP)"} — TAHUN PELAJARAN {tahunAjaran}
         </div>
 
         {/* Identity table */}
-        <table className="document-identity">
+        <table className="document-identity" style={{ fontFamily: 'Arial, Helvetica, sans-serif', width: '100%', borderCollapse: 'collapse', boxSizing: 'border-box' }}>
           <tbody>
             <tr>
               <td>Satuan Pendidikan</td>
@@ -855,7 +855,7 @@ function ProtaDocument({
 
         {/* Main table: Unit Materi */}
         <div className="document-section-title">DAFTAR MATERI / TUJUAN PEMBELAJARAN</div>
-        <table className="document-table prota-table">
+        <table className="document-table prota-table" style={{ fontFamily: 'Arial, Helvetica, sans-serif', width: '100%', tableLayout: 'fixed', borderCollapse: 'collapse', boxSizing: 'border-box' }}>
           <thead>
             <tr>
               <th style={{ width: "6%" }}>No</th>

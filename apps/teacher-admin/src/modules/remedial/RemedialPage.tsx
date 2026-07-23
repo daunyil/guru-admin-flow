@@ -27,7 +27,7 @@ import {
   deleteRemedialProgram,
 } from "../../shared/db/remedial-repo";
 // WYSIWYG-DOC-FASE6
-import { DocumentPreview } from "../../shared/documents";
+import { DocumentPreview, RemedialEnrichmentDocument } from "../../shared/documents";
 import {
   saveSchoolDocument,
   updateSchoolDocumentData,
@@ -202,6 +202,7 @@ export function RemedialPage() {
   const [docId, setDocId] = useState<string | undefined>();
   const [docStatus, setDocStatus] = useState<DocumentStatus>("draft");
   const [formatDokumen, setFormatDokumen] = useState<SchoolDocOrientation>("portrait");
+  const [docView, setDocView] = useState<"remedial" | "remedial-enrichment">("remedial");
 
   const ensuringRef = useRef(false);
 
@@ -590,6 +591,13 @@ export function RemedialPage() {
             <div><dt>Mapel</dt><dd>{program.subject}</dd></div>
             <div><dt>Kelas</dt><dd>{program.classLabel}</dd></div>
           </dl>
+          <div className="mt-2">
+            <label className="text-xs font-medium text-slate-500 block mb-1">Tampilan Dokumen</label>
+            <div className="flex gap-1">
+              <Button variant={docView === "remedial" ? "primary" : "secondary"} className="text-xs flex-1" onClick={() => setDocView("remedial")}>Remedial</Button>
+              <Button variant={docView === "remedial-enrichment" ? "primary" : "secondary"} className="text-xs flex-1" onClick={() => setDocView("remedial-enrichment")}>Remedial & Pengayaan</Button>
+            </div>
+          </div>
         </div>
 
         {/* Isi Otomatis */}
@@ -758,21 +766,54 @@ export function RemedialPage() {
         <DocumentPreview
           docId={docId}
           docType="remedial"
-          orientation={formatDokumen}
+          orientation={docView === "remedial-enrichment" ? "landscape" : formatDokumen}
           status={docStatus}
           data={docDataForAutoSave}
           onSave={handleSaveDoc}
           onSetFinal={handleSetFinal}
-          onOrientationChange={handleOrientationChange}
-          showFormatToggle={false}
+          onOrientationChange={docView === "remedial-enrichment" ? undefined : handleOrientationChange}
+          showFormatToggle={docView !== "remedial-enrichment"}
         >
-          <RemedialDocument
-            program={program}
-            plan={plan}
-            school={school}
-            teacher={teacher}
-            year={year}
-          />
+          {docView === "remedial-enrichment" ? (
+            <RemedialEnrichmentDocument
+              withPrintArea={false}
+              data={{
+                context: {
+                  schoolName: school?.name,
+                  schoolAddress: school?.address,
+                  schoolOffice: "Dinas Pendidikan",
+                  academicYear: year?.label,
+                  semester: program.semester === 1 ? "Ganjil" : "Genap",
+                  teacherName: program.teacherName ?? teacher?.name,
+                  subject: program.subject,
+                  classLabel: program.classLabel,
+                  headmasterName: school?.headmasterName,
+                  headmasterNip: school?.headmasterNip,
+                  place: school?.regency ?? "",
+                  dateLabel: formatLongDateID(program.startDate ?? todayISODate()),
+                },
+                kktp: program.kktp,
+                rows: program.students.map((s, i) => ({
+                  no: i + 1,
+                  name: s.studentName,
+                  initialScore: s.finalScore ?? "—",
+                  unfinishedTp: s.tpToImprove ?? "—",
+                  activityType: "Remedial" as const,
+                  activity: s.method ?? "Pembelajaran ulang / tugas perbaikan",
+                  finalScore: s.remedialScore ?? "—",
+                  status: (s.remedialScore !== undefined && s.remedialScore !== null && Number(s.remedialScore) >= program.kktp) ? "TUNTAS" as const : "BELUM TUNTAS" as const,
+                })),
+              }}
+            />
+          ) : (
+            <RemedialDocument
+              program={program}
+              plan={plan}
+              school={school}
+              teacher={teacher}
+              year={year}
+            />
+          )}
         </DocumentPreview>
       </div>
 

@@ -16,7 +16,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Card, CardHeader, Input, Textarea, Button, EmptyState, Badge, Select, LoadingState } from "../../shared/ui";
+import { Card, CardHeader, Input, Textarea, Button, Badge, Select, LoadingState } from "../../shared/ui";
 import { getActiveAcademicYear, getTeacherProfile, getSchoolProfile } from "../../shared/db/profile-repo";
 import {
   listATPEntries,
@@ -25,7 +25,7 @@ import {
   deleteATPEntry,
 } from "../../shared/db/atp-entry-repo";
 import { listLKPDs } from "../../shared/db/lkpd-repo";
-import type { AcademicYear, TeacherProfile, ATPEntry, LKPD } from "@guru-admin/domain";
+import type { AcademicYear, TeacherProfile, ATPEntry, LKPD, SchoolProfile } from "@guru-admin/domain";
 import {
   atpEntryLabel,
   validateAtpImport,
@@ -35,7 +35,7 @@ import {
   type AtpPasteMeta,
 } from "@guru-admin/domain";
 // WYSIWYG-DOC-FASE5
-import { DocumentPreview } from "../../shared/documents";
+import { DocumentPreview, AtpReportDocument } from "../../shared/documents";
 import {
   saveSchoolDocument,
   updateSchoolDocumentData,
@@ -78,8 +78,10 @@ export function ATPPage() {
 
   // WYSIWYG-DOC-FASE5: document state
   const [schoolName, setSchoolName] = useState<string>("");
+  const [school, setSchool] = useState<SchoolProfile | undefined>();
   const [showSidebar, setShowSidebar] = useState(() => window.innerWidth >= 1024);
   const [formatDokumen, setFormatDokumen] = useState<"portrait" | "landscape">("portrait");
+  const [docView, setDocView] = useState<"atp-inline" | "atp-report">("atp-inline");
   const [docId, setDocId] = useState<string | undefined>(undefined);
   const [docStatus, setDocStatus] = useState<DocumentStatus>("draft");
   const [filterSubject, setFilterSubject] = useState<string>("");
@@ -117,6 +119,7 @@ export function ATPPage() {
         }
       }
       const sp = await getSchoolProfile();
+      setSchool(sp);
       setSchoolName(sp?.name ?? "");
       setLoading(false);
     })();
@@ -422,19 +425,7 @@ Format: sesuaikan dengan standar Kurikulum Merdeka untuk ${entry.grade}.`;
 
   if (loading) return <LoadingState />;
 
-  if (!year || !teacher) {
-    return (
-      <div className="space-y-4">
-        <h1 className="text-2xl font-bold text-slate-900">Bank TP</h1>
-        <Card>
-          <EmptyState
-            title="Belum siap"
-            description="Buat tahun pelajaran aktif dan profil guru dulu di menu Profil."
-          />
-        </Card>
-      </div>
-    );
-  }
+  const profileIncomplete = !year || !teacher;
 
   /* ================================================================ */
   /*  ALWAYS-ON WYSIWYG LAYOUT — sidebar + document                   */
@@ -477,6 +468,14 @@ Format: sesuaikan dengan standar Kurikulum Merdeka untuk ${entry.grade}.`;
               </button>
             </div>
 
+            {/* Profile incomplete notice */}
+            {profileIncomplete && (
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-md mb-3">
+                <p className="font-semibold text-amber-900">Profil/tahun belum lengkap</p>
+                <p className="text-sm text-amber-800 mt-1">Lengkapi profil sekolah dan guru terlebih dahulu untuk menggunakan fitur Bank TP.</p>
+              </div>
+            )}
+
             {/* Konteks */}
             <div className="doc-sidebar-section">
               <h3 className="doc-sidebar-section-title">Konteks</h3>
@@ -500,7 +499,7 @@ Format: sesuaikan dengan standar Kurikulum Merdeka untuk ${entry.grade}.`;
                   ...grades.map((g) => ({ value: g, label: g })),
                 ]}
               />
-              <p className="text-[10px] text-slate-400 mt-1">{teacher.name} · {year.label}</p>
+              <p className="text-[10px] text-slate-400 mt-1">{teacher?.name ?? "..."} · {year?.label ?? "..."}</p>
             </div>
 
             {/* Ringkasan */}
@@ -513,6 +512,13 @@ Format: sesuaikan dengan standar Kurikulum Merdeka untuk ${entry.grade}.`;
                 <div><dt>Mapel</dt><dd>{filterSubject || "Semua"}</dd></div>
                 <div><dt>Kelas</dt><dd>{filterGrade || "Semua"}</dd></div>
               </dl>
+              <div className="mt-2">
+                <label className="text-xs font-medium text-slate-500 block mb-1">Tampilan Dokumen</label>
+                <div className="flex gap-1">
+                  <Button variant={docView === "atp-inline" ? "primary" : "secondary"} className="text-xs flex-1" onClick={() => setDocView("atp-inline")}>ATP (Per Bab)</Button>
+                  <Button variant={docView === "atp-report" ? "primary" : "secondary"} className="text-xs flex-1" onClick={() => setDocView("atp-report")}>ATP (Format Resmi)</Button>
+                </div>
+              </div>
             </div>
 
             {/* Kelola TP */}
@@ -596,26 +602,57 @@ Format: sesuaikan dengan standar Kurikulum Merdeka untuk ${entry.grade}.`;
 
         {/* Document Area */}
         <div className="doc-document-area">
+          {profileIncomplete && (
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded-md mb-3 no-print">
+              <p className="font-semibold text-amber-900">Profil/tahun belum lengkap</p>
+              <p className="text-sm text-amber-800 mt-1">Lengkapi profil sekolah dan guru terlebih dahulu untuk menggunakan fitur Bank TP.</p>
+            </div>
+          )}
           <DocumentPreview
             docId={docId}
             docType="atp"
-            orientation={formatDokumen}
+            orientation={docView === "atp-report" ? "landscape" : formatDokumen}
             status={docStatus}
             data={docDataForAutoSave}
             onSave={handleSaveDoc}
             onSetFinal={handleSetFinal}
-            onOrientationChange={handleOrientationChange}
-            showFormatToggle={true}
+            onOrientationChange={docView === "atp-report" ? undefined : handleOrientationChange}
+            showFormatToggle={docView !== "atp-report"}
           >
-            <ATPDocument
-              subject={filterSubject}
-              grade={filterGrade}
-              tahunAjaran={year.label}
-              schoolName={schoolName}
-              teacherName={teacher.name}
-              entries={filteredEntries}
-              groupedByBab={groupedByBab}
-            />
+            {docView === "atp-report" ? (
+              <AtpReportDocument
+                withPrintArea={false}
+                data={{
+                  context: {
+                    schoolName: schoolName,
+                    academicYear: year?.label,
+                    semester: year?.semester2Start && new Date() >= new Date(year.semester2Start) ? "Genap" : "Ganjil",
+                    teacherName: teacher?.name,
+                    subject: filterSubject || "Semua Mapel",
+                    classLabel: filterGrade || "Semua Kelas",
+                    headmasterName: school?.headmasterName ?? "",
+                    headmasterNip: school?.headmasterNip ?? "",
+                  },
+                  rows: filteredEntries.map((entry) => ({
+                    element: entry.elemen ?? "",
+                    learningOutcome: entry.cp ?? "",
+                    learningObjective: entry.tp ?? "",
+                    allocationJp: entry.alokasiJP ?? 0,
+                    pancasilaProfile: entry.profilPelajar ?? "",
+                  })),
+                }}
+              />
+            ) : (
+              <ATPDocument
+                subject={filterSubject}
+                grade={filterGrade}
+                tahunAjaran={year?.label ?? ""}
+                schoolName={schoolName}
+                teacherName={teacher?.name ?? ""}
+                entries={filteredEntries}
+                groupedByBab={groupedByBab}
+              />
+            )}
           </DocumentPreview>
         </div>
       </div>

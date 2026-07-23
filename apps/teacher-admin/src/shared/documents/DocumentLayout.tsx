@@ -64,6 +64,9 @@ export interface DocumentTableProps {
   caption?: string;
   headers?: DocumentCell[][];
   rows?: DocumentCell[][];
+  /** Footer rows rendered inside <tfoot>. Useful for summary/total rows
+   *  that should stay at the bottom of the table and repeat on page breaks. */
+  footer?: DocumentCell[][];
   emptyText?: string;
   className?: string;
   compact?: boolean;
@@ -108,13 +111,13 @@ function isCellObject(cell: DocumentCell): cell is DocumentCellObject {
   return typeof cell === "object" && cell !== null && !Array.isArray(cell) && !("type" in cell);
 }
 
-function renderCell(cell: DocumentCell, tagName: "th" | "td", index: number): ReactNode {
+function renderCell(cell: DocumentCell, tagName: "th" | "td", keyPrefix: string): ReactNode {
   const Tag = tagName;
 
   if (isCellObject(cell)) {
     return (
       <Tag
-        key={index}
+        key={keyPrefix}
         colSpan={cell.colSpan}
         rowSpan={cell.rowSpan}
         className={cx(cell.align ? `text-${cell.align}` : undefined, cell.className)}
@@ -125,7 +128,7 @@ function renderCell(cell: DocumentCell, tagName: "th" | "td", index: number): Re
     );
   }
 
-  return <Tag key={index}>{cell}</Tag>;
+  return <Tag key={keyPrefix}>{cell}</Tag>;
 }
 
 function getMaxColumnCount(headers?: DocumentCell[][], rows?: DocumentCell[][]): number {
@@ -143,12 +146,92 @@ function getMaxColumnCount(headers?: DocumentCell[][], rows?: DocumentCell[][]):
   );
 }
 
+/**
+ * Build column width array for <colgroup> by tracking rowSpan/colSpan across header rows.
+ * For each column, finds the "leaf cell" (cell at the bottom-most occupied row level)
+ * and extracts its style.width. Only single-column cells (colSpan=1) contribute
+ * individual column widths; colSpan>1 cells are skipped to avoid distributing
+ * a combined width across spanned columns.
+ *
+ * This correctly handles multi-row headers where rowSpan cells from upper rows
+ * reach down to the leaf level — those cells are also considered leaf cells
+ * for their respective columns.
+ */
+function buildColWidths(headers: DocumentCell[][]): (string | undefined)[] {
+  if (headers.length === 0) return [];
+
+  const totalCols = getMaxColumnCount(headers);
+  if (totalCols === 0) return [];
+
+  const widths: (string | undefined)[] = new Array(totalCols).fill(undefined);
+
+  type GridEntry = { row: number; cellIdx: number; colSpan: number; rowSpan: number };
+  const occupied: (GridEntry | null)[][] = Array.from(
+    { length: headers.length },
+    () => new Array<GridEntry | null>(totalCols).fill(null)
+  );
+
+  for (let r = 0; r < headers.length; r++) {
+    let colCursor = 0;
+    for (let c = 0; c < headers[r].length; c++) {
+      while (colCursor < totalCols && occupied[r][colCursor] !== null) colCursor++;
+      if (colCursor >= totalCols) break;
+
+      const cell = headers[r][c];
+      const cs = isCellObject(cell) ? (cell.colSpan ?? 1) : 1;
+      const rs = isCellObject(cell) ? (cell.rowSpan ?? 1) : 1;
+
+      for (let dr = 0; dr < Math.min(rs, headers.length - r); dr++) {
+        for (let dc = 0; dc < cs; dc++) {
+          if (colCursor + dc < totalCols) {
+            occupied[r + dr][colCursor + dc] = { row: r, cellIdx: c, colSpan: cs, rowSpan: rs };
+          }
+        }
+      }
+
+      colCursor += cs;
+    }
+  }
+
+  const lastRow = headers.length - 1;
+  for (let col = 0; col < totalCols; col++) {
+    const entry = occupied[lastRow][col];
+    if (!entry) continue;
+
+    const cell = headers[entry.row][entry.cellIdx];
+    if (entry.colSpan === 1 && isCellObject(cell) && cell.style?.width) {
+      widths[col] = cell.style.width as string;
+    }
+  }
+
+  return widths;
+}
+
 export function DocumentPage({
   children,
   orientation = "portrait",
   className,
   toolbar,
 }: DocumentPageProps) {
+  /* INLINE-STYLE-FALLBACK: CSS conflicts dari index.css & wysiwyg-canvas.css
+     dapat override class-based rules. Inline style menjamin font & layout
+     A4 TIDAK terganggu oleh Tailwind @layer cascade atau .wysiwyg-canvas override. */
+  /* NAME-02 FIX: added width: "100%" to ensure document fills
+     container even when CSS class width (210mm/297mm) is overridden. */
+  /* PROMES-CASCADE-FIX: promes-landscape-page uses compressed 8pt font for
+     dense matrix. If className includes "promes-landscape-page", we skip
+     the inline fontSize override so document-print.css / wysiwyg-canvas.css
+     !important rules can take effect. Without this, inline fontSize:11pt
+     would override everything (inline > !important CSS). */
+  const isPromesLandscape = className?.includes("promes-landscape-page") ?? false;
+  const inlineStyle: React.CSSProperties = {
+    fontFamily: "Arial, Helvetica, sans-serif",
+    fontSize: isPromesLandscape ? undefined : "11pt",
+    lineHeight: isPromesLandscape ? undefined : "1.25",
+    width: "100%",
+    boxSizing: "border-box",
+  };
+
   return (
     <>
       {toolbar ? <div className="print-toolbar no-print">{toolbar}</div> : null}
@@ -156,8 +239,10 @@ export function DocumentPage({
         className={cx(
           "document-page",
           orientation === "landscape" && "document-landscape",
+          orientation === "portrait" && "document-portrait",
           className
         )}
+        style={inlineStyle}
       >
         {children}
       </article>
@@ -292,6 +377,7 @@ export function DocumentTable({
   caption,
   headers,
   rows,
+  footer,
   emptyText = "Belum tersedia",
   className,
   compact = false,
@@ -302,6 +388,15 @@ export function DocumentTable({
       ? rows
       : [[{ content: emptyText, colSpan, className: "text-center text-muted" }]];
 
+  /* --- Auto colgroup for column width locking ---
+   * Uses buildColWidths() to properly handle multi-row headers with rowSpan.
+   * For each column, finds the "leaf cell" (cell at the bottom-most row level)
+   * and extracts its style.width. Only single-column cells (colSpan=1)
+   * contribute individual column widths.
+   */
+  const colWidths = headers && headers.length > 0 ? buildColWidths(headers) : [];
+  const hasColWidths = colWidths.some((w) => w !== undefined);
+
   return (
     <div className="document-table-wrap">
       {caption ? <div className="document-table-caption">{caption}</div> : null}
@@ -311,23 +406,48 @@ export function DocumentTable({
           compact && "document-table-compact",
           className
         )}
+        style={{
+          fontFamily: "Arial, Helvetica, sans-serif",
+          width: "100%",
+          tableLayout: "fixed",
+          borderCollapse: "collapse",
+          boxSizing: "border-box",
+        }}
       >
+        {/* Auto Colgroup for Column Width Locking */}
+        {hasColWidths ? (
+          <colgroup>
+            {colWidths.map((width, idx) => (
+              <col key={`col-${idx}`} style={width ? { width } : undefined} />
+            ))}
+          </colgroup>
+        ) : null}
+
         {headers && headers.length > 0 ? (
           <thead>
             {headers.map((row, rowIndex) => (
-              <tr key={`header-${rowIndex}`}>
-                {row.map((cell, cellIndex) => renderCell(cell, "th", cellIndex))}
+              <tr key={`h-${rowIndex}`}>
+                {row.map((cell, cellIndex) => renderCell(cell, "th", `h-${rowIndex}-${cellIndex}`))}
               </tr>
             ))}
           </thead>
         ) : null}
         <tbody>
           {safeRows.map((row, rowIndex) => (
-            <tr key={`body-${rowIndex}`}>
-              {row.map((cell, cellIndex) => renderCell(cell, "td", cellIndex))}
+            <tr key={`r-${rowIndex}`}>
+              {row.map((cell, cellIndex) => renderCell(cell, "td", `r-${rowIndex}-${cellIndex}`))}
             </tr>
           ))}
         </tbody>
+        {footer && footer.length > 0 ? (
+          <tfoot>
+            {footer.map((row, rowIndex) => (
+              <tr key={`f-${rowIndex}`}>
+                {row.map((cell, cellIndex) => renderCell(cell, "td", `f-${rowIndex}-${cellIndex}`))}
+              </tr>
+            ))}
+          </tfoot>
+        ) : null}
       </table>
     </div>
   );

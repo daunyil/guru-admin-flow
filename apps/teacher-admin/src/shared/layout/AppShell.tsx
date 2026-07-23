@@ -122,6 +122,14 @@ export function AppShell({ children }: { children: ReactNode }) {
               {syncStatus === "cloud-active" ? "☁ Cloud aktif" : syncStatus === "cloud-error" ? `⚠ ${syncErrors.length} error` : syncStatus === "offline" ? "☁ Offline" : "📱 Lokal"}
             </button>
             <button
+              onClick={() => navigate("/assignments")}
+              className="px-3 py-1.5 rounded-md text-sm text-slate-600 hover:bg-slate-100 transition-colors"
+              title="Kelas dan Mapel"
+              aria-label="Buka Kelas dan Mapel"
+            >
+              📚 Kelas & Mapel
+            </button>
+            <button
               onClick={() => navigate("/backup")}
               className="px-3 py-1.5 rounded-md text-sm text-slate-600 hover:bg-slate-100 transition-colors"
               title="Backup"
