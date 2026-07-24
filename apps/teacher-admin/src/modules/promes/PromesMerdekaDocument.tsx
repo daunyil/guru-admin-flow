@@ -1,11 +1,14 @@
 /**
- * PROMES-VARIASI-01: Kurikulum Merdeka format
+ * PromesLandscapeKurikulumMerdekaDocument — Kurikulum Merdeka format
  *
- * PromesLandscapeKurikulumMerdekaDocument — landscape-oriented document that renders:
- *   - Color-coded event badges (MerdekaEventDef)
- *   - Kode TP + Elemen columns
- *   - Separate Cadangan / Kokurikuler / Total / Agenda rows
- *   - Signature block with NIP
+ * REWRITE: Simplified using shared helpers:
+ *   - buildWeekLookup() instead of building Maps inline
+ *   - buildMateriRows() instead of inline materi row construction
+ *   - resolveMerdekaWeekCell() instead of scattered badge/background logic
+ *   - classifyPromesWeek() for unified event classification
+ *
+ * Premium styling: Official Kurikulum Merdeka document look with
+ * clean header, elegant badge system, and professional print output.
  */
 
 import {
@@ -23,10 +26,10 @@ import type {
 } from "@guru-admin/domain";
 import {
   buildPromesMonthGroups,
-  compactPromesMaterial,
-  compactPromesElemen,
+  buildWeekLookup,
+  buildMateriRows,
+  resolveMerdekaWeekCell,
   type MerdekaEventDef,
-  detectMerdekaEventKind,
 } from "./promes-helpers";
 import { formatLongDateID, todayISODate } from "@guru-admin/shared";
 
@@ -64,80 +67,45 @@ export function PromesLandscapeKurikulumMerdekaDocument({
   profile,
   options,
 }: PromesLandscapeKurikulumMerdekaDocumentProps) {
+  /* ---- Pre-compute all shared data ---- */
   const monthGroups = buildPromesMonthGroups(weeks, semester);
   const weekColumns = monthGroups.flatMap((m) => m.weeks);
+  const lookup = buildWeekLookup(weeks);
+  const materiRows = buildMateriRows(distribution);
 
-  // Build event map: weekNumber → MerdekaEventDef
-  const eventByWeekNumber = new Map<number, MerdekaEventDef | null>(
-    weeks.map((week) => [week.weekNumber, detectMerdekaEventKind(week)])
-  );
-
-  // Collect unique events for legend (only ones that actually appear)
+  /* ---- Collect unique merdeka events for legend ---- */
   const activeEvents = Array.from(new Set(
     weekColumns
-      .map((w) => eventByWeekNumber.get(w.weekNumber))
+      .map((w) => lookup.weekEventInfoByWeek.get(w.weekNumber)?.merdeka)
       .filter((e): e is MerdekaEventDef => e !== null && e !== undefined)
   ));
 
-  /* ---- Build materi rows ---- */
-  const materiRows = distribution.length > 0
-    ? distribution.map((unit, i) => ({
-        key: unit.unitId,
-        rowNum: i + 1,
-        kodeTP: unit.code
-          ? unit.code
-          : unit.learningOutcome
-            ? compactPromesMaterial(unit.learningOutcome, 3)
-            : compactPromesElemen(unit.title, 3),
-        elemen: unit.learningOutcome
-          ? compactPromesMaterial(unit.learningOutcome, 5)
-          : unit.code
-            ? unit.code
-            : compactPromesElemen(unit.title, 3),
-        materi: compactPromesMaterial(unit.title, 7),
-        intraJP: unit.totalJP,
-        totalJP: unit.totalJP,
-        unitId: unit.unitId,
-      }))
-    : [{ key: "empty", rowNum: 1, kodeTP: "-", elemen: "-", materi: "Belum ada materi terdistribusi", intraJP: 0, totalJP: 0, unitId: "" }];
+  /* ---- Identity rows ---- */
+  const intraPerWeek = summary.effectiveWeeks > 0 ? Math.round(summary.intraCapacityJP / summary.effectiveWeeks) : 0;
+  const kokuPerWeek = summary.koTotalJP > 0 ? Math.round(summary.koTotalJP / summary.effectiveWeeks) : 0;
+  const totalPerWeek = summary.effectiveWeeks > 0 ? Math.round((summary.intraCapacityJP + summary.koTotalJP) / summary.effectiveWeeks) : 0;
 
-  // Build lookup: unitId → weekNumber → JP
-  const unitJPByWeek = new Map<string, Map<number, number>>();
-  for (const w of weeks) {
-    for (const au of w.assignedUnits) {
-      if (!unitJPByWeek.has(au.unitId)) {
-        unitJPByWeek.set(au.unitId, new Map());
-      }
-      unitJPByWeek.get(au.unitId)!.set(w.weekNumber, au.jp);
-    }
-  }
-
-  function getUnitJPInWeek(unitId: string, weekNumber: number): number {
-    return unitJPByWeek.get(unitId)?.get(weekNumber) ?? 0;
-  }
-
-  function weekMeta(weekNumber: number) {
-    return weeks.find((w) => w.weekNumber === weekNumber);
-  }
-
-  /* Identity rows */
   const identityRows = [
     { label: "Satuan Pendidikan", value: schoolName || "-" },
     { label: "Mata Pelajaran", value: profile?.subject ?? "-" },
     { label: "Kelas / Fase", value: `${profile?.grade ?? "-"} / ${profile?.phase ?? "-"}` },
-    { label: "Semester / Beban", value: `${semester === 1 ? "Ganjil" : "Genap"} (${summary.effectiveWeeks > 0 ? Math.round((summary.intraCapacityJP + summary.koTotalJP) / summary.effectiveWeeks) : 0} JP/Minggu: Intra ${summary.effectiveWeeks > 0 ? Math.round(summary.intraCapacityJP / summary.effectiveWeeks) : 0} + Koku ${summary.koTotalJP > 0 ? Math.round(summary.koTotalJP / summary.effectiveWeeks) : 0})` },
+    { label: "Semester / Beban", value: `${semester === 1 ? "Ganjil" : "Genap"} (${totalPerWeek} JP/Minggu: Intra ${intraPerWeek} + Koku ${kokuPerWeek})` },
     { label: "Target Kurikulum", value: "Kurikulum Merdeka" },
     { label: "Sistem P5", value: options.koMode === "end_of_week" ? `Reguler Mingguan (${options.koJpPerWeek} JP/Minggu)` : `Blok Akhir Semester (${summary.koTotalJP} JP)` },
     { label: "Tahun Pelajaran", value: activeYearLabel || "-" },
   ];
 
-  /* Calculate totals */
+  /* ---- Calculate totals ---- */
   const totals = {
     intra: summary.distributedJP,
     cadangan: summary.cadanganJP,
     koku: summary.koTotalJP,
     total: summary.intraCapacityJP + summary.cadanganJP + summary.koTotalJP,
   };
+
+  /* ---- Column width for week columns ---- */
+  const fixedColWidthPercent = 30;
+  const weekColWidthPercent = (100 - fixedColWidthPercent) / weekColumns.length;
 
   return (
     <DocumentPage orientation="landscape" className="promes-landscape-page promes-merdeka-page">
@@ -158,25 +126,17 @@ export function PromesLandscapeKurikulumMerdekaDocument({
       </div>
 
       {/* ---- Matrix Table ---- */}
-      <table
-        className="promes-matrix-table merdeka-matrix-table"
-        style={{
-          fontFamily: "Arial, Helvetica, sans-serif",
-          width: "100%",
-          tableLayout: "fixed",
-          borderCollapse: "collapse",
-          boxSizing: "border-box",
-        }}
-      >
+      <table className="promes-matrix-table merdeka-matrix-table" style={{ fontFamily: "Arial, Helvetica, sans-serif", width: "100%", tableLayout: "fixed", borderCollapse: "collapse", boxSizing: "border-box" }}>
         <colgroup>
           <col style={{ width: '6%' }} />   {/* Elemen */}
           <col style={{ width: '5%' }} />   {/* Kode TP */}
           <col style={{ width: '14%' }} />  {/* Materi Pokok */}
           <col style={{ width: '5%' }} />   {/* Alokasi JP */}
           {weekColumns.map((week) => (
-            <col key={`col-${week.weekNumber}`} style={{ width: `${((100 - 30) / weekColumns.length).toFixed(2)}%` }} />
+            <col key={`col-${week.weekNumber}`} style={{ width: `${weekColWidthPercent.toFixed(2)}%` }} />
           ))}
         </colgroup>
+
         <thead>
           <tr className="merdeka-header-row">
             <th rowSpan={2} className="merdeka-th">Elemen</th>
@@ -207,26 +167,14 @@ export function PromesLandscapeKurikulumMerdekaDocument({
               <td className="merdeka-td merdeka-td-materi">{row.materi}</td>
               <td className="merdeka-td merdeka-td-jp">{row.totalJP} JP</td>
               {weekColumns.map((week) => {
-                const event = eventByWeekNumber.get(week.weekNumber);
-                if (event) {
-                  const isFirstRow = rowIndex === 0;
-                  return (
-                    <td
-                      key={`${row.key}-${week.weekNumber}`}
-                      className={`merdeka-td ${event.colClass}`}
-                      title={event.title}
-                    >
-                      {isFirstRow ? <span className={`merdeka-badge ${event.badgeClass}`}>{event.label}</span> : ""}
-                    </td>
-                  );
-                }
-                const unitJP = getUnitJPInWeek(row.unitId, week.weekNumber);
+                const cell = resolveMerdekaWeekCell(lookup, week.weekNumber, "materi", row.unitId, rowIndex);
                 return (
                   <td
                     key={`${row.key}-${week.weekNumber}`}
-                    className="merdeka-td"
+                    className={cell.className}
+                    title={cell.title}
                   >
-                    {unitJP > 0 ? unitJP : "-"}
+                    {cell.content}
                   </td>
                 );
               })}
@@ -240,16 +188,8 @@ export function PromesLandscapeKurikulumMerdekaDocument({
             <td className="merdeka-td merdeka-td-materi-cadangan">Jam Cadangan / Remedial / Pengayaan</td>
             <td className="merdeka-td merdeka-td-jp-cadangan">{totals.cadangan} JP</td>
             {weekColumns.map((week) => {
-              const meta = weekMeta(week.weekNumber);
-              const event = eventByWeekNumber.get(week.weekNumber);
-              if (event) {
-                return <td key={`cad-${week.weekNumber}`} className={`merdeka-td ${event.colClass}`}></td>;
-              }
-              return (
-                <td key={`cad-${week.weekNumber}`} className="merdeka-td merdeka-td-cadangan">
-                  {(meta?.reservedForCadangan ?? 0) > 0 ? "C" : "-"}
-                </td>
-              );
+              const cell = resolveMerdekaWeekCell(lookup, week.weekNumber, "cadangan");
+              return <td key={`cad-${week.weekNumber}`} className={cell.className}>{cell.content}</td>;
             })}
           </tr>
 
@@ -263,16 +203,8 @@ export function PromesLandscapeKurikulumMerdekaDocument({
               </td>
               <td className="merdeka-td merdeka-td-jp-koku">{totals.koku} JP</td>
               {weekColumns.map((week) => {
-                const meta = weekMeta(week.weekNumber);
-                const event = eventByWeekNumber.get(week.weekNumber);
-                if (event) {
-                  return <td key={`ko-${week.weekNumber}`} className={`merdeka-td ${event.colClass}`}></td>;
-                }
-                return (
-                  <td key={`ko-${week.weekNumber}`} className="merdeka-td merdeka-td-koku-val">
-                    {(meta?.koJP ?? 0) > 0 ? meta!.koJP : "-"}
-                  </td>
-                );
+                const cell = resolveMerdekaWeekCell(lookup, week.weekNumber, "kokurikuler");
+                return <td key={`ko-${week.weekNumber}`} className={cell.className}>{cell.content}</td>;
               })}
             </tr>
           )}
@@ -280,21 +212,12 @@ export function PromesLandscapeKurikulumMerdekaDocument({
           {/* ---- Total row ---- */}
           <tr className="merdeka-total-row">
             <td colSpan={3} className="merdeka-td merdeka-td-total-label">
-              JUMLAH JAM TOTAL PER MINGGU (Intra {summary.effectiveWeeks > 0 ? Math.round(summary.intraCapacityJP / summary.effectiveWeeks) : 0} JP + Koku {summary.koTotalJP > 0 ? Math.round(summary.koTotalJP / summary.effectiveWeeks) : 0} JP)
+              JUMLAH JAM TOTAL PER MINGGU (Intra {intraPerWeek} JP + Koku {kokuPerWeek} JP)
             </td>
             <td className="merdeka-td merdeka-td-jp-total">{totals.total} JP</td>
             {weekColumns.map((week) => {
-              const meta = weekMeta(week.weekNumber);
-              const event = eventByWeekNumber.get(week.weekNumber);
-              if (event) {
-                return <td key={`tot-${week.weekNumber}`} className="merdeka-td merdeka-td-total-event">-</td>;
-              }
-              const totalWeekJP = (meta?.isEffective ? meta.intraCapacityJP : 0) + (meta?.koJP ?? 0) + (meta?.reservedForCadangan ?? 0);
-              return (
-                <td key={`tot-${week.weekNumber}`} className="merdeka-td merdeka-td-total-val">
-                  {meta?.isEffective ? (totalWeekJP > 0 ? totalWeekJP : "-") : "-"}
-                </td>
-              );
+              const cell = resolveMerdekaWeekCell(lookup, week.weekNumber, "total");
+              return <td key={`tot-${week.weekNumber}`} className={cell.className}>{cell.content}</td>;
             })}
           </tr>
 
@@ -305,15 +228,8 @@ export function PromesLandscapeKurikulumMerdekaDocument({
             </td>
             <td className="merdeka-td merdeka-td-agenda-jp">-</td>
             {weekColumns.map((week) => {
-              const event = eventByWeekNumber.get(week.weekNumber);
-              if (event) {
-                return (
-                  <td key={`agenda-${week.weekNumber}`} className="merdeka-td merdeka-td-agenda-cell">
-                    <span className={`merdeka-badge ${event.badgeClass}`}>{event.label}</span>
-                  </td>
-                );
-              }
-              return <td key={`agenda-${week.weekNumber}`} className="merdeka-td">-</td>;
+              const cell = resolveMerdekaWeekCell(lookup, week.weekNumber, "agenda");
+              return <td key={`agenda-${week.weekNumber}`} className={cell.className}>{cell.content}</td>;
             })}
           </tr>
         </tbody>

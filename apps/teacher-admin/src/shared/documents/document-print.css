@@ -620,10 +620,12 @@
 }
 
 .promes-vertical-event-table .month-head {
-  background: #9dc3e6;
-  color: #000;
+  background: #d4e6f1;
+  color: #1a3a5c;
   text-align: center;
   font-weight: 700;
+  letter-spacing: 0.3pt;
+  border-bottom: 2px solid #7fa8c9;
 }
 
 .promes-vertical-event-table .promes-event-cell {
@@ -681,9 +683,10 @@
 }
 
 .promes-matrix-table thead th {
-  background: #f1f5f9;
+  background: #eef2f7;
   font-weight: 700;
   text-align: center;
+  letter-spacing: 0.2pt;
 }
 
 .promes-matrix-table .col-no-merdeka { width: 2.5%; }
@@ -762,12 +765,16 @@
 .promes-legend-block {
   margin-top: 8px;
   font-size: 8pt;
+  padding: 4px 6px;
+  background: #fafafa;
+  border: 1px solid #e0e0e0;
+  border-radius: 2px;
 }
 
 .promes-legend-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 2px 8px;
+  gap: 3px 8px;
 }
 
 /* DEAD-CODE-CLEANUP: .promes-legend-item duplicate removed — now only defined once at line 767 */
@@ -796,10 +803,10 @@
 .merdeka-legend-block {
   margin-top: 6pt;
   margin-bottom: 6pt;
-  padding: 4pt 6pt;
+  padding: 5pt 8pt;
   background: #f8fafc;
   border: 1px solid #e2e8f0;
-  border-radius: 4px;
+  border-radius: 3px;
 }
 
 .merdeka-legend-title {
@@ -865,13 +872,14 @@
 }
 
 .merdeka-header-row {
-  background-color: #1e3a5f;
+  background-color: #1a365d;
   color: white;
   font-weight: 700;
+  letter-spacing: 0.3pt;
 }
 
 .merdeka-subheader-row {
-  background-color: #2d5a8e;
+  background-color: #2c5282;
   color: white;
   font-weight: 700;
   font-size: 7pt;

@@ -1,14 +1,9 @@
-/* ============================================================ */
-/*  PROMES-DUAL-FORMAT-02: 2 format dokumen (portrait + landscape)  */
-/*  ARCH-01 FIX: Both components now use shared DocumentPage/       */
-/*  DocumentTable/DocumentTitle/DocumentSection/DocumentSignature   */
-/*  from DocumentLayout.tsx — no more raw HTML bypassing infra.     */
-/* ============================================================ */
-
 /**
- * Format Vertikal (portrait) — daftar minggu per baris.
- * Refactored to use shared DocumentPage, DocumentTable, DocumentTitle,
- * DocumentSection, DocumentIdentityTable, DocumentSignature.
+ * PromesPortraitDocument — Format Vertikal (portrait)
+ * Daftar minggu per baris, format ringkas dan mudah dibaca.
+ *
+ * REWRITE: Cleaner logic using helper functions instead of inline conditionals.
+ * Premium UI: consistent identity table, clean section titles, professional print output.
  */
 
 import React from "react";
@@ -42,14 +37,61 @@ export interface PromesPortraitDocumentProps {
   profile: ProtaProfile | null;
 }
 
+/* ---- Helper: determine what to show in the Materi column ---- */
+function resolvePortraitMateriCell(week: PromesWeek, calLabel: string): React.ReactNode {
+  if (week.assignedUnits.length > 0) {
+    return (
+      <span>
+        {week.assignedUnits.map((u, i) => (
+          <span key={i}>
+            {i > 0 && "; "}{u.title} ({u.jp} JP)
+          </span>
+        ))}
+      </span>
+    );
+  }
+  if (calLabel) {
+    return <strong>{calLabel}</strong>;
+  }
+  if (week.reservedForCadangan > 0) {
+    return <em>(Cadangan — lihat catatan di bawah)</em>;
+  }
+  if (week.isEffective) {
+    return "(Kosong)";
+  }
+  return week.blockReason ?? "(Libur)";
+}
+
+/* ---- Helper: determine what to show in the Keterangan column ---- */
+function resolvePortraitKeterangan(week: PromesWeek, calLabel: string): string {
+  if (calLabel) return calLabel;
+  if (week.reservedForCadangan > 0 && week.assignedUnits.length === 0) return "Cadangan";
+  if (!week.isEffective) return "Libur";
+  return "";
+}
+
 export function PromesPortraitDocument({
   weeks, distribution, koRows, summary, status, semester, activeYearLabel,
   schoolName, schoolRegency, headmasterName, teacherName, profile,
 }: PromesPortraitDocumentProps) {
-  /* ARCH-01 FIX: Using shared DocumentPage/DocumentTable/DocumentTitle/DocumentSection
-     instead of raw HTML with inline styles bypassing infrastructure. */
 
-  /* Build week distribution rows as DocumentCell[] arrays */
+  /* ---- Identity rows (2-column layout) ---- */
+  const identityRows = [
+    { label: "Satuan Pendidikan", value: schoolName },
+    { label: "Kelas / Fase", value: `${profile?.grade ?? "-"} / ${profile?.phase ?? "-"}` },
+    { label: "Mata Pelajaran", value: profile?.subject ?? "-" },
+    { label: "Semester", value: semester === 1 ? "Ganjil" : "Genap" },
+    { label: "Tahun Pelajaran", value: activeYearLabel },
+    { label: "Alokasi Waktu", value: `${summary.effectiveWeeks > 0 ? Math.round(summary.intraCapacityJP / summary.effectiveWeeks) : 0} Jam/Minggu` },
+    { label: "Total Minggu", value: `${summary.totalWeeks} minggu` },
+    { label: "Minggu Efektif", value: `${summary.effectiveWeeks} minggu` },
+    { label: "Kapasitas Intrakurikuler", value: `${summary.intraCapacityJP} JP` },
+    { label: "Cadangan", value: `${summary.cadanganJP} JP` },
+    { label: "Kokurikuler", value: `${summary.koTotalJP} JP` },
+    { label: "Total", value: `${summary.intraCapacityJP + summary.cadanganJP + summary.koTotalJP} JP` },
+  ];
+
+  /* ---- Week distribution table headers ---- */
   const distHeaders: DocumentCell[][] = [
     [
       { content: "Mg", style: { width: '5%' }, align: 'center' },
@@ -61,38 +103,24 @@ export function PromesPortraitDocument({
     ],
   ];
 
-  const distRows: DocumentCell[][] = weeks
-    .filter((w) => !isPureCadanganWeek(w))
-    .map((w): DocumentCell[] => {
-      const dateStr = formatLongDateID(w.startDate).split(",")[1]?.trim() ?? w.startDate;
-      const calLabel = w.calendarKind ? promesCalendarKindLabel(w.calendarKind) || w.blockReason || "" : "";
-      let materiCell: React.ReactNode;
-      if (w.assignedUnits.length > 0) {
-        materiCell = <span>{w.assignedUnits.map((u, i) => <span key={i}>{i > 0 && "; "}{u.title} ({u.jp} JP)</span>)}</span>;
-      } else if (calLabel) {
-        materiCell = <span><strong>{calLabel}</strong></span>;
-      } else if (w.reservedForCadangan > 0) {
-        materiCell = <span><em>(Cadangan — lihat catatan di bawah)</em></span>;
-      } else if (w.isEffective) {
-        materiCell = "(Kosong)";
-      } else {
-        materiCell = w.blockReason ?? "(Libur)";
-      }
-      let keteranganCell: string;
-      if (calLabel) { keteranganCell = calLabel; }
-      else if (w.reservedForCadangan > 0 && w.assignedUnits.length === 0) { keteranganCell = "Cadangan"; }
-      else if (!w.isEffective) { keteranganCell = "Libur"; }
-      else { keteranganCell = ""; }
-      return [
-        { content: w.weekNumber, align: 'center' } as DocumentCellObject,
-        { content: dateStr, align: 'left' } as DocumentCellObject,
-        { content: w.isEffective ? w.intraCapacityJP : "-", align: 'center' } as DocumentCellObject,
-        { content: w.isEffective ? w.koJP : "-", align: 'center' } as DocumentCellObject,
-        { content: materiCell as React.ReactNode, align: 'left' } as DocumentCellObject,
-        { content: keteranganCell, align: 'left' } as DocumentCellObject,
-      ];
-    });
+  /* ---- Week distribution data rows ---- */
+  const visibleWeeks = weeks.filter((w) => !isPureCadanganWeek(w));
 
+  const distRows: DocumentCell[][] = visibleWeeks.map((w): DocumentCell[] => {
+    const dateStr = formatLongDateID(w.startDate).split(",")[1]?.trim() ?? w.startDate;
+    const calLabel = w.calendarKind ? promesCalendarKindLabel(w.calendarKind) || w.blockReason || "" : "";
+
+    return [
+      { content: w.weekNumber, align: 'center' } as DocumentCellObject,
+      { content: dateStr, align: 'left' } as DocumentCellObject,
+      { content: w.isEffective ? w.intraCapacityJP : "-", align: 'center' } as DocumentCellObject,
+      { content: w.isEffective ? w.koJP : "-", align: 'center' } as DocumentCellObject,
+      { content: resolvePortraitMateriCell(w, calLabel), align: 'left' } as DocumentCellObject,
+      { content: resolvePortraitKeterangan(w, calLabel), align: 'left' } as DocumentCellObject,
+    ];
+  });
+
+  /* ---- Footer: summary totals ---- */
   const distFooter: DocumentCell[][] = [
     [
       { content: "JUMLAH", colSpan: 2, align: 'center' },
@@ -103,7 +131,7 @@ export function PromesPortraitDocument({
     ],
   ];
 
-  /* Build rekap materi rows */
+  /* ---- Rekap materi table ---- */
   const rekapHeaders: DocumentCell[][] = [
     [
       { content: "No", style: { width: '5%' }, align: 'center' },
@@ -120,25 +148,13 @@ export function PromesPortraitDocument({
     { content: d.status === "fully_distributed" ? "Terdistribusi" : d.status === "partially_distributed" ? "Sebagian" : "Belum", align: 'center' },
   ]);
 
-  /* Build identity rows */
-  const identityRows = [
-    { label: "Satuan Pendidikan", value: schoolName },
-    { label: "Kelas / Fase", value: `${profile?.grade ?? "-"} / ${profile?.phase ?? "-"}` },
-    { label: "Mata Pelajaran", value: profile?.subject ?? "-" },
-    { label: "Semester", value: semester === 1 ? "Ganjil" : "Genap" },
-    { label: "Tahun Pelajaran", value: activeYearLabel },
-    { label: "Alokasi Waktu", value: `${summary.effectiveWeeks > 0 ? Math.round(summary.intraCapacityJP / summary.effectiveWeeks) : 0} Jam/Minggu` },
-    { label: "Total Minggu", value: `${summary.totalWeeks} minggu` },
-    { label: "Minggu Efektif", value: `${summary.effectiveWeeks} minggu` },
-    { label: "Kapasitas Intrakurikuler", value: `${summary.intraCapacityJP} JP` },
-    { label: "Cadangan", value: `${summary.cadanganJP} JP` },
-    { label: "Kokurikuler", value: `${summary.koTotalJP} JP` },
-    { label: "Total", value: `${summary.intraCapacityJP + summary.cadanganJP + summary.koTotalJP} JP` },
-  ];
-
   return (
     <DocumentPage orientation="portrait">
-      <DocumentTitle title={`PROGRAM SEMESTER ${semester === 1 ? "GANJIL" : "GENAP"}`} subtitle={`Tahun Pelajaran ${activeYearLabel}`} />
+      <DocumentTitle
+        title={`PROGRAM SEMESTER ${semester === 1 ? "GANJIL" : "GENAP"}`}
+        subtitle={`Tahun Pelajaran ${activeYearLabel}`}
+      />
+
       <DocumentIdentityTable rows={identityRows} columns={2} />
 
       <DocumentSection title="DISTRIBUSI MATERI PER MINGGU">
