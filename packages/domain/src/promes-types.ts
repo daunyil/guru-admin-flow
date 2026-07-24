@@ -91,6 +91,7 @@ export type PromesWeek = {
   assignedUnits: Array<{
     unitId: string;
     title: string;
+    learningOutcome?: string;
     jp: number;
   }>;
 };
@@ -108,6 +109,8 @@ export type KORow = {
 export type UnitDistribution = {
   unitId: string;
   title: string;
+  learningOutcome?: string;  // TP/Elemen — dari ProtaUnit.learningOutcome
+  code?: string;              // Kode elemen/TP — dari ProtaUnit.code
   totalJP: number;
   distributedJP: number;
   undistributedJP: number;

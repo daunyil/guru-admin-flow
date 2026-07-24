@@ -40,11 +40,13 @@ export function detectPromesCalendarKind(event: CalendarEvent): PromesCalendarKi
 
   const text = (event.label ?? "").toLowerCase();
 
-  if (/pts|uts|tengah\s*semester/.test(text)) return "pts";
+  // PROMES-STS-SAS-04: support Merdeka terminology (STS=Sumatif Tengah Semester, SAS=Sumatif Akhir Semester)
+  // alongside legacy terms (PTS=Penilaian Tengah Semester, PAS=Penilaian Akhir Semester)
+  if (/pts|uts|sts|tengah\s*semester|sumatif\s*tengah/.test(text)) return "pts";
   // PROMES-CALENDAR-ASSESSMENT-CADANGAN-03: remedial sebelum pas karena
   // "Remedial PAS" mengandung "pas" — harus dideteksi sebagai remedial dulu.
   if (/remedial/.test(text)) return "remedial";
-  if (/pas|psas|akhir\s*semester/.test(text)) return "pas";
+  if (/pas|psas|sas|akhir\s*semester|sumatif\s*akhir/.test(text)) return "pas";
   if (/p5|projek|project/.test(text)) return "p5";
   if (/libur|cuti/.test(text)) return "libur";
 
@@ -265,6 +267,7 @@ export function generatePromes(input: GeneratePromesInput): PromesResult {
       week.assignedUnits.push({
         unitId: current.unit.id,
         title: current.unit.title,
+        learningOutcome: current.unit.learningOutcome,
         jp: assign,
       });
       current.remainingJP -= assign;
@@ -425,6 +428,8 @@ function computeDistribution(
     return {
       unitId: unit.id,
       title: unit.title,
+      learningOutcome: unit.learningOutcome,
+      code: unit.code,
       totalJP: unit.jp,
       distributedJP,
       undistributedJP,

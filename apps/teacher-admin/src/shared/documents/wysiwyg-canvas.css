@@ -345,6 +345,19 @@
   gap: 0;
 }
 
+/* When sidebar uses .doc-sidebar-scroll inner wrapper, remove overflow clipping
+   from outer <aside> so <select> dropdowns can render outside the container.
+   Pages without .doc-sidebar-scroll keep default overflow-y: auto (scrollable). */
+.doc-sidebar:has(.doc-sidebar-scroll) {
+  overflow: visible;
+}
+
+.doc-sidebar-scroll {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
 .doc-sidebar-header {
   display: flex;
   align-items: center;
@@ -352,9 +365,10 @@
   padding: 12px 16px;
   border-bottom: 1px solid var(--wysiwyg-toolbar-border);
   background: #f8fafc;
+  z-index: 1;
+  /* sticky stays inside .doc-sidebar-scroll now */
   position: sticky;
   top: 0;
-  z-index: 1;
 }
 
 .doc-sidebar-close {

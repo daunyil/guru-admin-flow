@@ -21,71 +21,43 @@
  *   - Removed: showDocument toggle, PrintExportButtons (DocumentPreview handles printing).
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Input, Textarea, Button, Badge, Select, Card, EmptyState, LoadingState } from "../../shared/ui";
-import { ContextCard } from "../../shared/ui/ContextCard";
+import { Card, EmptyState, LoadingState } from "../../shared/ui";
 import {
   getLessonSessionsByDate,
-  getLessonSession,
   findOrCreateManualSession,
   listLessonSessions,
 } from "../../shared/db/lesson-session-repo";
 import { findClassRoster } from "../../shared/db/class-roster-repo";
 import {
-  initJournalForSessionFull,
-  updateJournal,
-  finalizeJournal,
-  unlockJournal,
   listJournals,
 } from "../../shared/db/journal-repo";
-import { listProtaProfiles } from "../../shared/db/prota-repo";
 import { getActiveAcademicYear, getTeacherProfile, getSchoolProfile } from "../../shared/db/profile-repo";
 import { listAssignmentsByTeacher } from "../../shared/db/teaching-assignment-repo";
 import type {
   LessonSession,
   TeachingJournal,
-  ProtaUnit,
   AcademicYear,
   SchoolProfile,
   TeacherProfile,
   TeachingAssignment,
 } from "@guru-admin/domain";
 import {
-  assignmentShortLabel,
   recapJournalsForAssignment,
-  buildContextInfo,
-  buildJournalNarrative,
-  canFinalizeJournal,
   dateChangeRequiresConfirm,
-  packStructuredNote,
-  unpackStructuredNote,
-  JOURNAL_ACTIVITY_CHOICES,
-  JOURNAL_RESPONSE_CHOICES,
-  JOURNAL_OBSTACLE_CHOICES,
-  JOURNAL_FOLLOWUP_CHOICES,
 } from "@guru-admin/domain";
-import { formatLongDateID, todayISODate } from "@guru-admin/shared";
+import { todayISODate } from "@guru-admin/shared";
 
 // WYSIWYG-DOC-FASE9
 import { DocumentPreview } from "../../shared/documents";
-import {
-  saveSchoolDocument,
-  updateSchoolDocumentData,
-  updateSchoolDocumentLayout,
-  setSchoolDocumentStatus,
-  findSchoolDocumentByCompositeKey,
-} from "../../shared/db/school-document-repo";
-import type { SchoolDocOrientation, DocumentStatus } from "@guru-admin/domain";
 
-type RealizationStatus = TeachingJournal["realizationStatus"];
-const REALIZATION_OPTIONS: Array<{ value: RealizationStatus; label: string }> = [
-  { value: "done", label: "Selesai" },
-  { value: "continued", label: "Dilanjutkan" },
-  { value: "cancelled", label: "Tidak Terlaksana" },
-];
-
-type JournalMode = "pertemuan" | "manual" | "susulan";
+// Extracted modules
+import { JournalMode } from "./quickJournalTypes";
+import { JournalSidebar } from "./JournalSidebar";
+import { JournalUnfilledList } from "./JournalUnfilledList";
+import { QuickJournalEditor } from "./QuickJournalEditor";
+import { useJournalDocument } from "./useJournalDocument";
 
 export function QuickJournalPage() {
   const [loading, setLoading] = useState(true);
@@ -108,15 +80,31 @@ export function QuickJournalPage() {
   // UX-DAILY-04: ref untuk auto-scroll ke editor jurnal
   const editorRef = useRef<HTMLDivElement | null>(null);
 
-  // WYSIWYG-DOC-FASE9
+  // WYSIWYG-DOC-FASE9 sidebar visibility
   const [showSidebar, setShowSidebar] = useState(
     typeof window !== "undefined" && window.innerWidth >= 1024
   );
-  const [formatDokumen, setFormatDokumen] = useState<"portrait" | "landscape">("portrait");
-  const [docId, setDocId] = useState<string | undefined>(undefined);
-  const [docStatus, setDocStatus] = useState<DocumentStatus>("draft");
   const [docSemester, setDocSemester] = useState<1 | 2>(1);
-  const ensuringRef = useRef(false);
+
+  // WYSIWYG-DOC-FASE9 document lifecycle hook
+  const {
+    formatDokumen,
+    docId,
+    docStatus,
+    setDocId,
+    setDocStatus,
+    handleSaveDoc,
+    handleSetFinal,
+    handleOrientationChange,
+    docDataForAutoSave,
+  } = useJournalDocument({
+    year,
+    selectedAssignmentId,
+    assignments,
+    selectedSessionId,
+    journals,
+    docSemester,
+  });
 
   // JOURNAL-REVIEW-NARRATIVE-03 §9: Date Guard — bungkus setDate dengan konfirmasi
   function handleDateChange(newDate: string) {
@@ -163,6 +151,7 @@ export function QuickJournalPage() {
           const todayISO = todayISODate();
           const sem: 1 | 2 =
             y.semester2Start <= todayISO && todayISO <= y.semester2End ? 2 : 1;
+          setDocSemester(sem);
           setAssignments(await listAssignmentsByTeacher(tp.id, y.id, sem));
         }
         const urlSessionId = searchParams.get("sessionId");
@@ -268,90 +257,13 @@ export function QuickJournalPage() {
     }
   }
 
-  // WYSIWYG-DOC-FASE9: ensureDoc (find-or-create schoolDocument)
-  const ensureDoc = useCallback(async (asg: TeachingAssignment, semester: 1 | 2) => {
-    if (!year || !asg) return;
-    if (ensuringRef.current) return;
-    ensuringRef.current = true;
-    try {
-      const existing = await findSchoolDocumentByCompositeKey({
-        docType: "jurnal-semester",
-        semester,
-        tahunAjaran: year.label,
-        kodeMapel: asg.subject,
-        kodeKelas: asg.classLabel,
-        teacherId: asg.teacherId,
-      });
-      if (existing) {
-        setDocId(existing.id);
-        setDocStatus(existing.status);
-        if (existing.orientation) setFormatDokumen(existing.orientation);
-      } else {
-        const doc = await saveSchoolDocument({
-          docType: "jurnal-semester",
-          semester,
-          tahunAjaran: year.label,
-          kodeMapel: asg.subject,
-          kodeKelas: asg.classLabel,
-          teacherId: asg.teacherId,
-          academicYearId: year.id,
-          data: { semester, subject: asg.subject, classLabel: asg.classLabel },
-          orientation: "portrait",
-          status: "draft",
-        });
-        setDocId(doc.id);
-        setDocStatus("draft");
-        setFormatDokumen("portrait");
-      }
-    } catch (err) {
-      console.error("[QuickJournal] Gagal ensureDoc:", err);
-    } finally {
-      ensuringRef.current = false;
-    }
-  }, [year]);
-
-  // When assignment changes, ensure doc
-  useEffect(() => {
-    const asg = assignments.find((a) => a.id === selectedAssignmentId);
-    if (asg && year) {
-      const sem: 1 | 2 = asg.semester;
-      setDocSemester(sem);
-      void ensureDoc(asg, sem);
-    } else {
-      setDocId(undefined);
-      setDocStatus("draft");
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedAssignmentId, year?.id]);
-
-  // WYSIWYG callbacks
-  const handleSaveDoc = useCallback(async (id: string, data: Record<string, unknown>) => {
-    await updateSchoolDocumentData(id, data);
-  }, []);
-
-  const handleSetFinal = useCallback(async (id: string) => {
-    await setSchoolDocumentStatus(id, "final");
-    setDocStatus("final");
-  }, []);
-
-  const handleOrientationChange = useCallback((orientation: SchoolDocOrientation) => {
-    setFormatDokumen(orientation);
-    if (docId) void updateSchoolDocumentLayout(docId, { orientation });
-  }, [docId]);
-
-  // Auto-save data memo
-  const docDataForAutoSave = useMemo(() => {
-    const asg = assignments.find((a) => a.id === selectedAssignmentId);
-    if (!asg || !year) return {};
-    return {
-      semester: docSemester,
-      tahunAjaran: year.label,
-      subject: asg.subject,
-      classLabel: asg.classLabel,
-      selectedSessionId: selectedSessionId ?? "",
-      journalStatus: journals.find((j) => j.sessionId === selectedSessionId)?.locked ? "final" : "draft",
-    };
-  }, [assignments, selectedAssignmentId, year, docSemester, selectedSessionId, journals]);
+  // Sidebar reset handler
+  function handleSidebarReset() {
+    setSelectedAssignmentId("");
+    setSelectedSessionId(null);
+    setDocId(undefined);
+    setDocStatus("draft");
+  }
 
   if (loading) return <LoadingState />;
 
@@ -389,250 +301,30 @@ export function QuickJournalPage() {
       />
 
       {/* ---------- SIDEBAR ---------- */}
-      <aside className={`doc-sidebar no-print ${!showSidebar ? "doc-sidebar-hidden" : ""}`}>
-        <div className="doc-sidebar-header">
-          <h2 className="text-sm font-bold text-slate-900">Jurnal Mengajar</h2>
-          <button
-            type="button"
-            className="doc-sidebar-close"
-            onClick={() => setShowSidebar(false)}
-            title="Tutup sidebar"
-          >
-            ✕
-          </button>
-        </div>
-
-        {/* -- Konteks -- */}
-        <div className="doc-sidebar-section">
-          <h3 className="doc-sidebar-section-title">Konteks</h3>
-          {!assignment && (
-            <div className="p-3 bg-amber-50 border border-amber-200 rounded-md mb-3">
-              <p className="font-semibold text-amber-900">Pilih Kelas dan Mapel</p>
-              <p className="text-sm text-amber-800 mt-1">Pilih assignment terlebih dahulu untuk mulai mengisi jurnal mengajar.</p>
-            </div>
-          )}
-          <Select
-            label="Kelas dan Mapel"
-            id="jrn-assignment-wys"
-            value={selectedAssignmentId}
-            onChange={handleAssignmentChange}
-            options={[
-              { value: "", label: "-- Pilih --" },
-              ...assignments.map((a) => ({
-                value: a.id,
-                label: `${a.classLabel} · ${a.subject}`,
-              })),
-            ]}
-          />
-          {assignment && year && <ContextCard info={buildContextInfo({ assignment, academicYear: year })} />}
-          <div className="mt-2">
-            <Input label="Tanggal" id="jrn-date-wys" type="date" value={date} onChange={handleDateChange} />
-          </div>
-        </div>
-
-        {/* -- Mode -- */}
-        <div className="doc-sidebar-section">
-          <h3 className="doc-sidebar-section-title">Mode</h3>
-          <div className="flex gap-2 flex-wrap">
-            <Button
-              variant={mode === "pertemuan" ? "primary" : "secondary"}
-              onClick={() => setMode("pertemuan")}
-              className="text-xs flex-1"
-            >
-              Hari Ini
-            </Button>
-            <Button
-              variant={mode === "susulan" ? "primary" : "secondary"}
-              onClick={() => setMode("susulan")}
-              className="text-xs flex-1"
-            >
-              Susulan
-            </Button>
-            <Button
-              variant={showEmergencyOptions ? "danger" : "secondary"}
-              onClick={() => setShowEmergencyOptions(!showEmergencyOptions)}
-              className="text-xs"
-            >
-              {showEmergencyOptions ? "▲" : "▼"} Opsi
-            </Button>
-          </div>
-        </div>
-
-        {/* -- Rekap jurnal -- */}
-        <div className="doc-sidebar-section">
-          <h3 className="doc-sidebar-section-title">Rekap</h3>
-          {recap ? (
-            <dl className="doc-summary-dl">
-              <div><dt>Total Pertemuan</dt><dd>{recap.total}</dd></div>
-              <div><dt>Sudah Jurnal</dt><dd className="kme-effective-text">{recap.done}</dd></div>
-              <div><dt>Belum Jurnal</dt><dd className="kme-ineffective-text">{recap.pending}</dd></div>
-              <div><dt>Batal</dt><dd>{recap.cancelled}</dd></div>
-            </dl>
-          ) : (
-            <p className="text-xs text-slate-400 italic">Pilih Kelas dan Mapel untuk melihat rekap.</p>
-          )}
-        </div>
-
-        {/* -- Daftar Pertemuan: Mode Hari Ini -- */}
-        {mode === "pertemuan" && (
-          <div className="doc-sidebar-section">
-            <h3 className="doc-sidebar-section-title">
-              Pertemuan Hari Ini
-              <span className="font-normal text-slate-400 ml-1">({sessions.length})</span>
-            </h3>
-            {sessions.length === 0 ? (
-              <p className="text-xs text-slate-400 italic">Tidak ada sesi di tanggal ini.</p>
-            ) : (
-              <ul className="doc-sidebar-list">
-                {sessions.map((s) => {
-                  const hasJournal = journals.some((j) => j.sessionId === s.id);
-                  const isManual = s.teachingScheduleId === "manual" || s.teachingScheduleId === "susulan";
-                  const isActive = selectedSessionId === s.id;
-                  return (
-                    <li
-                      key={s.id}
-                      className={`doc-sidebar-list-item cursor-pointer ${
-                        isActive ? "bg-brand-50 border-brand-200" : ""
-                      } ${s.status === "cancelled" ? "opacity-50" : ""}`}
-                      onClick={() => setSelectedSessionId(s.id)}
-                      role="button"
-                      tabIndex={0}
-                      onKeyDown={(e) => { if (e.key === "Enter") setSelectedSessionId(s.id); }}
-                    >
-                      <span className="doc-sidebar-list-title">
-                        {isManual ? "Manual" : `Jam ${s.startPeriod}`}
-                        {!isManual && <span className="text-slate-400"> · {s.startTime}–{s.endTime}</span>}
-                      </span>
-                      {isActive ? (
-                        <Badge variant="success">Aktif</Badge>
-                      ) : hasJournal ? (
-                        <Badge variant="success">✓</Badge>
-                      ) : s.status === "cancelled" ? (
-                        <Badge variant="error">Batal</Badge>
-                      ) : (
-                        <Badge variant="warning">Belum</Badge>
-                      )}
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </div>
-        )}
-
-        {/* -- Daftar Pertemuan: Mode Susulan -- */}
-        {mode === "susulan" && (
-          <div className="doc-sidebar-section">
-            <h3 className="doc-sidebar-section-title">
-              Jurnal Susulan
-              {recap && <span className="font-normal text-slate-400 ml-1">({recap.pending} belum)</span>}
-            </h3>
-            {!recap ? (
-              <p className="text-xs text-slate-400 italic">Pilih Kelas dan Mapel untuk melihat jurnal susulan.</p>
-            ) : allAssignmentSessions.length === 0 ? (
-              <p className="text-xs text-slate-400 italic">Belum ada pertemuan.</p>
-            ) : (
-              <ul className="doc-sidebar-list" style={{ maxHeight: 320 }}>
-                {[...recap.doneMeetings, ...recap.pendingMeetings]
-                  .sort((a, b) => a.date.localeCompare(b.date) || a.startPeriod - b.startPeriod)
-                  .map((s, i) => {
-                    const done = recap.doneMeetings.some((d) => d.id === s.id);
-                    const isActive = selectedSessionId === s.id;
-                    return (
-                      <li
-                        key={s.id}
-                        className={`doc-sidebar-list-item cursor-pointer ${
-                          isActive ? "bg-brand-50 border-brand-200" : ""
-                        } ${done ? "" : "bg-rose-50"}`}
-                        onClick={() => {
-                          setDate(s.date);
-                          setSelectedSessionId(s.id);
-                        }}
-                        role="button"
-                        tabIndex={0}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") { setDate(s.date); setSelectedSessionId(s.id); }
-                        }}
-                      >
-                        <span className="doc-sidebar-list-title">
-                          P{i + 1} · {formatLongDateID(s.date)}
-                        </span>
-                        {isActive ? (
-                          <Badge variant="success">Aktif</Badge>
-                        ) : done ? (
-                          <Badge variant="success">✓</Badge>
-                        ) : (
-                          <Badge variant="error">Susulan</Badge>
-                        )}
-                      </li>
-                    );
-                  })}
-              </ul>
-            )}
-          </div>
-        )}
-
-        {/* -- Opsi Darurat -- */}
-        {showEmergencyOptions && (
-          <div className="doc-sidebar-section">
-            <h3 className="doc-sidebar-section-title">Opsi Darurat</h3>
-            {!assignment ? (
-              <p className="text-xs text-slate-400 italic">Pilih Kelas dan Mapel terlebih dahulu.</p>
-            ) : (
-              <>
-                <p className="text-xs text-amber-800 mb-2">
-                  Hanya untuk kondisi darurat bila sesi tidak tersedia di jadwal.
-                </p>
-                <Button
-                  variant={mode === "manual" ? "primary" : "secondary"}
-                  onClick={() => setMode("manual")}
-                  className="text-xs w-full"
-                >
-                  Buat Jurnal di Luar Jadwal
-                </Button>
-              </>
-            )}
-          </div>
-        )}
-
-        {/* -- Mode Manual CTA -- */}
-        {mode === "manual" && (
-          <div className="doc-sidebar-section">
-            <h3 className="doc-sidebar-section-title">Jurnal Darurat</h3>
-            {!assignment ? (
-              <p className="text-xs text-slate-400 italic">Pilih Kelas dan Mapel terlebih dahulu untuk membuat jurnal darurat.</p>
-            ) : (
-              <>
-                <p className="text-xs text-amber-800 mb-2">
-                  {assignmentShortLabel(assignment)} · {formatLongDateID(date)}
-                </p>
-                <Button onClick={handleStartManualJournal} className="text-xs w-full">
-                  Mulai Jurnal Darurat
-                </Button>
-                <p className="text-[10px] text-slate-400 mt-1">
-                  Sesi manual yang sudah ada akan dipakai ulang.
-                </p>
-              </>
-            )}
-          </div>
-        )}
-
-        {/* -- Footer -- */}
-        <div className="doc-sidebar-section doc-sidebar-footer">
-          <Button
-            variant="secondary"
-            onClick={() => {
-              setSelectedAssignmentId("");
-              setSelectedSessionId(null);
-              setDocId(undefined);
-              setDocStatus("draft");
-            }}
-            className="w-full"
-          >
-            ← Kembali
-          </Button>
-        </div>
-      </aside>
+      <JournalSidebar
+        showSidebar={showSidebar}
+        setShowSidebar={setShowSidebar}
+        assignment={assignment}
+        year={year}
+        selectedAssignmentId={selectedAssignmentId}
+        assignments={assignments}
+        onAssignmentChange={handleAssignmentChange}
+        date={date}
+        onDateChange={handleDateChange}
+        mode={mode}
+        setMode={setMode}
+        showEmergencyOptions={showEmergencyOptions}
+        setShowEmergencyOptions={setShowEmergencyOptions}
+        recap={recap}
+        sessions={sessions}
+        selectedSessionId={selectedSessionId}
+        setSelectedSessionId={setSelectedSessionId}
+        journals={journals}
+        allAssignmentSessions={allAssignmentSessions}
+        setDate={setDate}
+        onStartManualJournal={handleStartManualJournal}
+        onReset={handleSidebarReset}
+      />
 
       {/* ---------- FLOATING SIDEBAR TOGGLE ---------- */}
       {!showSidebar && (
@@ -704,806 +396,5 @@ export function QuickJournalPage() {
         </DocumentPreview>
       </div>
     </div>
-  );
-}
-
-/* ================================================================== */
-/*  JournalUnfilledList — daftar sesi yang belum diisi jurnal          */
-/* ================================================================== */
-
-function JournalUnfilledList({
-  hasAssignment,
-  assignments,
-  sessions,
-  allAssignmentSessions,
-  journals,
-  date,
-  mode,
-  onSelectSession,
-}: {
-  hasAssignment: boolean;
-  assignments: TeachingAssignment[];
-  sessions: LessonSession[];
-  allAssignmentSessions: LessonSession[];
-  journals: TeachingJournal[];
-  date: string;
-  mode: JournalMode;
-  onSelectSession: (sid: string) => void;
-}) {
-  // Tidak ada assignment dipilih
-  if (!hasAssignment) {
-    return (
-      <div className="py-10 px-4 text-center">
-        <p className="text-lg font-medium text-slate-500">Pilih Kelas dan Mapel</p>
-        <p className="text-sm text-slate-400 mt-1">Buka sidebar atau pilih kelas dan mapel untuk melihat daftar jurnal.</p>
-        {assignments.length === 0 && (
-          <p className="text-sm text-amber-600 mt-3">Belum ada Kelas dan Mapel. Buat dulu di menu Kelas dan Mapel.</p>
-        )}
-      </div>
-    );
-  }
-
-  // Mode pertemuan: tampilkan sesi hari ini
-  if (mode === "pertemuan") {
-    const journalSessionIds = new Set(journals.map((j) => j.sessionId));
-    const unfilled = sessions.filter((s) => !journalSessionIds.has(s.id) && s.status !== "cancelled");
-    const draftJournals = journals.filter((j) => !j.locked);
-    const finalJournals = journals.filter((j) => j.locked);
-    const cancelled = sessions.filter((s) => s.status === "cancelled");
-
-    return (
-      <div className="py-6 px-4">
-        <h3 className="text-lg font-bold text-slate-900 mb-1">Daftar Jurnal</h3>
-        <p className="text-sm text-slate-500 mb-4">{formatLongDateID(date)} · {sessions.length} sesi</p>
-
-        {/* Perlu Finalisasi */}
-        {draftJournals.length > 0 && (
-          <div className="mb-4">
-            <h4 className="text-sm font-semibold text-amber-700 mb-2 flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-amber-500" />
-              Perlu Finalisasi ({draftJournals.length})
-            </h4>
-            <div className="space-y-2">
-              {draftJournals.map((j) => {
-                return (
-                  <div key={j.id} className="p-3 border border-amber-200 bg-amber-50 rounded-lg flex items-center justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-slate-900 truncate">{j.subject} — {j.classLabel}</p>
-                      <p className="text-xs text-slate-500">{formatLongDateID(j.date)} · Draft</p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => j.sessionId && onSelectSession(j.sessionId)}
-                      className="shrink-0 px-3 py-1.5 text-xs font-medium rounded-md bg-amber-500 text-white hover:bg-amber-600 transition-colors"
-                    >
-                      Finalisasi
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* Belum diisi */}
-        {unfilled.length > 0 && (
-          <div className="mb-4">
-            <h4 className="text-sm font-semibold text-rose-700 mb-2 flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-rose-500" />
-              Belum Diisi ({unfilled.length})
-            </h4>
-            <div className="space-y-2">
-              {unfilled.map((s) => (
-                <div key={s.id} className="p-3 border border-rose-200 bg-rose-50 rounded-lg flex items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-slate-900 truncate">{s.subject} — {s.classLabel}</p>
-                    <p className="text-xs text-slate-500">{s.startTime}–{s.endTime} · Jam {s.startPeriod}</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => onSelectSession(s.id)}
-                    className="shrink-0 px-3 py-1.5 text-xs font-medium rounded-md bg-rose-600 text-white hover:bg-rose-700 transition-colors"
-                  >
-                    Isi Jurnal
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Sudah final */}
-        {finalJournals.length > 0 && (
-          <div className="mb-4">
-            <h4 className="text-sm font-semibold text-emerald-700 mb-2 flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-500" />
-              Sudah Final ({finalJournals.length})
-            </h4>
-            <div className="space-y-2">
-              {finalJournals.map((j) => {
-                return (
-                  <div key={j.id} className="p-3 border border-emerald-200 bg-emerald-50 rounded-lg flex items-center justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-slate-900 truncate">{j.subject} — {j.classLabel}</p>
-                      <p className="text-xs text-slate-500">{formatLongDateID(j.date)}</p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => j.sessionId && onSelectSession(j.sessionId)}
-                      className="shrink-0 px-3 py-1.5 text-xs font-medium rounded-md border border-emerald-300 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 transition-colors"
-                    >
-                      Lihat
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* Batal */}
-        {cancelled.length > 0 && (
-          <div className="mb-4">
-            <h4 className="text-sm font-semibold text-slate-500 mb-2 flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-slate-400" />
-              Dibatalkan ({cancelled.length})
-            </h4>
-            <div className="space-y-2">
-              {cancelled.map((s) => (
-                <div key={s.id} className="p-3 border border-slate-200 bg-slate-50 rounded-lg opacity-60">
-                  <p className="text-sm font-medium text-slate-500 truncate">{s.subject} — {s.classLabel}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {sessions.length === 0 && (
-          <div className="text-center py-8 text-slate-400">
-            <p className="text-base font-medium">Tidak ada sesi di tanggal ini</p>
-            <p className="text-sm mt-1">Coba pilih tanggal lain atau gunakan mode Susulan.</p>
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  // Mode susulan: tampilkan semua sesi assignment
-  if (allAssignmentSessions.length === 0) {
-    return (
-      <div className="py-10 px-4 text-center">
-        <p className="text-lg font-medium text-slate-500">Belum ada sesi</p>
-        <p className="text-sm text-slate-400 mt-1">Buat jadwal mengajar terlebih dahulu agar sesi muncul di sini.</p>
-      </div>
-    );
-  }
-
-  const journalSessionIds = new Set(journals.map((j) => j.sessionId));
-  const draftJournals = journals.filter((j) => !j.locked);
-  const draftSessionIds = new Set(draftJournals.map((j) => j.sessionId));
-  const finalSessionIds = new Set(journals.filter((j) => j.locked).map((j) => j.sessionId));
-
-  const unfilled = allAssignmentSessions.filter((s) => !journalSessionIds.has(s.id));
-  const needsFinal = allAssignmentSessions.filter((s) => draftSessionIds.has(s.id));
-  const done = allAssignmentSessions.filter((s) => finalSessionIds.has(s.id));
-
-  return (
-    <div className="py-6 px-4">
-      <h3 className="text-lg font-bold text-slate-900 mb-1">Daftar Jurnal</h3>
-      <p className="text-sm text-slate-500 mb-4">
-        {done.length} final · {needsFinal.length} draft · {unfilled.length} belum · Total {allAssignmentSessions.length} pertemuan
-      </p>
-
-      {/* Perlu Finalisasi */}
-      {needsFinal.length > 0 && (
-        <div className="mb-4">
-          <h4 className="text-sm font-semibold text-amber-700 mb-2 flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-amber-500" />
-            Perlu Finalisasi ({needsFinal.length})
-          </h4>
-          <div className="space-y-1.5 max-h-64 overflow-y-auto">
-            {needsFinal.map((s, i) => (
-              <div key={s.id} className="p-2.5 border border-amber-200 bg-amber-50 rounded-lg flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-slate-900">P{i + 1} · {formatLongDateID(s.date)}</p>
-                  <p className="text-xs text-slate-500">{s.subject} · {s.classLabel}</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => onSelectSession(s.id)}
-                  className="shrink-0 px-3 py-1.5 text-xs font-medium rounded-md bg-amber-500 text-white hover:bg-amber-600 transition-colors"
-                >
-                  Finalisasi
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Belum diisi — prioritas utama */}
-      {unfilled.length > 0 && (
-        <div className="mb-4">
-          <h4 className="text-sm font-semibold text-rose-700 mb-2 flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-rose-500" />
-            Belum Diisi ({unfilled.length})
-          </h4>
-          <div className="space-y-1.5 max-h-96 overflow-y-auto">
-            {unfilled.map((s, i) => (
-              <div key={s.id} className="p-2.5 border border-rose-200 bg-rose-50 rounded-lg flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-slate-900">P{i + 1} · {formatLongDateID(s.date)}</p>
-                  <p className="text-xs text-slate-500">{s.subject} · {s.classLabel}</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => onSelectSession(s.id)}
-                  className="shrink-0 px-3 py-1.5 text-xs font-medium rounded-md bg-rose-600 text-white hover:bg-rose-700 transition-colors"
-                >
-                  Isi Jurnal
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Sudah final */}
-      {done.length > 0 && (
-        <div>
-          <h4 className="text-sm font-semibold text-emerald-700 mb-2 flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-500" />
-            Sudah Final ({done.length})
-          </h4>
-          <div className="space-y-1.5 max-h-64 overflow-y-auto">
-            {done.map((s, i) => (
-              <div key={s.id} className="p-2.5 border border-emerald-200 bg-emerald-50 rounded-lg flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-slate-900">P{i + 1} · {formatLongDateID(s.date)}</p>
-                  <p className="text-xs text-slate-500">{s.subject} · {s.classLabel}</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => onSelectSession(s.id)}
-                  className="shrink-0 px-3 py-1.5 text-xs font-medium rounded-md border border-emerald-300 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 transition-colors"
-                >
-                  Lihat
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-/* ================================================================== */
-/*  QuickJournalEditor — sub-component for editing a single session    */
-/*  WYSIWYG-DOC-FASE9: no showDocument toggle, no PrintExportButtons   */
-/* ================================================================== */
-
-function QuickJournalEditor({
-  sessionId,
-  academicYearId,
-  schoolName,
-  teacherName,
-  onSaved,
-  onError,
-}: {
-  sessionId: string;
-  academicYearId: string;
-  schoolName: string;
-  teacherName: string;
-  onSaved: (msg: string) => void;
-  onError: (msg: string) => void;
-}) {
-  const [loading, setLoading] = useState(true);
-  const [session, setSession] = useState<LessonSession | null>(null);
-  const [journal, setJournal] = useState<TeachingJournal | null>(null);
-  const [needsAttendance, setNeedsAttendance] = useState(false);
-
-  // JOURNAL-REVIEW-NARRATIVE-03 §4: review state
-  const [reviewOpened, setReviewOpened] = useState(false);
-
-  // Realization + material + followUp (existing schema fields)
-  const [realizationStatus, setRealizationStatus] = useState<RealizationStatus>("done");
-  const [actualMaterialTitle, setActualMaterialTitle] = useState("");
-  const [followUp, setFollowUp] = useState("");
-
-  // JOURNAL-REVIEW-NARRATIVE-03 §5: structured input (stored as JSON in `note`)
-  const [activities, setActivities] = useState<string[]>([]);
-  const [studentResponse, setStudentResponse] = useState("");
-  const [obstacle, setObstacle] = useState("");
-  const [freeNote, setFreeNote] = useState("");
-
-  const [availableUnits, setAvailableUnits] = useState<ProtaUnit[]>([]);
-  const [selectedUnitId, setSelectedUnitId] = useState<string>("");
-
-  // Helper: reset reviewOpened saat input berubah (spec §4: "Jika isi jurnal berubah setelah review, reviewOpened kembali false.")
-  function invalidateReview() {
-    setReviewOpened(false);
-  }
-
-  // Wrapped setters that invalidate review
-  function setActualMaterial(v: string) { setActualMaterialTitle(v); invalidateReview(); }
-  function setActivitiesList(v: string[]) { setActivities(v); invalidateReview(); }
-  function setResponse(v: string) { setStudentResponse(v); invalidateReview(); }
-  function setObstacleVal(v: string) { setObstacle(v); invalidateReview(); }
-  function setFreeNoteVal(v: string) { setFreeNote(v); invalidateReview(); }
-  function setFollowUpVal(v: string) { setFollowUp(v); invalidateReview(); }
-  function setRealization(v: RealizationStatus) { setRealizationStatus(v); invalidateReview(); }
-
-  useEffect(() => {
-    void (async () => {
-      try {
-        const sess = await getLessonSession(sessionId);
-        if (!sess) { onError("Sesi tidak ditemukan"); setLoading(false); return; }
-        setSession(sess);
-
-        const roster = academicYearId ? await findClassRoster(academicYearId, sess.classId) : null;
-
-        if (academicYearId) {
-          const ps = await listProtaProfiles(academicYearId);
-          const matchingProta = ps.find((p) => p.subject === sess.subject);
-          if (matchingProta) {
-            const units = matchingProta.units.filter((u) => u.semester === sess.semester);
-            setAvailableUnits(units);
-          }
-        }
-
-        // PATCH-FLOW-RC2D: jangan auto-create absensi
-        const result = await initJournalForSessionFull({
-          session: sess,
-          roster: roster ?? null,
-          plannedUnit: null,
-        });
-        if (result) {
-          setJournal(result.journal);
-          setNeedsAttendance(result.needsAttendance);
-          setRealizationStatus(result.journal.realizationStatus);
-          setActualMaterialTitle(result.journal.actualMaterialTitle ?? "");
-          setFollowUp(result.journal.followUp ?? "");
-          // JOURNAL-REVIEW-NARRATIVE-03: unpack structured note
-          const structured = unpackStructuredNote(result.journal.note);
-          setActivities(structured.activities);
-          setStudentResponse(structured.studentResponse);
-          setObstacle(structured.obstacle);
-          setFreeNote(structured.freeNote);
-          if (result.journal.plannedUnitId) setSelectedUnitId(result.journal.plannedUnitId);
-          // Review dimulai tertutup. Bila jurnal sudah final, anggap review sudah dilakukan.
-          setReviewOpened(result.journal.locked);
-        }
-      } catch (err) {
-        console.error("[QuickJournalEditor] Gagal memuat jurnal:", err);
-        onError(err instanceof Error ? err.message : "Gagal memuat jurnal.");
-      } finally {
-        setLoading(false);
-      }
-    })();
-  // RELEASE-FIXPACK-P1-P2-01: tambah academicYearId ke deps untuk hindari stale closure
-  }, [sessionId, academicYearId]);
-
-  // JOURNAL-REVIEW-NARRATIVE-03 §6: build narrative on-the-fly for preview/print
-  const narrative = useMemo(
-    () => buildJournalNarrative({
-      material: actualMaterialTitle || journal?.plannedMaterialTitle || "",
-      activities,
-      studentResponse,
-      obstacle,
-      followUp,
-      freeNote,
-    }),
-    [actualMaterialTitle, journal, activities, studentResponse, obstacle, followUp, freeNote],
-  );
-
-  // JOURNAL-REVIEW-NARRATIVE-03 §4: tombol final aktif hanya bila canFinalizeJournal.ok
-  const finalizeCheck = canFinalizeJournal({
-    material: actualMaterialTitle || journal?.plannedMaterialTitle || "",
-    activities,
-    reviewOpened,
-  });
-
-  async function handleSaveDraft() {
-    if (!journal) return;
-    try {
-      const structuredNote = packStructuredNote({ activities, studentResponse, obstacle, freeNote });
-      const updated = await updateJournal(journal.id, {
-        realizationStatus,
-        actualMaterialTitle: actualMaterialTitle || undefined,
-        note: structuredNote,
-        followUp: followUp || undefined,
-      });
-      if (updated) {
-        setJournal(updated);
-        onSaved("Draft jurnal tersimpan.");
-      }
-    } catch (e) {
-      onError(e instanceof Error ? e.message : "Gagal menyimpan.");
-    }
-  }
-
-  // JOURNAL-REVIEW-NARRATIVE-03: Setujui & Finalkan = review + finalize
-  async function handleApproveAndFinalize() {
-    if (!journal) return;
-    // Spec §4: validasi final wajib review dibuka
-    if (!finalizeCheck.ok) {
-      // RELEASE-FIXPACK-P1-P2-01: jangan panggil onError dengan string kosong.
-      // Hanya panggil onError bila ada pesan error yang jelas.
-      onError(finalizeCheck.message);
-      return;
-    }
-    try {
-      const structuredNote = packStructuredNote({ activities, studentResponse, obstacle, freeNote });
-      // Simpan input dulu
-      const updated = await updateJournal(journal.id, {
-        realizationStatus,
-        actualMaterialTitle: actualMaterialTitle || undefined,
-        note: structuredNote,
-        followUp: followUp || undefined,
-      });
-      if (!updated) {
-        onError("Gagal menyimpan input.");
-        return;
-      }
-      // Lalu finalize (lock)
-      const result = await finalizeJournal(updated.id);
-      if (result.success && result.journal) {
-        setJournal(result.journal);
-        onSaved("Jurnal disetujui & difinalkan (terkunci).");
-      } else {
-        onError(result.errors.join(", ") || "Gagal finalisasi jurnal.");
-      }
-    } catch (e) {
-      onError(e instanceof Error ? e.message : "Gagal finalisasi.");
-    }
-  }
-
-  async function handleUnlock() {
-    if (!journal) return;
-    try {
-      const unlocked = await unlockJournal(journal.id);
-      if (unlocked) {
-        setJournal(unlocked);
-        setReviewOpened(false); // reset review saat buka revisi
-        onSaved("Jurnal dibuka kembali (draft).");
-      }
-    } catch (e) {
-      onError(e instanceof Error ? e.message : "Gagal unlock.");
-    }
-  }
-
-  async function handleCopyPrevious() {
-    if (!session || !journal) return;
-    try {
-      const allJournals = await listJournals(session.academicYearId, session.semester);
-      const prev = allJournals
-        .filter(
-          (j) =>
-            j.classId === session.classId &&
-            j.subject === session.subject &&
-            j.date < session.date
-        )
-        .sort((a, b) => b.date.localeCompare(a.date))[0];
-
-      if (prev) {
-        setActualMaterialTitle(prev.actualMaterialTitle ?? prev.plannedMaterialTitle ?? "");
-        const structured = unpackStructuredNote(prev.note);
-        setActivities(structured.activities);
-        setStudentResponse(structured.studentResponse);
-        setObstacle(structured.obstacle);
-        setFreeNote(structured.freeNote);
-        setFollowUp(prev.followUp ?? "");
-        setRealizationStatus(prev.realizationStatus);
-        invalidateReview();
-        onSaved("Disalin dari jurnal sebelumnya. Buka review lalu Setujui & Finalkan.");
-      } else {
-        onError("Tidak ada jurnal sebelumnya untuk kelas+mapel ini.");
-      }
-    } catch (e) {
-      console.error("[QuickJournalEditor] Gagal salin jurnal sebelumnya:", e);
-      onError("Gagal salin jurnal sebelumnya.");
-    }
-  }
-
-  function handleUnitChange(unitId: string) {
-    setSelectedUnitId(unitId);
-    const unit = availableUnits.find((u) => u.id === unitId);
-    if (unit) {
-      setActualMaterial(unit.title);
-    }
-  }
-
-  // Toggle activity chip
-  function toggleActivity(activity: string) {
-    if (activities.includes(activity)) {
-      setActivitiesList(activities.filter((a) => a !== activity));
-    } else {
-      setActivitiesList([...activities, activity]);
-    }
-  }
-
-  if (loading) return <LoadingState message="Memuat jurnal..." />;
-  if (!session || !journal) {
-    return (
-      <Card>
-        <EmptyState
-          title="Jurnal tidak tersedia"
-          description="Sesi tidak ditemukan atau jurnal gagal dimuat. Coba pilih sesi lain."
-        />
-      </Card>
-    );
-  }
-
-  const isLocked = journal.locked;
-  const isManualSession = session.teachingScheduleId === "manual" || session.teachingScheduleId === "susulan";
-  const effectiveMaterial = actualMaterialTitle || journal.plannedMaterialTitle || "";
-
-  return (
-    <>
-      {/* ========== FORM SECTION (no-print) ========== */}
-      <div className="no-print" style={{ marginBottom: "1rem" }}>
-        {/* Header badges */}
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12, alignItems: "center" }}>
-          <span style={{ fontWeight: 700, fontSize: "0.95rem" }}>Jurnal — {session.classLabel}</span>
-          <Badge variant={isLocked ? "success" : "neutral"}>{isLocked ? "Final" : "Draft"}</Badge>
-          {reviewOpened && !isLocked && <Badge variant="success">✓ Review dibuka</Badge>}
-          {journal.totalStudents > 0 && (
-            <Badge variant="neutral">
-              H:{journal.presentCount} S:{journal.sickCount} I:{journal.excusedCount} A:{journal.absentCount}
-            </Badge>
-          )}
-        </div>
-
-        {/* PATCH-FLOW-RC2D: warning bila belum ada absensi */}
-        {needsAttendance && !isLocked && (
-          <div style={{ padding: 12, background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 8, marginBottom: 12 }}>
-            <p style={{ fontWeight: 600, color: "#92400e", fontSize: "0.85rem" }}>Belum ada absensi untuk sesi ini</p>
-            <p style={{ fontSize: "0.75rem", color: "#92400e", marginTop: 4 }}>
-              Jurnal tidak akan punya data kehadiran. Buat absensi dulu di menu Absen, atau lanjut simpan draft tanpa data kehadiran.
-            </p>
-            <Button
-              variant="secondary"
-              className="text-xs mt-2"
-              onClick={() => (window.location.hash = `/attendance?sessionId=${session.id}`)}
-            >
-              Buat Absensi Dulu
-            </Button>
-          </div>
-        )}
-
-        {/* Action buttons */}
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
-          {!isLocked ? (
-            <>
-              <Button
-                onClick={handleApproveAndFinalize}
-                disabled={!finalizeCheck.ok}
-                className="bg-brand-600 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                ✓ Setujui & Finalkan
-              </Button>
-              <Button variant="secondary" onClick={handleSaveDraft}>
-                Simpan Draft
-              </Button>
-              <Button
-                variant={reviewOpened ? "primary" : "secondary"}
-                onClick={() => setReviewOpened(true)}
-              >
-                {reviewOpened ? "✓ Review Dibuka" : "Lihat Review"}
-              </Button>
-              <Button variant="secondary" onClick={handleCopyPrevious}>
-                Salin Sebelumnya
-              </Button>
-            </>
-          ) : (
-            <>
-              <Badge variant="success">Jurnal Final (terkunci)</Badge>
-              <Button variant="secondary" onClick={handleUnlock}>
-                Buka Kembali
-              </Button>
-            </>
-          )}
-        </div>
-
-        {/* Validasi hint */}
-        {!isLocked && !finalizeCheck.ok && (
-          <div style={{ padding: 8, background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 4, fontSize: "0.75rem", color: "#92400e", marginBottom: 12 }}>
-            ⚠ {finalizeCheck.message}
-          </div>
-        )}
-
-        {/* Form inputs */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          {/* Auto-fill info */}
-          <div style={{ padding: 10, background: "#f8fafc", borderRadius: 6, fontSize: "0.8rem" }}>
-            <p style={{ fontSize: "0.65rem", color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>
-              Auto-fill (dari assignment + sesi + Prota + absensi)
-            </p>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4, fontSize: "0.75rem" }}>
-              <div><span style={{ color: "#94a3b8" }}>Guru:</span> <strong>{teacherName}</strong></div>
-              <div><span style={{ color: "#94a3b8" }}>Mapel:</span> <strong>{journal.subject}</strong></div>
-              <div><span style={{ color: "#94a3b8" }}>Kelas:</span> <strong>{journal.classLabel}</strong></div>
-              <div><span style={{ color: "#94a3b8" }}>Tanggal:</span> <strong>{formatLongDateID(journal.date)}</strong></div>
-              <div><span style={{ color: "#94a3b8" }}>Materi (Promes):</span> <strong>{journal.plannedMaterialTitle ?? "-"}</strong></div>
-              <div><span style={{ color: "#94a3b8" }}>TP:</span> <strong>{journal.plannedLearningOutcome ?? "-"}</strong></div>
-            </div>
-          </div>
-
-          {availableUnits.length > 0 && (
-            <Select
-              label="Ganti Materi (dari Prota)"
-              id="jrn-unit"
-              value={selectedUnitId}
-              onChange={handleUnitChange}
-              options={[
-                { value: "", label: "-- Pakai materi Promes --" },
-                ...availableUnits.map((u) => ({ value: u.id, label: `${u.title} (${u.jp} JP)` })),
-              ]}
-            />
-          )}
-
-          <Input
-            label="Materi / Pokok Bahasan"
-            id="jrn-material"
-            value={actualMaterialTitle}
-            onChange={setActualMaterial}
-            placeholder={journal.plannedMaterialTitle ?? "Tulis materi"}
-          />
-
-          {/* JOURNAL-REVIEW-NARRATIVE-03 §5: Kegiatan Pembelajaran (chip quick choices) */}
-          <div>
-            <label className="label">Kegiatan Pembelajaran</label>
-            <div className="flex gap-2 flex-wrap">
-              {JOURNAL_ACTIVITY_CHOICES.map((kegiatan) => (
-                <button
-                  key={kegiatan}
-                  type="button"
-                  disabled={isLocked}
-                  onClick={() => toggleActivity(kegiatan)}
-                  className={`px-3 py-1.5 text-xs rounded-full border transition-colors ${
-                    activities.includes(kegiatan)
-                      ? "border-brand-500 bg-brand-100 text-brand-800"
-                      : "border-brand-300 text-brand-700 bg-brand-50 hover:bg-brand-100"
-                  } ${isLocked ? "opacity-50 cursor-not-allowed" : ""}`}
-                >
-                  {kegiatan}
-                </button>
-              ))}
-            </div>
-            {activities.length > 0 && (
-              <p className="text-xs text-slate-500 mt-2">
-                Terpilih: {activities.join(", ")}
-              </p>
-            )}
-          </div>
-
-          <Select
-            label="Realisasi"
-            id="jrn-real"
-            value={realizationStatus}
-            onChange={(v) => setRealization(v as RealizationStatus)}
-            options={REALIZATION_OPTIONS.map((s) => ({ value: s.value, label: s.label }))}
-          />
-
-          {/* JOURNAL-REVIEW-NARRATIVE-03 §5: Respons Siswa (chip quick choices) */}
-          <div>
-            <label className="label">Respons Siswa</label>
-            <div className="flex gap-2 flex-wrap">
-              {JOURNAL_RESPONSE_CHOICES.map((resp) => (
-                <button
-                  key={resp}
-                  type="button"
-                  disabled={isLocked}
-                  onClick={() => setResponse(studentResponse === resp ? "" : resp)}
-                  className={`px-3 py-1.5 text-xs rounded-full border transition-colors ${
-                    studentResponse === resp
-                      ? "border-emerald-500 bg-emerald-100 text-emerald-800"
-                      : "border-emerald-300 text-emerald-700 bg-emerald-50 hover:bg-emerald-100"
-                  } ${isLocked ? "opacity-50 cursor-not-allowed" : ""}`}
-                >
-                  {resp}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* JOURNAL-REVIEW-NARRATIVE-03 §5: Kendala / Catatan (chip quick choices) */}
-          <div>
-            <label className="label">Kendala / Catatan</label>
-            <div className="flex gap-2 flex-wrap">
-              {JOURNAL_OBSTACLE_CHOICES.map((obs) => (
-                <button
-                  key={obs}
-                  type="button"
-                  disabled={isLocked}
-                  onClick={() => setObstacleVal(obstacle === obs ? "" : obs)}
-                  className={`px-3 py-1.5 text-xs rounded-full border transition-colors ${
-                    obstacle === obs
-                      ? "border-amber-500 bg-amber-100 text-amber-800"
-                      : "border-amber-300 text-amber-700 bg-amber-50 hover:bg-amber-100"
-                  } ${isLocked ? "opacity-50 cursor-not-allowed" : ""}`}
-                >
-                  {obs}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* JOURNAL-REVIEW-NARRATIVE-03 §5: Catatan tambahan bebas */}
-          <Textarea
-            label="Catatan Tambahan (opsional)"
-            id="jrn-freenote"
-            value={freeNote}
-            onChange={setFreeNoteVal}
-            rows={2}
-            placeholder="Catatan tambahan dari guru..."
-          />
-
-          {/* JOURNAL-REVIEW-NARRATIVE-03 §5: Tindak Lanjut (chip quick choices) */}
-          <div>
-            <label className="label">Tindak Lanjut</label>
-            <div className="flex gap-2 flex-wrap">
-              {JOURNAL_FOLLOWUP_CHOICES.map((fu) => (
-                <button
-                  key={fu}
-                  type="button"
-                  disabled={isLocked}
-                  onClick={() => setFollowUpVal(followUp === fu ? "" : fu)}
-                  className={`px-3 py-1.5 text-xs rounded-full border transition-colors ${
-                    followUp === fu
-                      ? "border-sky-500 bg-sky-100 text-sky-800"
-                      : "border-sky-300 text-sky-700 bg-sky-50 hover:bg-sky-100"
-                  } ${isLocked ? "opacity-50 cursor-not-allowed" : ""}`}
-                >
-                  {fu}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* ========== DOCUMENT SECTION (always visible, printed) ========== */}
-      <div className="document-page document-portrait" style={{ fontFamily: 'Arial, Helvetica, sans-serif', fontSize: '11pt', lineHeight: '1.25', width: '100%', boxSizing: 'border-box' }}>
-        <div className="document-title">JURNAL MENGAJAR</div>
-        <div className="document-subtitle">{schoolName}</div>
-        <table className="document-identity" style={{ fontFamily: 'Arial, Helvetica, sans-serif', width: '100%', borderCollapse: 'collapse', boxSizing: 'border-box' }}>
-          <tbody>
-            <tr>
-              <td>Mata Pelajaran</td><td>{journal.subject}</td>
-              <td>Kelas</td><td>{journal.classLabel}</td>
-            </tr>
-            <tr>
-              <td>Guru</td><td>{teacherName}</td>
-              <td>Tanggal</td><td>{formatLongDateID(journal.date)}</td>
-            </tr>
-            <tr>
-              <td>Jam ke</td><td>{isManualSession ? "Darurat" : `${session.startPeriod} (${session.startTime}–${session.endTime})`}</td>
-              <td>Realisasi</td><td>{REALIZATION_OPTIONS.find((s) => s.value === realizationStatus)?.label}</td>
-            </tr>
-          </tbody>
-        </table>
-        <table className="document-table" style={{ fontFamily: 'Arial, Helvetica, sans-serif', width: '100%', tableLayout: 'fixed', borderCollapse: 'collapse', boxSizing: 'border-box' }}>
-          <tbody>
-            <tr><td style={{ fontWeight: "bold", background: "#f5f5f5" }}>Materi</td><td>{effectiveMaterial || "-"}</td></tr>
-            <tr><td style={{ fontWeight: "bold", background: "#f5f5f5" }}>Tujuan Pembelajaran</td><td>{journal.plannedLearningOutcome ?? "-"}</td></tr>
-            <tr><td style={{ fontWeight: "bold", background: "#f5f5f5" }}>Kehadiran</td><td>H: {journal.presentCount} · S: {journal.sickCount} · I: {journal.excusedCount} · A: {journal.absentCount} · Total: {journal.totalStudents}</td></tr>
-            {/* JOURNAL-REVIEW-NARRATIVE-03 §8: pakai narrative */}
-            <tr><td style={{ fontWeight: "bold", background: "#f5f5f5" }}>Kegiatan Pembelajaran</td><td>{narrative.activityNarrative}</td></tr>
-            <tr><td style={{ fontWeight: "bold", background: "#f5f5f5" }}>Catatan / Respons Siswa</td><td>{narrative.noteNarrative}</td></tr>
-            <tr><td style={{ fontWeight: "bold", background: "#f5f5f5" }}>Tindak Lanjut</td><td>{narrative.followUpNarrative}</td></tr>
-          </tbody>
-        </table>
-        <div className="signature-grid">
-          <div>
-            <p>{schoolName.split(" ").slice(-2).join(" ")}, {formatLongDateID(journal.date)}</p>
-            <p>Guru Mata Pelajaran</p>
-            <div className="sig-space" />
-            <p className="sig-name">{teacherName}</p>
-          </div>
-        </div>
-      </div>
-    </>
   );
 }
