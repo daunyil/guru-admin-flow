@@ -17,36 +17,49 @@ import { LoadingState } from "./shared/ui";
 
 /* ------------------------------------------------------------------ */
 /*  Lazy-loaded pages — each becomes a separate chunk                 */
+/*  Module group: 1-harian, 2-piket, 3-administrasi, 4-integrasi,    */
+/*                5-data-dasar                                         */
 /* ------------------------------------------------------------------ */
 
-const ProfilePage = lazy(() => import("./modules/profile/ProfilePage").then((m) => ({ default: m.ProfilePage })));
-const BackupPage = lazy(() => import("./modules/backup/BackupPage").then((m) => ({ default: m.BackupPage })));
-const NewYearWizard = lazy(() => import("./modules/new-year/NewYearWizard").then((m) => ({ default: m.NewYearWizard })));
-const CalendarPage = lazy(() => import("./modules/calendar/CalendarPage").then((m) => ({ default: m.CalendarPage })));
-const ProtaPage = lazy(() => import("./modules/prota/ProtaPage").then((m) => ({ default: m.ProtaPage })));
-const PromesPage = lazy(() => import("./modules/promes/PromesPage").then((m) => ({ default: m.PromesPage })));
-const SchedulePage = lazy(() => import("./modules/schedule/SchedulePage").then((m) => ({ default: m.SchedulePage })));
-const RosterPage = lazy(() => import("./modules/roster/RosterPage").then((m) => ({ default: m.RosterPage })));
-const AssignmentsPage = lazy(() => import("./modules/assignments/AssignmentsPage").then((m) => ({ default: m.AssignmentsPage })));
-const QuickAttendancePage = lazy(() => import("./modules/attendance/QuickAttendancePage").then((m) => ({ default: m.QuickAttendancePage })));
-const QuickJournalPage = lazy(() => import("./modules/journal/QuickJournalPage").then((m) => ({ default: m.QuickJournalPage })));
-const GradesPage = lazy(() => import("./modules/grades/GradesPage").then((m) => ({ default: m.GradesPage })));
-const ATPPage = lazy(() => import("./modules/atp/ATPPage").then((m) => ({ default: m.ATPPage })));
-const LKPDPage = lazy(() => import("./modules/lkpd/LKPDPage").then((m) => ({ default: m.LKPDPage })));
-const RPPPage = lazy(() => import("./modules/rpp/RPPPage").then((m) => ({ default: m.RPPPage })));
-const RppBulkReplacePage = lazy(() => import("./modules/rpp-bulk/RppBulkReplacePage").then((m) => ({ default: m.RppBulkReplacePage })));
-const RemedialPage = lazy(() => import("./modules/remedial/RemedialPage").then((m) => ({ default: m.RemedialPage })));
-const EnrichmentPage = lazy(() => import("./modules/pengayaan/EnrichmentPage").then((m) => ({ default: m.EnrichmentPage })));
-const AdminPackagePage = lazy(() => import("./modules/admin-package/AdminPackagePage").then((m) => ({ default: m.AdminPackagePage })));
-const SemesterReportPage = lazy(() => import("./modules/semester-report/SemesterReportPage").then((m) => ({ default: m.SemesterReportPage })));
-const CompletenessPage = lazy(() => import("./modules/completeness/CompletenessPage").then((m) => ({ default: m.CompletenessPage })));
-const AppsScriptImportPage = lazy(() => import("./modules/apps-script-import/AppsScriptImportPage").then((m) => ({ default: m.AppsScriptImportPage })));
-const AutoDocumentPage = lazy(() => import("./modules/auto-document/AutoDocumentPage").then((m) => ({ default: m.AutoDocumentPage })));
-const EvaluationDocsPage = lazy(() => import("./modules/evaluation-docs/EvaluationDocsPage").then((m) => ({ default: m.EvaluationDocsPage })));
-const DailyDutyPage = lazy(() => import("./modules/daily-duty/DailyDutyPage").then((m) => ({ default: m.DailyDutyPage })));
-const LainnyaPage = lazy(() => import("./modules/lainnya/LainnyaPage").then((m) => ({ default: m.LainnyaPage })));
-const ReportCenterPage = lazy(() => import("./modules/report-center/ReportCenterPage").then((m) => ({ default: m.ReportCenterPage })));
-const TestPrintPage = lazy(() => import("./shared/documents/DocumentPrintPreviewExample").then((m) => ({ default: m.DocumentPrintPreviewExample })));
+// 1-harian (Harian Guru)
+const QuickAttendancePage = lazy(() => import("@harian/attendance/QuickAttendancePage").then((m) => ({ default: m.QuickAttendancePage })));
+const QuickJournalPage = lazy(() => import("@harian/journal/QuickJournalPage").then((m) => ({ default: m.QuickJournalPage })));
+const GradesPage = lazy(() => import("@harian/grades/GradesPage").then((m) => ({ default: m.GradesPage })));
+
+// 2-piket (Guru Piket)
+const DailyDutyPage = lazy(() => import("@piket/daily-duty/DailyDutyPage").then((m) => ({ default: m.DailyDutyPage })));
+
+// 3-administrasi (Dokumen Generator)
+const CalendarPage = lazy(() => import("@admin/_perencanaan/calendar/CalendarPage").then((m) => ({ default: m.CalendarPage })));
+const ProtaPage = lazy(() => import("@admin/_perencanaan/prota/ProtaPage").then((m) => ({ default: m.ProtaPage })));
+const PromesPage = lazy(() => import("@admin/_perencanaan/promes/PromesPage").then((m) => ({ default: m.PromesPage })));
+const SchedulePage = lazy(() => import("@admin/_perencanaan/schedule/SchedulePage").then((m) => ({ default: m.SchedulePage })));
+const ATPPage = lazy(() => import("@admin/_perencanaan/atp/ATPPage").then((m) => ({ default: m.ATPPage })));
+const RPPPage = lazy(() => import("@admin/_dokumen-ajar/rpp/RPPPage").then((m) => ({ default: m.RPPPage })));
+const RppBulkReplacePage = lazy(() => import("@admin/_dokumen-ajar/rpp-bulk/RppBulkReplacePage").then((m) => ({ default: m.RppBulkReplacePage })));
+const LKPDPage = lazy(() => import("@admin/_dokumen-ajar/lkpd/LKPDPage").then((m) => ({ default: m.LKPDPage })));
+const EvaluationDocsPage = lazy(() => import("@admin/_evaluasi/evaluation-docs/EvaluationDocsPage").then((m) => ({ default: m.EvaluationDocsPage })));
+const RemedialPage = lazy(() => import("@admin/_evaluasi/remedial/RemedialPage").then((m) => ({ default: m.RemedialPage })));
+const EnrichmentPage = lazy(() => import("@admin/_evaluasi/pengayaan/EnrichmentPage").then((m) => ({ default: m.EnrichmentPage })));
+const SemesterReportPage = lazy(() => import("@admin/_evaluasi/semester-report/SemesterReportPage").then((m) => ({ default: m.SemesterReportPage })));
+const LainnyaPage = lazy(() => import("@admin/_evaluasi/lainnya/LainnyaPage").then((m) => ({ default: m.LainnyaPage })));
+const AdminPackagePage = lazy(() => import("@admin/_paket/admin-package/AdminPackagePage").then((m) => ({ default: m.AdminPackagePage })));
+
+// 4-integrasi (Cross-cutting)
+const AppsScriptImportPage = lazy(() => import("@modules/4-integrasi/apps-script-import/AppsScriptImportPage").then((m) => ({ default: m.AppsScriptImportPage })));
+const AutoDocumentPage = lazy(() => import("@modules/4-integrasi/auto-document/AutoDocumentPage").then((m) => ({ default: m.AutoDocumentPage })));
+const CompletenessPage = lazy(() => import("@modules/4-integrasi/completeness/CompletenessPage").then((m) => ({ default: m.CompletenessPage })));
+const ReportCenterPage = lazy(() => import("@modules/4-integrasi/report-center/ReportCenterPage").then((m) => ({ default: m.ReportCenterPage })));
+
+// 5-data-dasar (Master Data)
+const ProfilePage = lazy(() => import("@modules/5-data-dasar/profile/ProfilePage").then((m) => ({ default: m.ProfilePage })));
+const BackupPage = lazy(() => import("@modules/5-data-dasar/backup/BackupPage").then((m) => ({ default: m.BackupPage })));
+const NewYearWizard = lazy(() => import("@modules/5-data-dasar/new-year/NewYearWizard").then((m) => ({ default: m.NewYearWizard })));
+const RosterPage = lazy(() => import("@modules/5-data-dasar/roster/RosterPage").then((m) => ({ default: m.RosterPage })));
+const AssignmentsPage = lazy(() => import("@modules/5-data-dasar/assignments/AssignmentsPage").then((m) => ({ default: m.AssignmentsPage })));
+
+// Auth (cross-module)
+const TestPrintPage = lazy(() => import("@shared/documents/DocumentPrintPreviewExample").then((m) => ({ default: m.DocumentPrintPreviewExample })));
 
 /* ------------------------------------------------------------------ */
 /*  App                                                               */

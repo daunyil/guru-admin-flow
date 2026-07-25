@@ -12,11 +12,10 @@ const aliasMap = {
   "@shared": path.resolve(srcDir, "shared"),
   "@modules": path.resolve(srcDir, "modules"),
   "@routes": path.resolve(srcDir, "routes"),
-  // Future module group aliases — resolve to current locations for now;
-  // will be updated when Phase 1-3 reorg moves directories.
-  "@harian": path.resolve(srcDir, "modules"),      // → modules/1-harian after Phase 1
-  "@piket": path.resolve(srcDir, "modules"),        // → modules/2-piket after Phase 2
-  "@admin": path.resolve(srcDir, "modules"),        // → modules/3-administrasi after Phase 3
+  // Module group aliases — updated after Phase 1 reorg
+  "@harian": path.resolve(srcDir, "modules", "1-harian"),
+  "@piket": path.resolve(srcDir, "modules", "2-piket"),
+  "@admin": path.resolve(srcDir, "modules", "3-administrasi"),
 };
 
 // CODE-SPLIT-01: manualChunks — split vendor code into separate chunks
