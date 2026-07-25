@@ -45,7 +45,9 @@ export interface PromesLandscapeMatrixDocumentProps {
   schoolName: string;
   schoolRegency: string;
   headmasterName: string;
+  headmasterNip: string;
   teacherName: string;
+  teacherNip: string;
   profile: ProtaProfile | null;
 }
 
@@ -59,7 +61,9 @@ export function PromesLandscapeMatrixDocument({
   schoolName,
   schoolRegency,
   headmasterName,
+  headmasterNip,
   teacherName,
+  teacherNip,
   profile,
 }: PromesLandscapeMatrixDocumentProps) {
   /* ---- Pre-compute all shared data (one pass, shared across all rendering) ---- */
@@ -227,8 +231,8 @@ export function PromesLandscapeMatrixDocument({
       )}
 
       <DocumentSignature
-        left={{ role: "Mengetahui,\nKepala Sekolah", name: headmasterName }}
-        right={{ role: "Guru Mata Pelajaran", name: teacherName, placeDate: `${schoolRegency || "..........."}, ${formatLongDateID(todayISODate())}` }}
+        left={{ role: "Mengetahui,\nKepala Sekolah", name: headmasterName, nip: headmasterNip }}
+        right={{ role: "Guru Mata Pelajaran", name: teacherName, nip: teacherNip, placeDate: `${schoolRegency || "..........."}, ${formatLongDateID(todayISODate())}` }}
       />
     </DocumentPage>
   );

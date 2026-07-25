@@ -877,3 +877,51 @@ Stage Summary:
 - Print CSS consolidated from 3 conflicting files into 1 (document-print.css)
 - DocumentTable now supports <colgroup> (auto from header widths) and <tfoot> (new footer prop)
 - No breaking changes — existing DocumentTable calls work without modification
+---
+Task ID: 3-a
+Agent: Main Agent (Super Z)
+Task: Sprint 1 HIGH — Print/PDF merdeka overrides audit + fix [KOP-12, TITL-11, SIG-05]
+
+Work Log:
+- ANALYZE: Identified critical bug — generic `.promes-landscape-page { font-size: 7pt }` in @media print flattens ALL merdeka text hierarchy (kop 10pt/11pt/13pt → 7pt, title 12pt/9pt/8pt → 7pt, signature readable → 7pt)
+- SPECIFY: Created new spec IDs KOP-12 (kop hierarchy print protection), TITL-11 (title hierarchy print protection), SIG-05 (signature readability print protection) with exact !important override values
+- UPDATE: Updated PROMES-WORKFLOW-STANDARDS.md — added KOP-12 row, TITL-11 row, SIG-05 row, LOCK RULE comments, Appendix A index updates (KOP-01–12, TITL-01–11, SIG-01–05), Section 8.1 resolved issue, Section 8.2 open issues status updates, version history v5.2
+- CODE: Added per-element !important font-size overrides in @media print section of document-print.css: kop-instansi-1 (10pt), kop-dinas (11pt), kop-unit (13pt), kop-address (8pt), kop-double-border (3px double), title-main-doc (12pt/900/#000), title-sub-doc (9pt/600/#333), title-year-doc (8pt/700/#333), signature-role (8pt), signature-name (9pt), signature-nip (7.5pt), signature-place-date (7.5pt), signature-space (52pt)
+
+Stage Summary:
+- Print hierarchy protection implemented — 7 new !important override rules protecting kop/title/sig from generic 7pt flatten
+- Build verified: Vite build passes 5.01s, zero errors
+- QA: 27/27 checklist items pass
+
+---
+Task ID: 3-b
+Agent: Main Agent (Super Z)
+Task: Sprint 1 HIGH — Logo image injection props + Kop Surat conditional rendering [KOP-01/02]
+
+Work Log:
+- ANALYZE: Found SchoolProfile already has `logo: z.string().optional()` field in domain package (school-profile.ts line 33)
+- SPECIFY: Added `logoUrl?: string` prop to PromesLandscapeKurikulumMerdekaDocumentProps type
+- CODE: Modified PromesMerdekaDocument.tsx — added logoUrl prop, conditional rendering (img vs placeholder) in kop-logo-box, added `.promes-merdeka-kop-logo-img` CSS class
+- CODE: Added CSS for `.promes-merdeka-kop-logo-img` (55pt×55pt, object-fit:contain, border-radius:2pt) in document-print.css screen section
+- CODE: Added print override for `.promes-merdeka-kop-logo-img` (!important sizing + print-color-adjust:exact) in @media print section
+- CODE: Modified PromesPage.tsx — passed `logoUrl={school?.logo ?? undefined}` to PromesLandscapeKurikulumMerdekaDocument component
+
+Stage Summary:
+- Logo injection complete — conditional render: real <img> when logoUrl provided, placeholder when not
+- SchoolProfile.logo field already exists in domain, connected via PromesPage props chain
+- Build verified: zero errors
+
+---
+Task ID: 4
+Agent: Main Agent (Super Z)
+Task: Sprint 2 MEDIUM — Responsive tablet (768-1024px) canvas scaling [LAY-05/06]
+
+Work Log:
+- ANALYZE: Landscape A4 canvas (297mm) too wide for tablet viewports. Existing breakpoint at 900px fully collapses A4 sizing — no intermediate tablet handling
+- CODE: Added tablet breakpoint `@media screen and (min-width: 768px) and (max-width: 900px)` in wysiwyg-canvas.css — CSS transform:scale(0.7) on `.wysiwyg-canvas.wysiwyg-landscape` with margin-bottom compensation
+- CODE: Added tablet breakpoint in document-print.css — font-size:6pt for .promes-landscape-page, compressed kop-logo sizing (45pt/40pt), scrollable merdeka-table-container
+- CODE: Updated full collapse breakpoint (<900px) to reset transform:none and margin-bottom:0 on wysiwyg-canvas
+
+Stage Summary:
+- Tablet responsive handling implemented — landscape canvas scales to 70% on 768-900px viewports, preserving WYSIWYG document preview experience
+- Build verified: zero errors

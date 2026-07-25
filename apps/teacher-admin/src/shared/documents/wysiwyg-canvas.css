@@ -247,6 +247,27 @@
 /*  Responsive (mobile / tablet)                                      */
 /* ------------------------------------------------------------------ */
 
+/* LAY-05/06: Tablet breakpoint (768-900px) — Scale landscape canvas to fit viewport.
+   Instead of removing A4 sizing entirely, we use CSS transform to scale the paper
+   preview proportionally, preserving the WYSIWYG document look on tablets.
+   Portrait canvas remains at 100% width (210mm fits tablet screens). */
+@media screen and (min-width: 768px) and (max-width: 900px) {
+  .wysiwyg-canvas.wysiwyg-landscape {
+    /* Scale landscape canvas to ~70% to fit tablet viewport width */
+    transform: scale(0.7);
+    transform-origin: top center;
+    /* Compensate for scale reduction so parent container doesn't collapse */
+    margin-bottom: -30%;
+  }
+
+  .wysiwyg-canvas-area {
+    padding: 8px;
+    /* Enable touch scrolling within the canvas area */
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* Full collapse for narrow screens (< 900px) */
 @media screen and (max-width: 900px) {
   .wysiwyg-canvas-area {
     padding: 12px;
@@ -258,6 +279,9 @@
     min-height: auto;
     padding: 16px;
     overflow-x: auto;
+    /* Remove any scale transform from tablet breakpoint */
+    transform: none;
+    margin-bottom: 0;
   }
 
   .wysiwyg-toolbar {
@@ -301,6 +325,20 @@
 .wysiwyg-canvas .document-page.promes-landscape-page {
   font-size: 7.5pt !important;
   line-height: 1.1 !important;
+}
+
+/* DOCUMENT-CENTRIC FORMAL: Merdeka pages MUST use serif font (Times New Roman / Georgia)
+   per Blueprint Standar Dinas Pendidikan. The generic .wysiwyg-canvas .document-page
+   forces Arial !important, so we must override with same specificity + !important
+   for the merdeka page variant. This applies to ALL child elements too. */
+.wysiwyg-canvas .document-page.promes-merdeka-page {
+  font-family: 'Times New Roman', Georgia, serif !important;
+  font-size: 7.5pt !important;
+  line-height: 1.1 !important;
+}
+
+.wysiwyg-canvas .document-page.promes-merdeka-page * {
+  font-family: 'Times New Roman', Georgia, serif !important;
 }
 
 .wysiwyg-canvas .document-page.document-landscape {

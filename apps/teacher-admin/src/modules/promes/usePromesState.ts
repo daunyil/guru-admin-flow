@@ -83,6 +83,9 @@ export function usePromesState() {
   const [variasiDokumen, setVariasiDokumen] = useState<PromesVariasi>("matrix");
   // Derived orientation from variasi
   const formatDokumen: SchoolDocOrientation = variasiDokumen === "ringkas" ? "portrait" : "landscape";
+  // v5 FIX: Track last landscape variasi (matrix or merdeka) so orientation toggle
+  // doesn't lose merdeka when toggling landscape↔portrait.
+  const lastLandscapeVariasiRef = useRef<PromesVariasi>("matrix");
 
   // WYSIWYG-DOC-FASE2: persistence state
   const [docId, setDocId] = useState<string | undefined>(undefined);
@@ -257,9 +260,21 @@ export function usePromesState() {
     setDocStatus("final");
   }, []);
 
+  // v5 FIX: Sync ref whenever variasi changes to a landscape variant
+  useEffect(() => {
+    if (variasiDokumen === "matrix" || variasiDokumen === "merdeka") {
+      lastLandscapeVariasiRef.current = variasiDokumen;
+    }
+  }, [variasiDokumen]);
+
   const handleOrientationChange = useCallback((orientation: SchoolDocOrientation) => {
-    // Map orientation change to variasi
-    setVariasiDokumen(orientation === "portrait" ? "ringkas" : "matrix");
+    // v5 FIX: 3-way mapping — portrait→ringkas, landscape→last landscape variasi
+    // (preserves merdeka when toggling orientation via DocumentPreview toolbar).
+    if (orientation === "portrait") {
+      setVariasiDokumen("ringkas");
+    } else {
+      setVariasiDokumen(lastLandscapeVariasiRef.current);
+    }
     if (docId) {
       void updateSchoolDocumentLayout(docId, { orientation });
     }

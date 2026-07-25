@@ -33,7 +33,9 @@ export interface PromesPortraitDocumentProps {
   schoolName: string;
   schoolRegency: string;
   headmasterName: string;
+  headmasterNip: string;
   teacherName: string;
+  teacherNip: string;
   profile: ProtaProfile | null;
 }
 
@@ -72,7 +74,7 @@ function resolvePortraitKeterangan(week: PromesWeek, calLabel: string): string {
 
 export function PromesPortraitDocument({
   weeks, distribution, koRows, summary, status, semester, activeYearLabel,
-  schoolName, schoolRegency, headmasterName, teacherName, profile,
+  schoolName, schoolRegency, headmasterName, headmasterNip, teacherName, teacherNip, profile,
 }: PromesPortraitDocumentProps) {
 
   /* ---- Identity rows (2-column layout) ---- */
@@ -190,8 +192,8 @@ export function PromesPortraitDocument({
       )}
 
       <DocumentSignature
-        left={{ role: "Mengetahui,\nKepala Sekolah", name: headmasterName }}
-        right={{ role: "Guru Mata Pelajaran", name: teacherName, placeDate: `${schoolRegency || "..........."}, ${formatLongDateID(todayISODate())}` }}
+        left={{ role: "Mengetahui,\nKepala Sekolah", name: headmasterName, nip: headmasterNip }}
+        right={{ role: "Guru Mata Pelajaran", name: teacherName, nip: teacherNip, placeDate: `${schoolRegency || "..........."}, ${formatLongDateID(todayISODate())}` }}
       />
     </DocumentPage>
   );

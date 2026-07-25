@@ -127,7 +127,9 @@ export function PromesPage() {
                 schoolName={school?.name ?? ""}
                 schoolRegency={school?.regency ?? ""}
                 headmasterName={school?.headmasterName ?? ""}
+                headmasterNip={school?.headmasterNip ?? ""}
                 teacherName={teacher?.name ?? ""}
+                teacherNip={teacher?.nip ?? ""}
                 profile={currentProfile}
               />
             ) : variasiDokumen === "merdeka" ? (
@@ -146,6 +148,7 @@ export function PromesPage() {
                 teacherNip={teacher?.nip ?? ""}
                 profile={currentProfile}
                 options={options}
+                logoUrl={school?.logo ?? undefined}
               />
             ) : (
               <PromesLandscapeMatrixDocument
@@ -159,7 +162,9 @@ export function PromesPage() {
                 schoolName={school?.name ?? ""}
                 schoolRegency={school?.regency ?? ""}
                 headmasterName={school?.headmasterName ?? ""}
+                headmasterNip={school?.headmasterNip ?? ""}
                 teacherName={teacher?.name ?? ""}
+                teacherNip={teacher?.nip ?? ""}
                 profile={currentProfile}
               />
             )}

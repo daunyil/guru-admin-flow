@@ -224,8 +224,14 @@ export function DocumentPage({
      !important rules can take effect. Without this, inline fontSize:11pt
      would override everything (inline > !important CSS). */
   const isPromesLandscape = className?.includes("promes-landscape-page") ?? false;
+  const isMerdekaPage = className?.includes("promes-merdeka-page") ?? false;
+  /* DOCUMENT-CENTRIC FORMAL: Merdeka pages use serif font (Times New Roman / Georgia)
+     per Blueprint Standar Dinas Pendidikan. Other pages retain Arial sans-serif. */
+  const fontFamily = isMerdekaPage
+    ? "'Times New Roman', Georgia, serif"
+    : "Arial, Helvetica, sans-serif";
   const inlineStyle: React.CSSProperties = {
-    fontFamily: "Arial, Helvetica, sans-serif",
+    fontFamily,
     fontSize: isPromesLandscape ? undefined : "11pt",
     lineHeight: isPromesLandscape ? undefined : "1.25",
     width: "100%",
