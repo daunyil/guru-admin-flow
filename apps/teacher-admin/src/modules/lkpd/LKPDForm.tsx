@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { Card, CardHeader, Input, Textarea, Button, Select } from "../../shared/ui";
-import { InfoCard } from "../../shared/ui/ContextCard";
+import { Card, CardHeader, Input, Textarea, Button, Select } from "@shared/ui";
+import { InfoCard } from "@shared/ui/ContextCard";
 import type { LKPD, ATPEntry, ClassRoster } from "@guru-admin/domain";
 import type { LKPDFormData } from "./types";
 

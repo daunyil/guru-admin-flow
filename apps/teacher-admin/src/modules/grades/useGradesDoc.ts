@@ -10,7 +10,7 @@ import {
   updateSchoolDocumentLayout,
   setSchoolDocumentStatus,
   findSchoolDocumentByCompositeKey,
-} from "../../shared/db/school-document-repo";
+} from "@shared/db/school-document-repo";
 
 interface UseGradesDocParams {
   year: AcademicYear | null;

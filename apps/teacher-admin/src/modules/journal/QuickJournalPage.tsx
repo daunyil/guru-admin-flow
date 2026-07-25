@@ -23,18 +23,18 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Card, EmptyState, LoadingState } from "../../shared/ui";
+import { Card, EmptyState, LoadingState } from "@shared/ui";
 import {
   getLessonSessionsByDate,
   findOrCreateManualSession,
   listLessonSessions,
-} from "../../shared/db/lesson-session-repo";
-import { findClassRoster } from "../../shared/db/class-roster-repo";
+} from "@shared/db/lesson-session-repo";
+import { findClassRoster } from "@shared/db/class-roster-repo";
 import {
   listJournals,
-} from "../../shared/db/journal-repo";
-import { getActiveAcademicYear, getTeacherProfile, getSchoolProfile } from "../../shared/db/profile-repo";
-import { listAssignmentsByTeacher } from "../../shared/db/teaching-assignment-repo";
+} from "@shared/db/journal-repo";
+import { getActiveAcademicYear, getTeacherProfile, getSchoolProfile } from "@shared/db/profile-repo";
+import { listAssignmentsByTeacher } from "@shared/db/teaching-assignment-repo";
 import type {
   LessonSession,
   TeachingJournal,
@@ -50,7 +50,7 @@ import {
 import { todayISODate } from "@guru-admin/shared";
 
 // WYSIWYG-DOC-FASE9
-import { DocumentPreview } from "../../shared/documents";
+import { DocumentPreview } from "@shared/documents";
 
 // Extracted modules
 import { JournalMode } from "./quickJournalTypes";

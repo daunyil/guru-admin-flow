@@ -6,10 +6,10 @@
  */
 
 import { useEffect, useState } from "react";
-import { getActiveAcademicYear, getTeacherProfile, getSchoolProfile } from "../../shared/db/profile-repo";
-import { listAssignmentsByTeacher } from "../../shared/db/teaching-assignment-repo";
-import { listATPEntries } from "../../shared/db/atp-entry-repo";
-import { listCalendarEvents } from "../../shared/db/calendar-repo";
+import { getActiveAcademicYear, getTeacherProfile, getSchoolProfile } from "@shared/db/profile-repo";
+import { listAssignmentsByTeacher } from "@shared/db/teaching-assignment-repo";
+import { listATPEntries } from "@shared/db/atp-entry-repo";
+import { listCalendarEvents } from "@shared/db/calendar-repo";
 import {
   generateBlueprintPrompt,
   parseBlueprintAIJson,
@@ -24,7 +24,7 @@ import {
 import { filterATPForAssignment } from "@guru-admin/domain";
 import type { AcademicYear, TeacherProfile, SchoolProfile, TeachingAssignment, ATPEntry } from "@guru-admin/domain";
 import { todayISODate } from "@guru-admin/shared";
-import type { KktpAnalysisRow, AssessmentGridRow } from "../../shared/documents";
+import type { KktpAnalysisRow, AssessmentGridRow } from "@shared/documents";
 import type { Tab } from "./evaluation-docs-types";
 
 export type EvaluationDocsState = ReturnType<typeof useEvaluationDocsState>;

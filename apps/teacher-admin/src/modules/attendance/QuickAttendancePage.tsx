@@ -9,9 +9,9 @@
  *   - ensureDoc pattern: find-or-create saat assignment dipilih.
  */
 
-import { Card, Input, Select, Button, EmptyState, Badge, LoadingState } from "../../shared/ui";
+import { Card, Input, Select, Button, EmptyState, Badge, LoadingState } from "@shared/ui";
 import { formatLongDateID } from "@guru-admin/shared";
-import { DocumentPreview } from "../../shared/documents";
+import { DocumentPreview } from "@shared/documents";
 import { useQuickAttendanceState } from "./useQuickAttendanceState";
 import { AttendanceUnfilledList } from "./AttendanceUnfilledList";
 import { AttendanceEditor } from "./AttendanceEditor";

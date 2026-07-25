@@ -6,7 +6,7 @@
  */
 
 import { Link } from "react-router-dom";
-import { Card, Button } from "../shared/ui";
+import { Card, Button } from "@shared/ui";
 import type { AcademicYear, SchoolProfile, TeacherProfile, TeachingAssignment } from "@guru-admin/domain";
 
 type TodayPageNoticesProps = {

@@ -2,6 +2,22 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "tailwindcss";
 import autoprefixer from "autoprefixer";
+import path from "path";
+
+// PATH-ALIAS-01: Resolve aliases matching tsconfig paths.
+// When modules move in Phase 1-3 (e.g. modules/attendance → modules/1-harian/attendance),
+// only the alias mapping needs to change — all import statements stay the same.
+const srcDir = path.resolve(__dirname, "src");
+const aliasMap = {
+  "@shared": path.resolve(srcDir, "shared"),
+  "@modules": path.resolve(srcDir, "modules"),
+  "@routes": path.resolve(srcDir, "routes"),
+  // Future module group aliases — resolve to current locations for now;
+  // will be updated when Phase 1-3 reorg moves directories.
+  "@harian": path.resolve(srcDir, "modules"),      // → modules/1-harian after Phase 1
+  "@piket": path.resolve(srcDir, "modules"),        // → modules/2-piket after Phase 2
+  "@admin": path.resolve(srcDir, "modules"),        // → modules/3-administrasi after Phase 3
+};
 
 // CODE-SPLIT-01: manualChunks — split vendor code into separate chunks
 // for better caching and parallel loading.
@@ -26,6 +42,9 @@ function manualChunks(id: string): string | undefined {
 export default defineConfig({
   plugins: [react()],
   base: "/teacher-admin/",
+  resolve: {
+    alias: aliasMap,
+  },
   server: {
     port: 5173,
     strictPort: false,

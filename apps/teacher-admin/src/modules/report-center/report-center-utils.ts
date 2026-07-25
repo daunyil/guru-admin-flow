@@ -3,7 +3,7 @@
  */
 
 import type { SchoolProfile, TeacherProfile } from "@guru-admin/domain";
-import type { DocumentContext } from "../../shared/documents/ReportTemplates";
+import type { DocumentContext } from "@shared/documents/ReportTemplates";
 import { formatLongDateID, todayISODate } from "@guru-admin/shared";
 
 export function makeDocContext(

@@ -19,8 +19,8 @@
  *   - SummaryCard.tsx               (Summary card sub-component)
  */
 
-import { Card } from "../../shared/ui";
-import { LoadingState } from "../../shared/ui";
+import { Card } from "@shared/ui";
+import { LoadingState } from "@shared/ui";
 import { useAppsScriptImportState } from "./useAppsScriptImportState";
 import { ImportInputCard } from "./ImportInputCard";
 import { ValidationErrorsCard } from "./ValidationErrorsCard";

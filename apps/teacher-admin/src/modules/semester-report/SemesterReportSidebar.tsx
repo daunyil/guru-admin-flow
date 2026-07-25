@@ -5,7 +5,7 @@
  */
 
 import type { AcademicYear, GenerateSemesterReportResult, SemesterReport, TeachingAssignment } from "@guru-admin/domain";
-import { Button, EmptyState, Badge, Select } from "../../shared/ui";
+import { Button, EmptyState, Badge, Select } from "@shared/ui";
 
 /* ------------------------------------------------------------------ */
 /*  SemesterReportSidebar                                              */

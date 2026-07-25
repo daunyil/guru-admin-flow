@@ -10,8 +10,8 @@
  * ATPImportOverlay, and pure utils in atpUtils.
  */
 
-import { LoadingState } from "../../shared/ui";
-import { DocumentPreview, AtpReportDocument } from "../../shared/documents";
+import { LoadingState } from "@shared/ui";
+import { DocumentPreview, AtpReportDocument } from "@shared/documents";
 import { useATPPageState } from "./useATPPageState";
 import { ATPForm } from "./ATPForm";
 import { AIPromptOverlay } from "./AIPromptOverlay";

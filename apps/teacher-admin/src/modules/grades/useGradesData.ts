@@ -4,7 +4,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { AcademicYear, TeacherProfile, TeachingAssignment, ClassRoster, GradeBook, GradeEntry } from "@guru-admin/domain";
 import { calculateGradeBookEntries } from "@guru-admin/domain";
-import { findGradeBook, saveGradeBook, updateGradeBook } from "../../shared/db/gradebook-repo";
+import { findGradeBook, saveGradeBook, updateGradeBook } from "@shared/db/gradebook-repo";
 import { getScoreColumns } from "./grades-utils";
 
 interface UseGradesDataParams {

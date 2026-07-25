@@ -1,4 +1,4 @@
-import { Card, Badge, Button } from "../../shared/ui";
+import { Card, Badge, Button } from "@shared/ui";
 import type { LKPD } from "@guru-admin/domain";
 import { safeFormatDate } from "./utils";
 

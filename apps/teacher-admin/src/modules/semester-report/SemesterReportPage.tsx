@@ -10,9 +10,9 @@
  *   - ensureDoc pattern: find-or-create saat assignment dipilih.
  */
 
-import { Card, Button, LoadingState } from "../../shared/ui";
+import { Card, Button, LoadingState } from "@shared/ui";
 import { Link } from "react-router-dom";
-import { DocumentPreview } from "../../shared/documents";
+import { DocumentPreview } from "@shared/documents";
 
 import { useSemesterReportState } from "./useSemesterReportState";
 import { SemesterReportDocument } from "./SemesterReportDocument";

@@ -3,7 +3,7 @@
  * Includes Assessment Plan form, Blueprint Prompt, Paste JSON, and Preview.
  */
 
-import { Card, CardHeader, Input, Textarea, Button, Badge, Select } from "../../shared/ui";
+import { Card, CardHeader, Input, Textarea, Button, Badge, Select } from "@shared/ui";
 import type { AssessmentType } from "@guru-admin/domain";
 import type { ATPEntry, ParseBlueprintResult } from "@guru-admin/domain";
 import type { EvaluationDocsState } from "./useEvaluationDocsState";

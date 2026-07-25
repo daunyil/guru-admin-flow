@@ -14,12 +14,12 @@
  */
 
 import { useEffect, useState } from "react";
-import { Card, CardHeader, Button, EmptyState, Badge, LoadingState } from "../../shared/ui";
-import { listProtaProfiles } from "../../shared/db/prota-repo";
-import { getActiveAcademicYear, getSchoolProfile } from "../../shared/db/profile-repo";
+import { Card, CardHeader, Button, EmptyState, Badge, LoadingState } from "@shared/ui";
+import { listProtaProfiles } from "@shared/db/prota-repo";
+import { getActiveAcademicYear, getSchoolProfile } from "@shared/db/profile-repo";
 import type { ProtaProfile } from "@guru-admin/domain";
 import { sumJP, validateJPTotal } from "@guru-admin/shared";
-import { DocumentPreview } from "../../shared/documents";
+import { DocumentPreview } from "@shared/documents";
 
 // Sub-components
 import { Header } from "./Header";

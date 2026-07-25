@@ -1,5 +1,5 @@
-import { Button } from "../../shared/ui";
-import { PrintExportButtons } from "../../shared/ui/PrintExportButtons";
+import { Button } from "@shared/ui";
+import { PrintExportButtons } from "@shared/ui/PrintExportButtons";
 import { formatLongDateID } from "@guru-admin/shared";
 import type { PiketLetterDocument } from "./piket-letter";
 

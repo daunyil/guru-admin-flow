@@ -3,7 +3,7 @@
  */
 
 import { useState } from "react";
-import { Input, Textarea, Button, CardHeader } from "../../shared/ui";
+import { Input, Textarea, Button, CardHeader } from "@shared/ui";
 import type { ATPEntry } from "@guru-admin/domain";
 
 /* ------------------------------------------------------------------ */

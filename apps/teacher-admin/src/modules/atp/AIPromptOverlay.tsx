@@ -2,7 +2,7 @@
  * AI Prompt Overlay — lets the teacher copy an AI-ready prompt for a TP entry.
  */
 
-import { Button, CardHeader } from "../../shared/ui";
+import { Button, CardHeader } from "@shared/ui";
 import type { ATPEntry } from "@guru-admin/domain";
 import { AI_PROMPT_TYPES, type AIPromptType } from "./atpUtils";
 

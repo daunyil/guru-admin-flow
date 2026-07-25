@@ -1,5 +1,5 @@
-import { Card, CardHeader, Button } from "../../shared/ui";
-import { PrintExportButtons } from "../../shared/ui/PrintExportButtons";
+import { Card, CardHeader, Button } from "@shared/ui";
+import { PrintExportButtons } from "@shared/ui/PrintExportButtons";
 import type { LKPD } from "@guru-admin/domain";
 import { lkpdLabel } from "@guru-admin/domain";
 import { formatLongDateID, todayISODate } from "@guru-admin/shared";

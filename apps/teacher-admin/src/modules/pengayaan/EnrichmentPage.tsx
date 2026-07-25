@@ -13,11 +13,11 @@
  * Filter by assignment 5-tuple (teacherId + subject + classId + semester).
  */
 
-import { Card, CardHeader, Input, Button, EmptyState, Select } from "../../shared/ui";
-import { InfoCard } from "../../shared/ui/ContextCard";
-import { DocumentPreview } from "../../shared/documents";
+import { Card, CardHeader, Input, Button, EmptyState, Select } from "@shared/ui";
+import { InfoCard } from "@shared/ui/ContextCard";
+import { DocumentPreview } from "@shared/documents";
 import { DEFAULT_ENRICHMENT_THRESHOLD } from "@guru-admin/domain";
-import { LoadingState } from "../../shared/ui";
+import { LoadingState } from "@shared/ui";
 
 import { useEnrichmentState } from "./useEnrichmentState";
 import { PengayaanDocument } from "./PengayaanDocument";

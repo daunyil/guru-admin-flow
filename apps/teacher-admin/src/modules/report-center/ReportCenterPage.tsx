@@ -9,9 +9,9 @@
  */
 
 import { useEffect, useState } from "react";
-import { LoadingState } from "../../shared/ui";
-import { getActiveAcademicYear, getTeacherProfile, getSchoolProfile } from "../../shared/db/profile-repo";
-import { listAssignmentsByTeacher } from "../../shared/db/teaching-assignment-repo";
+import { LoadingState } from "@shared/ui";
+import { getActiveAcademicYear, getTeacherProfile, getSchoolProfile } from "@shared/db/profile-repo";
+import { listAssignmentsByTeacher } from "@shared/db/teaching-assignment-repo";
 import { todayISODate } from "@guru-admin/shared";
 import type {
   AcademicYear,

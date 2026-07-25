@@ -12,8 +12,8 @@
  *   useGradesInit, useGradesData, useGradesDoc, useCbtImport, usePasteImport, GradesSidebar.
  */
 import { useEffect } from "react";
-import { LoadingState } from "../../shared/ui";
-import { DocumentPreview } from "../../shared/documents";
+import { LoadingState } from "@shared/ui";
+import { DocumentPreview } from "@shared/documents";
 import { useGradesInit } from "./useGradesInit";
 import { useGradesData } from "./useGradesData";
 import { useGradesDoc } from "./useGradesDoc";

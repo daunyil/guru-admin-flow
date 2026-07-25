@@ -9,8 +9,8 @@ import {
   importStudents,
   addStudent,
   removeStudent,
-} from "../../shared/db/class-roster-repo";
-import { getActiveAcademicYear } from "../../shared/db/profile-repo";
+} from "@shared/db/class-roster-repo";
+import { getActiveAcademicYear } from "@shared/db/profile-repo";
 import type { ClassRoster, AcademicYear } from "@guru-admin/domain";
 
 export function useRosterState() {

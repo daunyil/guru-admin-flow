@@ -3,13 +3,13 @@
  * Includes Card Prompt, Paste JSON, Preview, and Document mode.
  */
 
-import { Card, CardHeader, Textarea, Button, Badge } from "../../shared/ui";
-import { PrintExportButtons } from "../../shared/ui/PrintExportButtons";
-import { QuestionCardDocument } from "../../shared/documents";
+import { Card, CardHeader, Textarea, Button, Badge } from "@shared/ui";
+import { PrintExportButtons } from "@shared/ui/PrintExportButtons";
+import { QuestionCardDocument } from "@shared/documents";
 import { formatLongDateID, todayISODate } from "@guru-admin/shared";
 import type { AssessmentType, ParseQuestionCardResult } from "@guru-admin/domain";
 import type { AcademicYear, SchoolProfile, TeachingAssignment } from "@guru-admin/domain";
-import type { QuestionCardItem } from "../../shared/documents";
+import type { QuestionCardItem } from "@shared/documents";
 import type { EvaluationDocsState } from "./useEvaluationDocsState";
 
 interface KartuSoalTabProps {

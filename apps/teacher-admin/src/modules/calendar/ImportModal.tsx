@@ -4,8 +4,8 @@
  */
 
 import { useState } from "react";
-import { Card, CardHeader, Textarea, Button } from "../../shared/ui";
-import { importCalendarFromJSON } from "../../shared/db/calendar-repo";
+import { Card, CardHeader, Textarea, Button } from "@shared/ui";
+import { importCalendarFromJSON } from "@shared/db/calendar-repo";
 
 export function ImportModal({
   academicYearId,

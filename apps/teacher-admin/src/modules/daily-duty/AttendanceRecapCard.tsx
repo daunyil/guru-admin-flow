@@ -1,4 +1,4 @@
-import { Card, CardHeader, Badge, EmptyState } from "../../shared/ui";
+import { Card, CardHeader, Badge, EmptyState } from "@shared/ui";
 import type { ClassAttendanceDetail } from "@guru-admin/domain";
 
 export function AttendanceRecapCard({ attendanceDetail }: { attendanceDetail: ClassAttendanceDetail[] }) {

@@ -12,7 +12,7 @@
  *   5. Tombol cetak (print CSS)
  */
 
-import { LoadingState } from "../../shared/ui";
+import { LoadingState } from "@shared/ui";
 import { useAutoDocumentState } from "./useAutoDocumentState";
 import { AssignmentSelectorCard } from "./AssignmentSelectorCard";
 import { DocumentPreviewCard } from "./DocumentPreviewCard";

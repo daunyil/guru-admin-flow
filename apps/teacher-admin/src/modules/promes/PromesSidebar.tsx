@@ -4,14 +4,14 @@
  * Contains Konteks & Opsi, Ringkasan, Distribusi Materi, Errors/Warnings, Footer.
  */
 
-import { Badge, Button, Input, Select } from "../../shared/ui";
+import { Badge, Button, Input, Select } from "@shared/ui";
 import type {
   ProtaProfile,
   PromesResult,
   PromesOptions,
   SchoolDocOrientation,
 } from "@guru-admin/domain";
-import { updateSchoolDocumentLayout } from "../../shared/db/school-document-repo";
+import { updateSchoolDocumentLayout } from "@shared/db/school-document-repo";
 import {
   KO_PROMES_MODE_OPTIONS,
   PROMES_VARIASI_OPTIONS,

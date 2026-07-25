@@ -7,10 +7,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   generateAndSaveSemesterReport,
   finalizeSemesterReport,
-} from "../../shared/db/semester-report-repo";
-import { listProtaProfiles } from "../../shared/db/prota-repo";
-import { listAssignmentsByTeacher } from "../../shared/db/teaching-assignment-repo";
-import { getActiveAcademicYear, getTeacherProfile, getSchoolProfile } from "../../shared/db/profile-repo";
+} from "@shared/db/semester-report-repo";
+import { listProtaProfiles } from "@shared/db/prota-repo";
+import { listAssignmentsByTeacher } from "@shared/db/teaching-assignment-repo";
+import { getActiveAcademicYear, getTeacherProfile, getSchoolProfile } from "@shared/db/profile-repo";
 import type {
   ProtaProfile,
   AcademicYear,
@@ -27,7 +27,7 @@ import {
   updateSchoolDocumentLayout,
   setSchoolDocumentStatus,
   findSchoolDocumentByCompositeKey,
-} from "../../shared/db/school-document-repo";
+} from "@shared/db/school-document-repo";
 import type { SchoolDocOrientation, DocumentStatus } from "@guru-admin/domain";
 
 /* ------------------------------------------------------------------ */

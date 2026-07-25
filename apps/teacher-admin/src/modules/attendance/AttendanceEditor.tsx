@@ -3,10 +3,10 @@
  */
 
 import { useEffect, useState } from "react";
-import { Card, Button, EmptyState, LoadingState } from "../../shared/ui";
-import { getLessonSession } from "../../shared/db/lesson-session-repo";
-import { getAttendanceBySession, saveDefaultAttendance, updateAttendance } from "../../shared/db/attendance-repo";
-import { findClassRoster } from "../../shared/db/class-roster-repo";
+import { Card, Button, EmptyState, LoadingState } from "@shared/ui";
+import { getLessonSession } from "@shared/db/lesson-session-repo";
+import { getAttendanceBySession, saveDefaultAttendance, updateAttendance } from "@shared/db/attendance-repo";
+import { findClassRoster } from "@shared/db/class-roster-repo";
 import { generateDefaultAttendance, summarizeAttendance } from "@guru-admin/domain";
 import type { AcademicYear, AttendanceRecord, ClassRoster, LessonSession } from "@guru-admin/domain";
 import { formatLongDateID, nowTimestamp } from "@guru-admin/shared";

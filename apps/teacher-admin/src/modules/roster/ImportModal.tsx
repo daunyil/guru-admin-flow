@@ -4,7 +4,7 @@
  */
 
 import { useState } from "react";
-import { Card, CardHeader, Textarea, Button, Badge } from "../../shared/ui";
+import { Card, CardHeader, Textarea, Button, Badge } from "@shared/ui";
 import type { ClassRoster } from "@guru-admin/domain";
 import type { ParsedStudent } from "./types";
 

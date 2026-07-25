@@ -1,4 +1,4 @@
-import { Card, CardHeader, Button, EmptyState, Textarea } from "../../shared/ui";
+import { Card, CardHeader, Button, EmptyState, Textarea } from "@shared/ui";
 import type { DutyRecord } from "@guru-admin/domain";
 
 interface DutyNotesTabProps {

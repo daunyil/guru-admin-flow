@@ -1,4 +1,4 @@
-import { Card, CardHeader, Input, Button, EmptyState, Textarea } from "../../shared/ui";
+import { Card, CardHeader, Input, Button, EmptyState, Textarea } from "@shared/ui";
 import { Chip } from "./Chip";
 import { categoryLabel } from "./utils";
 import type { ClassRoster, DutyRule, StudentSearchable } from "@guru-admin/domain";

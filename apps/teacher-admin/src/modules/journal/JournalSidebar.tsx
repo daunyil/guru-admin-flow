@@ -4,8 +4,8 @@
  * Includes `.doc-sidebar-scroll` wrapper for Select dropdown fix (same pattern as PromesPage).
  */
 
-import { Input, Button, Badge, Select } from "../../shared/ui";
-import { ContextCard } from "../../shared/ui/ContextCard";
+import { Input, Button, Badge, Select } from "@shared/ui";
+import { ContextCard } from "@shared/ui/ContextCard";
 import type { AcademicYear, LessonSession, TeachingAssignment, TeachingJournal } from "@guru-admin/domain";
 import { assignmentShortLabel, buildContextInfo } from "@guru-admin/domain";
 import { formatLongDateID } from "@guru-admin/shared";

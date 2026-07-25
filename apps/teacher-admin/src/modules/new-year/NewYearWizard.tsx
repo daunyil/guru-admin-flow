@@ -4,17 +4,17 @@
  */
 
 import { useEffect, useState } from "react";
-import { Card, CardHeader, Input, Button, EmptyState, Badge } from "../../shared/ui";
-import { AlertTriangle, Check } from "../../shared/layout/icons";
+import { Card, CardHeader, Input, Button, EmptyState, Badge } from "@shared/ui";
+import { AlertTriangle, Check } from "@shared/layout/icons";
 import {
   listAcademicYears,
   getSchoolProfile,
   getTeacherProfile,
   createNewYearFromPrevious,
-} from "../../shared/db/profile-repo";
+} from "@shared/db/profile-repo";
 import type { AcademicYear, SchoolProfile, TeacherProfile } from "@guru-admin/domain";
 import { formatLongDateID } from "@guru-admin/shared";
-import { LoadingState } from "../../shared/ui";
+import { LoadingState } from "@shared/ui";
 
 export function NewYearWizard() {
   const [loading, setLoading] = useState(true);

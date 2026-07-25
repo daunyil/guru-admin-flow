@@ -1,4 +1,4 @@
-import { Card, CardHeader, Input, Button, EmptyState } from "../../shared/ui";
+import { Card, CardHeader, Input, Button, EmptyState } from "@shared/ui";
 import { Chip } from "./Chip";
 import { RecordCard } from "./RecordCard";
 import { LedgerItemCard } from "./LedgerItemCard";

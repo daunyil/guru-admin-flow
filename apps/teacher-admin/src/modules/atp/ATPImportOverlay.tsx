@@ -2,7 +2,7 @@
  * ATP Import Overlay — import TP from JSON or Excel paste.
  */
 
-import { Card, CardHeader, Input, Textarea, Button, Select } from "../../shared/ui";
+import { Card, CardHeader, Input, Textarea, Button, Select } from "@shared/ui";
 import {
   parseAtpExcelPaste,
   type AtpPasteMeta,

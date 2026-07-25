@@ -23,8 +23,8 @@
  *  14. Laporan Akhir Semester
  */
 
-import { Card, Button } from "../../shared/ui";
-import { LoadingState } from "../../shared/ui";
+import { Card, Button } from "@shared/ui";
+import { LoadingState } from "@shared/ui";
 import { useAdminPackageState } from "./useAdminPackageState";
 import { LengkapiTab } from "./LengkapiTab";
 import { PreviewTab } from "./PreviewTab";

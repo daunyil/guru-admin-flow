@@ -4,7 +4,7 @@
  * Wrapped in `.doc-sidebar-scroll` for Select dropdown positioning fix.
  */
 
-import { Button, Badge, Select } from "../../shared/ui";
+import { Button, Badge, Select } from "@shared/ui";
 import type { AcademicYear, TeacherProfile, ATPEntry } from "@guru-admin/domain";
 import { atpEntryLabel } from "@guru-admin/domain";
 

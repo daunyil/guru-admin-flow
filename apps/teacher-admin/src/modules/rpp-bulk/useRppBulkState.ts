@@ -25,14 +25,14 @@ import {
   extractDocxText,
 } from "@guru-admin/domain";
 import { formatLongDateID, todayISODate } from "@guru-admin/shared";
-import { getActiveAcademicYear, getSchoolProfile, getTeacherProfile } from "../../shared/db/profile-repo";
-import { listAssignmentsByTeacher } from "../../shared/db/teaching-assignment-repo";
+import { getActiveAcademicYear, getSchoolProfile, getTeacherProfile } from "@shared/db/profile-repo";
+import { listAssignmentsByTeacher } from "@shared/db/teaching-assignment-repo";
 import {
   listRppDocuments,
   saveRppDocument,
   deleteRppDocument,
   getRppDocument,
-} from "../../shared/db/rpp-document-repo";
+} from "@shared/db/rpp-document-repo";
 import { splitMultipleDocuments, arrayBufferToBase64Docx, base64DocxToArrayBuffer, isDocxBase64, countTotalPlaceholders } from "./rpp-bulk-utils";
 
 export interface RppBulkState {

@@ -14,11 +14,11 @@ import {
   Badge,
   Input,
   PrintExportButtons,
-} from "../../shared/ui";
-import { InfoCard } from "../../shared/ui/ContextCard";
+} from "@shared/ui";
+import { InfoCard } from "@shared/ui/ContextCard";
 import {
   listDutyRecordsByAcademicYear,
-} from "../../shared/db/daily-duty-repo";
+} from "@shared/db/daily-duty-repo";
 import {
   DocumentPage,
   DocumentHeader,
@@ -29,7 +29,7 @@ import {
   DocumentSignature,
   DocumentSummaryCards,
   type DocumentSummaryCard,
-} from "../../shared/documents/DocumentLayout";
+} from "@shared/documents/DocumentLayout";
 import {
   summarizeDutyRecords,
   buildStudentDutyLedger,

@@ -3,7 +3,7 @@
  */
 
 import type { AcademicYear, TeacherProfile, RppIdentityContext, RppDocument, LiteralReplacement, DocxProcessResult } from "@guru-admin/domain";
-import { Card, CardHeader, Textarea, Button, Badge } from "../../shared/ui";
+import { Card, CardHeader, Textarea, Button, Badge } from "@shared/ui";
 
 interface DocxStatsEntry {
   oldText: string;

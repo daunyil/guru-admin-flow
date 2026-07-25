@@ -3,7 +3,7 @@
  * Shows print settings sidebar and document preview area.
  */
 
-import { Card, CardHeader, Button, Select, Input, Textarea } from "../../shared/ui";
+import { Card, CardHeader, Button, Select, Input, Textarea } from "@shared/ui";
 import { formatLongDateID } from "@guru-admin/shared";
 import type { AdminPackageState } from "./useAdminPackageState";
 

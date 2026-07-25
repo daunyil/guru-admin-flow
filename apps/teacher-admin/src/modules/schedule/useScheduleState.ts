@@ -2,14 +2,14 @@ import { useEffect, useState, useCallback } from "react";
 import {
   listTeachingSchedules,
   deleteTeachingSchedule,
-} from "../../shared/db/teaching-schedule-repo";
+} from "@shared/db/teaching-schedule-repo";
 import {
   generateAndSaveLessonSessions,
   listLessonSessions,
   clearLessonSessions,
-} from "../../shared/db/lesson-session-repo";
-import { listCalendarEvents } from "../../shared/db/calendar-repo";
-import { getActiveAcademicYear, getTeacherProfile } from "../../shared/db/profile-repo";
+} from "@shared/db/lesson-session-repo";
+import { listCalendarEvents } from "@shared/db/calendar-repo";
+import { getActiveAcademicYear, getTeacherProfile } from "@shared/db/profile-repo";
 import type { TeachingSchedule, LessonSession, AcademicYear } from "@guru-admin/domain";
 
 export interface UseScheduleStateReturn {

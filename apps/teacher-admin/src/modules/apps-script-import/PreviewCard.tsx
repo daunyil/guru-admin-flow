@@ -1,5 +1,5 @@
-import { Card, CardHeader, Badge, Button } from "../../shared/ui";
-import { InfoCard } from "../../shared/ui/ContextCard";
+import { Card, CardHeader, Badge, Button } from "@shared/ui";
+import { InfoCard } from "@shared/ui/ContextCard";
 import { PreviewStat } from "./PreviewStat";
 import type { AppsScriptImportState } from "./useAppsScriptImportState";
 

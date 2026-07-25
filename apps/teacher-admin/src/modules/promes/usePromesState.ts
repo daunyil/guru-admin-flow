@@ -22,16 +22,16 @@ import {
   DEFAULT_KO_JP_PER_WEEK_PPKN,
   DEFAULT_CADANGAN_JP,
 } from "@guru-admin/shared";
-import { listProtaProfiles } from "../../shared/db/prota-repo";
-import { listCalendarEvents } from "../../shared/db/calendar-repo";
-import { getActiveAcademicYear, getSchoolProfile, getTeacherProfile } from "../../shared/db/profile-repo";
+import { listProtaProfiles } from "@shared/db/prota-repo";
+import { listCalendarEvents } from "@shared/db/calendar-repo";
+import { getActiveAcademicYear, getSchoolProfile, getTeacherProfile } from "@shared/db/profile-repo";
 import {
   saveSchoolDocument,
   updateSchoolDocumentData,
   updateSchoolDocumentLayout,
   setSchoolDocumentStatus,
   findSchoolDocumentByCompositeKey,
-} from "../../shared/db/school-document-repo";
+} from "@shared/db/school-document-repo";
 
 /* ============================================================ */
 /*  Constants                                                    */

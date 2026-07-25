@@ -6,7 +6,16 @@
     "noEmit": true,
     "moduleResolution": "Bundler",
     "allowImportingTsExtensions": false,
-    "types": ["vite/client", "vitest/globals"]
+    "types": ["vite/client", "vitest/globals"],
+    "baseUrl": "./src",
+    "paths": {
+      "@shared/*": ["shared/*"],
+      "@modules/*": ["modules/*"],
+      "@routes/*": ["routes/*"],
+      "@harian/*": ["modules/1-harian/*"],
+      "@piket/*": ["modules/2-piket/*"],
+      "@admin/*": ["modules/3-administrasi/*"]
+    }
   },
   "include": ["src/**/*", "vite.config.ts", "tailwind.config.js", "postcss.config.js"]
 }

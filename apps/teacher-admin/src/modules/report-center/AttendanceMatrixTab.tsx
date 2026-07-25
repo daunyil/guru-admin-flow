@@ -13,17 +13,17 @@ import {
   Select,
   EmptyState,
   PrintExportButtons,
-} from "../../shared/ui";
-import { InfoCard } from "../../shared/ui/ContextCard";
-import { listLessonSessions } from "../../shared/db/lesson-session-repo";
-import { findClassRoster } from "../../shared/db/class-roster-repo";
-import { db } from "../../shared/db/schema";
+} from "@shared/ui";
+import { InfoCard } from "@shared/ui/ContextCard";
+import { listLessonSessions } from "@shared/db/lesson-session-repo";
+import { findClassRoster } from "@shared/db/class-roster-repo";
+import { db } from "@shared/db/schema";
 import {
   AttendanceReportDocument,
   type AttendanceReportData,
   type AttendanceMeeting,
   type AttendanceStudentRow,
-} from "../../shared/documents/ReportTemplates";
+} from "@shared/documents/ReportTemplates";
 import type {
   AcademicYear,
   TeacherProfile,

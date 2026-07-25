@@ -5,7 +5,7 @@
  * Wrapped in `.doc-sidebar-scroll` for Select dropdown positioning fix.
  */
 
-import { Button, Badge, Select } from "../../shared/ui";
+import { Button, Badge, Select } from "@shared/ui";
 import type { ProtaProfile } from "@guru-admin/domain";
 
 /* ------------------------------------------------------------------ */

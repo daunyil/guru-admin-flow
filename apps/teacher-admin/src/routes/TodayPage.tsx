@@ -13,7 +13,7 @@
  * Yang kosong diberi keterangan, bukan disembunyikan.
  */
 
-import { Card, CardHeader, Button } from "../shared/ui";
+import { Card, CardHeader, Button } from "@shared/ui";
 import { useTodayPageState } from "./useTodayPageState";
 import { TodayPageHeader } from "./TodayPageHeader";
 import { TodayPageNotices } from "./TodayPageNotices";

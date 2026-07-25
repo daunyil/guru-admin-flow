@@ -3,7 +3,7 @@
  */
 
 import { Link } from "react-router-dom";
-import { Card, CardHeader, Button, EmptyState, Badge } from "../shared/ui";
+import { Card, CardHeader, Button, EmptyState, Badge } from "@shared/ui";
 import type { LessonSession } from "@guru-admin/domain";
 
 type TodaySessionsCardProps = {

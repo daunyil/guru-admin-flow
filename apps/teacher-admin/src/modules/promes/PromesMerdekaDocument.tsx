@@ -20,7 +20,7 @@
 import {
   DocumentPage,
   DocumentSignature,
-} from "../../shared/documents";
+} from "@shared/documents";
 import type {
   PromesWeek,
   UnitDistribution,

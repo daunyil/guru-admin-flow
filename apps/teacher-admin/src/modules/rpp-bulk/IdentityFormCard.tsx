@@ -3,8 +3,8 @@
  */
 
 import type { TeachingAssignment, RppIdentityContext } from "@guru-admin/domain";
-import { Card, CardHeader, Input, Select } from "../../shared/ui";
-import { InfoCard } from "../../shared/ui/ContextCard";
+import { Card, CardHeader, Input, Select } from "@shared/ui";
+import { InfoCard } from "@shared/ui/ContextCard";
 
 interface IdentityFormCardProps {
   ctx: RppIdentityContext;

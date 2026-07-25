@@ -3,9 +3,9 @@
  */
 
 import { useState } from "react";
-import { Card, CardHeader, Input, Select, Button } from "../../shared/ui";
-import { saveProtaProfile } from "../../shared/db/prota-repo";
-import { getTeacherProfile } from "../../shared/db/profile-repo";
+import { Card, CardHeader, Input, Select, Button } from "@shared/ui";
+import { saveProtaProfile } from "@shared/db/prota-repo";
+import { getTeacherProfile } from "@shared/db/profile-repo";
 import type { ProtaProfile } from "@guru-admin/domain";
 
 export function NewProfileForm({

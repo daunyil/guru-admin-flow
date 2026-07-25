@@ -3,8 +3,8 @@
  *
  * Includes `.doc-sidebar-scroll` wrapper for Select dropdown positioning fix.
  */
-import { Input, Select, Button, Badge, Textarea, EmptyState } from "../../shared/ui";
-import { ContextCard } from "../../shared/ui/ContextCard";
+import { Input, Select, Button, Badge, Textarea, EmptyState } from "@shared/ui";
+import { ContextCard } from "@shared/ui/ContextCard";
 import { buildContextInfo, getCbtTargetLabels } from "@guru-admin/domain";
 import type { AcademicYear, TeachingAssignment, GradeBook, GradeEntry, CbtImportTarget, CbtMatchPreview } from "@guru-admin/domain";
 import type { PastePreviewResult } from "./grades-types";

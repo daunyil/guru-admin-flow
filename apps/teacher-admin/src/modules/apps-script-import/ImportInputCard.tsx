@@ -1,4 +1,4 @@
-import { Card, CardHeader, Button, Textarea } from "../../shared/ui";
+import { Card, CardHeader, Button, Textarea } from "@shared/ui";
 import type { AppsScriptImportState } from "./useAppsScriptImportState";
 
 interface ImportInputCardProps {

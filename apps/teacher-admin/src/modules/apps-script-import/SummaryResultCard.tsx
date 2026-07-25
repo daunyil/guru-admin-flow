@@ -1,6 +1,6 @@
-import { Card, CardHeader, Badge } from "../../shared/ui";
+import { Card, CardHeader, Badge } from "@shared/ui";
 import { SummaryCard } from "./SummaryCard";
-import type { ImportSummary } from "../../shared/db/apps-script-import-repo";
+import type { ImportSummary } from "@shared/db/apps-script-import-repo";
 
 interface SummaryResultCardProps {
   summary: ImportSummary;

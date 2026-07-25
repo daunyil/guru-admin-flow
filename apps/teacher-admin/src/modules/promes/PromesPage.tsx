@@ -19,8 +19,8 @@
  *   - PromesPage.tsx — this file, just composition
  */
 
-import { LoadingState } from "../../shared/ui";
-import { DocumentPreview } from "../../shared/documents";
+import { LoadingState } from "@shared/ui";
+import { DocumentPreview } from "@shared/documents";
 import { PromesPortraitDocument } from "./PromesPortraitDocument";
 import { PromesLandscapeKurikulumMerdekaDocument } from "./PromesMerdekaDocument";
 import { PromesLandscapeMatrixDocument } from "./PromesLandscapeMatrixDocument";

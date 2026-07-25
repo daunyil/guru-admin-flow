@@ -3,7 +3,7 @@
  */
 
 import { Link } from "react-router-dom";
-import { Card, CardHeader } from "../shared/ui";
+import { Card, CardHeader } from "@shared/ui";
 import type { PendingItem } from "./today-page-utils";
 
 type PendingItemsCardProps = {

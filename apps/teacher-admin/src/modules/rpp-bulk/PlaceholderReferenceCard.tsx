@@ -4,7 +4,7 @@
 
 import type { RppIdentityContext } from "@guru-admin/domain";
 import { RPP_IDENTITY_PLACEHOLDERS, buildPlaceholderMap } from "@guru-admin/domain";
-import { Card, CardHeader } from "../../shared/ui";
+import { Card, CardHeader } from "@shared/ui";
 
 interface PlaceholderReferenceCardProps {
   ctx: RppIdentityContext;

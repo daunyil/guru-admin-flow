@@ -7,11 +7,11 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { getLessonSessionsByDate, listLessonSessions } from "../../shared/db/lesson-session-repo";
-import { getAttendanceBySession } from "../../shared/db/attendance-repo";
-import { db } from "../../shared/db/schema";
-import { getActiveAcademicYear, getTeacherProfile } from "../../shared/db/profile-repo";
-import { listAssignmentsByTeacher } from "../../shared/db/teaching-assignment-repo";
+import { getLessonSessionsByDate, listLessonSessions } from "@shared/db/lesson-session-repo";
+import { getAttendanceBySession } from "@shared/db/attendance-repo";
+import { db } from "@shared/db/schema";
+import { getActiveAcademicYear, getTeacherProfile } from "@shared/db/profile-repo";
+import { listAssignmentsByTeacher } from "@shared/db/teaching-assignment-repo";
 import type { AcademicYear, AttendanceRecord, LessonSession, TeachingAssignment, TeacherProfile, SchoolDocOrientation, DocumentStatus } from "@guru-admin/domain";
 import { todayISODate } from "@guru-admin/shared";
 import {
@@ -20,7 +20,7 @@ import {
   updateSchoolDocumentLayout,
   setSchoolDocumentStatus,
   findSchoolDocumentByCompositeKey,
-} from "../../shared/db/school-document-repo";
+} from "@shared/db/school-document-repo";
 import type { Mode, SaveInfo } from "./quick-attendance-types";
 
 export function useQuickAttendanceState() {

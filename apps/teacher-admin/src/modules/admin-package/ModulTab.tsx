@@ -4,8 +4,8 @@
  */
 
 import { Link } from "react-router-dom";
-import { Card, CardHeader } from "../../shared/ui";
-import { GATE_GROUPS } from "../../shared/layout/navigation";
+import { Card, CardHeader } from "@shared/ui";
+import { GATE_GROUPS } from "@shared/layout/navigation";
 
 export function ModulTab() {
   return (

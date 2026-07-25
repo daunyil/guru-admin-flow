@@ -5,7 +5,7 @@
  */
 
 import { Link } from "react-router-dom";
-import { Card, CardHeader, Badge, Button } from "../../shared/ui";
+import { Card, CardHeader, Badge, Button } from "@shared/ui";
 import { CATEGORY_ORDER, CATEGORY_LABELS } from "./admin-package-types";
 import type { DocCategory } from "./admin-package-types";
 

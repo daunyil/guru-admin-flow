@@ -3,7 +3,7 @@ import type {
   TeachingAssignment,
   DocumentStatus,
 } from "@guru-admin/domain";
-import { Button, Input, Textarea, Select, EmptyState, Badge } from "../../shared/ui";
+import { Button, Input, Textarea, Select, EmptyState, Badge } from "@shared/ui";
 
 /* ------------------------------------------------------------------ */
 /*  LainnyaSidebar — sidebar panel for WYSIWYG layout                 */

@@ -4,15 +4,15 @@
  */
 
 import { useEffect, useState } from "react";
-import { Card, CardHeader, Input, Button, EmptyState, Badge } from "../../shared/ui";
+import { Card, CardHeader, Input, Button, EmptyState, Badge } from "@shared/ui";
 import {
   listAcademicYears,
   saveAcademicYear,
   setActiveAcademicYear,
-} from "../../shared/db/profile-repo";
+} from "@shared/db/profile-repo";
 import type { AcademicYear } from "@guru-admin/domain";
 import { formatLongDateID } from "@guru-admin/shared";
-import { LoadingState } from "../../shared/ui";
+import { LoadingState } from "@shared/ui";
 
 export function AcademicYearManager() {
   const [loading, setLoading] = useState(true);

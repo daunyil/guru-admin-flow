@@ -5,10 +5,10 @@ import {
   updateLKPD,
   deleteLKPD,
   finalizeLKPD,
-} from "../../shared/db/lkpd-repo";
-import { listATPEntries } from "../../shared/db/atp-entry-repo";
-import { listClassRosters } from "../../shared/db/class-roster-repo";
-import { getActiveAcademicYear, getTeacherProfile, getSchoolProfile } from "../../shared/db/profile-repo";
+} from "@shared/db/lkpd-repo";
+import { listATPEntries } from "@shared/db/atp-entry-repo";
+import { listClassRosters } from "@shared/db/class-roster-repo";
+import { getActiveAcademicYear, getTeacherProfile, getSchoolProfile } from "@shared/db/profile-repo";
 import type {
   AcademicYear,
   TeacherProfile,

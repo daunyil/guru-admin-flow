@@ -11,11 +11,11 @@
 
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Card, CardHeader, Input, Select, Button } from "../../shared/ui";
-import { InfoCard } from "../../shared/ui/ContextCard";
-import { getActiveAcademicYear, getSchoolProfile, getTeacherProfile } from "../../shared/db/profile-repo";
+import { Card, CardHeader, Input, Select, Button } from "@shared/ui";
+import { InfoCard } from "@shared/ui/ContextCard";
+import { getActiveAcademicYear, getSchoolProfile, getTeacherProfile } from "@shared/db/profile-repo";
 import type { AcademicYear, SchoolProfile, TeacherProfile } from "@guru-admin/domain";
-import { LoadingState } from "../../shared/ui";
+import { LoadingState } from "@shared/ui";
 
 export function RPPPage() {
   const [loading, setLoading] = useState(true);

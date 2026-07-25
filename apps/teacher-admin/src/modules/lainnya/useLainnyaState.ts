@@ -8,15 +8,15 @@ import type {
   DocumentStatus,
 } from "@guru-admin/domain";
 import { todayISODate } from "@guru-admin/shared";
-import { getActiveAcademicYear, getTeacherProfile, getSchoolProfile } from "../../shared/db/profile-repo";
-import { listAssignmentsByTeacher } from "../../shared/db/teaching-assignment-repo";
+import { getActiveAcademicYear, getTeacherProfile, getSchoolProfile } from "@shared/db/profile-repo";
+import { listAssignmentsByTeacher } from "@shared/db/teaching-assignment-repo";
 import {
   saveSchoolDocument,
   updateSchoolDocumentData,
   updateSchoolDocumentLayout,
   setSchoolDocumentStatus,
   findSchoolDocumentByCompositeKey,
-} from "../../shared/db/school-document-repo";
+} from "@shared/db/school-document-repo";
 
 /* ------------------------------------------------------------------ */
 /*  useLainnyaState — all state, effects, and handlers                 */

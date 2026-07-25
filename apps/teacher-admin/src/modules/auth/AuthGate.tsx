@@ -1,6 +1,6 @@
 import { type ReactNode, useEffect, useState } from "react";
-import { isSupabaseConfigured, supabase } from "../../shared/supabase/client";
-import { getCurrentCloudAuthState, signInTeacher, signOutTeacher, type CloudTeacherProfile } from "../../shared/supabase/auth";
+import { isSupabaseConfigured, supabase } from "@shared/supabase/client";
+import { getCurrentCloudAuthState, signInTeacher, signOutTeacher, type CloudTeacherProfile } from "@shared/supabase/auth";
 
 type AuthStatus = "loading" | "local" | "signed-out" | "missing-profile" | "signed-in";
 

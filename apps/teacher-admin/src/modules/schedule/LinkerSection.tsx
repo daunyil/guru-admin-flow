@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
-import { Card, CardHeader, Input, Select, Button } from "../../shared/ui";
-import { listProtaProfiles } from "../../shared/db/prota-repo";
+import { Card, CardHeader, Input, Select, Button } from "@shared/ui";
+import { listProtaProfiles } from "@shared/db/prota-repo";
 import {
   listLessonSessions,
   applyPromesLink,
-} from "../../shared/db/lesson-session-repo";
+} from "@shared/db/lesson-session-repo";
 import type { ProtaUnit } from "@guru-admin/domain";
 import { linkPromesToLessons } from "@guru-admin/domain";
 import { DEFAULT_CADANGAN_JP } from "@guru-admin/shared";

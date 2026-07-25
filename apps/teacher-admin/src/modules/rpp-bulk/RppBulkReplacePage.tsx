@@ -20,8 +20,8 @@
  *   - PlaceholderReferenceCard.tsx (Daftar Placeholder)
  */
 
-import { Card, CardHeader, Select } from "../../shared/ui";
-import { LoadingState } from "../../shared/ui";
+import { Card, CardHeader, Select } from "@shared/ui";
+import { LoadingState } from "@shared/ui";
 import { useRppBulkState } from "./useRppBulkState";
 import { IdentityFormCard } from "./IdentityFormCard";
 import { LiteralReplacementCard } from "./LiteralReplacementCard";

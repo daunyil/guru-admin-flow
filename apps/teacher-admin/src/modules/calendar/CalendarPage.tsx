@@ -20,21 +20,21 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { EmptyState, LoadingState } from "../../shared/ui";
+import { EmptyState, LoadingState } from "@shared/ui";
 import {
   listCalendarEvents,
-} from "../../shared/db/calendar-repo";
-import { getActiveAcademicYear, getSchoolProfile } from "../../shared/db/profile-repo";
+} from "@shared/db/calendar-repo";
+import { getActiveAcademicYear, getSchoolProfile } from "@shared/db/profile-repo";
 import type { CalendarEvent } from "@guru-admin/domain";
 // WYSIWYG-DOC-FASE3: DocumentPreview + schoolDocuments persistence
-import { DocumentPreview } from "../../shared/documents";
+import { DocumentPreview } from "@shared/documents";
 import {
   saveSchoolDocument,
   updateSchoolDocumentData,
   updateSchoolDocumentLayout,
   setSchoolDocumentStatus,
   findSchoolDocumentByCompositeKey,
-} from "../../shared/db/school-document-repo";
+} from "@shared/db/school-document-repo";
 import type { SchoolDocOrientation, DocumentStatus } from "@guru-admin/domain";
 
 /* -- Extracted modules -- */

@@ -1,6 +1,6 @@
 import type { RemedialProgram, TeachingAssignment } from "@guru-admin/domain";
-import { Badge, Button, Input, Select, Textarea } from "../../shared/ui";
-import { updateRemedialProgram } from "../../shared/db/remedial-repo";
+import { Badge, Button, Input, Select, Textarea } from "@shared/ui";
+import { updateRemedialProgram } from "@shared/db/remedial-repo";
 import { REMEDIAL_PRESETS, SCHEDULE_PRESETS, DEFAULT_REMEDIAL_NOTE, DEFAULT_REMEDIAL_PLAN } from "./constants";
 
 /* ------------------------------------------------------------------ */

@@ -1,14 +1,14 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Card, CardHeader, Input, Button, EmptyState, Badge } from "../../shared/ui";
-import { getLessonSessionsByDate, getLessonSession } from "../../shared/db/lesson-session-repo";
-import { initAttendanceForSession, updateAttendance } from "../../shared/db/attendance-repo";
-import { findClassRoster } from "../../shared/db/class-roster-repo";
-import { getActiveAcademicYear, getTeacherProfile } from "../../shared/db/profile-repo";
+import { Card, CardHeader, Input, Button, EmptyState, Badge } from "@shared/ui";
+import { getLessonSessionsByDate, getLessonSession } from "@shared/db/lesson-session-repo";
+import { initAttendanceForSession, updateAttendance } from "@shared/db/attendance-repo";
+import { findClassRoster } from "@shared/db/class-roster-repo";
+import { getActiveAcademicYear, getTeacherProfile } from "@shared/db/profile-repo";
 import { summarizeAttendance } from "@guru-admin/domain";
 import type { AcademicYear, AttendanceRecord, ClassRoster, LessonSession } from "@guru-admin/domain";
 import { formatLongDateID, todayISODate } from "@guru-admin/shared";
-import { LoadingState } from "../../shared/ui";
+import { LoadingState } from "@shared/ui";
 
 type Status = AttendanceRecord["status"];
 

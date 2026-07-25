@@ -3,7 +3,7 @@
  */
 
 import type { LiteralReplacement } from "@guru-admin/domain";
-import { Card, CardHeader, Input, Button } from "../../shared/ui";
+import { Card, CardHeader, Input, Button } from "@shared/ui";
 
 interface LiteralMatchPreview {
   oldText: string;

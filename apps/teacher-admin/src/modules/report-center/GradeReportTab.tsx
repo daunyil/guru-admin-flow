@@ -13,16 +13,16 @@ import {
   Select,
   EmptyState,
   PrintExportButtons,
-} from "../../shared/ui";
-import { InfoCard } from "../../shared/ui/ContextCard";
-import { findGradeBook } from "../../shared/db/gradebook-repo";
-import { findClassRoster } from "../../shared/db/class-roster-repo";
+} from "@shared/ui";
+import { InfoCard } from "@shared/ui/ContextCard";
+import { findGradeBook } from "@shared/db/gradebook-repo";
+import { findClassRoster } from "@shared/db/class-roster-repo";
 import {
   GradeReportDocument,
   type GradeReportData,
   type GradeReportRow,
   type GradeKdColumn,
-} from "../../shared/documents/ReportTemplates";
+} from "@shared/documents/ReportTemplates";
 import type {
   AcademicYear,
   TeacherProfile,

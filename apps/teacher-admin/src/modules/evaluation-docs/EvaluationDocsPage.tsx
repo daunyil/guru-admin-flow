@@ -12,7 +12,7 @@
  *   5. Kisi-Kisi Penulisan Soal (Assessment Grid)
  */
 
-import { LoadingState } from "../../shared/ui";
+import { LoadingState } from "@shared/ui";
 import { useEvaluationDocsState } from "./useEvaluationDocsState";
 import { AssignmentSelector } from "./AssignmentSelector";
 import { TabSelector } from "./TabSelector";

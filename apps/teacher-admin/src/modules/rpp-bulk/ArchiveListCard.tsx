@@ -4,7 +4,7 @@
 
 import type { RppDocument } from "@guru-admin/domain";
 import { formatLongDateID } from "@guru-admin/shared";
-import { Card, CardHeader, EmptyState, Badge, Button } from "../../shared/ui";
+import { Card, CardHeader, EmptyState, Badge, Button } from "@shared/ui";
 import { countTotalPlaceholders, isDocxBase64 } from "./rpp-bulk-utils";
 
 interface ArchiveListCardProps {

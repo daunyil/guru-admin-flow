@@ -5,15 +5,15 @@
 
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Card, CardHeader, Button, Badge } from "../../shared/ui";
-import { getActiveAcademicYear, getSchoolProfile, getTeacherProfile } from "../../shared/db/profile-repo";
-import { listCalendarEvents } from "../../shared/db/calendar-repo";
-import { listProtaProfiles } from "../../shared/db/prota-repo";
-import { listTeachingSchedules } from "../../shared/db/teaching-schedule-repo";
-import { listLessonSessions } from "../../shared/db/lesson-session-repo";
-import { listJournals } from "../../shared/db/journal-repo";
-import { listClassRosters } from "../../shared/db/class-roster-repo";
-import { LoadingState } from "../../shared/ui";
+import { Card, CardHeader, Button, Badge } from "@shared/ui";
+import { getActiveAcademicYear, getSchoolProfile, getTeacherProfile } from "@shared/db/profile-repo";
+import { listCalendarEvents } from "@shared/db/calendar-repo";
+import { listProtaProfiles } from "@shared/db/prota-repo";
+import { listTeachingSchedules } from "@shared/db/teaching-schedule-repo";
+import { listLessonSessions } from "@shared/db/lesson-session-repo";
+import { listJournals } from "@shared/db/journal-repo";
+import { listClassRosters } from "@shared/db/class-roster-repo";
+import { LoadingState } from "@shared/ui";
 
 type CheckItem = {
   label: string;

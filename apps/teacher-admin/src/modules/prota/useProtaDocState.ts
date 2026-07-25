@@ -15,7 +15,7 @@ import {
   updateSchoolDocumentLayout,
   setSchoolDocumentStatus,
   findSchoolDocumentByCompositeKey,
-} from "../../shared/db/school-document-repo";
+} from "@shared/db/school-document-repo";
 
 export function useProtaDocState(
   activeYearId: string | null,

@@ -2,12 +2,12 @@
  * AssessmentGridTab — Kisi-Kisi Penulisan Soal (Assessment Grid) section.
  */
 
-import { Card, CardHeader, Input, Button, Select } from "../../shared/ui";
-import { PrintExportButtons } from "../../shared/ui/PrintExportButtons";
-import { AssessmentGridDocument } from "../../shared/documents";
+import { Card, CardHeader, Input, Button, Select } from "@shared/ui";
+import { PrintExportButtons } from "@shared/ui/PrintExportButtons";
+import { AssessmentGridDocument } from "@shared/documents";
 import { formatLongDateID, todayISODate } from "@guru-admin/shared";
 import type { AcademicYear, SchoolProfile, TeachingAssignment, ATPEntry } from "@guru-admin/domain";
-import type { AssessmentGridRow } from "../../shared/documents";
+import type { AssessmentGridRow } from "@shared/documents";
 import type { EvaluationDocsState } from "./useEvaluationDocsState";
 
 interface AssessmentGridTabProps {

@@ -13,14 +13,14 @@ import {
   Select,
   EmptyState,
   PrintExportButtons,
-} from "../../shared/ui";
-import { InfoCard } from "../../shared/ui/ContextCard";
-import { listJournals } from "../../shared/db/journal-repo";
+} from "@shared/ui";
+import { InfoCard } from "@shared/ui/ContextCard";
+import { listJournals } from "@shared/db/journal-repo";
 import {
   JournalReportDocument,
   type JournalReportData,
   type JournalReportRow,
-} from "../../shared/documents/ReportTemplates";
+} from "@shared/documents/ReportTemplates";
 import { formatLongDateID } from "@guru-admin/shared";
 import type {
   AcademicYear,

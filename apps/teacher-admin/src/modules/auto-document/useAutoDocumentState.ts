@@ -22,20 +22,20 @@ import {
   matchesAssignmentContext,
 } from "@guru-admin/domain";
 import { todayISODate } from "@guru-admin/shared";
-import { getActiveAcademicYear, getTeacherProfile, getSchoolProfile } from "../../shared/db/profile-repo";
-import { listAssignmentsByTeacher } from "../../shared/db/teaching-assignment-repo";
-import { listProtaProfiles } from "../../shared/db/prota-repo";
-import { findClassRoster } from "../../shared/db/class-roster-repo";
-import { listLessonSessions } from "../../shared/db/lesson-session-repo";
-import { listJournals } from "../../shared/db/journal-repo";
-import { findGradeBook } from "../../shared/db/gradebook-repo";
-import { listATPEntries } from "../../shared/db/atp-entry-repo";
-import { listLKPDs } from "../../shared/db/lkpd-repo";
-import { listRppDocuments } from "../../shared/db/rpp-document-repo";
-import { listRemedialPrograms } from "../../shared/db/remedial-repo";
-import { listEnrichmentPrograms } from "../../shared/db/enrichment-repo";
-import { listSemesterReports } from "../../shared/db/semester-report-repo";
-import { db } from "../../shared/db/schema";
+import { getActiveAcademicYear, getTeacherProfile, getSchoolProfile } from "@shared/db/profile-repo";
+import { listAssignmentsByTeacher } from "@shared/db/teaching-assignment-repo";
+import { listProtaProfiles } from "@shared/db/prota-repo";
+import { findClassRoster } from "@shared/db/class-roster-repo";
+import { listLessonSessions } from "@shared/db/lesson-session-repo";
+import { listJournals } from "@shared/db/journal-repo";
+import { findGradeBook } from "@shared/db/gradebook-repo";
+import { listATPEntries } from "@shared/db/atp-entry-repo";
+import { listLKPDs } from "@shared/db/lkpd-repo";
+import { listRppDocuments } from "@shared/db/rpp-document-repo";
+import { listRemedialPrograms } from "@shared/db/remedial-repo";
+import { listEnrichmentPrograms } from "@shared/db/enrichment-repo";
+import { listSemesterReports } from "@shared/db/semester-report-repo";
+import { db } from "@shared/db/schema";
 
 export type AutoDocumentState = ReturnType<typeof useAutoDocumentState>;
 

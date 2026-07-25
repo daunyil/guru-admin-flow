@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { Card, CardHeader, Button } from "../../shared/ui";
-import { importScheduleFromJSON } from "../../shared/db/teaching-schedule-repo";
-import { getTeacherProfile } from "../../shared/db/profile-repo";
+import { Card, CardHeader, Button } from "@shared/ui";
+import { importScheduleFromJSON } from "@shared/db/teaching-schedule-repo";
+import { getTeacherProfile } from "@shared/db/profile-repo";
 
 interface ImportModalProps {
   academicYearId: string;

@@ -1,4 +1,4 @@
-import { Card, CardHeader } from "../../shared/ui";
+import { Card, CardHeader } from "@shared/ui";
 import type { AppsScriptImportValidation } from "@guru-admin/domain";
 
 interface ValidationErrorsCardProps {

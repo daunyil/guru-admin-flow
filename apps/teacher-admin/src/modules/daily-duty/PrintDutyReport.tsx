@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { Card, Button } from "../../shared/ui";
-import { PrintExportButtons } from "../../shared/ui/PrintExportButtons";
+import { Card, Button } from "@shared/ui";
+import { PrintExportButtons } from "@shared/ui/PrintExportButtons";
 import { formatLongDateID } from "@guru-admin/shared";
 import { formatSIADetail } from "@guru-admin/domain";
 import type { ClassAttendanceDetail, DutyRecord, StudentDutyLedgerItem } from "@guru-admin/domain";

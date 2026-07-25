@@ -3,8 +3,8 @@
  * Mobile-first. Terisolasi dari app utama — tidak menulis ke attendanceRecords.
  */
 
-import { Card, Input, Button } from "../../shared/ui";
-import { LoadingState } from "../../shared/ui";
+import { Card, Input, Button } from "@shared/ui";
+import { LoadingState } from "@shared/ui";
 import { formatLongDateID } from "@guru-admin/shared";
 import { useDailyDutyState } from "./useDailyDutyState";
 import type { Tab } from "./types";

@@ -6,8 +6,8 @@
  * Extracted from CalendarPage.tsx.
  */
 
-import { Select, Button, Badge } from "../../shared/ui";
-import { deleteCalendarEvent } from "../../shared/db/calendar-repo";
+import { Select, Button, Badge } from "@shared/ui";
+import { deleteCalendarEvent } from "@shared/db/calendar-repo";
 import { CALENDAR_EVENT_TYPE_LABELS_ID, formatLongDateID } from "@guru-admin/shared";
 import type { CalendarEvent } from "@guru-admin/domain";
 import type { CalendarWeek } from "./calendarHelpers";

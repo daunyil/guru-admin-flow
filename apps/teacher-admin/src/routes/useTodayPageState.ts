@@ -8,12 +8,12 @@ import {
   getActiveAcademicYear,
   getSchoolProfile,
   getTeacherProfile,
-} from "../shared/db/profile-repo";
-import { getLessonSessionsByDate, listLessonSessions } from "../shared/db/lesson-session-repo";
-import { listJournals } from "../shared/db/journal-repo";
-import { getAttendanceByTeacherDate, countSessionsWithAttendance } from "../shared/db/attendance-repo";
-import { listAssignmentsByTeacher } from "../shared/db/teaching-assignment-repo";
-import { seedSampleData } from "../shared/db/seed-sample-data";
+} from "@shared/db/profile-repo";
+import { getLessonSessionsByDate, listLessonSessions } from "@shared/db/lesson-session-repo";
+import { listJournals } from "@shared/db/journal-repo";
+import { getAttendanceByTeacherDate, countSessionsWithAttendance } from "@shared/db/attendance-repo";
+import { listAssignmentsByTeacher } from "@shared/db/teaching-assignment-repo";
+import { seedSampleData } from "@shared/db/seed-sample-data";
 import type {
   AcademicYear,
   SchoolProfile,

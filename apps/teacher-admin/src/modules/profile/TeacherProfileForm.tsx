@@ -4,9 +4,9 @@
  */
 
 import { useEffect, useState } from "react";
-import { Card, CardHeader, Input, Select, Button } from "../../shared/ui";
-import { getTeacherProfile, saveTeacherProfile } from "../../shared/db/profile-repo";
-import { LoadingState } from "../../shared/ui";
+import { Card, CardHeader, Input, Select, Button } from "@shared/ui";
+import { getTeacherProfile, saveTeacherProfile } from "@shared/db/profile-repo";
+import { LoadingState } from "@shared/ui";
 import type { TeacherProfile } from "@guru-admin/domain";
 import type { TeacherProfileFormFields } from "./profile-types";
 

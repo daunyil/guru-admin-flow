@@ -2,8 +2,8 @@
  * AssignmentSelector — Card for selecting Kelas dan Mapel.
  */
 
-import { Card, CardHeader, Select, EmptyState } from "../../shared/ui";
-import { InfoCard } from "../../shared/ui/ContextCard";
+import { Card, CardHeader, Select, EmptyState } from "@shared/ui";
+import { InfoCard } from "@shared/ui/ContextCard";
 import type { AcademicYear, TeachingAssignment } from "@guru-admin/domain";
 import type { EvaluationDocsState } from "./useEvaluationDocsState";
 

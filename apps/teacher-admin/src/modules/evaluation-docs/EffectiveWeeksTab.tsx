@@ -2,9 +2,9 @@
  * EffectiveWeeksTab — Rincian Minggu Efektif section.
  */
 
-import { Card, CardHeader, Input, Button, Badge } from "../../shared/ui";
-import { PrintExportButtons } from "../../shared/ui/PrintExportButtons";
-import { EffectiveWeeksDocument } from "../../shared/documents";
+import { Card, CardHeader, Input, Button, Badge } from "@shared/ui";
+import { PrintExportButtons } from "@shared/ui/PrintExportButtons";
+import { EffectiveWeeksDocument } from "@shared/documents";
 import { formatLongDateID, todayISODate } from "@guru-admin/shared";
 import type { AcademicYear, SchoolProfile, TeachingAssignment, EffectiveWeekItem } from "@guru-admin/domain";
 import type { EvaluationDocsState } from "./useEvaluationDocsState";

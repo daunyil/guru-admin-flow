@@ -3,13 +3,13 @@
  */
 
 import { useState } from "react";
-import { Card, CardHeader, Select, Textarea, Input, Button } from "../../shared/ui";
+import { Card, CardHeader, Select, Textarea, Input, Button } from "@shared/ui";
 import {
   listProtaProfiles,
   saveProtaProfile,
   importProtaFromJSON,
-} from "../../shared/db/prota-repo";
-import { getTeacherProfile } from "../../shared/db/profile-repo";
+} from "@shared/db/prota-repo";
+import { getTeacherProfile } from "@shared/db/profile-repo";
 import { parseProtaExcelPaste, type ProtaExcelParseResult } from "@guru-admin/domain";
 import type { ProtaProfile } from "@guru-admin/domain";
 

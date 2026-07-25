@@ -2,7 +2,7 @@
  * TabSelector — Card with tab buttons for switching between evaluation doc sections.
  */
 
-import { Card, Button } from "../../shared/ui";
+import { Card, Button } from "@shared/ui";
 import type { Tab } from "./evaluation-docs-types";
 import type { EvaluationDocsState } from "./useEvaluationDocsState";
 

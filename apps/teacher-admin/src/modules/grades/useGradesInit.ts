@@ -3,9 +3,9 @@
  */
 import { useEffect, useState } from "react";
 import type { AcademicYear, TeacherProfile, TeachingAssignment, ClassRoster } from "@guru-admin/domain";
-import { getActiveAcademicYear, getTeacherProfile } from "../../shared/db/profile-repo";
-import { listAssignmentsByTeacher } from "../../shared/db/teaching-assignment-repo";
-import { listClassRosters } from "../../shared/db/class-roster-repo";
+import { getActiveAcademicYear, getTeacherProfile } from "@shared/db/profile-repo";
+import { listAssignmentsByTeacher } from "@shared/db/teaching-assignment-repo";
+import { listClassRosters } from "@shared/db/class-roster-repo";
 import { todayISODate } from "@guru-admin/shared";
 
 export function useGradesInit() {

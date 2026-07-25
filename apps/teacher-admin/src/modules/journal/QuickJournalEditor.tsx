@@ -5,17 +5,17 @@
  */
 
 import { useEffect, useMemo, useState } from "react";
-import { Input, Textarea, Button, Badge, Select, Card, EmptyState, LoadingState } from "../../shared/ui";
-import { getLessonSession } from "../../shared/db/lesson-session-repo";
+import { Input, Textarea, Button, Badge, Select, Card, EmptyState, LoadingState } from "@shared/ui";
+import { getLessonSession } from "@shared/db/lesson-session-repo";
 import {
   initJournalForSessionFull,
   updateJournal,
   finalizeJournal,
   unlockJournal,
   listJournals,
-} from "../../shared/db/journal-repo";
-import { findClassRoster } from "../../shared/db/class-roster-repo";
-import { listProtaProfiles } from "../../shared/db/prota-repo";
+} from "@shared/db/journal-repo";
+import { findClassRoster } from "@shared/db/class-roster-repo";
+import { listProtaProfiles } from "@shared/db/prota-repo";
 import type { LessonSession, TeachingJournal, ProtaUnit } from "@guru-admin/domain";
 import {
   buildJournalNarrative,

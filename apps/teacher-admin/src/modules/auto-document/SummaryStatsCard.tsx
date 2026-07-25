@@ -1,4 +1,4 @@
-import { Card, CardHeader } from "../../shared/ui";
+import { Card, CardHeader } from "@shared/ui";
 import type { AdminDocumentPackage } from "@guru-admin/domain";
 
 function StatBox({ label, value }: { label: string; value: number | string }) {

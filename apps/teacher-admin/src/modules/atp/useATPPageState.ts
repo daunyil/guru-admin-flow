@@ -6,14 +6,14 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { getActiveAcademicYear, getTeacherProfile, getSchoolProfile } from "../../shared/db/profile-repo";
+import { getActiveAcademicYear, getTeacherProfile, getSchoolProfile } from "@shared/db/profile-repo";
 import {
   listATPEntries,
   saveATPEntry,
   updateATPEntry,
   deleteATPEntry,
-} from "../../shared/db/atp-entry-repo";
-import { listLKPDs } from "../../shared/db/lkpd-repo";
+} from "@shared/db/atp-entry-repo";
+import { listLKPDs } from "@shared/db/lkpd-repo";
 import type { AcademicYear, TeacherProfile, ATPEntry, LKPD, SchoolProfile } from "@guru-admin/domain";
 import {
   validateAtpImport,
@@ -28,7 +28,7 @@ import {
   updateSchoolDocumentLayout,
   setSchoolDocumentStatus,
   findSchoolDocumentByCompositeKey,
-} from "../../shared/db/school-document-repo";
+} from "@shared/db/school-document-repo";
 import type { SchoolDocOrientation, DocumentStatus } from "@guru-admin/domain";
 import { generateAIPrompt, existingKey } from "./atpUtils";
 import type { ImportPreviewData } from "./ATPImportOverlay";

@@ -13,7 +13,7 @@ import { RosterHeader } from "./RosterHeader";
 import { NewRosterForm } from "./NewRosterForm";
 import { ImportModal } from "./ImportModal";
 import { RosterDetail } from "./RosterDetail";
-import { Card, CardHeader, Button, EmptyState, Badge, LoadingState } from "../../shared/ui";
+import { Card, CardHeader, Button, EmptyState, Badge, LoadingState } from "@shared/ui";
 
 export function RosterPage() {
   const {

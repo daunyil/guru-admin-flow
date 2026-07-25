@@ -1,6 +1,6 @@
 import type { StudentDutyLedgerItem } from "@guru-admin/domain";
 import { formatLongDateID } from "@guru-admin/shared";
-import { Button } from "../../shared/ui";
+import { Button } from "@shared/ui";
 import { statusClass } from "./utils";
 
 export function LedgerItemCard({ item, onOpen }: { item: StudentDutyLedgerItem; onOpen: () => void }) {

@@ -11,23 +11,23 @@ import type {
 } from "@guru-admin/domain";
 import { calculateGradeBookEntries } from "@guru-admin/domain";
 import { todayISODate } from "@guru-admin/shared";
-import { getActiveAcademicYear, getTeacherProfile, getSchoolProfile } from "../../shared/db/profile-repo";
-import { listAssignmentsByTeacher } from "../../shared/db/teaching-assignment-repo";
-import { findGradeBook } from "../../shared/db/gradebook-repo";
+import { getActiveAcademicYear, getTeacherProfile, getSchoolProfile } from "@shared/db/profile-repo";
+import { listAssignmentsByTeacher } from "@shared/db/teaching-assignment-repo";
+import { findGradeBook } from "@shared/db/gradebook-repo";
 import {
   listRemedialPrograms,
   generateRemedialProgram,
   updateRemedialProgram,
   finalizeRemedialProgram,
   deleteRemedialProgram,
-} from "../../shared/db/remedial-repo";
+} from "@shared/db/remedial-repo";
 import {
   saveSchoolDocument,
   updateSchoolDocumentData,
   updateSchoolDocumentLayout,
   setSchoolDocumentStatus,
   findSchoolDocumentByCompositeKey,
-} from "../../shared/db/school-document-repo";
+} from "@shared/db/school-document-repo";
 /* ------------------------------------------------------------------ */
 /*  useRemedialState — all state, effects, and handlers               */
 /* ------------------------------------------------------------------ */

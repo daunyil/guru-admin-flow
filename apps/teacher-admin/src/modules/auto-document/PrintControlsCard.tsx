@@ -1,4 +1,4 @@
-import { Card, Button, downloadHTML } from "../../shared/ui";
+import { Card, Button, downloadHTML } from "@shared/ui";
 import type { AdminDocumentPackage, SchoolProfile } from "@guru-admin/domain";
 
 interface PrintControlsCardProps {

@@ -10,7 +10,7 @@
  *   - Lihat sesi yang sudah di-generate
  */
 
-import { Card, CardHeader, Select, Button, EmptyState, Badge, LoadingState } from "../../shared/ui";
+import { Card, CardHeader, Select, Button, EmptyState, Badge, LoadingState } from "@shared/ui";
 import { Link } from "react-router-dom";
 import { DAY_LABELS_ID, formatLongDateID } from "@guru-admin/shared";
 import { useScheduleState } from "./useScheduleState";

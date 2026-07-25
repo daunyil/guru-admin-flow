@@ -3,7 +3,7 @@
  */
 
 import type { RppDocument } from "@guru-admin/domain";
-import { Card, CardHeader, Badge, Button } from "../../shared/ui";
+import { Card, CardHeader, Badge, Button } from "@shared/ui";
 import { countTotalPlaceholders, isDocxBase64 } from "./rpp-bulk-utils";
 
 interface PreviewCardProps {

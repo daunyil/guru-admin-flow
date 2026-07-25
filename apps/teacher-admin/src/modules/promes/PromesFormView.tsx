@@ -6,7 +6,7 @@
  */
 
 import { Link } from "react-router-dom";
-import { Card, CardHeader, Input, Select, Button, EmptyState } from "../../shared/ui";
+import { Card, CardHeader, Input, Select, Button, EmptyState } from "@shared/ui";
 import type {
   ProtaProfile,
   PromesOptions,

@@ -4,8 +4,8 @@
  */
 
 import { useEffect, useMemo, useState } from "react";
-import { getActiveAcademicYear, getSchoolProfile, getTeacherProfile } from "../../shared/db/profile-repo";
-import { listClassRosters } from "../../shared/db/class-roster-repo";
+import { getActiveAcademicYear, getSchoolProfile, getTeacherProfile } from "@shared/db/profile-repo";
+import { listClassRosters } from "@shared/db/class-roster-repo";
 import { todayISODate } from "@guru-admin/shared";
 import {
   listDutyRules,
@@ -21,7 +21,7 @@ import {
   listDutyRecordsByAcademicYear,
   getAttendanceDetailForDate,
   syncAlpaFromAttendance,
-} from "../../shared/db/daily-duty-repo";
+} from "@shared/db/daily-duty-repo";
 import type {
   AcademicYear,
   ClassAttendanceDetail,

@@ -3,7 +3,7 @@
  */
 
 import { useState } from "react";
-import { Card, CardHeader, Input, Button } from "../../shared/ui";
+import { Card, CardHeader, Input, Button } from "@shared/ui";
 import type { ClassRoster } from "@guru-admin/domain";
 
 interface RosterDetailProps {

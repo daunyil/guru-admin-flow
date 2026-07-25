@@ -16,7 +16,7 @@ import {
   DocumentSignature,
   type DocumentCell,
   type DocumentCellObject,
-} from "../../shared/documents";
+} from "@shared/documents";
 import type { PromesWeek, UnitDistribution, KORow, PromesSummary, ProtaProfile } from "@guru-admin/domain";
 import { promesCalendarKindLabel } from "@guru-admin/domain";
 import { isPureCadanganWeek } from "./promes-helpers";

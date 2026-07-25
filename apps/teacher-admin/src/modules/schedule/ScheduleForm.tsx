@@ -1,10 +1,10 @@
 import { useState } from "react";
-import { Card, CardHeader, Input, Select, Button } from "../../shared/ui";
-import { getTeacherProfile } from "../../shared/db/profile-repo";
+import { Card, CardHeader, Input, Select, Button } from "@shared/ui";
+import { getTeacherProfile } from "@shared/db/profile-repo";
 import {
   saveTeachingSchedule,
   updateTeachingSchedule,
-} from "../../shared/db/teaching-schedule-repo";
+} from "@shared/db/teaching-schedule-repo";
 import type { TeachingSchedule } from "@guru-admin/domain";
 import { DAY_LABELS_ID } from "@guru-admin/shared";
 

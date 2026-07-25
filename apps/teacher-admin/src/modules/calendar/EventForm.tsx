@@ -4,11 +4,11 @@
  */
 
 import { useState } from "react";
-import { Card, CardHeader, Input, Select, Textarea, Button } from "../../shared/ui";
+import { Card, CardHeader, Input, Select, Textarea, Button } from "@shared/ui";
 import {
   saveCalendarEvent,
   updateCalendarEvent,
-} from "../../shared/db/calendar-repo";
+} from "@shared/db/calendar-repo";
 import type { CalendarEvent, CalendarEventType } from "@guru-admin/domain";
 import {
   CALENDAR_EVENT_TYPES,

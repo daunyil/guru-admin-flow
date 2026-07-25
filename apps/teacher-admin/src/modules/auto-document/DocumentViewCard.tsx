@@ -1,4 +1,4 @@
-import { Card } from "../../shared/ui";
+import { Card } from "@shared/ui";
 import type { AcademicYear, SchoolProfile, AdminDocumentPackage } from "@guru-admin/domain";
 import { formatLongDateID, todayISODate } from "@guru-admin/shared";
 

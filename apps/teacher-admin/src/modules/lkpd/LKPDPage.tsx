@@ -12,8 +12,8 @@
  *   - Terikat ke (academicYearId, teacherId, subject, classId?) + atpEntryId
  */
 
-import { Card, Button, EmptyState } from "../../shared/ui";
-import { LoadingState } from "../../shared/ui";
+import { Card, Button, EmptyState } from "@shared/ui";
+import { LoadingState } from "@shared/ui";
 import { useLKPDState } from "./useLKPDState";
 import { LKPDForm } from "./LKPDForm";
 import { LKPDPreview } from "./LKPDPreview";

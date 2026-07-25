@@ -1,5 +1,5 @@
-import { Card, CardHeader, Button, EmptyState, Select } from "../../shared/ui";
-import { InfoCard } from "../../shared/ui/ContextCard";
+import { Card, CardHeader, Button, EmptyState, Select } from "@shared/ui";
+import { InfoCard } from "@shared/ui/ContextCard";
 import type { AcademicYear, TeachingAssignment } from "@guru-admin/domain";
 
 interface AssignmentSelectorCardProps {

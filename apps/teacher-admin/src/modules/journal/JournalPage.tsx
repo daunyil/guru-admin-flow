@@ -11,17 +11,17 @@
 
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Card, CardHeader, Input, Textarea, Button, EmptyState, Badge, Select } from "../../shared/ui";
-import { getLessonSessionsByDate, getLessonSession } from "../../shared/db/lesson-session-repo";
-import { findClassRoster } from "../../shared/db/class-roster-repo";
+import { Card, CardHeader, Input, Textarea, Button, EmptyState, Badge, Select } from "@shared/ui";
+import { getLessonSessionsByDate, getLessonSession } from "@shared/db/lesson-session-repo";
+import { findClassRoster } from "@shared/db/class-roster-repo";
 import {
   initJournalForSessionFull,
   updateJournal,
   finalizeJournal,
   unlockJournal,
-} from "../../shared/db/journal-repo";
-import { listProtaProfiles } from "../../shared/db/prota-repo";
-import { getActiveAcademicYear, getTeacherProfile, getSchoolProfile } from "../../shared/db/profile-repo";
+} from "@shared/db/journal-repo";
+import { listProtaProfiles } from "@shared/db/prota-repo";
+import { getActiveAcademicYear, getTeacherProfile, getSchoolProfile } from "@shared/db/profile-repo";
 import type {
   LessonSession,
   TeachingJournal,
@@ -30,7 +30,7 @@ import type {
   SchoolProfile,
 } from "@guru-admin/domain";
 import { formatLongDateID, todayISODate } from "@guru-admin/shared";
-import { LoadingState } from "../../shared/ui";
+import { LoadingState } from "@shared/ui";
 
 type RealizationStatus = TeachingJournal["realizationStatus"];
 const REALIZATION_STATUSES: Array<{ value: RealizationStatus; label: string; color: string }> = [

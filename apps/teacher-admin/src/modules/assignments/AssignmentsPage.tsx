@@ -13,16 +13,16 @@
  */
 
 import { useEffect, useState } from "react";
-import { Card, CardHeader, Input, Select, Button, EmptyState, Badge, LoadingState } from "../../shared/ui";
+import { Card, CardHeader, Input, Select, Button, EmptyState, Badge, LoadingState } from "@shared/ui";
 import {
   listAssignments,
   saveAssignment,
   deleteAssignment,
   autoGenerateFromSchedules,
-} from "../../shared/db/teaching-assignment-repo";
-import { listClassRosters } from "../../shared/db/class-roster-repo";
-import { listTeachingSchedules } from "../../shared/db/teaching-schedule-repo";
-import { getActiveAcademicYear, getTeacherProfile } from "../../shared/db/profile-repo";
+} from "@shared/db/teaching-assignment-repo";
+import { listClassRosters } from "@shared/db/class-roster-repo";
+import { listTeachingSchedules } from "@shared/db/teaching-schedule-repo";
+import { getActiveAcademicYear, getTeacherProfile } from "@shared/db/profile-repo";
 import type {
   AcademicYear,
   TeacherProfile,

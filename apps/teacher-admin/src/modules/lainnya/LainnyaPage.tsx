@@ -12,9 +12,9 @@
  * lain yang tidak masuk kategori docType spesifik.
  */
 
-import { Card, Button, LoadingState } from "../../shared/ui";
+import { Card, Button, LoadingState } from "@shared/ui";
 import { Link } from "react-router-dom";
-import { DocumentPreview } from "../../shared/documents";
+import { DocumentPreview } from "@shared/documents";
 
 import { useLainnyaState } from "./useLainnyaState";
 import { LainnyaSidebar } from "./LainnyaSidebar";

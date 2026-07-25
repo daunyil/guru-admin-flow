@@ -3,8 +3,8 @@
  */
 
 import { useState } from "react";
-import { Card, CardHeader, Input, Button } from "../../shared/ui";
-import { saveClassRoster } from "../../shared/db/class-roster-repo";
+import { Card, CardHeader, Input, Button } from "@shared/ui";
+import { saveClassRoster } from "@shared/db/class-roster-repo";
 import type { ClassRoster } from "@guru-admin/domain";
 
 interface NewRosterFormProps {

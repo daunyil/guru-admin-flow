@@ -4,9 +4,9 @@
  */
 
 import { useEffect, useState } from "react";
-import { Card, CardHeader, Input, Textarea, Button, } from "../../shared/ui";
-import { getSchoolProfile, saveSchoolProfile } from "../../shared/db/profile-repo";
-import { LoadingState } from "../../shared/ui";
+import { Card, CardHeader, Input, Textarea, Button, } from "@shared/ui";
+import { getSchoolProfile, saveSchoolProfile } from "@shared/db/profile-repo";
+import { LoadingState } from "@shared/ui";
 import type { SchoolProfileFormFields } from "./profile-types";
 
 export function SchoolProfileForm() {

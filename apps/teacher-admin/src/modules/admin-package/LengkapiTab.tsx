@@ -4,8 +4,8 @@
  */
 
 import { Link } from "react-router-dom";
-import { Card, CardHeader, Button, EmptyState, Badge, Select } from "../../shared/ui";
-import { InfoCard } from "../../shared/ui/ContextCard";
+import { Card, CardHeader, Button, EmptyState, Badge, Select } from "@shared/ui";
+import { InfoCard } from "@shared/ui/ContextCard";
 import { DefaultChecklist } from "./DefaultChecklist";
 import type { AdminPackageState } from "./useAdminPackageState";
 

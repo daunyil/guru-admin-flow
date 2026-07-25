@@ -4,8 +4,8 @@
  */
 
 import { useState } from "react";
-import { Card, CardHeader, Button, Badge } from "../../shared/ui";
-import { Download, Upload, AlertTriangle, Check } from "../../shared/layout/icons";
+import { Card, CardHeader, Button, Badge } from "@shared/ui";
+import { Download, Upload, AlertTriangle, Check } from "@shared/layout/icons";
 import {
   exportBackup,
   restoreBackup,
@@ -13,7 +13,7 @@ import {
   parseBackupFileContent,
   validateBackupFile,
   generateBackupFilename,
-} from "../../shared/db/backup-repo";
+} from "@shared/db/backup-repo";
 import type { BackupSummary } from "@guru-admin/domain";
 
 export function BackupPage() {

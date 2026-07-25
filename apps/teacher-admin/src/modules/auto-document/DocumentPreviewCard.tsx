@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Card, CardHeader, Badge, Button } from "../../shared/ui";
+import { Card, CardHeader, Badge, Button } from "@shared/ui";
 import type { AdminDocumentPackage } from "@guru-admin/domain";
 
 interface DocumentPreviewCardProps {

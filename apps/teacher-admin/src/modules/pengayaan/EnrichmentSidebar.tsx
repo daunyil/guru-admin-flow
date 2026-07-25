@@ -1,6 +1,6 @@
 import type { EnrichmentProgram, TeachingAssignment, EnrichmentStudent } from "@guru-admin/domain";
-import { Badge, Button, Input, Select, Textarea } from "../../shared/ui";
-import { updateEnrichmentProgram } from "../../shared/db/enrichment-repo";
+import { Badge, Button, Input, Select, Textarea } from "@shared/ui";
+import { updateEnrichmentProgram } from "@shared/db/enrichment-repo";
 import { ENRICHMENT_PRESETS, MATERIAL_PRESETS, DEFAULT_ENRICHMENT_NOTE, DEFAULT_ENRICHMENT_PLAN } from "./constants";
 
 /* ------------------------------------------------------------------ */
