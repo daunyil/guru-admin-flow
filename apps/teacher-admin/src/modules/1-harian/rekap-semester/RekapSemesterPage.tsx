@@ -182,6 +182,7 @@ export function RekapSemesterPage() {
             school={school}
             teacherName={teacher?.name}
             yearLabel={year?.label}
+            classLabel={assignment?.classLabel}
           />
         ) : (
           <EmptyState title="Belum ada data absensi" description={`Tidak ada data absensi untuk bulan ${months[selectedMonthIndex]?.label ?? "terpilih"}.`} />

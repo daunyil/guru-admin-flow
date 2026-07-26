@@ -129,6 +129,22 @@ export function useSemesterAggregator(context: RekapContext | null) {
     })();
   }, [context]);
 
+  // Enrich gradeRecords with NISN from roster lookup
+  const enrichedGradeRecords = useMemo(() => {
+    if (!roster || gradeRecords.length === 0) return gradeRecords;
+
+    // Build lookup: studentId → nis (NISN in school format)
+    const nisnLookup = new Map<string, string>();
+    for (const s of roster.students) {
+      if (s.nis) nisnLookup.set(s.id, s.nis);
+    }
+
+    return gradeRecords.map((rec) => ({
+      ...rec,
+      nisn: nisnLookup.get(rec.studentId) ?? rec.nisn,
+    }));
+  }, [gradeRecords, roster]);
+
   // Build monthly attendance matrices
   const monthlyMatrices = useMemo(() => {
     if (!context || !roster || !attendanceRecords) return [];
@@ -202,7 +218,7 @@ export function useSemesterAggregator(context: RekapContext | null) {
   }, [context, roster, attendanceRecords]);
 
   return {
-    gradeRecords,
+    gradeRecords: enrichedGradeRecords,
     gradeBook,
     roster,
     monthlyMatrices,

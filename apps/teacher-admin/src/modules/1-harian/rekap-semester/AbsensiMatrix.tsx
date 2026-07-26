@@ -48,6 +48,7 @@ interface AbsensiMatrixProps {
   school?: SchoolProfile;
   teacherName?: string;
   yearLabel?: string;
+  classLabel?: string;
   teacherRole?: string; // "Wali Kelas" or "Guru Bidang Studi"
 }
 
@@ -56,6 +57,7 @@ export function AbsensiMatrix({
   school,
   teacherName,
   yearLabel,
+  classLabel,
   teacherRole = "Wali Kelas",
 }: AbsensiMatrixProps) {
   const { monthName, year, daysInMonth, students } = matrix;
@@ -77,7 +79,7 @@ export function AbsensiMatrix({
             TAHUN PELAJARAN {yearLabel ?? year}
           </div>
           <div style={{ fontSize: "10pt", marginTop: 4, display: "flex", gap: 24 }}>
-            <span style={{ fontWeight: 700 }}>KELAS : {matrix.students[0]?.studentName ? "" : ""}</span>
+            <span style={{ fontWeight: 700 }}>KELAS : {classLabel ?? ".........."}</span>
             <span style={{ fontWeight: 700 }}>BULAN : {monthName}</span>
           </div>
         </div>
@@ -144,9 +146,9 @@ export function AbsensiMatrix({
         </table>
       </div>
 
-      {/* --- Footer/TTD --- */}
-      <div className="signature-grid" style={{ marginTop: 16, gap: 48 }}>
-        <div className="signature-block">
+      {/* --- Footer/TTD --- Right-aligned signature block */}
+      <div style={{ marginTop: 16, display: "flex", justifyContent: "flex-end" }}>
+        <div className="signature-block" style={{ width: "200px" }}>
           <div className="signature-place-date">
             {school?.village ?? school?.district ?? "............"}, {year}
           </div>

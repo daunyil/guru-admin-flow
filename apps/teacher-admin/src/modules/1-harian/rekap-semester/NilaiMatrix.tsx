@@ -190,9 +190,9 @@ export function NilaiMatrix({
         </table>
       </div>
 
-      {/* --- Footer/TTD --- */}
-      <div className="signature-grid" style={{ marginTop: 16, gap: 48 }}>
-        <div className="signature-block">
+      {/* --- Footer/TTD --- Right-aligned signature block */}
+      <div style={{ marginTop: 16, display: "flex", justifyContent: "flex-end" }}>
+        <div className="signature-block" style={{ width: "200px" }}>
           <div className="signature-place-date">
             {school?.village ?? school?.district ?? "............"}, {yearLabel?.split("/")[0] ?? "........"}
           </div>
