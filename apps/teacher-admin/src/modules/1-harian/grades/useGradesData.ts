@@ -24,8 +24,9 @@ export function useGradesData({ year, teacher, assignments, rosters, docSemester
   const [dirty, setDirty] = useState(false);
 
   // V3: Model penilaian
-  const [gradeModel, setGradeModel] = useState<"uh" | "kd">("uh");
+  const [gradeModel, setGradeModel] = useState<"uh" | "kd" | "pa-split">("uh");
   const [uhCount, setUhCount] = useState(2);
+  const [kdCount, setKdCount] = useState(6);
   const [weightUH, setWeightUH] = useState(25);
   const [weightUTS, setWeightUTS] = useState(25);
   const [weightUAS, setWeightUAS] = useState(50);
@@ -69,6 +70,7 @@ export function useGradesData({ year, teacher, assignments, rosters, docSemester
         setEntries(existing.entries.slice().sort((a, b) => (a.studentNumber ?? 0) - (b.studentNumber ?? 0)));
         if (existing.gradeModel) setGradeModel(existing.gradeModel);
         if (existing.uhCount) setUhCount(existing.uhCount);
+        if (existing.kdCount) setKdCount(existing.kdCount);
         if (existing.weightUH != null) setWeightUH(existing.weightUH);
         if (existing.weightUTS != null) setWeightUTS(existing.weightUTS);
         if (existing.weightUAS != null) setWeightUAS(existing.weightUAS);
@@ -136,7 +138,7 @@ export function useGradesData({ year, teacher, assignments, rosters, docSemester
       if (gradeBook) {
         const updated = await updateGradeBook(gradeBook.id, {
           passingScore: Number(kktp) || 75, entries,
-          gradeModel, uhCount, weightUH, weightUTS, weightUAS,
+          gradeModel, uhCount, kdCount, weightUH, weightUTS, weightUAS,
         });
         if (updated) {
           setGradeBook(updated);
@@ -155,7 +157,7 @@ export function useGradesData({ year, teacher, assignments, rosters, docSemester
           passingScore: Number(kktp) || 75,
           entries,
           status: "draft",
-          gradeModel, uhCount, weightUH, weightUTS, weightUAS,
+          gradeModel, uhCount, kdCount, weightUH, weightUTS, weightUAS,
         });
         setGradeBook(created);
         setEntries(created.entries.slice().sort((a, b) => (a.studentNumber ?? 0) - (b.studentNumber ?? 0)));
@@ -168,8 +170,8 @@ export function useGradesData({ year, teacher, assignments, rosters, docSemester
   }
 
   const calculated = useMemo(
-    () => calculateGradeBookEntries(entries, Number(kktp) || 75, { gradeModel, uhCount, weightUH, weightUTS, weightUAS }),
-    [entries, kktp, gradeModel, uhCount, weightUH, weightUTS, weightUAS]
+    () => calculateGradeBookEntries(entries, Number(kktp) || 75, { gradeModel, uhCount, kdCount, weightUH, weightUTS, weightUAS }),
+    [entries, kktp, gradeModel, uhCount, kdCount, weightUH, weightUTS, weightUAS]
   );
 
   const assignment = selectedAssignment();
@@ -195,7 +197,7 @@ export function useGradesData({ year, teacher, assignments, rosters, docSemester
     selectedAssignmentId, selectedAssignment, handleAssignmentChange,
     kktp, setKktp,
     entries, setEntries, gradeBook, dirty, setDirty,
-    gradeModel, setGradeModel, uhCount, setUhCount,
+    gradeModel, setGradeModel, uhCount, setUhCount, kdCount, setKdCount,
     weightUH, setWeightUH, weightUTS, setWeightUTS, weightUAS, setWeightUAS,
     calculated, assignment, remedialCount, enrichmentCount,
     docDataForAutoSave,

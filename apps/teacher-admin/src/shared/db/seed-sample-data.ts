@@ -293,6 +293,7 @@ export async function seedSampleData(): Promise<{ success: boolean; message: str
           status: "draft",
           gradeModel: "uh",
           uhCount: 2,
+          kdCount: 6,
           weightUH: 25,
           weightUTS: 25,
           weightUAS: 50,

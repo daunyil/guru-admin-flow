@@ -1,30 +1,51 @@
 /**
- * Pure utility: score columns based on gradeModel and uhCount.
+ * Pure utility: score columns based on gradeModel, uhCount, kdCount.
+ * V4: Added "pa-split" model support and extend max columns to 10.
  */
 import type { GradeEntry } from "@guru-admin/domain";
 
-/** Kolom nilai yang bisa diisi, dinamis berdasarkan gradeModel dan uhCount. */
+export type GradeModelType = "kd" | "uh" | "pa-split";
+
+/** Kolom nilai yang bisa diisi, dinamis berdasarkan gradeModel dan uhCount/kdCount. */
 export function getScoreColumns(
-  gradeModel: "kd" | "uh",
+  gradeModel: GradeModelType,
   uhCount: number,
-): Array<{ key: keyof GradeEntry; label: string; width: string }> {
+  kdCount?: number,
+): Array<{ key: keyof GradeEntry; label: string; width: string; group?: string }> {
+  const effectiveKdCount = kdCount ?? 6;
+
   if (gradeModel === "uh") {
-    const cols: Array<{ key: keyof GradeEntry; label: string; width: string }> = [];
-    for (let i = 1; i <= Math.min(uhCount, 6); i++) {
-      cols.push({ key: `kd${i}` as keyof GradeEntry, label: `UH${i}`, width: "w-16" });
+    const cols: Array<{ key: keyof GradeEntry; label: string; width: string; group?: string }> = [];
+    for (let i = 1; i <= Math.min(uhCount, 10); i++) {
+      cols.push({ key: `uh${i}` as keyof GradeEntry, label: `UH${i}`, width: "w-14" });
     }
-    cols.push({ key: "pts", label: "UTS", width: "w-16" });
-    cols.push({ key: "pas", label: "UAS", width: "w-16" });
+    cols.push({ key: "uts", label: "UTS", width: "w-14" });
+    cols.push({ key: "uas", label: "UAS", width: "w-14" });
     return cols;
   }
-  return [
-    { key: "kd1", label: "KD1", width: "w-16" },
-    { key: "kd2", label: "KD2", width: "w-16" },
-    { key: "kd3", label: "KD3", width: "w-16" },
-    { key: "kd4", label: "KD4", width: "w-16" },
-    { key: "kd5", label: "KD5", width: "w-16" },
-    { key: "kd6", label: "KD6", width: "w-16" },
-    { key: "pts", label: "PTS", width: "w-16" },
-    { key: "pas", label: "PAS", width: "w-16" },
-  ];
+
+  if (gradeModel === "pa-split") {
+    // PA-split: Ulangan + Tugas per KD (2×kdCount columns) + PTS + PAS
+    const cols: Array<{ key: keyof GradeEntry; label: string; width: string; group?: string }> = [];
+    for (let i = 1; i <= Math.min(effectiveKdCount, 10); i++) {
+      // Ulangan per KD — stored in uh1-uh10 fields
+      cols.push({ key: `uh${i}` as keyof GradeEntry, label: `U${i}`, width: "w-12", group: "Ulangan" });
+    }
+    for (let i = 1; i <= Math.min(effectiveKdCount, 10); i++) {
+      // Tugas per KD — stored in kd1-kd10 fields (reused for this model)
+      cols.push({ key: `kd${i}` as keyof GradeEntry, label: `T${i}`, width: "w-12", group: "Tugas" });
+    }
+    cols.push({ key: "pts", label: "PTS", width: "w-14" });
+    cols.push({ key: "pas", label: "PAS", width: "w-14" });
+    return cols;
+  }
+
+  // KD model: KD1-KDn + PTS + PAS
+  const cols: Array<{ key: keyof GradeEntry; label: string; width: string; group?: string }> = [];
+  for (let i = 1; i <= Math.min(effectiveKdCount, 10); i++) {
+    cols.push({ key: `kd${i}` as keyof GradeEntry, label: `KD${i}`, width: "w-14" });
+  }
+  cols.push({ key: "pts", label: "PTS", width: "w-14" });
+  cols.push({ key: "pas", label: "PAS", width: "w-14" });
+  return cols;
 }

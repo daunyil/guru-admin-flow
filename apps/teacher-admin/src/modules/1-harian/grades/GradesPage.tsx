@@ -94,6 +94,8 @@ export function GradesPage() {
         setGradeModel={data.setGradeModel}
         uhCount={data.uhCount}
         setUhCount={data.setUhCount}
+        kdCount={data.kdCount}
+        setKdCount={data.setKdCount}
         weightUH={data.weightUH}
         setWeightUH={data.setWeightUH}
         weightUTS={data.weightUTS}
@@ -164,6 +166,7 @@ export function GradesPage() {
               onSetScore={data.setScore}
               gradeModel={data.gradeModel}
               uhCount={data.uhCount}
+              kdCount={data.kdCount}
             />
           )}
         </DocumentPreview>

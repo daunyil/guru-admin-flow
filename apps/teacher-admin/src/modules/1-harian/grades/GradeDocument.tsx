@@ -12,8 +12,9 @@ interface GradeDocumentProps {
   teacherName: string;
   editable?: boolean;
   onSetScore?: (idx: number, field: keyof GradeEntry, value: string) => void;
-  gradeModel: "uh" | "kd";
+  gradeModel: "uh" | "kd" | "pa-split";
   uhCount: number;
+  kdCount: number;
 }
 
 export function GradeDocument({
@@ -26,8 +27,9 @@ export function GradeDocument({
   onSetScore,
   gradeModel,
   uhCount,
+  kdCount,
 }: GradeDocumentProps) {
-  const scoreColumns = getScoreColumns(gradeModel, uhCount);
+  const scoreColumns = getScoreColumns(gradeModel, uhCount, kdCount);
   return (
     <div className="document-page document-landscape" style={{ fontFamily: 'Arial, Helvetica, sans-serif', fontSize: '11pt', lineHeight: '1.25', width: '100%', boxSizing: 'border-box' }}>
       <div className="document-title">DAFTAR NILAI</div>

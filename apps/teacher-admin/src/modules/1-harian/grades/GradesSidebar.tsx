@@ -24,10 +24,12 @@ interface GradesSidebarProps {
   kktp: string;
   setKktp: (v: string) => void;
   setDirty: (d: boolean) => void;
-  gradeModel: "uh" | "kd";
-  setGradeModel: (v: "uh" | "kd") => void;
+  gradeModel: "uh" | "kd" | "pa-split";
+  setGradeModel: (v: "uh" | "kd" | "pa-split") => void;
   uhCount: number;
   setUhCount: (v: number) => void;
+  kdCount: number;
+  setKdCount: (v: number) => void;
   weightUH: number;
   setWeightUH: (v: number) => void;
   weightUTS: number;
@@ -139,10 +141,11 @@ export function GradesSidebar(props: GradesSidebarProps) {
                   label="Model Penilaian"
                   id="g-model"
                   value={gradeModel}
-                  onChange={(v) => { setGradeModel(v as "uh" | "kd"); setDirty(true); }}
+                  onChange={(v) => { setGradeModel(v as "uh" | "kd" | "pa-split"); setDirty(true); }}
                   options={[
                     { value: "uh", label: "UH / UTS / UAS" },
                     { value: "kd", label: "KD / PTS / PAS (legacy)" },
+                    { value: "pa-split", label: "PA-Split (Ulangan + Tugas per KD)" },
                   ]}
                 />
                 {gradeModel === "uh" && (

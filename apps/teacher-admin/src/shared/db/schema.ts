@@ -171,6 +171,18 @@ export class GuruAdminDB extends Dexie {
         }
       });
     });
+
+    // GRADEBOOK-V4-PA-SPLIT: Extend KD/UH to 10 columns, add kdCount, add kdDetails.
+    // No index changes needed — these are data fields in entries array, not indexed columns.
+    // Bump version so Dexie opens DB with updated schema and runs backfill.
+    this.version(12).stores({
+      gradeBooks: "id, academicYearId, teacherId, classId, subject, semester, status, [academicYearId+teacherId+classId+semester]",
+    }).upgrade((tx) => {
+      // V4: Backfill kdCount default on existing GradeBook data
+      return tx.table("gradeBooks").toCollection().modify((book: Record<string, unknown>) => {
+        if (book.kdCount === undefined) book.kdCount = 6;
+      });
+    });
   }
 }
 
