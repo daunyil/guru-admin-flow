@@ -25,6 +25,8 @@ import { LoadingState } from "./shared/ui";
 const QuickAttendancePage = lazy(() => import("@harian/attendance/QuickAttendancePage").then((m) => ({ default: m.QuickAttendancePage })));
 const QuickJournalPage = lazy(() => import("@harian/journal/QuickJournalPage").then((m) => ({ default: m.QuickJournalPage })));
 const GradesPage = lazy(() => import("@harian/grades/GradesPage").then((m) => ({ default: m.GradesPage })));
+const RekapSemesterPage = lazy(() => import("@harian/rekap-semester/RekapSemesterPage").then((m) => ({ default: m.RekapSemesterPage })));
+// SPRINT-4: Rekap Semester — matriks bulanan absen + rekap nilai
 
 // 2-piket (Guru Piket)
 const DailyDutyPage = lazy(() => import("@piket/daily-duty/DailyDutyPage").then((m) => ({ default: m.DailyDutyPage })));
@@ -87,6 +89,7 @@ export function App() {
               <Route path="/attendance" element={<QuickAttendancePage />} />
               <Route path="/journal" element={<QuickJournalPage />} />
               <Route path="/grades" element={<GradesPage />} />
+              <Route path="/rekap-semester" element={<RekapSemesterPage />} />
               <Route path="/atp" element={<ATPPage />} />
               <Route path="/lkpd" element={<LKPDPage />} />
               <Route path="/rpp" element={<RPPPage />} />

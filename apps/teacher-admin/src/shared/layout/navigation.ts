@@ -2,14 +2,19 @@
  * NAV-MODULE-REORG-01: Navigasi sidebar yang mencerminkan 5 module groups.
  *
  * Structure:
- *   1-harian   → Absensi, Jurnal, Nilai (operasional harian per mapel)
+ *   1-harian   → Absensi, Jurnal, Nilai, Rekap Semester (operasional harian per mapel)
  *   2-piket    → Guru Piket (supervisi harian per kelas/sekolah)
  *   3-admin    → Paket Admin gate (document generator per semester)
- *   4-integrasi→ Import, AutoDoc, Completeness, Report Center
- *   5-data     → Profile, Roster, Assignments, NewYear, Backup
+ *   4-integrasi→ Pusat Laporan (cross-module reporting)
+ *   5-data     → Profil, Kelas & Mapel (master data)
  *
- * Sidebar: 3 modul utama (Harian, Piket, Admin) + Data Dasar.
+ * Sidebar: 3 modul utama (Harian, Piket, Admin) + Data Dasar + Integrasi.
  * Gate Groups: sub-modul Administrasi via Paket Admin page.
+ *
+ * FORMAT-REF: Format absen & nilai dari SMPN 8 Bantan:
+ *   - Absen: Landscape matriks 31 kolom tanggal + rekap (ALPA/SAKIT/IZIN/JLH)
+ *   - Nilai: Landscape PA (Ulangan 10 KD + Tugas 10 KD) + PTS + PAS
+ *   - Kedua format berorientasi LANDSCAPE untuk cetak/print
  */
 
 import { FEATURE_FLAGS } from "@guru-admin/shared";
@@ -19,33 +24,30 @@ import {
   FileSpreadsheet,
   ClipboardList,
   BookMarked,
-  Printer,
   Home,
   Library,
-  Database,
-  GraduationCap,
-  Calendar,
-  Clock,
-  Users,
-  FileText,
-  ListChecks,
-  Download,
-  AlertTriangle,
+  BarChart3,
+  PieChart,
+  Settings,
 } from "./icons";
 
 export interface NavItem {
   to: string;
   label: string;
   icon: typeof CheckCircle;
+  badge?: string;         // e.g. "Sprint 4", "New"
+  badgeVariant?: "info" | "success" | "warning";
 }
 
 export interface NavGroup {
   title: string;
   items: NavItem[];
+  collapsible?: boolean;  // future: collapsible sidebar groups
 }
 
 /* ------------------------------------------------------------------ */
-/*  Sidebar Desktop — 3 modul utama + Data Dasar                      */
+/*  Sidebar Desktop — 3 modul utama + Data Dasar + Integrasi           */
+/*  Group numbering matches code: 1-harian, 2-piket, 3-administrasi    */
 /* ------------------------------------------------------------------ */
 
 export const NAV_GROUPS: NavGroup[] = [
@@ -56,15 +58,17 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    title: "Harian",
+    title: "1 · Harian Guru",
     items: [
       { to: "/attendance", label: "Absen", icon: CheckCircle },
       { to: "/journal", label: "Jurnal", icon: BookOpen },
       { to: "/grades", label: "Nilai", icon: FileSpreadsheet },
+      // SPRINT-4: Rekap Semester — matriks bulanan absen + rekap nilai per semester
+      { to: "/rekap-semester", label: "Rekap Semester", icon: BarChart3, badge: "Sprint 4", badgeVariant: "info" },
     ],
   },
   {
-    title: "Piket",
+    title: "2 · Piket",
     items: [
       ...(FEATURE_FLAGS.dailyDuty
         ? [{ to: "/piket", label: "Guru Piket", icon: ClipboardList }]
@@ -72,7 +76,7 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    title: "Administrasi",
+    title: "3 · Administrasi",
     items: [
       { to: "/admin-package", label: "Paket Admin", icon: BookMarked },
     ],
@@ -80,13 +84,21 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     title: "Data Dasar",
     items: [
+      { to: "/profile", label: "Profil", icon: Settings },
       { to: "/assignments", label: "Kelas & Mapel", icon: Library },
+    ],
+  },
+  {
+    title: "Integrasi",
+    items: [
+      { to: "/report-center", label: "Pusat Laporan", icon: PieChart },
     ],
   },
 ];
 
 /* ------------------------------------------------------------------ */
 /*  Mobile Bottom Nav — maksimal 5 item                                */
+/*  Priority: daily operations (Home, Absen, Jurnal, Nilai) + Piket    */
 /* ------------------------------------------------------------------ */
 
 export const MOBILE_PRIMARY: NavItem[] = [

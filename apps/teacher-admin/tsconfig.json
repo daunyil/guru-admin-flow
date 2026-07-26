@@ -17,5 +17,6 @@
       "@admin/*": ["modules/3-administrasi/*"]
     }
   },
-  "include": ["src/**/*", "vite.config.ts", "tailwind.config.js", "postcss.config.js"]
+  "include": ["src/**/*", "vite.config.ts", "tailwind.config.js", "postcss.config.js"],
+  "exclude": ["src/**/__tests__/**", "src/**/__test__/**"]
 }

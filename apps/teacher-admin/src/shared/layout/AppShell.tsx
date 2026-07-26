@@ -82,6 +82,15 @@ export function AppShell({ children }: { children: ReactNode }) {
                   >
                     <item.icon className="w-4 h-4 shrink-0" />
                     <span className="truncate">{item.label}</span>
+                    {item.badge && (
+                      <span className={`ml-auto px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                        item.badgeVariant === "info" ? "bg-brand-50 text-brand-700"
+                        : item.badgeVariant === "success" ? "bg-emerald-50 text-emerald-700"
+                        : "bg-amber-50 text-amber-700"
+                      }`}>
+                        {item.badge}
+                      </span>
+                    )}
                   </NavLink>
                 ))}
               </div>
