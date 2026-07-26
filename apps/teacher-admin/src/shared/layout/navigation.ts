@@ -1,9 +1,15 @@
 /**
- * NAV-DAILY-GATE-01: Konfigurasi navigasi yang diekstrak supaya testable.
+ * NAV-MODULE-REORG-01: Navigasi sidebar yang mencerminkan 5 module groups.
  *
- * Menu utama hanya item kerja harian + pusat administrasi.
- * Semua modul lain (Prota, Promes, RPP, LKPD, dll) disembunyikan dari sidebar
- * dan bisa diakses dari halaman Paket Administrasi Guru.
+ * Structure:
+ *   1-harian   → Absensi, Jurnal, Nilai (operasional harian per mapel)
+ *   2-piket    → Guru Piket (supervisi harian per kelas/sekolah)
+ *   3-admin    → Paket Admin gate (document generator per semester)
+ *   4-integrasi→ Import, AutoDoc, Completeness, Report Center
+ *   5-data     → Profile, Roster, Assignments, NewYear, Backup
+ *
+ * Sidebar: 3 modul utama (Harian, Piket, Admin) + Data Dasar.
+ * Gate Groups: sub-modul Administrasi via Paket Admin page.
  */
 
 import { FEATURE_FLAGS } from "@guru-admin/shared";
@@ -16,6 +22,15 @@ import {
   Printer,
   Home,
   Library,
+  Database,
+  GraduationCap,
+  Calendar,
+  Clock,
+  Users,
+  FileText,
+  ListChecks,
+  Download,
+  AlertTriangle,
 } from "./icons";
 
 export interface NavItem {
@@ -29,7 +44,10 @@ export interface NavGroup {
   items: NavItem[];
 }
 
-/** Sidebar desktop — menu ringkas berbasis kerja guru. */
+/* ------------------------------------------------------------------ */
+/*  Sidebar Desktop — 3 modul utama + Data Dasar                      */
+/* ------------------------------------------------------------------ */
+
 export const NAV_GROUPS: NavGroup[] = [
   {
     title: "Menu Utama",
@@ -43,30 +61,42 @@ export const NAV_GROUPS: NavGroup[] = [
       { to: "/attendance", label: "Absen", icon: CheckCircle },
       { to: "/journal", label: "Jurnal", icon: BookOpen },
       { to: "/grades", label: "Nilai", icon: FileSpreadsheet },
+    ],
+  },
+  {
+    title: "Piket",
+    items: [
       ...(FEATURE_FLAGS.dailyDuty
         ? [{ to: "/piket", label: "Guru Piket", icon: ClipboardList }]
         : []),
     ],
   },
   {
-    title: "Data & Administrasi",
+    title: "Administrasi",
     items: [
-      { to: "/assignments", label: "Kelas dan Mapel", icon: Library },
       { to: "/admin-package", label: "Paket Admin", icon: BookMarked },
-      { to: "/report-center", label: "Pusat Laporan", icon: Printer },
+    ],
+  },
+  {
+    title: "Data Dasar",
+    items: [
+      { to: "/assignments", label: "Kelas & Mapel", icon: Library },
     ],
   },
 ];
 
-/** Mobile bottom nav — maksimal 5 item. */
+/* ------------------------------------------------------------------ */
+/*  Mobile Bottom Nav — maksimal 5 item                                */
+/* ------------------------------------------------------------------ */
+
 export const MOBILE_PRIMARY: NavItem[] = [
+  { to: "/", label: "Home", icon: Home },
   { to: "/attendance", label: "Absen", icon: CheckCircle },
   { to: "/journal", label: "Jurnal", icon: BookOpen },
   { to: "/grades", label: "Nilai", icon: FileSpreadsheet },
   ...(FEATURE_FLAGS.dailyDuty
     ? [{ to: "/piket", label: "Piket", icon: ClipboardList }]
     : []),
-  { to: "/admin-package", label: "Paket", icon: BookMarked },
 ];
 
 export function getPrimaryNavLabels(): string[] {
@@ -77,9 +107,11 @@ export function getMobileNavLabels(): string[] {
   return MOBILE_PRIMARY.map((i) => i.label);
 }
 
-/**
- * Kartu gerbang di Paket Administrasi Guru.
- */
+/* ------------------------------------------------------------------ */
+/*  Gate Groups — Kartu di halaman Paket Administrasi Guru             */
+/*  Reflects 3-administrasi sub-domain + integrasi + data dasar        */
+/* ------------------------------------------------------------------ */
+
 export interface GateCard {
   id: string;
   label: string;
@@ -127,7 +159,6 @@ export const GATE_GROUPS: GateGroup[] = [
       { id: "evaluation-docs", label: "Perangkat Penilaian", to: "/evaluation-docs", description: "Kisi-kisi, kartu soal, naskah" },
       { id: "remedial", label: "Remedial", to: "/remedial", description: "Program remedial" },
       { id: "pengayaan", label: "Pengayaan", to: "/pengayaan", description: "Program pengayaan" },
-      // RELEASE-FIXPACK-P1-P2-01: "Nilai" dihapus dari Group D karena sudah ada di sidebar Harian.
       { id: "semester-report", label: "Laporan Semester", to: "/semester-report", description: "Laporan akhir semester" },
       { id: "lainnya", label: "Dokumen Lainnya", to: "/lainnya", description: "Surat, catatan, dokumen administrasi lain" },
     ],
