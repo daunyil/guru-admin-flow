@@ -1,0 +1,212 @@
+/**
+ * useSemesterAggregator — Hook for aggregating semester data for Rekap Semester view.
+ *
+ * Reads GradeBook from Dexie → transforms entries to StudentGradeRecord[].
+ * Reads AttendanceRecord from Dexie → aggregates into monthly matriks.
+ *
+ * DOMAIN-BOUNDARY: Module 1-harian, imports from @shared/db/ and @guru-admin/domain only.
+ */
+
+import { useMemo, useState, useEffect } from "react";
+import { transformToStudentGradeRecord, type StudentGradeRecord, type GradeBook } from "@guru-admin/domain";
+import { findGradeBook } from "@shared/db/gradebook-repo";
+import { listClassRosters } from "@shared/db/class-roster-repo";
+import type { ClassRoster } from "@guru-admin/domain";
+import { useLiveQuery } from "dexie-react-hooks";
+import { db } from "@shared/db/schema";
+
+/* ------------------------------------------------------------------ */
+/*  Types                                                               */
+/* ------------------------------------------------------------------ */
+
+/** Context untuk Rekap Semester — kelas + mapel + guru yang dipilih. */
+export type RekapContext = {
+  academicYearId: string;
+  teacherId: string;
+  classId: string;
+  classLabel: string;
+  subject: string;
+  semester: 1 | 2;
+  schoolName: string;
+  yearLabel: string;
+  teacherName: string;
+};
+
+/** Matriks absensi per bulan — 1 row per siswa, 31 kolom tanggal. */
+export type MonthlyAttendanceMatrix = {
+  month: number; // 1-12
+  monthName: string; // "Januari", "Februari", etc.
+  year: number;
+  daysInMonth: number; // 28, 29, 30, or 31
+  students: Array<{
+    studentId: string;
+    studentName: string;
+    nisn?: string;
+    studentNumber: number;
+    /** Status per tanggal (1-31). null = tidak ada sesi (hari libur/weekend). */
+    statusByDate: Record<number, "present" | "sick" | "excused" | "late" | "absent" | null>;
+    /** Rekap bulanan */
+    rekap: { alpa: number; sakit: number; izin: number; terlambat: number; hadir: number; jlh: number };
+  }>;
+};
+
+const MONTH_NAMES = [
+  "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+  "Juli", "Agustus", "September", "Oktober", "November", "Desember"
+];
+
+function getDaysInMonth(month: number, year: number): number {
+  return new Date(year, month, 0).getDate(); // day 0 of next month = last day of this month
+}
+
+/* ------------------------------------------------------------------ */
+/*  Hook                                                                */
+/* ------------------------------------------------------------------ */
+
+export function useSemesterAggregator(context: RekapContext | null) {
+  const [gradeRecords, setGradeRecords] = useState<StudentGradeRecord[]>([]);
+  const [gradeBook, setGradeBook] = useState<GradeBook | null>(null);
+  const [roster, setRoster] = useState<ClassRoster | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Live query: all attendance records for this class
+  const attendanceRecords = useLiveQuery(
+    () => context
+      ? db.attendanceRecords
+          .where("classId")
+          .equals(context.classId)
+          .toArray()
+      : [],
+    [context?.classId]
+  );
+
+  // Load gradebook + roster on context change
+  useEffect(() => {
+    if (!context) {
+      setGradeBook(null);
+      setGradeRecords([]);
+      setRoster(null);
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    (async () => {
+      try {
+        const gb = await findGradeBook({
+          academicYearId: context.academicYearId,
+          teacherId: context.teacherId,
+          classId: context.classId,
+          subject: context.subject,
+          semester: context.semester,
+        });
+
+        setGradeBook(gb ?? null);
+
+        if (gb) {
+          const records = gb.entries.map((entry) =>
+            transformToStudentGradeRecord(entry, {
+              gradeModel: gb.gradeModel ?? "uh",
+              kdCount: gb.kdCount ?? 6,
+              passingScore: gb.passingScore,
+            })
+          );
+          setGradeRecords(records);
+        } else {
+          setGradeRecords([]);
+        }
+
+        const rosters = await listClassRosters(context.academicYearId);
+        const matchingRoster = rosters.find((r) => r.classId === context.classId);
+        setRoster(matchingRoster ?? null);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Gagal memuat data semester.");
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [context]);
+
+  // Build monthly attendance matrices
+  const monthlyMatrices = useMemo(() => {
+    if (!context || !roster || !attendanceRecords) return [];
+
+    const semesterMonths = context.semester === 1
+      ? [7, 8, 9, 10, 11, 12]  // Semester Ganjil: Jul-Dec
+      : [1, 2, 3, 4, 5, 6];   // Semester Genap: Jan-Jun
+
+    // Academic year: "2023/2024" → Semester 1 uses 2023, Semester 2 uses 2024
+    const parts = context.yearLabel.split("/");
+    const startYear = parseInt(parts[0]) || 2023;
+    const endYear = parseInt(parts[1]) || startYear + 1;
+
+    return semesterMonths.map((month) => {
+      // For semester 1 (Jul-Dec): year = startYear. For semester 2 (Jan-Jun): year = endYear.
+      const year = month >= 7 ? startYear : endYear;
+      const daysInMonth = getDaysInMonth(month, year);
+
+      const studentRows = roster.students.map((student: { id: string; name: string; nis?: string; number: number }) => {
+        const statusByDate: Record<number, "present" | "sick" | "excused" | "late" | "absent" | null> = {};
+
+        // Initialize all days as null (no session)
+        for (let d = 1; d <= daysInMonth; d++) {
+          statusByDate[d] = null;
+        }
+
+        // Fill in attendance data for this student in this month
+        const recordsForStudent = attendanceRecords.filter(
+          (r) => r.studentId === student.id && r.classId === context.classId
+        );
+
+        for (const record of recordsForStudent) {
+          const date = new Date(record.date);
+          const recordMonth = date.getMonth() + 1; // 1-12
+          const recordYear = date.getFullYear();
+          const recordDay = date.getDate(); // 1-31
+
+          if (recordMonth === month && recordYear === year && recordDay >= 1 && recordDay <= daysInMonth) {
+            statusByDate[recordDay] = record.status as "present" | "sick" | "excused" | "late" | "absent";
+          }
+        }
+
+        // Compute rekap
+        let alpa = 0, sakit = 0, izin = 0, terlambat = 0, hadir = 0;
+        for (const status of Object.values(statusByDate)) {
+          if (status === "absent") alpa++;
+          else if (status === "sick") sakit++;
+          else if (status === "excused") izin++;
+          else if (status === "late") terlambat++;
+          else if (status === "present") hadir++;
+        }
+
+        return {
+          studentId: student.id,
+          studentName: student.name,
+          nisn: student.nis,
+          studentNumber: student.number,
+          statusByDate,
+          rekap: { alpa, sakit, izin, terlambat, hadir, jlh: alpa + sakit + izin + terlambat },
+        };
+      });
+
+      return {
+        month,
+        monthName: MONTH_NAMES[month - 1],
+        year,
+        daysInMonth,
+        students: studentRows,
+      };
+    });
+  }, [context, roster, attendanceRecords]);
+
+  return {
+    gradeRecords,
+    gradeBook,
+    roster,
+    monthlyMatrices,
+    loading,
+    error,
+  };
+}
