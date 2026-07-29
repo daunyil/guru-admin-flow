@@ -1,13 +1,18 @@
 /**
  * JurnalMatrix — Rekap Jurnal Mengajar per semester (FORMAT-4).
  *
- * FORMAT-4: Jurnal Mengajar (Guru Mata Pelajaran)
- * Format referensi: SMPN 8 Bantan — JURNAL MENGAJAR
- *   - LANDSCAPE orientasi
+ * FORMAT-4: Jurnal Agenda Mengajar Guru (Guru Mata Pelajaran)
+ * Format referensi: SMPN 8 Bantan — JURNAL AGENDA MENGAJAR GURU
+ *   - LANDSCAPE orientasi, A4
  *   - MONOKROM / INK-SAVER grayscale strategy
  *   - 1 row per pertemuan (max 40)
- *   - Columns: No | Tanggal | JP | Materi Rencana | Materi Aktual | Realisasi | H | S | I | A | T | Jlh | Catatan | Tindak Lanjut
- *   - Footer: Guru Bidang Studi TTD
+ *   - Columns: NO | HARI/TANGGAL | JAM KE- | MATERI/TUJUAN PEMBELAJARAN | KEGIATAN PEMBELAJARAN | SISWA TIDAK HADIR | KETERANGAN
+ *   - Date format: "Senin, 14/07/2025" (with day name)
+ *   - JAM KE-: "1 - 2" (startPeriod to endPeriod)
+ *   - SISWA TIDAK HADIR: "Andi (S)" — student name + reason code
+ *   - KETERANGAN: Tuntas / Dilanjutkan / Tidak Terlaksana
+ *   - Metadata: 2 columns (MATA PELAJARAN + KELAS/SEMESTER | NAMA GURU + NIP)
+ *   - Dual signature: Kepala Sekolah + Guru Mata Pelajaran (with NIP)
  *
  * DOMAIN-BOUNDARY: Module 1-harian, presentation component only.
  */
@@ -19,46 +24,37 @@ import type { SchoolProfile } from "@guru-admin/domain";
 /*  Helpers                                                            */
 /* ------------------------------------------------------------------ */
 
-/** Format date to DD/MM. */
-function formatShortDate(dateISO: string | null): string {
+const DAY_NAMES = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
+
+/** Format date to "Senin, 14/07/2025" */
+function formatDayDate(dateISO: string | null): string {
   if (!dateISO) return "";
   const d = new Date(dateISO);
+  const dayName = DAY_NAMES[d.getDay()];
   const day = d.getDate();
   const month = d.getMonth() + 1;
-  return `${day}/${month}`;
+  const year = d.getFullYear();
+  return `${dayName}, ${day}/${month}/${year}`;
 }
 
-/** Realization status label. */
-function realizationLabel(status: "done" | "continued" | "cancelled" | null): string {
-  if (status === "done") return "Selesai";
-  if (status === "continued") return "Dilanjutkan";
-  if (status === "cancelled") return "Tidak Terlaksana";
-  return "—";
-}
-
-/** Realization status badge color. */
-function realizationBg(status: "done" | "continued" | "cancelled" | null): string {
-  if (status === "done") return "bg-green-100 text-green-800";
-  if (status === "continued") return "bg-yellow-100 text-yellow-800";
-  if (status === "cancelled") return "bg-red-100 text-red-800";
-  return "bg-gray-100 text-gray-500";
+/** Format absent students list: "Andi (S), Budi (I)" or "-" */
+function formatAbsentStudents(students: Array<{ name: string; reason: string }>): string {
+  if (students.length === 0) return "-";
+  return students.map((s) => `${s.name} (${s.reason})`).join(", ");
 }
 
 /* ------------------------------------------------------------------ */
-/*  Column width definitions                                           */
-/*  Total: 3 + 5 + 2.5 + 12 + 12 + 6 + 2.5×5 + 3 + 12 + 12 ≈ 100% */
+/*  Column width definitions — percentage for table-layout:fixed       */
+/*  Total: 3 + 8 + 5 + 22 + 28 + 14 + 20 = 100%                     */
 /* ------------------------------------------------------------------ */
 
 const COL_NO = "3%";
-const COL_TANGGAL = "5%";
-const COL_JP = "2.5%";
-const COL_MATERI_RENCANA = "12%";
-const COL_MATERI_AKTUAL = "12%";
-const COL_REALISASI = "6%";
-const COL_KEHADIRAN = "2.5%"; /* H, S, I, A, T — 5 × 2.5% = 12.5% */
-const COL_JLH = "3%";
-const COL_CATATAN = "12%";
-const COL_TINDAK_LANJUT = "12%";
+const COL_TANGGAL = "8%";
+const COL_JAM = "5%";
+const COL_MATERI = "22%";
+const COL_KEGIATAN = "28%";
+const COL_TIDAK_HADIR = "14%";
+const COL_KET = "20%";
 
 /* ------------------------------------------------------------------ */
 /*  Component                                                          */
@@ -68,6 +64,9 @@ interface JurnalMatrixProps {
   matrix: JurnalMatrix;
   school?: SchoolProfile;
   teacherName?: string;
+  teacherNip?: string;
+  headmasterName?: string;
+  headmasterNip?: string;
   yearLabel?: string;
   classLabel?: string;
   subject?: string;
@@ -78,37 +77,49 @@ export function JurnalMatrix({
   matrix,
   school,
   teacherName,
+  teacherNip,
+  headmasterName,
+  headmasterNip,
   yearLabel,
   classLabel,
   subject,
   semester,
 }: JurnalMatrixProps) {
   const { rows } = matrix;
-  const semesterLabel = semester === 1 ? "Ganjil" : "Genap";
+  const semesterLabel = semester === 1 ? "1 (Ganjil)" : "2 (Genap)";
 
   return (
     <div className="document-page document-landscape rekap-landscape-doc" id="rekap-jurnal-doc">
 
-      {/* ── 1. KOP JUDUL DOKUMEN (CENTER) ── */}
+      {/* ── 1. KOP HEADER (CENTER) ── */}
       <div className="text-center mb-2">
         {school?.logo && (
           <img src={school.logo} alt="Logo" className="inline-block mb-1" style={{ maxHeight: 50 }} />
         )}
         <h1 className="text-sm font-bold uppercase tracking-wide">
-          JURNAL MENGAJAR {school?.name ?? "SMP NEGERI 8 BANTAN"}
+          JURNAL AGENDA MENGAJAR GURU
         </h1>
         <h2 className="text-xs font-bold uppercase">
-          TAHUN PELAJARAN {yearLabel ?? ".........."}
+          {school?.name ?? "SMP NEGERI 8 BANTAN"}
         </h2>
+        <p className="text-[10px] font-bold uppercase">
+          TAHUN PELAJARAN {yearLabel ?? ".........."}
+        </p>
       </div>
 
-      {/* ── 2. METADATA 2 BARIS TERPISAH ── */}
-      <div className="mb-2 text-[10px] font-bold space-y-0.5">
-        <div>MATA PELAJARAN : {subject ?? ".........."}</div>
-        <div>KELAS/SEMESTER : {classLabel ?? ".........."}/{semesterLabel ?? ".........."}</div>
+      {/* ── 2. METADATA — 2 KOLOM (kiri: mapel/kelas, kanan: guru/nip) ── */}
+      <div className="mb-2 text-[10px] font-bold" style={{ display: "flex", justifyContent: "space-between" }}>
+        <div style={{ lineHeight: 1.6 }}>
+          <div>MATA PELAJARAN : <span className="font-normal">{subject ?? ".........."}</span></div>
+          <div>KELAS / SEMESTER : <span className="font-normal">{classLabel ?? ".........."} / {semesterLabel}</span></div>
+        </div>
+        <div style={{ lineHeight: 1.6, textAlign: "right" }}>
+          <div>NAMA GURU : <span className="font-normal">{teacherName ?? ".........."}</span></div>
+          <div>NIP : <span className="font-normal">{teacherNip ?? ".........."}</span></div>
+        </div>
       </div>
 
-      {/* ── 3. TABEL JURNAL (MONOKROM / INK-SAVER) ── */}
+      {/* ── 3. TABEL JURNAL (7 KOLOM REFERENSI) ── */}
       <div className="document-table-wrap rekap-table-wrap">
         <table
           className="rekap-matrix-table w-full border-collapse border border-black"
@@ -118,37 +129,22 @@ export function JurnalMatrix({
           <colgroup>
             <col style={{ width: COL_NO }} />
             <col style={{ width: COL_TANGGAL }} />
-            <col style={{ width: COL_JP }} />
-            <col style={{ width: COL_MATERI_RENCANA }} />
-            <col style={{ width: COL_MATERI_AKTUAL }} />
-            <col style={{ width: COL_REALISASI }} />
-            <col style={{ width: COL_KEHADIRAN }} />
-            <col style={{ width: COL_KEHADIRAN }} />
-            <col style={{ width: COL_KEHADIRAN }} />
-            <col style={{ width: COL_KEHADIRAN }} />
-            <col style={{ width: COL_KEHADIRAN }} />
-            <col style={{ width: COL_JLH }} />
-            <col style={{ width: COL_CATATAN }} />
-            <col style={{ width: COL_TINDAK_LANJUT }} />
+            <col style={{ width: COL_JAM }} />
+            <col style={{ width: COL_MATERI }} />
+            <col style={{ width: COL_KEGIATAN }} />
+            <col style={{ width: COL_TIDAK_HADIR }} />
+            <col style={{ width: COL_KET }} />
           </colgroup>
 
           <thead>
-            {/* ── Single-row header ── */}
             <tr className="bg-gray-200 border-b border-black">
               <th className="border border-black text-center font-bold text-[7px] py-1">NO.</th>
-              <th className="border border-black text-center font-bold text-[7px]">Tanggal</th>
-              <th className="border border-black text-center font-bold text-[7px]">JP</th>
-              <th className="border border-black text-center font-bold text-[7px]">Materi Rencana</th>
-              <th className="border border-black text-center font-bold text-[7px]">Materi Aktual</th>
-              <th className="border border-black text-center font-bold text-[7px]">Realisasi</th>
-              <th className="border border-black text-center font-bold text-[7px]">H</th>
-              <th className="border border-black text-center font-bold text-[7px]">S</th>
-              <th className="border border-black text-center font-bold text-[7px]">I</th>
-              <th className="border border-black text-center font-bold text-[7px]">A</th>
-              <th className="border border-black text-center font-bold text-[7px]">T</th>
-              <th className="border border-black text-center font-bold text-[7px]">Jlh</th>
-              <th className="border border-black text-center font-bold text-[7px]">Catatan</th>
-              <th className="border border-black text-center font-bold text-[7px]">Tindak Lanjut</th>
+              <th className="border border-black text-center font-bold text-[7px]">HARI / TANGGAL</th>
+              <th className="border border-black text-center font-bold text-[7px]">JAM KE-</th>
+              <th className="border border-black text-center font-bold text-[7px]">MATERI / TUJUAN PEMBELAJARAN</th>
+              <th className="border border-black text-center font-bold text-[7px]">KEGIATAN PEMBELAJARAN</th>
+              <th className="border border-black text-center font-bold text-[7px]">SISWA TIDAK HADIR</th>
+              <th className="border border-black text-center font-bold text-[7px]">KETERANGAN</th>
             </tr>
           </thead>
 
@@ -156,135 +152,93 @@ export function JurnalMatrix({
           <tbody>
             {rows.map((row) => {
               const isNoJournal = !row.hasJournal;
+              const isCancelled = row.realizationStatus === "cancelled";
               const rowClass = isNoJournal
                 ? "border-b border-black bg-yellow-50"
-                : row.realizationStatus === "cancelled"
+                : isCancelled
                 ? "border-b border-black bg-red-50"
                 : "border-b border-black";
 
+              // KEGIATAN PEMBELAJARAN: prefer actualMaterialTitle, fallback to note
+              const kegiatan = row.actualMaterialTitle || row.note || "";
+
+              // JAM KE-: "1 - 2" format
+              const endPeriod = row.startPeriod + row.durationJP - 1;
+              const jamKe = row.durationJP > 1
+                ? `${row.startPeriod} - ${endPeriod}`
+                : `${row.startPeriod}`;
+
               return (
-                <tr key={row.sessionId} className={rowClass} style={{ height: "22px" }}>
+                <tr key={row.sessionId} className={rowClass} style={{ height: "28px" }}>
                   {/* NO */}
                   <td className="border border-black text-center text-[8px] font-medium">
                     {row.meetingNumber}
                   </td>
 
-                  {/* Tanggal */}
+                  {/* HARI / TANGGAL */}
                   <td className="border border-black text-center text-[8px]">
-                    {formatShortDate(row.dateISO)}
+                    {formatDayDate(row.dateISO)}
                   </td>
 
-                  {/* JP */}
-                  <td className="border border-black text-center text-[8px] font-bold">
-                    {row.durationJP}
+                  {/* JAM KE- */}
+                  <td className="border border-black text-center text-[8px]">
+                    {jamKe}
                   </td>
 
-                  {/* Materi Rencana */}
-                  <td className="border border-black text-left px-1 text-[8px] truncate">
-                    {row.plannedMaterialTitle ?? "—"}
+                  {/* MATERI / TUJUAN PEMBELAJARAN */}
+                  <td className="border border-black text-left px-1 text-[8px]" style={{ lineHeight: 1.35 }}>
+                    {row.plannedMaterialTitle ?? ""}
                   </td>
 
-                  {/* Materi Aktual */}
-                  <td className="border border-black text-left px-1 text-[8px] truncate">
-                    {row.actualMaterialTitle ?? "—"}
+                  {/* KEGIATAN PEMBELAJARAN */}
+                  <td className="border border-black text-left px-1 text-[8px]" style={{ lineHeight: 1.35 }}>
+                    {kegiatan}
                   </td>
 
-                  {/* Realisasi */}
-                  <td className="border border-black text-center text-[7px]">
-                    <span className={`inline-block px-1 rounded text-[6px] font-bold ${realizationBg(row.realizationStatus)}`}>
-                      {realizationLabel(row.realizationStatus)}
-                    </span>
+                  {/* SISWA TIDAK HADIR */}
+                  <td className="border border-black text-center text-[8px]">
+                    {formatAbsentStudents(row.absentStudents)}
                   </td>
 
-                  {/* Kehadiran: H, S, I, A, T */}
-                  <td className="border border-black text-center text-[8px] font-bold">
-                    {row.presentCount > 0 ? row.presentCount : ""}
-                  </td>
-                  <td className="border border-black text-center text-[8px] font-bold">
-                    {row.sickCount > 0 ? row.sickCount : ""}
-                  </td>
-                  <td className="border border-black text-center text-[8px] font-bold">
-                    {row.excusedCount > 0 ? row.excusedCount : ""}
-                  </td>
-                  <td className="border border-black text-center text-[8px] font-bold">
-                    {row.absentCount > 0 ? row.absentCount : ""}
-                  </td>
-                  <td className="border border-black text-center text-[8px] font-bold">
-                    {row.lateCount > 0 ? row.lateCount : ""}
-                  </td>
-
-                  {/* Jlh */}
-                  <td className="border border-black text-center text-[8px] font-bold bg-gray-50">
-                    {row.totalStudents > 0 ? row.totalStudents : ""}
-                  </td>
-
-                  {/* Catatan */}
-                  <td className="border border-black text-left px-1 text-[8px] truncate">
-                    {row.note ?? ""}
-                  </td>
-
-                  {/* Tindak Lanjut */}
-                  <td className="border border-black text-left px-1 text-[8px] truncate">
-                    {row.followUp ?? ""}
+                  {/* KETERANGAN */}
+                  <td className="border border-black text-left px-1 text-[8px]">
+                    {row.keterangan ?? ""}
                   </td>
                 </tr>
               );
             })}
 
-            {/* ── REKAP BARIS ── */}
-            {rows.length > 0 && (
-              <tr className="bg-gray-200 border-b border-black font-bold" style={{ height: "20px" }}>
-                <td colSpan={2} className="border border-black text-center text-[8px]">JUMLAH</td>
-                <td className="border border-black text-center text-[8px]">
-                  {rows.reduce((sum, r) => sum + r.durationJP, 0)}
-                </td>
-                <td colSpan={3} className="border border-black text-center text-[8px]"></td>
-                <td className="border border-black text-center text-[8px]">
-                  {rows.reduce((sum, r) => sum + r.presentCount, 0) || ""}
-                </td>
-                <td className="border border-black text-center text-[8px]">
-                  {rows.reduce((sum, r) => sum + r.sickCount, 0) || ""}
-                </td>
-                <td className="border border-black text-center text-[8px]">
-                  {rows.reduce((sum, r) => sum + r.excusedCount, 0) || ""}
-                </td>
-                <td className="border border-black text-center text-[8px]">
-                  {rows.reduce((sum, r) => sum + r.absentCount, 0) || ""}
-                </td>
-                <td className="border border-black text-center text-[8px]">
-                  {rows.reduce((sum, r) => sum + r.lateCount, 0) || ""}
-                </td>
-                <td className="border border-black text-center text-[8px]">
-                  {rows.reduce((sum, r) => sum + r.totalStudents, 0) || ""}
-                </td>
-                <td colSpan={2} className="border border-black text-center text-[8px]"></td>
+            {/* ── Empty rows to fill up to 40 (template rows) ── */}
+            {rows.length < 40 && Array.from({ length: 40 - rows.length }, (_, i) => (
+              <tr key={`empty-${i}`} className="border-b border-black" style={{ height: "28px" }}>
+                <td className="border border-black text-center text-[8px]">{rows.length + i + 1}</td>
+                <td className="border border-black"></td>
+                <td className="border border-black"></td>
+                <td className="border border-black"></td>
+                <td className="border border-black"></td>
+                <td className="border border-black"></td>
+                <td className="border border-black"></td>
               </tr>
-            )}
-
-            {/* ── STATUS REKAP ── */}
-            {rows.length > 0 && (
-              <tr className="bg-gray-100 border-b border-black text-[8px]" style={{ height: "20px" }}>
-                <td colSpan={6} className="border border-black text-left px-1 font-bold">
-                  Realisasi: {rows.filter((r) => r.realizationStatus === "done").length} Selesai / {rows.filter((r) => r.realizationStatus === "continued").length} Dilanjutkan / {rows.filter((r) => r.realizationStatus === "cancelled").length} Tidak Terlaksana / {rows.filter((r) => !r.hasJournal).length} Belum Jurnal
-                </td>
-                <td colSpan={8} className="border border-black text-left px-1 font-bold">
-                  Jurnal: {rows.filter((r) => r.journalStatus === "final").length} Final / {rows.filter((r) => r.journalStatus === "draft").length} Draft / {rows.filter((r) => !r.hasJournal).length} Belum
-                </td>
-              </tr>
-            )}
+            ))}
           </tbody>
         </table>
       </div>
 
-      {/* ── Footer/TTD: Guru Bidang Studi ── */}
-      <div style={{ marginTop: 10, display: "flex", justifyContent: "flex-end" }}>
-        <div className="signature-block" style={{ width: "180px" }}>
-          <div className="signature-place-date text-[9px]">
-            {school?.village ?? school?.district ?? "............"}, .................... {yearLabel ?? ".........."}
-          </div>
-          <div className="signature-role text-[9px]">Guru Bidang Studi</div>
+      {/* ── Dual Signature: Kepala Sekolah + Guru Mata Pelajaran ── */}
+      <div style={{ marginTop: 15, display: "flex", justifyContent: "space-between" }}>
+        <div className="signature-block" style={{ width: "250px", textAlign: "center" }}>
+          <div className="text-[9px]">Mengetahui,</div>
+          <div className="text-[9px] font-bold">Kepala {school?.name ?? "SMPN 8 Bantan"}</div>
           <div className="signature-space" />
-          <div className="signature-name text-[9px]">{teacherName ?? "___________________"}</div>
+          <div className="text-[9px] font-bold underline">{headmasterName ?? "........................"}</div>
+          <div className="text-[8px]">NIP. {headmasterNip ?? "........................"}</div>
+        </div>
+        <div className="signature-block" style={{ width: "250px", textAlign: "center" }}>
+          <div className="text-[9px]">{school?.village ?? school?.district ?? "............"}, .................... {yearLabel ?? ".........."}</div>
+          <div className="text-[9px] font-bold">Guru Mata Pelajaran</div>
+          <div className="signature-space" />
+          <div className="text-[9px] font-bold underline">{teacherName ?? "........................"}</div>
+          <div className="text-[8px]">NIP. {teacherNip ?? "........................"}</div>
         </div>
       </div>
     </div>

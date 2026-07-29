@@ -499,6 +499,9 @@ export function RekapSemesterPage() {
             matrix={jurnalMatrix}
             school={school}
             teacherName={teacher?.name}
+            teacherNip={teacher?.nip}
+            headmasterName={school?.headmasterName}
+            headmasterNip={school?.headmasterNip}
             yearLabel={year?.label}
             classLabel={assignment?.classLabel}
             subject={assignment?.subject}

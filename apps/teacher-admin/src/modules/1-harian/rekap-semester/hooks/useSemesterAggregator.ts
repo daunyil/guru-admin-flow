@@ -51,31 +51,29 @@ export type MonthlyAttendanceMatrix = {
   }>;
 };
 
-/** FORMAT-4: Matriks Jurnal Mengajar — 1 row per pertemuan. (Guru Mata Pelajaran) */
+/** FORMAT-4: Matriks Jurnal Mengajar — 1 row per pertemuan. (Guru Mata Pelajaran)
+ *  Format referensi: SMPN 8 Bantan — JURNAL AGENDA MENGAJAR GURU
+ *  Columns: NO | HARI/TANGGAL | JAM KE- | MATERI/TUJUAN | KEGIATAN | SISWA TIDAK HADIR | KETERANGAN */
 export type JurnalMatrix = {
   /** Pertemuan rows — each lesson session + its journal. */
   rows: Array<{
     meetingNumber: number; // 1-based
     dateISO: string;
     sessionId: string;
-    durationJP: number;
+    startPeriod: number;   // Jam ke- (start period)
+    durationJP: number;   // Duration in JP
     /** Planned material from Prota (auto-filled). */
     plannedMaterialTitle: string | null;
-    /** Actual material taught (guru input). */
+    /** Actual teaching activity description (guru input). */
     actualMaterialTitle: string | null;
     /** Realization status: done/continued/cancelled. */
     realizationStatus: "done" | "continued" | "cancelled" | null;
-    /** Attendance counts. */
-    presentCount: number;
-    sickCount: number;
-    excusedCount: number;
-    lateCount: number;
-    absentCount: number;
-    totalStudents: number;
-    /** Journal note. */
+    /** Absent students with reason code — e.g. "Andi (S)" */
+    absentStudents: Array<{ name: string; reason: string }>;
+    /** Keterangan column — e.g. Tuntas / Belum Tuntas / - */
+    keterangan: string | null;
+    /** Journal note (for KEGIATAN PEMBELAJARAN if actualMaterialTitle is empty). */
     note: string | null;
-    /** Follow-up action. */
-    followUp: string | null;
     /** Journal document status. */
     journalStatus: string | null;
     /** Whether journal exists for this session. */
@@ -388,6 +386,7 @@ export function useSemesterAggregator(context: RekapContext | null) {
   }, [context, roster, lessonSessions, attendanceRecords, gradeBook]);
 
   // FORMAT-4: Build Jurnal Matrix (1 row per pertemuan)
+  // Format referensi: SMPN 8 Bantan — JURNAL AGENDA MENGAJAR GURU
   const jurnalMatrix = useMemo<JurnalMatrix | null>(() => {
     if (!context || !lessonSessions || lessonSessions.length === 0) return null;
 
@@ -397,31 +396,62 @@ export function useSemesterAggregator(context: RekapContext | null) {
       journalBySession.set(j.sessionId, j);
     }
 
+    // Build lookup: date → attendance records for absent students
+    const attendanceByDate = new Map<string, Array<{ studentId: string; status: string }>>();
+    for (const r of (attendanceRecords ?? [])) {
+      if (r.classId !== context.classId) continue;
+      const key = r.date;
+      if (!attendanceByDate.has(key)) attendanceByDate.set(key, []);
+      attendanceByDate.get(key)!.push({ studentId: r.studentId, status: r.status });
+    }
+
+    // Build student name lookup from roster
+    const studentNameLookup = new Map<string, string>();
+    if (roster) {
+      for (const s of roster.students) {
+        studentNameLookup.set(s.id, s.name);
+      }
+    }
+
     const rows = lessonSessions.map((session, idx) => {
       const journal = journalBySession.get(session.id);
+
+      // Build absent students list for this session
+      const sessionAttendance = attendanceByDate.get(session.date) ?? [];
+      const absentStudents: Array<{ name: string; reason: string }> = [];
+      for (const ar of sessionAttendance) {
+        if (ar.status === "sick" || ar.status === "excused" || ar.status === "absent") {
+          const name = studentNameLookup.get(ar.studentId) ?? "?";
+          const reason = ar.status === "sick" ? "S" : ar.status === "excused" ? "I" : "A";
+          absentStudents.push({ name, reason });
+        }
+      }
+
+      // Keterangan: Tuntas if realizationStatus=done, else based on status
+      let keterangan: string | null = null;
+      if (journal?.realizationStatus === "done") keterangan = "Tuntas";
+      else if (journal?.realizationStatus === "continued") keterangan = "Dilanjutkan";
+      else if (journal?.realizationStatus === "cancelled") keterangan = "Tidak Terlaksana";
+
       return {
         meetingNumber: idx + 1,
         dateISO: session.date,
         sessionId: session.id,
+        startPeriod: session.startPeriod,
         durationJP: session.durationJP,
         plannedMaterialTitle: journal?.plannedMaterialTitle ?? null,
         actualMaterialTitle: journal?.actualMaterialTitle ?? null,
         realizationStatus: journal?.realizationStatus ?? null,
-        presentCount: journal?.presentCount ?? 0,
-        sickCount: journal?.sickCount ?? 0,
-        excusedCount: journal?.excusedCount ?? 0,
-        lateCount: journal?.lateCount ?? 0,
-        absentCount: journal?.absentCount ?? 0,
-        totalStudents: journal?.totalStudents ?? 0,
+        absentStudents,
+        keterangan,
         note: journal?.note ?? null,
-        followUp: journal?.followUp ?? null,
         journalStatus: journal?.status ?? null,
         hasJournal: !!journal,
       };
     });
 
     return { rows };
-  }, [context, lessonSessions, teachingJournals]);
+  }, [context, lessonSessions, teachingJournals, attendanceRecords, roster]);
 
   return {
     gradeRecords: enrichedGradeRecords,
