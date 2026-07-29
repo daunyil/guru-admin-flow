@@ -32,6 +32,7 @@ import type {
   DocumentStatus,
 } from "@guru-admin/domain";
 import { SCHOOL_DOC_TYPE_LABELS } from "@guru-admin/domain";
+import { downloadDocxBlob } from "../exporters";
 import "./wysiwyg-canvas.css";
 
 /* ------------------------------------------------------------------ */
@@ -95,6 +96,8 @@ export interface DocumentPreviewProps {
   showToolbar?: boolean;
   /** Apakah format toggle ditampilkan. Default true. */
   showFormatToggle?: boolean;
+  /** Sprint 6: DOCX export function — bila provided, tombol DOCX muncul di toolbar. */
+  docxExport?: (() => Promise<Blob>) | null;
 }
 
 /* ------------------------------------------------------------------ */
@@ -161,6 +164,57 @@ class DocErrorBoundary extends Component<
 }
 
 /* ------------------------------------------------------------------ */
+/*  DOCX Export Button (Sprint 6)                                     */
+/* ------------------------------------------------------------------ */
+
+function DocxExportButton({
+  docxExport,
+  docType,
+}: {
+  docxExport: () => Promise<Blob>;
+  docType: SchoolDocType;
+}) {
+  const [loading, setLoading] = useState(false);
+
+  const handleClick = useCallback(async () => {
+    setLoading(true);
+    try {
+      const blob = await docxExport();
+      const label = SCHOOL_DOC_TYPE_LABELS[docType] ?? "dokumen";
+      const slug = label.toLowerCase().replace(/\s+/g, "-");
+      downloadDocxBlob(blob, `promes-${slug}.docx`);
+    } catch (err) {
+      console.error("[DOCX Export] Error:", err);
+      alert("Gagal membuat file DOCX. Silakan coba lagi atau gunakan tombol Cetak.");
+    } finally {
+      setLoading(false);
+    }
+  }, [docxExport, docType]);
+
+  return (
+    <button
+      type="button"
+      className="wysiwyg-btn wysiwyg-btn-secondary"
+      onClick={handleClick}
+      disabled={loading}
+      aria-busy={loading}
+    >
+      {loading ? (
+        <>
+          <svg className="wysiwyg-mini-spinner" width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+            <circle cx="7" cy="7" r="5.5" stroke="currentColor" strokeWidth="2" strokeOpacity="0.3" />
+            <path d="M7 1.5a5.5 5.5 0 0 1 5.5 5.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+          </svg>
+          Membuat DOCX…
+        </>
+      ) : (
+        "DOCX"
+      )}
+    </button>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /*  DocumentPreview                                                   */
 /* ------------------------------------------------------------------ */
 
@@ -177,6 +231,7 @@ export function DocumentPreview({
   className,
   showToolbar = true,
   showFormatToggle = true,
+  docxExport,
 }: DocumentPreviewProps) {
   // Auto-save: panggil scheduleSave setiap kali data berubah.
   // scheduleSave debounce 1.5s — simpan hanya setelah user berhenti mengetik.
@@ -292,6 +347,9 @@ export function DocumentPreview({
             >
               Cetak
             </button>
+            {docxExport && (
+              <DocxExportButton docxExport={docxExport} docType={docType} />
+            )}
           </div>
         </div>
       )}

@@ -14,6 +14,7 @@ import { listClassRosters } from "@shared/db/class-roster-repo";
 import type { ClassRoster } from "@guru-admin/domain";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@shared/db/schema";
+import type { LessonSession } from "@guru-admin/domain";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                               */
@@ -32,7 +33,7 @@ export type RekapContext = {
   teacherName: string;
 };
 
-/** Matriks absensi per bulan — 1 row per siswa, 31 kolom tanggal. */
+/** FORMAT-1: Matriks absensi per bulan — 1 row per siswa, 31 kolom tanggal. (Wali Kelas & Guru Piket) */
 export type MonthlyAttendanceMatrix = {
   month: number; // 1-12
   monthName: string; // "Januari", "Februari", etc.
@@ -47,6 +48,35 @@ export type MonthlyAttendanceMatrix = {
     statusByDate: Record<number, "present" | "sick" | "excused" | "late" | "absent" | null>;
     /** Rekap bulanan */
     rekap: { alpa: number; sakit: number; izin: number; terlambat: number; hadir: number; jlh: number };
+  }>;
+};
+
+/** FORMAT-2: Matriks Daftar Hadir Tatap Muka — 1–40 Pertemuan. (Guru Mata Pelajaran) */
+export type TatapMukaAttendanceMatrix = {
+  /** Meetings (pertemuan) in this semester for the selected assignment, sorted chronologically. */
+  meetings: Array<{
+    meetingNumber: number; // 1-based: 1–40
+    dateISO: string; // ISO date of this lesson session
+    sessionId: string; // LessonSession.id
+    durationJP: number; // Jam tatap muka for this session
+    /** Attendance status per student for this meeting. */
+    attendanceByStudent: Record<string, "present" | "sick" | "excused" | "late" | "absent">;
+  }>;
+  students: Array<{
+    studentId: string;
+    studentName: string;
+    nisn?: string;
+    studentNumber: number;
+    /** Total JP attended across all meetings. */
+    totalJPAttended: number;
+    /** Date ISO of last meeting attended. */
+    lastMeetingDate: string | null;
+    /** PTS score from GradeBook. */
+    pts?: number;
+    /** PAS score from GradeBook. */
+    pas?: number;
+    /** Ket. (keterangan). */
+    ket?: string;
   }>;
 };
 
@@ -81,7 +111,7 @@ export function useSemesterAggregator(context: RekapContext | null) {
     [context?.classId]
   );
 
-  // Load gradebook + roster on context change
+  // Load gradebook + roster + lesson sessions on context change
   useEffect(() => {
     if (!context) {
       setGradeBook(null);
@@ -109,7 +139,7 @@ export function useSemesterAggregator(context: RekapContext | null) {
           const records = gb.entries.map((entry) =>
             transformToStudentGradeRecord(entry, {
               gradeModel: gb.gradeModel ?? "uh",
-              kdCount: gb.kdCount ?? 6,
+              kdCount: gb.kdCount ?? 10,
               passingScore: gb.passingScore,
             })
           );
@@ -217,11 +247,100 @@ export function useSemesterAggregator(context: RekapContext | null) {
     });
   }, [context, roster, attendanceRecords]);
 
+  // Load lesson sessions for Tatap Muka matrix
+  const lessonSessions = useLiveQuery(
+    () => context
+      ? db.lessonSessions
+          .where("academicYearId")
+          .equals(context.academicYearId)
+          .toArray()
+          .then((sessions) =>
+            sessions
+              .filter((s) =>
+                !s.deletedAt &&
+                s.semester === context.semester &&
+                s.classId === context.classId &&
+                s.subject === context.subject &&
+                s.teacherId === context.teacherId
+              )
+              .sort((a, b) => a.date.localeCompare(b.date) || a.startPeriod - b.startPeriod) as LessonSession[]
+          )
+      : [],
+    [context?.academicYearId, context?.semester, context?.classId, context?.subject, context?.teacherId]
+  );
+
+  // FORMAT-2: Build Tatap Muka attendance matrix (1–40 Pertemuan)
+  const tatapMukaMatrix = useMemo<TatapMukaAttendanceMatrix | null>(() => {
+    if (!context || !roster || !lessonSessions || lessonSessions.length === 0) return null;
+
+    // Build meetings array: each lesson session = one pertemuan
+    const meetings = lessonSessions.map((session, idx) => {
+      // Attendance for this session — look up attendanceRecords by date+classId
+      const attendanceByStudent: Record<string, "present" | "sick" | "excused" | "late" | "absent"> = {}; // eslint-disable-line no-empty-pattern
+
+      // Find attendance records matching this session's date and class
+      const sessionAttendance = attendanceRecords?.filter(
+        (r) =>
+          r.classId === session.classId &&
+          r.date === session.date && // same date
+          r.studentId // has student data
+      );
+
+      for (const record of (sessionAttendance ?? [])) {
+        attendanceByStudent[record.studentId] = record.status as "present" | "sick" | "excused" | "late" | "absent";
+      }
+
+      return {
+        meetingNumber: idx + 1, // 1-based
+        dateISO: session.date,
+        sessionId: session.id,
+        durationJP: session.durationJP,
+        attendanceByStudent,
+      }; // eslint-disable-line no-sequences
+    });
+
+    // Build student rows
+    const studentRows = roster.students.map((student: { id: string; name: string; nis?: string; number: number }) => {
+      // Calculate total JP attended
+      let totalJPAttended = 0;
+      let lastMeetingDate: string | null = null;
+
+      for (const meeting of meetings) {
+        const status = meeting.attendanceByStudent[student.id];
+        if (status === "present" || status === "late") {
+          totalJPAttended += meeting.durationJP;
+          lastMeetingDate = meeting.dateISO;
+        }
+      }
+
+      // PTS/PAS from GradeBook entries (if available)
+      const gradeEntry = gradeBook?.entries?.find((e) => e.studentId === student.id);
+      const pts = gradeEntry?.pts ?? undefined;
+      const pas = gradeEntry?.pas ?? undefined;
+
+      return {
+        studentId: student.id,
+        studentName: student.name,
+        nisn: student.nis,
+        studentNumber: student.number,
+        totalJPAttended,
+        lastMeetingDate,
+        pts,
+        pas,
+        ket: undefined, // placeholder for future keterangan
+      }; // eslint-disable-line no-sequences
+    });
+
+    return { meetings, students: studentRows }; // eslint-disable-line no-sequences
+  }, [context, roster, lessonSessions, attendanceRecords, gradeBook]);
+
   return {
     gradeRecords: enrichedGradeRecords,
     gradeBook,
     roster,
     monthlyMatrices,
+    tatapMukaMatrix,
+    lessonSessions,
     loading,
     error,
   };

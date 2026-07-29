@@ -27,6 +27,7 @@ import { PromesLandscapeMatrixDocument } from "./PromesLandscapeMatrixDocument";
 import { usePromesState } from "./usePromesState";
 import { PromesSidebar } from "./PromesSidebar";
 import { PromesFormView } from "./PromesFormView";
+import { exportPromesMerdekaDocx, type PromesMerdekaDocxExportParams } from "@shared/exporters";
 
 export function PromesPage() {
   const {
@@ -114,6 +115,29 @@ export function PromesPage() {
             onSave={handleSaveDoc}
             onSetFinal={handleSetFinal}
             onOrientationChange={handleOrientationChange}
+            docxExport={
+              variasiDokumen === "merdeka" && result
+                ? async () => {
+                    const params: PromesMerdekaDocxExportParams = {
+                      weeks: result.weeks,
+                      distribution: result.distribution,
+                      summary: result.summary,
+                      status: result.status,
+                      semester,
+                      activeYearLabel: activeYear?.label ?? "",
+                      schoolName: school?.name ?? "",
+                      schoolRegency: school?.regency ?? "",
+                      headmasterName: school?.headmasterName ?? "",
+                      headmasterNip: school?.headmasterNip ?? "",
+                      teacherName: teacher?.name ?? "",
+                      teacherNip: teacher?.nip ?? "",
+                      profile: currentProfile,
+                      options,
+                    };
+                    return exportPromesMerdekaDocx(params);
+                  }
+                : null
+            }
           >
             {variasiDokumen === "ringkas" ? (
               <PromesPortraitDocument
@@ -148,7 +172,6 @@ export function PromesPage() {
                 teacherNip={teacher?.nip ?? ""}
                 profile={currentProfile}
                 options={options}
-                logoUrl={school?.logo ?? undefined}
               />
             ) : (
               <PromesLandscapeMatrixDocument

@@ -1,15 +1,16 @@
 /**
- * PrintExportButtons — tombol Cetak + Download HTML yang reusable.
+ * PrintExportButtons — tombol Cetak + Download HTML + Download DOCX.
  *
  * PRINT-EXPORT-POLISH-RC1: pasang di setiap halaman yang punya Mode Dokumen.
  * PRINT-EXPORT-POLISH-RC1-PATCH-1: + prop orientation (portrait/landscape).
  * UX-PRINT-02/04: + prop targetId (ambil dokumen spesifik, bukan query global pertama).
- * PIKET-AUDIT-05D-MINOR: + prop disabled (sembunyikan tombol bila tidak ada data).
- *
- * Landscape dipakai untuk dokumen lebar seperti Promes.
+ * PIKET-AUDIT-05D-MINOR: + prop disabled (grayed-out state bila tidak ada data).
+ * Sprint 6: + DOCX export button for Promes Merdeka + Rekap Semester.
  */
 
+import { useState } from "react";
 import { Button, downloadHTML } from "./index";
+import { downloadDocxBlob } from "../exporters";
 
 export function PrintExportButtons({
   filename,
@@ -18,6 +19,7 @@ export function PrintExportButtons({
   orientation = "portrait",
   targetId,
   disabled = false,
+  docxExport,
 }: {
   filename: string;
   title: string;
@@ -25,25 +27,26 @@ export function PrintExportButtons({
   orientation?: "portrait" | "landscape";
   /**
    * UX-PRINT-02: ID elemen target untuk export HTML.
-   * Bila provided, ambil elemen ini (lebih akurat).
-   * Bila tidak, fallback ke query global ".print-area .document-page" pertama
-   * (behavior lama, tetap berfungsi untuk halaman yang belum set targetId).
    */
   targetId?: string;
   /**
-   * PIKET-AUDIT-05D-MINOR: bila true, tombol Cetak + Download HTML disembunyikan.
-   * Dipakai saat tidak ada data untuk dicetak (mis. laporan kosong).
+   * PIKET-AUDIT-05D-MINOR: bila true, tombol ditampilkan grayed-out & tidak bisa diklik.
    */
   disabled?: boolean;
+  /**
+   * Sprint 6: DOCX export function — bila provided, tombol DOCX muncul.
+   * Function harus return Promise<Blob>.
+   */
+  docxExport?: (() => Promise<Blob>) | null;
 }) {
+  const [docxLoading, setDocxLoading] = useState(false);
+
   function handleDownload() {
-    // UX-PRINT-02: prioritaskan targetId bila provided
     let docEl: Element | null = null;
     if (targetId) {
       docEl = document.getElementById(targetId);
     }
     if (!docEl) {
-      // Fallback: query global (behavior lama)
       docEl = document.querySelector(".print-area .document-page");
     }
     if (docEl) {
@@ -51,21 +54,35 @@ export function PrintExportButtons({
         filename,
         title,
         content: docEl.innerHTML,
-        // UX-PRINT-04: schoolName dipakai sebagai subtitle di header dokumen
         schoolName,
         orientation,
       });
     }
   }
 
-  if (disabled) {
-    return null;
+  async function handleDocxDownload() {
+    if (!docxExport || disabled) return;
+    setDocxLoading(true);
+    try {
+      const blob = await docxExport();
+      downloadDocxBlob(blob, `${filename}.docx`);
+    } catch (err) {
+      console.error("[DOCX Export] Error:", err);
+      alert("Gagal membuat file DOCX. Silakan coba lagi atau gunakan Cetak/Download HTML.");
+    } finally {
+      setDocxLoading(false);
+    }
   }
 
   return (
-    <>
-      <Button variant="secondary" onClick={() => window.print()}>Cetak</Button>
-      <Button variant="secondary" onClick={handleDownload}>Download HTML</Button>
-    </>
+    <div className={`flex gap-2 items-center ${disabled ? "opacity-50 pointer-events-none select-none" : ""}`} title={disabled ? "Data belum tersedia — tombol aktif setelah data dimuat" : undefined}>
+      <Button variant="secondary" onClick={() => window.print()} disabled={disabled}>Cetak</Button>
+      <Button variant="secondary" onClick={handleDownload} disabled={disabled}>Download HTML</Button>
+      {docxExport && (
+        <Button variant="primary" onClick={handleDocxDownload} disabled={disabled || docxLoading}>
+          {docxLoading ? "⏳ Membuat DOCX..." : "📄 Download DOCX"}
+        </Button>
+      )}
+    </div>
   );
 }

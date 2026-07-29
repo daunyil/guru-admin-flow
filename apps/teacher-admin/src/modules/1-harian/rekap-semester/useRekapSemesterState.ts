@@ -13,7 +13,7 @@ import { listClassRosters } from "@shared/db/class-roster-repo";
 import { todayISODate } from "@guru-admin/shared";
 import type { RekapContext } from "./hooks/useSemesterAggregator";
 
-export type RekapTab = "absensi" | "nilai";
+export type RekapTab = "absensi-bulanan" | "tatap-muka" | "nilai";
 
 export function useRekapSemesterState() {
   const [loading, setLoading] = useState(true);
@@ -27,7 +27,7 @@ export function useRekapSemesterState() {
   // User selections
   const [selectedAssignmentId, setSelectedAssignmentId] = useState("");
   const [semester, setSemester] = useState<1 | 2>(1);
-  const [tab, setTab] = useState<RekapTab>("absensi");
+  const [tab, setTab] = useState<RekapTab>("tatap-muka");
   const [selectedMonthIndex, setSelectedMonthIndex] = useState(0);
 
   // Load data on mount

@@ -211,7 +211,7 @@ export function transformToStudentGradeRecord(
   entry: GradeEntry,
   options: { gradeModel: "uh" | "kd" | "pa-split"; kdCount?: number; passingScore?: number }
 ): StudentGradeRecord {
-  const kdCount = options.kdCount ?? 6;
+  const kdCount = options.kdCount ?? 10;
   const gradeModel = options.gradeModel;
 
   const finalKDScores: Record<number, number | null> = {};
@@ -286,7 +286,7 @@ export function calculateGradeEntry(
 ): GradeEntry {
   const gradeModel = options?.gradeModel ?? "uh";
   const uhCount = options?.uhCount ?? 2;
-  const kdCount = options?.kdCount ?? 6;
+  const kdCount = options?.kdCount ?? 10;
   // SB-02: strictWeightMode — only compute finalScore when all required components are filled.
   // When false (default), proportional weight normalization is used (legacy behavior).
   const strictWeightMode = options?.strictWeightMode ?? false;

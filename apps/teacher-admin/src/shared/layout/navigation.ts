@@ -63,7 +63,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { to: "/attendance", label: "Absen", icon: CheckCircle },
       { to: "/journal", label: "Jurnal", icon: BookOpen },
       { to: "/grades", label: "Nilai", icon: FileSpreadsheet },
-      // SPRINT-4: Rekap Semester — matriks bulanan absen + rekap nilai per semester
+      // SPRINT-4: Rekap Semester — 3 format: Absensi Bulanan (Wali Kelas), Daftar Hadir Tatap Muka (Guru Mapel), Penilaian Pengetahuan (Guru Mapel)
       { to: "/rekap-semester", label: "Rekap Semester", icon: BarChart3, badge: "Sprint 4", badgeVariant: "info" },
     ],
   },

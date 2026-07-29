@@ -7,11 +7,19 @@
  *   - JANGAN tambah @media print rules di file lain.
  *   - File ini di-import oleh DocumentPreview.tsx dan komponen dokumen lainnya.
  *
+ * RPRINT-01 (refactor):
+ *   - REMOVED body*{visibility:hidden} strategy — caused white-screen
+ *     for components not wrapped in .print-area/.wysiwyg-canvas.
+ *   - Now uses targeted display:none for known UI shell elements.
+ *   - REMOVED position:absolute on .print-area/.wysiwyg-canvas.
+ *   - REMOVED forced landscape dimensions on html/body.
+ *   - @page margins now apply naturally; wrapper padding set to 0.
+ *
  * Struktur:
  *   1. CSS Variables (screen + print)
  *   2. Screen-mode document styles (kop, tabel, tanda tangan, dsb.)
  *   3. Responsive (mobile/tablet)
- *   4. @media print — Single Source of Truth
+ *   4. @media print — Single Source of Truth (RPRINT-01 refactored)
  */
 
 /* ================================================================== */
@@ -314,12 +322,6 @@
   page-break-inside: avoid;
 }
 
-/* v5 FIX: Merdeka signature needs tighter spacing for dense landscape page */
-.promes-merdeka-page .signature-grid {
-  margin-top: 10pt;
-  gap: 24pt;
-}
-
 .signature-block {
   text-align: center;
   min-height: 112px;
@@ -338,7 +340,6 @@
 
 .signature-space {
   height: 52px;
-  border-bottom: 1px dotted transparent;  /* v5 FIX: prevent floating names — reserve space */
 }
 
 .signature-name {
@@ -806,204 +807,26 @@
 .promes-event-holiday { background-color: #ffebee; }
 .promes-event-other { background-color: #e0e0e0; }
 
-/* --- PROMES-VARIASI-01: Kurikulum Merdeka — PREMIUM TAILWIND DESIGN v4 --- */
-/* BUG #5 FIX: Premium Tailwind-style design system
-   Features: bg-slate-900 solid header (NO gradient), white bold text,
-   clean slate-300 borders, rounded badges, 2-column formal identity,
-   alternating rows, legend below table, professional print output */
-
-/* ---- Merdeka Header Title (Centered, Formal Kop-Style) ---- */
-/* ================================================================== */
-/*  PROMES MERDEKA — DOCUMENT-CENTRIC FORMAL (Standar Dinas Pendidikan)*/
-/*  v5: Serif fonts, thick borders, kop surat, pastel muted colors     */
-/* ================================================================== */
-
-/* ---- KOP SURAT RESMI — Standar Dinas Pendidikan ---- */
-.promes-merdeka-kop-surat {
-  display: flex;
-  align-items: center;   /* vertically center logo + text */
-  justify-content: center; /* center the whole block horizontally */
-  gap: 12pt;
-  padding: 4pt 0 6pt 0;
-  margin-bottom: 2pt;
-  font-family: 'Times New Roman', Georgia, serif;
-}
-
-.promes-merdeka-kop-logo-box {
-  flex-shrink: 0;
-  width: 60pt;
-  height: 60pt;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  /* v5 FIX: ensure logo box vertically aligns with text block */
-  align-self: center;
-}
-
-.promes-merdeka-kop-logo-placeholder {
-  width: 55pt;
-  height: 55pt;
-  border: 1px solid #000;     /* v5 FIX: match 1px inner border standard */
-  border-radius: 2pt;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 8pt;
-  font-weight: 700;
-  color: #333;
-  text-align: center;
-}
-
-/* KOP-01: Real logo image rendering — replaces placeholder when logoUrl is provided */
-.promes-merdeka-kop-logo-img {
-  width: 55pt;
-  height: 55pt;
-  object-fit: contain;
-  border-radius: 2pt;
-  display: block;
-}
-
-.promes-merdeka-kop-text {
-  flex: 1;
-  text-align: center;
-  /* v5 FIX: explicit centering enforcement for institution hierarchy */
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-}
-
-.promes-merdeka-kop-line {
-  line-height: 1.25;
-}
-
-.promes-merdeka-kop-instansi-1 {
-  font-size: 10pt;
-  font-weight: 700;
-  color: #000;
-  letter-spacing: 1pt;
-}
-
-.promes-merdeka-kop-dinas {
-  font-size: 11pt;
-  font-weight: 700;
-  color: #000;
-  letter-spacing: 1.5pt;
-}
-
-.promes-merdeka-kop-unit {
-  font-size: 13pt;
-  font-weight: 900;
-  color: #000;
-  letter-spacing: 1pt;
-  margin-bottom: 1pt;
-}
-
-.promes-merdeka-kop-address {
-  font-size: 8pt;
-  font-weight: 400;
-  color: #333;
-}
-
-/* Double border line — khas berkas dinas (garis ganda) */
-.promes-merdeka-kop-double-border {
-  border-bottom: 3px double #000;
-  margin-top: 3pt;
-  margin-bottom: 4pt;
-}
-
-/* ---- JUDUL DOKUMEN & TAHUN AJARAN (Serif, Formal) ---- */
-.promes-merdeka-title-block-doc {
-  text-align: center;
-  font-family: 'Times New Roman', Georgia, serif;
-  margin-bottom: 3pt;
-}
-
-.promes-merdeka-title-main-doc {
-  font-weight: 900;
-  font-size: 12pt;
-  color: #000;
-  letter-spacing: 2pt;
-  margin-bottom: 1pt;
-}
-
-.promes-merdeka-title-sub-doc {
-  font-weight: 600;          /* v5 FIX: lighter weight to create hierarchy vs title-main (900) */
-  font-size: 9pt;
-  color: #333;
-  letter-spacing: 1pt;
-  margin-bottom: 2pt;
-}
-
-.promes-merdeka-title-year-doc {
-  font-weight: 700;
-  font-size: 8pt;
-  color: #333;
-  letter-spacing: 0.5pt;
-}
-
-/* ---- TABEL IDENTITAS — Formal 2-column, NO outer border ---- */
-.promes-merdeka-identity-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-family: 'Times New Roman', Georgia, serif;
-  font-size: 7.5pt;
-  margin-bottom: 4pt;
-  /* NO outer border — internal rows only */
-  border: none;
-}
-
-.promes-merdeka-identity-table td {
-  padding: 1pt 3pt;
-  vertical-align: baseline;
-  line-height: 1.3;
-  border: none;
-}
-
-.promes-merdeka-idt-label {
-  font-weight: 700;
-  color: #000;
-  min-width: 90pt;
-  white-space: nowrap;
-}
-
-.promes-merdeka-idt-sep {
-  font-weight: 700;
-  color: #000;
-  width: 4pt;
-}
-
-.promes-merdeka-idt-value {
-  color: #000;
-  font-weight: 400;
-}
-
-.promes-merdeka-idt-gap {
-  width: 16pt;
-  border: none;
-}
-
-/* ---- Legend Block (Below Table) — Formal serif style ---- */
+/* --- PROMES-VARIASI-01: Kurikulum Merdeka badge & column styles --- */
 .merdeka-legend-block {
-  margin-top: 4pt;
+  margin-top: 6pt;
   margin-bottom: 6pt;
-  padding: 3pt 6pt;
-  background: #fafafa;
-  border: 1px solid #000;     /* v5 FIX: match 1px border standard */
-  border-radius: 0;
-  font-family: 'Times New Roman', Georgia, serif;
+  padding: 5pt 8pt;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 3px;
 }
 
 .merdeka-legend-title {
   font-weight: 700;
   font-size: 8pt;
-  color: #000;
-  margin-bottom: 2pt;
+  color: #475569;
+  margin-bottom: 3pt;
 }
 
 .merdeka-legend-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(110pt, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 2pt 8pt;
   font-size: 7pt;
 }
@@ -1014,170 +837,117 @@
   gap: 4pt;
 }
 
-.merdeka-legend-text {
-  color: #333;
-}
-
-/* ---- Badge Styles — Formal with muted pastel colors ---- */
 .merdeka-badge {
   display: inline-block;
-  padding: 1pt 4pt;
-  font-size: 7pt;
+  padding: 0 3pt;
+  font-size: 6.5pt;
   font-weight: 700;
-  border-radius: 0;
-  border: 1px solid #000;     /* v5 FIX: match 1px inner border standard */
-  line-height: 1.35;
+  border-radius: 2pt;
+  border: 1px solid;
+  line-height: 1.3;
   text-align: center;
   white-space: nowrap;
-  font-family: 'Times New Roman', Georgia, serif;
-  print-color-adjust: exact;
-  -webkit-print-color-adjust: exact;
 }
 
-/* Merdeka badge color variants — Pastel Muted & Formal (darker text, softer bg) */
-.merdeka-badge-mpls    { background-color: #f5e6c8; color: #5a3e1b; border-color: #8b6914; }
-.merdeka-badge-hut     { background-color: #f5d0d0; color: #5a1a1a; border-color: #8b2020; }
-.merdeka-badge-sts     { background-color: #dce8f5; color: #1a3a6a; border-color: #4a6a9a; }
-.merdeka-badge-sas     { background-color: #e8d5f5; color: #3a1a5a; border-color: #6a4a8a; }
-.merdeka-badge-cm      { background-color: #d5f5e0; color: #1a4a2a; border-color: #4a8a5a; }
-.merdeka-badge-rl      { background-color: #d8dde3; color: #1a2a3a; border-color: #4a5a6a; }
-.merdeka-badge-remedial { background-color: #dce8f5; color: #1a3a6a; border-color: #4a6a9a; }
-.merdeka-badge-kokurikuler { background-color: #d5f5e0; color: #1a4a2a; border-color: #4a8a5a; }
-.merdeka-badge-holiday  { background-color: #f5d0d0; color: #5a1a1a; border-color: #8b2020; }
-.merdeka-badge-other    { background-color: #f5e6c8; color: #5a3e1b; border-color: #8b6914; }
+/* Merdeka badge color variants */
+.merdeka-badge-mpls    { background-color: #fef3c7; color: #92400e; border-color: #fcd34d; }
+.merdeka-badge-hut     { background-color: #fee2e2; color: #991b1b; border-color: #fca5a5; }
+.merdeka-badge-sts     { background-color: #dbeafe; color: #1e40af; border-color: #93c5fd; }
+.merdeka-badge-sas     { background-color: #f3e8ff; color: #6b21a8; border-color: #c084fc; }
+.merdeka-badge-cm      { background-color: #ccfbf1; color: #0f766e; border-color: #5eead4; }
+.merdeka-badge-rl      { background-color: #e2e8f0; color: #334155; border-color: #94a3b8; }
+.merdeka-badge-remedial { background-color: #e3f2fd; color: #1565c0; border-color: #90caf9; }
+.merdeka-badge-kokurikuler { background-color: #ecfdf5; color: #065f46; border-color: #6ee7b7; }
+.merdeka-badge-holiday  { background-color: #fee2e2; color: #b91c1c; border-color: #fca5a5; }
+.merdeka-badge-other    { background-color: #fef3c7; color: #92400e; border-color: #fcd34d; }
 
-/* Merdeka column background color variants — Very subtle pastel muted for print */
-.merdeka-col-mpls     { background-color: #faf5eb; }
-.merdeka-col-hut      { background-color: #faebeb; }
-.merdeka-col-sts      { background-color: #ebf0f8; }
-.merdeka-col-sas      { background-color: #f0e8f5; }
-.merdeka-col-cm       { background-color: #e8f5eb; }
-.merdeka-col-rl       { background-color: #ebeef2; }
-.merdeka-col-remedial { background-color: #ebf0f8; }
-.merdeka-col-kokurikuler { background-color: #e8f5eb; }
-.merdeka-col-holiday  { background-color: #faebeb; }
-.merdeka-col-other    { background-color: #faf5eb; }
+/* Merdeka column background color variants */
+.merdeka-col-mpls     { background-color: rgba(251, 191, 36, 0.12); }
+.merdeka-col-hut      { background-color: rgba(239, 68, 68, 0.12); }
+.merdeka-col-sts      { background-color: rgba(59, 130, 246, 0.12); }
+.merdeka-col-sas      { background-color: rgba(168, 85, 247, 0.12); }
+.merdeka-col-cm       { background-color: rgba(20, 184, 166, 0.12); }
+.merdeka-col-rl       { background-color: rgba(100, 116, 139, 0.15); }
+.merdeka-col-remedial { background-color: rgba(33, 150, 243, 0.10); }
+.merdeka-col-kokurikuler { background-color: rgba(16, 185, 129, 0.12); }
+.merdeka-col-holiday  { background-color: rgba(239, 68, 68, 0.10); }
+.merdeka-col-other    { background-color: rgba(251, 191, 36, 0.10); }
 
-/* ---- Table Container — overflow handler for dense matrix ---- */
-.merdeka-table-container {
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  margin-bottom: 0;
-}
-
-/* ---- Matrix Table Styles — 1.5px-2px Solid Dark/Black Borders ---- */
+/* Merdeka matrix table styles */
 .merdeka-matrix-table {
   print-color-adjust: exact;
   -webkit-print-color-adjust: exact;
-  border: 2px solid #000;
-  border-collapse: collapse;
-  font-family: 'Times New Roman', Georgia, serif;
 }
 
-.merdeka-matrix-table th,
-.merdeka-matrix-table td {
-  print-color-adjust: exact;
-  -webkit-print-color-adjust: exact;
-  font-family: 'Times New Roman', Georgia, serif;
-}
-
-/* ---- Header Rows — Formal dark (#1a1a2e), white bold text, serif ---- */
 .merdeka-header-row {
-  background-color: #1a1a2e;
+  background-color: #1a365d;
   color: white;
-  font-weight: 800;
-  letter-spacing: 0.5pt;
-  font-family: 'Times New Roman', Georgia, serif;
+  font-weight: 700;
+  letter-spacing: 0.3pt;
 }
 
 .merdeka-subheader-row {
-  background-color: #2d2d44;
+  background-color: #2c5282;
   color: white;
   font-weight: 700;
   font-size: 7pt;
-  font-family: 'Times New Roman', Georgia, serif;
 }
 
 .merdeka-th {
-  border: 1px solid #000;       /* v5 FIX: 1px inner borders consistent with td */
-  padding: 3pt 4pt;              /* v5 FIX: increased from 2.5pt 3pt for better spacing */
+  border: 1px solid #64748b;
+  padding: 2pt 3pt;
   text-align: center;
   font-size: 7.5pt;
-  color: white;
-  font-weight: 700;
-  font-family: 'Times New Roman', Georgia, serif;
   print-color-adjust: exact;
   -webkit-print-color-adjust: exact;
 }
 
-.merdeka-th-elemen { text-align: center; }
-.merdeka-th-kode { text-align: center; }
 .merdeka-th-materi { text-align: left; }
-.merdeka-th-jp { text-align: center; }
-.merdeka-th-month { font-size: 7.5pt; letter-spacing: 0.3pt; white-space: nowrap; }
-.merdeka-th-week { font-size: 6.5pt; padding: 2pt 3pt; white-space: nowrap; }
+.merdeka-th-month { font-size: 7pt; }
+.merdeka-th-week { font-size: 6.5pt; padding: 1pt 2pt; }
 
-/* ---- Data Cell Styles — 1.5px solid #000 borders, serif ---- */
 .merdeka-td {
-  border: 1px solid #000;       /* v5 FIX: 1px inner borders (outer = 2px on table) */
-  padding: 2pt 3pt;              /* v5 FIX: increased from 1.5pt 2pt for readability */
+  border: 1px solid #cbd5e1;
+  padding: 1pt 2pt;
   text-align: center;
   font-size: 7.5pt;
   vertical-align: middle;
-  word-wrap: break-word;          /* v5 FIX: prevent overflow in narrow columns */
-  overflow-wrap: break-word;
-  font-family: 'Times New Roman', Georgia, serif;
   print-color-adjust: exact;
   -webkit-print-color-adjust: exact;
 }
 
-.merdeka-data-row {
-  background: white;
-}
+.merdeka-td-elemen { text-align: left; font-weight: 700; background: #f8fafc; }
+.merdeka-td-kode  { font-weight: 700; }
+.merdeka-td-materi { text-align: left; }
+.merdeka-td-jp     { font-weight: 700; }
 
-.merdeka-data-row-alt {
-  background: #fafafa;
-}
+/* Cadangan row (amber theme) */
+.merdeka-cadangan-row { background: rgba(251, 191, 36, 0.08); }
+.merdeka-td-label-cadangan { color: #92400e; font-weight: 700; text-align: left; }
+.merdeka-td-cadangan { color: #92400e; font-weight: 700; }
+.merdeka-td-materi-cadangan { color: #92400e; font-weight: 700; text-align: left; }
+.merdeka-td-jp-cadangan { color: #92400e; font-weight: 700; }
 
-.merdeka-td-elemen { text-align: left; font-weight: 700; color: #000; background: #f0f0f0; vertical-align: middle; }
-.merdeka-td-kode  { font-weight: 700; color: #000; }
-.merdeka-td-materi { text-align: left; color: #000; }
-.merdeka-td-jp     { font-weight: 700; color: #000; }
+/* Kokurikuler row (emerald theme) */
+.merdeka-koku-row { background: rgba(16, 185, 129, 0.08); }
+.merdeka-td-label-koku { color: #065f46; font-weight: 700; text-align: left; }
+.merdeka-td-koku { color: #065f46; font-weight: 700; }
+.merdeka-td-materi-koku { color: #065f46; font-weight: 700; text-align: left; }
+.merdeka-td-jp-koku { color: #065f46; font-weight: 700; }
+.merdeka-td-koku-val { color: #065f46; font-weight: 700; }
 
-/* ---- Cadangan Row — muted pastel yellow ---- */
-.merdeka-cadangan-row { background-color: #faf8e8; }
-.merdeka-td-label-cadangan { color: #333; font-weight: 700; text-align: left; }
-.merdeka-td-jp-cadangan { color: #333; font-weight: 700; }
+/* Total row (slate theme) */
+.merdeka-total-row { background: #cbd5e1; }
+.merdeka-td-total-label { font-weight: 800; text-align: left; letter-spacing: 0.5pt; font-size: 7pt; }
+.merdeka-td-jp-total { font-weight: 900; }
+.merdeka-td-total-event { background: #cbd5e1; }
+.merdeka-td-total-val { font-weight: 900; }
 
-/* ---- Kokurikuler Row — muted pastel green ---- */
-.merdeka-koku-row { background-color: #eaf5ea; }
-.merdeka-td-label-koku { color: #333; font-weight: 700; text-align: left; }
-.merdeka-td-jp-koku { color: #333; font-weight: 700; }
-.merdeka-td-koku-val { color: #333; font-weight: 700; }
-
-/* ---- Total Row — bg-slate-300 equivalent, font-black ---- */
-.merdeka-total-row { background-color: #ddd; }
-.merdeka-td-total-label { font-weight: 900; text-align: left; letter-spacing: 0.3pt; font-size: 7pt; color: #000; }
-.merdeka-td-jp-total { font-weight: 900; color: #000; }
-.merdeka-td-total-event { background-color: #ddd; }
-.merdeka-td-total-val { font-weight: 900; color: #000; }
-
-/* ---- Agenda Row — light bg, badges ONLY here, serif ---- */
-.merdeka-agenda-row { background-color: #f5f5f5; }
-.merdeka-td-agenda-label { font-weight: 700; text-align: left; font-size: 7pt; color: #000; }
-.merdeka-td-agenda-jp { color: #333; }
-.merdeka-td-agenda-cell { text-align: center; vertical-align: middle; }
-
-/* ---- Signature Grid on Merdeka Pages — Serif Font ---- */
-.promes-merdeka-page .signature-grid {
-  font-family: 'Times New Roman', Georgia, serif;
-  margin-top: 10pt;           /* v5 FIX: tighter spacing for dense landscape page */
-  gap: 24pt;
-}
-
-.promes-merdeka-page .signature-block {
-  font-family: 'Times New Roman', Georgia, serif;
-}
+/* Agenda row */
+.merdeka-agenda-row { background: #f1f5f9; }
+.merdeka-td-agenda-label { font-weight: 700; text-align: left; font-size: 7pt; }
+.merdeka-td-agenda-jp { }
+.merdeka-td-agenda-cell { text-align: center; }
 
 .promes-landscape-page .promes-keterangan-table {
   font-size: 8pt;
@@ -1270,42 +1040,6 @@
 /*  3. Responsive (mobile / tablet)                                    */
 /* ================================================================== */
 
-/* LAY-05/06: Tablet breakpoint — preserve document structure with scrollable table */
-@media screen and (min-width: 768px) and (max-width: 900px) {
-  /* Landscape pages: allow horizontal scroll within overflow container */
-  .promes-landscape-page {
-    font-size: 6pt;
-  }
-
-  .merdeka-table-container {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  /* Slightly compress kop surat for tablet viewport */
-  .promes-merdeka-kop-surat {
-    gap: 8pt;
-  }
-
-  .promes-merdeka-kop-logo-box {
-    width: 45pt;
-    height: 45pt;
-  }
-
-  .promes-merdeka-kop-logo-placeholder,
-  .promes-merdeka-kop-logo-img {
-    width: 40pt;
-    height: 40pt;
-  }
-
-  /* D1.2 / TYPO-03: Tablet readability — bump Merdeka page font from 7.5pt to 8pt
-     on tablet viewport (768-900px). On desktop (>900px) the canvas is 297mm fixed width
-     so 7.5pt is fine, but on tablet the canvas scales down and font becomes too small. */
-  .wysiwyg-canvas .document-page.promes-merdeka-page {
-    font-size: 8pt !important;
-  }
-}
-
 @media screen and (max-width: 900px) {
   .print-area { padding: 12px; }
   .document-page,
@@ -1331,27 +1065,36 @@
 /*  Semua aturan cetak ada di sini. JANGAN tambah @media print di      */
 /*  index.css atau wysiwyg-canvas.css.                                 */
 /*                                                                     */
-/*  Perbaikan utama (PRINT-CSS-CONSOLIDATION):                         */
+/*  Perbaikan utama:                                                    */
 /*  - HAPUS global th/td override yang memaksa font-size:10pt          */
 /*    (biarkan tabel compact memakai font-size-nya sendiri)            */
 /*  - RESTORE padding .document-page (15mm 20mm portrait,             */
 /*    12mm 15mm landscape) — jangan padding:0                          */
 /*  - Hanya override .document-table th/td, BUKAN global th/td        */
-/*  - Gabungkan visibility:hidden strategy untuk .print-area           */
-/*    dan .wysiwyg-canvas                                              */
+/*  - RPRINT-01: visibility:hidden strategy REMOVED; targeted          */
+/*    display:none for UI shell elements instead                       */
 /* ================================================================== */
 
 @media print {
-  /* --- @page rules --- */
+  /* --- @page rules ---
+     RPRINT-02: @page margins now actually apply to content flow
+     (no position:absolute bypass). Wrapper padding removed to
+     compensate — total spacing from paper edge preserved at
+     20mm top/bottom, 24mm left/right (same as old approach). */
 
   @page {
     size: A4 portrait;
     margin: 10mm 12mm 10mm 12mm !important;
   }
 
-  @page landscape {
-    size: A4 landscape;
+  @page portrait {
+    size: A4 portrait;
     margin: 10mm 12mm 10mm 12mm !important;
+  }
+
+  @page landscape {
+    size: A4 landscape !important;
+    margin: 10mm 12mm;
   }
 
   .document-landscape,
@@ -1359,25 +1102,30 @@
     page: landscape;
   }
 
-  /* --- Visibility strategy: hide everything, show only print targets --- */
+  /* ================================================================== */
+  /*  RPRINT-01: Print visibility strategy refactor                      */
+  /*                                                                     */
+  /*  REMOVED fragile body*{visibility:hidden} that caused white-screen  */
+  /*  for any new component not wrapped in .print-area/.wysiwyg-canvas.  */
+  /*  REMOVED position:absolute on wrappers — content flows naturally   */
+  /*  into @page printable area.                                         */
+  /*                                                                     */
+  /*  Now: targeted display:none for known UI shell elements (see list   */
+  /*  below). Document content flows naturally — no visibility hacks.    */
+  /*                                                                     */
+  /*  RPRINT-02: Wrapper padding removed (set to 0) because @page       */
+  /*  margins now apply. .document-page retains its own padding for     */
+  /*  content offset. Total spacing from paper edge unchanged:           */
+  /*    portrait: 10mm(@page) + 10mm(.document-page) = 20mm top/bottom   */
+  /*    landscape: same math, 24mm left/right                            */
+  /* ================================================================== */
 
-  body * {
-    visibility: hidden !important;
-  }
-
-  /* Legacy: halaman non-WYSIWYG yang pakai .print-area */
-  .print-area,
-  .print-area * {
-    visibility: visible !important;
-  }
+  /* --- Print-area (legacy wrapper) --- */
 
   .print-area {
-    position: absolute !important;
-    left: 0 !important;
-    top: 0 !important;
-    width: 297mm !important;
+    width: 100% !important;
     margin: 0 !important;
-    padding: 10mm 12mm 10mm 12mm !important;
+    padding: 0 !important;
     background: white !important;
     color: black !important;
     font-family: Arial, Helvetica, sans-serif !important;
@@ -1390,20 +1138,17 @@
     margin: 0 !important;
   }
 
-  /* WYSIWYG canvas: kertas A4 langsung */
-  .wysiwyg-canvas,
-  .wysiwyg-canvas * {
-    visibility: visible !important;
-  }
+  /* --- WYSIWYG canvas (A4 page container) ---
+     Padding removed — @page margin handles outer spacing now.
+     .document-page inside retains its own padding for content offset.
+     For WYSIWYG pages without .document-page, content uses @page
+     margin only (10mm/12mm from paper edge — acceptable). */
 
   .wysiwyg-canvas {
-    position: absolute !important;
-    top: 0 !important;
-    left: 0 !important;
-    width: 297mm !important;
-    min-height: 210mm !important;
+    width: 100% !important;
+    min-height: auto !important;
     margin: 0 !important;
-    padding: 10mm 12mm 10mm 12mm !important;
+    padding: 0 !important;
     box-shadow: none !important;
     background: white !important;
     color: black !important;
@@ -1411,13 +1156,13 @@
     font-size: 11pt !important;
     break-after: page;
     page-break-after: always;
+    page: portrait;
     box-sizing: border-box !important;
   }
 
   .wysiwyg-canvas.wysiwyg-landscape {
-    width: 297mm !important;
-    min-height: 210mm !important;
-    padding: 10mm 12mm 10mm 12mm !important;
+    width: 100% !important;
+    min-height: auto !important;
     page: landscape;
     box-sizing: border-box !important;
   }
@@ -1427,12 +1172,13 @@
     page-break-after: auto;
   }
 
-  /* --- Body reset: Force A4 Landscape Canvas --- */
+  /* --- Body reset ---
+     RPRINT-03: Removed forced landscape dimensions (width:297mm,
+     height:210mm). @page now handles paper size — body flows
+     naturally into the printable area. */
 
   html,
   body {
-    width: 297mm !important;
-    height: 210mm !important;
     margin: 0 !important;
     padding: 0 !important;
     background: #ffffff !important;
@@ -1448,12 +1194,15 @@
     margin: 0 !important;
   }
 
-  /* --- Document Page: Fill Full A4 Area --- */
+  /* --- Document Page: Fill Full A4 Area ---
+     RPRINT-04: Default min-height changed from 185mm (landscape) to
+     277mm (portrait) since we no longer force everything to landscape.
+     Portrait is the natural default @page orientation. */
 
   .document-page {
     width: 100% !important;
     max-width: 100% !important;
-    min-height: 185mm !important; /* A4 Landscape 210mm minus top/bottom margin */
+    min-height: 277mm !important; /* A4 Portrait 297mm minus @page top/bottom margin */
     margin: 0 auto !important;
     padding: 10mm 12mm 10mm 12mm !important;
     box-shadow: none !important;
@@ -1466,6 +1215,7 @@
     justify-content: space-between !important; /* Dorong TTD ke paling bawah */
     break-after: page;
     page-break-after: always;
+    page: portrait;
     box-sizing: border-box !important;
   }
 
@@ -1478,8 +1228,9 @@
   .document-page.document-landscape {
     width: 100% !important;
     max-width: 100% !important;
-    min-height: 185mm !important;
+    min-height: 185mm !important; /* A4 Landscape 210mm minus top/bottom margin */
     padding: 10mm 12mm 10mm 12mm !important;
+    page: landscape;
   }
 
   .document-page:last-child {
@@ -1492,7 +1243,9 @@
     page: portrait;
   }
 
-  /* --- Hide non-print UI --- */
+  /* --- Hide non-print UI ---
+     RPRINT-01: expanded list — previously, body*{visibility:hidden}
+     implicitly hid all these. Now we must be explicit. */
 
   .print-toolbar,
   .no-print,
@@ -1509,7 +1262,20 @@
   .doc-sidebar-toggle,
   .doc-overlay,
   .doc-toast,
-  button {
+  button,
+  /* --- RPRINT-01 additions: UI overlays previously hidden by visibility --- */
+  .modal,
+  .dialog,
+  .overlay,
+  .tooltip,
+  .dropdown,
+  .toast-container,
+  .doc-sidebar-backdrop,
+  .doc-error-fallback,
+  [role="dialog"],
+  [role="tooltip"],
+  [role="menu"],
+  footer {
     display: none !important;
   }
 
@@ -1657,11 +1423,6 @@
      6.2pt/5.8pt/5.3pt/5.2pt to readable 8pt/7pt/6.5pt/7pt.
      Old sizes were illegible on screen and barely visible in print.
      New sizes maintain 1-page landscape constraint with tighter padding. */
-
-  /* INTENTIONAL: padding:0 !important overrides .document-page.document-landscape
-     padding:10mm 12mm. In print mode, @page { margin: 10mm 12mm } provides the
-     spacing instead — using CSS @page margin is more reliable for print than
-     element padding, which can cause overflow on some browsers. */
   .promes-landscape-page {
     padding: 0 !important;
     width: 100% !important;
@@ -1670,14 +1431,6 @@
     font-size: 7pt !important;
     line-height: 1.05 !important;
     overflow: hidden !important;
-  }
-
-  /* DOCUMENT-CENTRIC FORMAL: Merdeka pages MUST use serif font even in print.
-     Override the generic .document-page Arial !important rule with higher specificity
-     (.promes-merdeka-page.document-page) to prevent cascade wars with future CSS changes. */
-  .promes-merdeka-page.document-page,
-  .promes-merdeka-page.document-page * {
-    font-family: 'Times New Roman', Georgia, serif !important;
   }
 
   .promes-one-page {
@@ -1825,243 +1578,6 @@
     font-size: 6.5pt !important;
   }
 
-  /* Merdeka legend block print override — serif font */
-  .merdeka-legend-block {
-    margin-top: 4pt !important;
-    font-size: 7pt !important;
-    font-family: 'Times New Roman', Georgia, serif !important;
-  }
-
-  .merdeka-legend-grid {
-    gap: 2pt 8pt !important;
-    font-family: 'Times New Roman', Georgia, serif !important;
-  }
-
-  .merdeka-badge {
-    font-family: 'Times New Roman', Georgia, serif !important;
-    font-size: 7pt !important;
-    border-radius: 0 !important;
-  }
-
-  /* Merdeka matrix table print override — serif font + thick borders */
-  .merdeka-matrix-table,
-  .merdeka-matrix-table th,
-  .merdeka-matrix-table td {
-    font-family: 'Times New Roman', Georgia, serif !important;
-  }
-
-  /* BORD-02: Merdeka matrix table outer border — MUST be 2px in print for formal document hierarchy */
-  .merdeka-matrix-table {
-    border: 2px solid #000 !important;
-  }
-
-  .merdeka-th {
-    border: 1px solid #000 !important;     /* BORD-03: v5 FIX: match screen-mode 1px inner border */
-  }
-
-  .merdeka-td {
-    border: 1px solid #000 !important;     /* BORD-04: v5 FIX: match screen-mode 1px inner border */
-  }
-
-  /* CLR-PRINT-01: Header row backgrounds — CRITICAL for print output.
-     Without these overrides, browsers strip background-color in print mode,
-     turning #1a1a2e/#2d2d44 dark headers into WHITE (unreadable white-on-white).
-     Must use print-color-adjust: exact !important + background-color !important. */
-  .merdeka-header-row {
-    background-color: #1a1a2e !important;
-    print-color-adjust: exact !important;
-    -webkit-print-color-adjust: exact !important;
-  }
-
-  .merdeka-subheader-row {
-    background-color: #2d2d44 !important;
-    print-color-adjust: exact !important;
-    -webkit-print-color-adjust: exact !important;
-  }
-
-  .merdeka-th {
-    background-color: inherit !important;
-    print-color-adjust: exact !important;
-    -webkit-print-color-adjust: exact !important;
-  }
-
-  /* CLR-PRINT-02: Merdeka row background overrides for print —
-     ensures subtle pastel backgrounds survive browser print engine stripping.
-     Without these, cadangan/koku/total/agenda rows render flat white in PDF. */
-  .merdeka-data-row-alt {
-    background-color: #fafafa !important;
-    print-color-adjust: exact !important;
-    -webkit-print-color-adjust: exact !important;
-  }
-
-  .merdeka-td-elemen {
-    background-color: #f0f0f0 !important;
-    print-color-adjust: exact !important;
-    -webkit-print-color-adjust: exact !important;
-  }
-
-  .merdeka-cadangan-row {
-    background-color: #faf8e8 !important;
-    print-color-adjust: exact !important;
-    -webkit-print-color-adjust: exact !important;
-  }
-
-  .merdeka-koku-row {
-    background-color: #eaf5ea !important;
-    print-color-adjust: exact !important;
-    -webkit-print-color-adjust: exact !important;
-  }
-
-  .merdeka-total-row {
-    background-color: #ddd !important;
-    print-color-adjust: exact !important;
-    -webkit-print-color-adjust: exact !important;
-  }
-
-  .merdeka-agenda-row {
-    background-color: #f5f5f5 !important;
-    print-color-adjust: exact !important;
-    -webkit-print-color-adjust: exact !important;
-  }
-
-  /* CLR-PRINT-03: Merdeka column (event week) background overrides for print —
-     very subtle pastel colors (#faf5eb etc) need explicit !important overrides
-     because browser print engines strip nearly-white backgrounds by default. */
-  .merdeka-col-mpls     { background-color: #faf5eb !important; print-color-adjust: exact !important; -webkit-print-color-adjust: exact !important; }
-  .merdeka-col-hut      { background-color: #faebeb !important; print-color-adjust: exact !important; -webkit-print-color-adjust: exact !important; }
-  .merdeka-col-sts      { background-color: #ebf0f8 !important; print-color-adjust: exact !important; -webkit-print-color-adjust: exact !important; }
-  .merdeka-col-sas      { background-color: #f0e8f5 !important; print-color-adjust: exact !important; -webkit-print-color-adjust: exact !important; }
-  .merdeka-col-cm       { background-color: #e8f5eb !important; print-color-adjust: exact !important; -webkit-print-color-adjust: exact !important; }
-  .merdeka-col-rl       { background-color: #ebeef2 !important; print-color-adjust: exact !important; -webkit-print-color-adjust: exact !important; }
-  .merdeka-col-remedial { background-color: #ebf0f8 !important; print-color-adjust: exact !important; -webkit-print-color-adjust: exact !important; }
-  .merdeka-col-kokurikuler { background-color: #e8f5eb !important; print-color-adjust: exact !important; -webkit-print-color-adjust: exact !important; }
-  .merdeka-col-holiday  { background-color: #faebeb !important; print-color-adjust: exact !important; -webkit-print-color-adjust: exact !important; }
-  .merdeka-col-other    { background-color: #faf5eb !important; print-color-adjust: exact !important; -webkit-print-color-adjust: exact !important; }
-
-  /* CLR-PRINT-04: Badge color overrides for print — ensures badge backgrounds
-     (not just text) render correctly in PDF output. */
-  .merdeka-badge-mpls     { background-color: #f5e6c8 !important; print-color-adjust: exact !important; -webkit-print-color-adjust: exact !important; }
-  .merdeka-badge-hut      { background-color: #f5d0d0 !important; print-color-adjust: exact !important; -webkit-print-color-adjust: exact !important; }
-  .merdeka-badge-sts      { background-color: #dce8f5 !important; print-color-adjust: exact !important; -webkit-print-color-adjust: exact !important; }
-  .merdeka-badge-sas      { background-color: #e8d5f5 !important; print-color-adjust: exact !important; -webkit-print-color-adjust: exact !important; }
-  .merdeka-badge-cm       { background-color: #d5f5e0 !important; print-color-adjust: exact !important; -webkit-print-color-adjust: exact !important; }
-  .merdeka-badge-rl       { background-color: #d8dde3 !important; print-color-adjust: exact !important; -webkit-print-color-adjust: exact !important; }
-  .merdeka-badge-remedial { background-color: #dce8f5 !important; print-color-adjust: exact !important; -webkit-print-color-adjust: exact !important; }
-  .merdeka-badge-kokurikuler { background-color: #d5f5e0 !important; print-color-adjust: exact !important; -webkit-print-color-adjust: exact !important; }
-  .merdeka-badge-holiday  { background-color: #f5d0d0 !important; print-color-adjust: exact !important; -webkit-print-color-adjust: exact !important; }
-  .merdeka-badge-other    { background-color: #f5e6c8 !important; print-color-adjust: exact !important; -webkit-print-color-adjust: exact !important; }
-
-  /* Merdeka kop surat print override */
-  .promes-merdeka-kop-surat {
-    font-family: 'Times New Roman', Georgia, serif !important;
-  }
-
-  /* KOP-01/02: Logo img print — ensure image renders in print mode */
-  .promes-merdeka-kop-logo-img {
-    width: 55pt !important;
-    height: 55pt !important;
-    object-fit: contain !important;
-    print-color-adjust: exact !important;
-    -webkit-print-color-adjust: exact !important;
-  }
-
-  /* KOP-12: Print hierarchy protection — PROTECTED from generic .promes-landscape-page font-size:7pt flatten.
-     Without these !important overrides, kop hierarchy (10pt/11pt/13pt/8pt) would collapse to flat 7pt. */
-  .promes-merdeka-kop-instansi-1 {
-    font-size: 10pt !important;
-    font-weight: 700 !important;
-    letter-spacing: 1pt !important;
-  }
-
-  .promes-merdeka-kop-dinas {
-    font-size: 11pt !important;
-    font-weight: 700 !important;
-    letter-spacing: 1.5pt !important;
-  }
-
-  .promes-merdeka-kop-unit {
-    font-size: 13pt !important;
-    font-weight: 900 !important;
-    letter-spacing: 1pt !important;
-  }
-
-  .promes-merdeka-kop-address {
-    font-size: 8pt !important;
-    font-weight: 400 !important;
-    color: #333 !important;
-  }
-
-  .promes-merdeka-kop-double-border {
-    border-bottom: 3px double #000 !important;
-    margin-top: 3pt !important;
-    margin-bottom: 4pt !important;
-  }
-
-  .promes-merdeka-identity-table {
-    font-family: 'Times New Roman', Georgia, serif !important;
-    font-size: 7pt !important;
-  }
-
-  .promes-merdeka-title-block-doc {
-    font-family: 'Times New Roman', Georgia, serif !important;
-  }
-
-  /* TITL-11: Print hierarchy protection — PROTECTED from generic 7pt flatten.
-     Title hierarchy (12pt/9pt/8pt) MUST retain visual weight differentiation in print output. */
-  .promes-merdeka-title-main-doc {
-    font-size: 12pt !important;
-    font-weight: 900 !important;
-    color: #000 !important;
-    letter-spacing: 2pt !important;
-  }
-
-  .promes-merdeka-title-sub-doc {
-    font-size: 9pt !important;
-    font-weight: 600 !important;     /* TITL-04 LOCK: 600 NOT 700 */
-    color: #333 !important;          /* TITL-06 LOCK: #333 NOT #000 */
-    letter-spacing: 1pt !important;
-  }
-
-  .promes-merdeka-title-year-doc {
-    font-size: 8pt !important;
-    font-weight: 700 !important;
-    color: #333 !important;
-    letter-spacing: 0.5pt !important;
-  }
-
-  /* Merdeka signature — serif font override */
-  .promes-merdeka-page .signature-grid {
-    font-family: 'Times New Roman', Georgia, serif !important;
-    margin-top: 10pt !important;
-  }
-
-  /* SIG-05: Print readability protection — PROTECTED from generic 7pt flatten.
-     Signature must be readable (8-9pt) for formal government document. */
-  .promes-merdeka-page .signature-role {
-    font-size: 8pt !important;
-  }
-
-  .promes-merdeka-page .signature-place-date {
-    font-size: 7.5pt !important;
-  }
-
-  .promes-merdeka-page .signature-name {
-    font-size: 9pt !important;
-    font-weight: 700 !important;
-  }
-
-  .promes-merdeka-page .signature-nip {
-    font-size: 7.5pt !important;
-  }
-
-  .promes-merdeka-page .signature-space {
-    height: 52pt !important;
-  }
-
-  .promes-merdeka-page .signature-block {
-    font-family: 'Times New Roman', Georgia, serif !important;
-  }
-
   .promes-legend-grid {
     gap: 2pt 8pt !important;
   }
@@ -2070,4 +1586,164 @@
     width: 28pt !important;
     height: 10pt !important;
   }
+
+  /* ================================================================== */
+  /*  Rekap Semester — Print overrides (PRINT-AUDIT-RC3)                  */
+  /*                                                                     */
+  /*  RC3 = clean audit rewrite. RC2 was tambal-sulam patches that       */
+  /*  accumulated conflicts and dead code. RC3 consolidates into a       */
+  /*  coherent system with clear division of responsibility.             */
+  /*                                                                     */
+  /*  Issues found & fixed:                                              */
+  /*  F1. min-width:80px + white-space:nowrap on :last-child broke       */
+  /*      table-layout:fixed colgroup distribution → REMOVED.            */
+  /*      Column widths via <colgroup> percentages are authoritative.    */
+  /*      Text wraps naturally via word-wrap:break-word.                 */
+  /*  F2. .rekap-landscape-doc (0,1,0) lost padding battle to           */
+  /*      .document-page.document-landscape (0,2,0) → specificity       */
+  /*      raised to .document-page.document-landscape.rekap-landscape-doc*/
+  /*      (0,3,0). Rekap tables now get 8mm/10mm tight padding.         */
+  /*  F3. font-size in static CSS had !important — fought with dynamic  */
+  /*      CSS instead of serving as fallback → !important REMOVED.       */
+  /*      Values kept as non-important fallbacks for standalone render.  */
+  /*  F4. @page landscape margin !important blocked the margin slider   */
+  /*      → !important REMOVED from static; dynamic CSS adds it.        */
+  /*  F5. Tailwind text-[9px]/text-[7px] on signature elements         */
+  /*      override inherited print font-size → signature children        */
+  /*      forced to inherit via font-size:inherit !important.            */
+  /*                                                                     */
+  /*  Division of responsibility:                                         */
+  /*  ┌──────────────────┬──────────────────────────────────────────┐    */
+  /*  │ STATIC CSS (here)│ padding, vertical-align, overflow,       │    */
+  /*  │                  │ line-height, border-collapse, table-layout│    */
+  /*  │                  │ @page size, signature break-inside        │    */
+  /*  │                  │ font-size fallbacks (NO !important)       │    */
+  /*  ├──────────────────┼──────────────────────────────────────────┤    */
+  /*  │ DYNAMIC CSS      │ font-size !important, @page margin       │    */
+  /*  │ (RekapSemesterPg)│ !important, line-height baseline,        │    */
+  /*  │                  │ page orientation                          │    */
+  /*  ├──────────────────┼──────────────────────────────────────────┤    */
+  /*  │ JSX              │ <colgroup> column widths, content,       │    */
+  /*  │ (3 matrix files) │ header-summary class on rowSpan th       │    */
+  /*  └──────────────────┴──────────────────────────────────────────┘    */
+  /*                                                                     */
+  /*  RULE: font-size in this section MUST NOT use !important.           */
+  /*  Dynamic CSS is the active font-size controller; values here        */
+  /*  are passive fallbacks only.                                        */
+  /* ================================================================== */
+
+  /* --- R1. Table wrap: no overflow clipping in print --- */
+  .rekap-table-wrap {
+    overflow-x: visible !important;
+    overflow-y: visible !important;
+    width: 100% !important;
+  }
+
+  /* --- R2. Rekap matrix table: fixed layout for A4 landscape --- */
+  .rekap-matrix-table {
+    width: 100% !important;
+    max-width: 100% !important;
+    table-layout: fixed !important;
+    border-collapse: collapse !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    font-size: 8pt;          /* fallback — dynamic CSS overrides with !important */
+    line-height: 1.3;        /* fallback — dynamic CSS overrides with !important */
+  }
+
+  /* --- R3. th: compact headers for 40+ col tables --- */
+  /* RC4: 4px 6px (from RC3a 3px 4px). Meeting cols at 1.9% ≈ 18px:     */
+  /* 6px left+right = 6px content = enough for single-digit nums.        */
+  /* Label columns (10% ≈ 97px) have comfortable room.                  */
+  /* RC3a was too MEPET — rows felt squeezed with no breathing room.     */
+  .rekap-matrix-table th {
+    padding: 4px 6px !important;
+    vertical-align: middle !important;
+    overflow: visible !important;
+    white-space: normal !important;
+    word-wrap: break-word !important;
+    box-sizing: border-box !important;
+    line-height: 1.4 !important;
+    font-size: 8pt;          /* fallback — dynamic CSS overrides */
+  }
+
+  /* --- R3b. th.header-summary: rowSpan headers — align-top anti-melayang --- */
+  /* ONLY for NilaiMatrix multi-level headers (NO/NAMA/PTS/PAS/NA/Predikat) */
+  /* where sub-headers with vertical text extend the rowSpan height,       */
+  /* causing the label text to float to the cell middle.                    */
+  /* Absensi & TatapMuka: rowSpan headers use align-middle (no header-summary) */
+  /* because their content flows downward (kebawah), not multi-level.       */
+  .rekap-matrix-table th.header-summary {
+    vertical-align: top !important;
+    padding-top: 6px !important;
+    padding-bottom: 3px !important;
+  }
+
+  /* --- R3c. th.header-label: label cells di header kiri --- */
+  /* "Mengajar ke-", "Jumlah Jam Tatap Muka", "Tanggal Mengajar"          */
+  /* Anti-fold: min-width agar teks tidak terhimpit vertikal per huruf.   */
+  /* white-space:normal allows natural wrapping, word-break:keep-all      */
+  /* prevents breaking inside words.                                      */
+  .rekap-matrix-table th.header-label {
+    min-width: 80px;
+    white-space: normal;
+    word-break: keep-all;
+    text-align: left;
+    font-weight: bold;
+  }
+
+  /* --- R4. td: data cells for 40+ col tables --- */
+  /* RC4: 3px 4px (from RC3a 2px 3px). Meeting cols at 1.9% ≈ 18px:     */
+  /* 4px left+right = 10px content = enough for mark chars.              */
+  /* RC3a was too MEPET — rows had no breathing room.                    */
+  .rekap-matrix-table td {
+    padding: 3px 4px !important;
+    vertical-align: middle !important;
+    overflow: hidden !important;
+    word-wrap: break-word !important;
+    box-sizing: border-box !important;
+    line-height: 1.4 !important;
+    font-size: 8pt;          /* fallback — dynamic CSS overrides */
+  }
+
+  /* --- R5. Vertical text cells: thin horizontal padding --- */
+  .rekap-matrix-table .vertical-text,
+  .rekap-matrix-table th [writing-mode="vertical-rl"],
+  .rekap-matrix-table [class*="vertical"] {
+    padding: 8px 2px !important;
+    min-height: 50px !important;
+  }
+
+  /* --- R6. Landscape doc page: balanced padding --- */
+  /* Specificity (0,3,0) beats .document-page.document-landscape (0,2,0)*/
+  /* RC4: restored to 10mm/12mm (from RC3 8mm/10mm). The tighter padding*/
+  /* was causing MEPET — tables need breathing room on the page edges.  */
+  /* 40-col tables still fit with colgroup 1.9% widths.                 */
+  .document-page.document-landscape.rekap-landscape-doc {
+    padding: 10mm 12mm 10mm 12mm !important;
+    font-size: 9pt;          /* fallback — dynamic CSS overrides */
+    line-height: 1.4;        /* fallback — dynamic CSS overrides */
+  }
+
+  /* --- R7. Signature block: scale with slider, keep together --- */
+  /* Tailwind text-[9px]/text-[7px] on signature children override     */
+  /* inherited font-size. Force inherit !important so children inherit  */
+  /* from .signature-block → .rekap-landscape-doc (dynamic font-size). */
+  /* Dynamic CSS also sets font-size:${scalePt}pt !important directly   */
+  /* on .signature-block * for explicit slider control.                */
+  .rekap-landscape-doc .signature-block {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+    margin-top: 16px !important;
+  }
+
+  .rekap-landscape-doc .signature-block * {
+    font-size: inherit !important;
+    line-height: 1.3 !important;
+  }
+
+  .rekap-landscape-doc .signature-space {
+    height: 40pt !important;
+  }
 }
+
