@@ -41,6 +41,7 @@ import {
 import type {
   MonthlyAttendanceMatrix,
   TatapMukaAttendanceMatrix,
+  JurnalMatrix,
 } from "../../modules/1-harian/rekap-semester/hooks/useSemesterAggregator";
 
 import type { StudentGradeRecord, GradeBook } from "@guru-admin/domain";
@@ -50,7 +51,7 @@ import { formatLongDateID, todayISODate } from "@guru-admin/shared";
 /*  Types                                                        */
 /* ============================================================ */
 
-export type RekapDocxFormat = "absensi_bulanan" | "tatap_muka" | "nilai";
+export type RekapDocxFormat = "absensi_bulanan" | "tatap_muka" | "nilai" | "jurnal_mengajar";
 
 /** Common metadata shared across all 3 formats */
 export type RekapDocxMeta = {
@@ -89,10 +90,17 @@ export type NilaiDocxParams = {
   gradeBook: GradeBook | null;
 };
 
+export type JurnalDocxParams = {
+  format: "jurnal_mengajar";
+  meta: RekapDocxMeta;
+  matrix: JurnalMatrix;
+};
+
 export type RekapSemesterDocxExportParams =
   | AbsensiBulananDocxParams
   | TatapMukaDocxParams
-  | NilaiDocxParams;
+  | NilaiDocxParams
+  | JurnalDocxParams;
 
 export type RekapDocxExportResult = Blob;
 
@@ -1007,11 +1015,263 @@ export async function exportRekapSemesterDocx(
       ? buildAbsensiBulananDocx(params)
     : params.format === "tatap_muka"
       ? buildTatapMukaDocx(params)
+    : params.format === "jurnal_mengajar"
+      ? buildJurnalDocx(params)
     : /* params.format === "nilai" */
       buildNilaiDocx(params);
 
   const blob = await Packer.toBlob(doc);
   return blob;
+}
+
+/* ============================================================ */
+/*  FORMAT-4: Jurnal Mengajar DOCX Builder                       */
+/* ============================================================ */
+
+/** Day names for Indonesian date formatting */
+const DAY_NAMES_ID = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
+
+/** Format date to "Senin, 14/07/2025" for DOCX */
+function formatDayDateDocx(dateISO: string | null): string {
+  if (!dateISO) return "";
+  const d = new Date(dateISO);
+  const dayName = DAY_NAMES_ID[d.getDay()];
+  const day = d.getDate();
+  const month = d.getMonth() + 1;
+  const year = d.getFullYear();
+  return `${dayName}, ${day}/${month}/${year}`;
+}
+
+/** Format absent students list: "Andi (S), Budi (I)" or "-" */
+function formatAbsentDocx(students: Array<{ name: string; reason: string }>): string {
+  if (students.length === 0) return "-";
+  return students.map((s) => `${s.name} (${s.reason})`).join(", ");
+}
+
+function buildJurnalDocx(params: JurnalDocxParams): Document {
+  const { meta, matrix } = params;
+  const { rows } = matrix;
+  const semesterLabel = meta.semester === 1 ? "1 (Ganjil)" : "2 (Genap)";
+
+  // Portrait A4 margins — slightly wider for portrait
+  const MARGIN_PORTRAIT_DXA = 1080; // ~0.75 inch
+
+  /* ---- Title ---- */
+  const titleParagraphs: Paragraph[] = [
+    new Paragraph({
+      alignment: AlignmentType.CENTER,
+      spacing: { after: 40 },
+      children: [
+        new TextRun({
+          text: "JURNAL AGENDA MENGAJAR GURU",
+          bold: true,
+          font: FONT_FAMILY,
+          size: FONT_SIZE_TITLE,
+          allCaps: true,
+        }),
+      ],
+    }),
+    new Paragraph({
+      alignment: AlignmentType.CENTER,
+      spacing: { after: 40 },
+      children: [
+        new TextRun({
+          text: meta.schoolName || "SMP NEGERI 8 BANTAN",
+          bold: true,
+          font: FONT_FAMILY,
+          size: FONT_SIZE_SUBTITLE,
+          allCaps: true,
+        }),
+      ],
+    }),
+    new Paragraph({
+      alignment: AlignmentType.CENTER,
+      spacing: { after: 120 },
+      children: [
+        new TextRun({
+          text: `TAHUN PELAJARAN ${meta.yearLabel || ".........."}`,
+          bold: true,
+          font: FONT_FAMILY,
+          size: FONT_SIZE_SUBTITLE,
+          allCaps: true,
+        }),
+      ],
+    }),
+  ];
+
+  /* ---- Metadata — 2 column grid ---- */
+  const metaTable = new Table({
+    rows: [
+      new TableRow({
+        children: [
+          // Left column: MATA PELAJARAN + KELAS/SEMESTER
+          new TableCell({
+            width: { size: 50, type: WidthType.PERCENTAGE },
+            borders: NO_BORDER as unknown as typeof CELL_BORDER,
+            children: [
+              new Paragraph({
+                spacing: { after: 40 },
+                children: [
+                  new TextRun({ text: "MATA PELAJARAN : ", bold: true, font: FONT_FAMILY, size: FONT_SIZE_META }),
+                  new TextRun({ text: meta.subject || "..........", font: FONT_FAMILY, size: FONT_SIZE_META }),
+                ],
+              }),
+              new Paragraph({
+                spacing: { after: 40 },
+                children: [
+                  new TextRun({ text: "KELAS / SEMESTER : ", bold: true, font: FONT_FAMILY, size: FONT_SIZE_META }),
+                  new TextRun({ text: `${meta.classLabel || ".........."} / ${semesterLabel}`, font: FONT_FAMILY, size: FONT_SIZE_META }),
+                ],
+              }),
+            ],
+          }),
+          // Right column: NAMA GURU + NIP
+          new TableCell({
+            width: { size: 50, type: WidthType.PERCENTAGE },
+            borders: NO_BORDER as unknown as typeof CELL_BORDER,
+            children: [
+              new Paragraph({
+                alignment: AlignmentType.RIGHT,
+                spacing: { after: 40 },
+                children: [
+                  new TextRun({ text: "NAMA GURU : ", bold: true, font: FONT_FAMILY, size: FONT_SIZE_META }),
+                  new TextRun({ text: meta.teacherName || "..........", font: FONT_FAMILY, size: FONT_SIZE_META }),
+                ],
+              }),
+              new Paragraph({
+                alignment: AlignmentType.RIGHT,
+                spacing: { after: 40 },
+                children: [
+                  new TextRun({ text: "NIP : ", bold: true, font: FONT_FAMILY, size: FONT_SIZE_META }),
+                  new TextRun({ text: meta.teacherNip || "..........", font: FONT_FAMILY, size: FONT_SIZE_META }),
+                ],
+              }),
+            ],
+          }),
+        ],
+      }),
+    ],
+    width: { size: 100, type: WidthType.PERCENTAGE },
+    borders: {
+      top: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
+      bottom: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
+      left: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
+      right: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
+      insideHorizontal: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
+      insideVertical: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
+    },
+  });
+
+  /* ---- Table: 7 columns (portrait) ---- */
+  // Column widths as percentages (matching JurnalMatrix.tsx)
+  const COL_W_NO = 4.5;
+  const COL_W_TANGGAL = 12;
+  const COL_W_JAM = 7.5;
+  const COL_W_MATERI = 25;
+  const COL_W_KEGIATAN = 30;
+  const COL_W_TIDAK_HADIR = 10;
+  const COL_W_KET = 11;
+
+  // Header row
+  const headerRow = new TableRow({
+    tableHeader: true,
+    children: [
+      makeHeaderCell("NO.", { width: COL_W_NO, shade: SHADE_HEADER_MAIN }),
+      makeHeaderCell("HARI / TANGGAL", { width: COL_W_TANGGAL, shade: SHADE_HEADER_MAIN }),
+      makeHeaderCell("JAM KE-", { width: COL_W_JAM, shade: SHADE_HEADER_MAIN }),
+      makeHeaderCell("MATERI / TUJUAN PEMBELAJARAN", { width: COL_W_MATERI, shade: SHADE_HEADER_MAIN, alignment: AlignmentType.LEFT }),
+      makeHeaderCell("KEGIATAN PEMBELAJARAN", { width: COL_W_KEGIATAN, shade: SHADE_HEADER_MAIN, alignment: AlignmentType.LEFT }),
+      makeHeaderCell("SISWA TIDAK HADIR", { width: COL_W_TIDAK_HADIR, shade: SHADE_HEADER_MAIN }),
+      makeHeaderCell("KETERANGAN", { width: COL_W_KET, shade: SHADE_HEADER_MAIN, alignment: AlignmentType.LEFT }),
+    ],
+  });
+
+  // Data rows
+  const dataRows = rows.map((row) => {
+    const endPeriod = row.startPeriod + row.durationJP - 1;
+    const jamKe = row.durationJP > 1 ? `${row.startPeriod} - ${endPeriod}` : `${row.startPeriod}`;
+    const kegiatan = row.actualMaterialTitle || row.note || "";
+
+    return new TableRow({
+      children: [
+        makeTextCell(String(row.meetingNumber), { width: COL_W_NO, fontSize: FONT_SIZE_TABLE_DATA }),
+        makeTextCell(formatDayDateDocx(row.dateISO), { width: COL_W_TANGGAL, fontSize: FONT_SIZE_TABLE_DATA }),
+        makeTextCell(jamKe, { width: COL_W_JAM, fontSize: FONT_SIZE_TABLE_DATA }),
+        makeTextCell(row.plannedMaterialTitle ?? "", { width: COL_W_MATERI, fontSize: FONT_SIZE_TABLE_DATA, alignment: AlignmentType.LEFT }),
+        makeTextCell(kegiatan, { width: COL_W_KEGIATAN, fontSize: FONT_SIZE_TABLE_DATA, alignment: AlignmentType.LEFT }),
+        makeTextCell(formatAbsentDocx(row.absentStudents), { width: COL_W_TIDAK_HADIR, fontSize: FONT_SIZE_TABLE_DATA }),
+        makeTextCell(row.keterangan ?? "", { width: COL_W_KET, fontSize: FONT_SIZE_TABLE_DATA, alignment: AlignmentType.LEFT }),
+      ],
+    });
+  });
+
+  // Empty template rows (up to 6 minimum rows)
+  const emptyRows = rows.length < 6
+    ? Array.from({ length: 6 - rows.length }, (_, i) =>
+        new TableRow({
+          children: [
+            makeTextCell(String(rows.length + i + 1), { width: COL_W_NO, fontSize: FONT_SIZE_TABLE_DATA }),
+            makeTextCell("", { width: COL_W_TANGGAL, fontSize: FONT_SIZE_TABLE_DATA }),
+            makeTextCell("", { width: COL_W_JAM, fontSize: FONT_SIZE_TABLE_DATA }),
+            makeTextCell("", { width: COL_W_MATERI, fontSize: FONT_SIZE_TABLE_DATA, alignment: AlignmentType.LEFT }),
+            makeTextCell("", { width: COL_W_KEGIATAN, fontSize: FONT_SIZE_TABLE_DATA, alignment: AlignmentType.LEFT }),
+            makeTextCell("", { width: COL_W_TIDAK_HADIR, fontSize: FONT_SIZE_TABLE_DATA }),
+            makeTextCell("", { width: COL_W_KET, fontSize: FONT_SIZE_TABLE_DATA, alignment: AlignmentType.LEFT }),
+          ],
+        })
+      )
+    : [];
+
+  const jurnalTable = new Table({
+    rows: [headerRow, ...dataRows, ...emptyRows],
+    width: { size: 100, type: WidthType.PERCENTAGE },
+    layout: TableLayoutType.FIXED,
+    borders: {
+      top: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
+      bottom: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
+      left: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
+      right: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
+      insideHorizontal: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
+      insideVertical: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
+    },
+  });
+
+  /* ---- Signature block ---- */
+  const signatureTable = buildDualSignatureTable(
+    `Kepala ${meta.schoolName || "SMPN 8 Bantan"}`,
+    meta.headmasterName || "........................",
+    meta.headmasterNip || "........................",
+    "Guru Mata Pelajaran",
+    meta.teacherName || "........................",
+    meta.teacherNip || "........................",
+  );
+
+  return new Document({
+    sections: [{
+      properties: {
+        page: {
+          size: {
+            width: 11906, // A4 Portrait width in twips
+            height: 16838, // A4 Portrait height in twips
+          },
+          margin: {
+            top: MARGIN_PORTRAIT_DXA,
+            bottom: MARGIN_PORTRAIT_DXA,
+            left: MARGIN_PORTRAIT_DXA,
+            right: MARGIN_PORTRAIT_DXA,
+          },
+        },
+      },
+      children: [
+        ...titleParagraphs,
+        metaTable,
+        new Paragraph({ spacing: { after: 80 } }),
+        jurnalTable,
+        new Paragraph({ spacing: { after: 200 } }),
+        signatureTable,
+      ],
+    }],
+  });
 }
 
 /* ============================================================ */

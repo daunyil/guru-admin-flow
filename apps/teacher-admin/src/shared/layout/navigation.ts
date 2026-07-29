@@ -64,7 +64,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { to: "/journal", label: "Jurnal", icon: BookOpen },
       { to: "/grades", label: "Nilai", icon: FileSpreadsheet },
       // SPRINT-4: Rekap Semester — 3 format: Absensi Bulanan (Wali Kelas), Daftar Hadir Tatap Muka (Guru Mapel), Penilaian Pengetahuan (Guru Mapel)
-      { to: "/rekap-semester", label: "Rekap Semester", icon: BarChart3, badge: "Sprint 4", badgeVariant: "info" },
+      { to: "/rekap-semester", label: "Rekap Semester", icon: BarChart3, badge: "Sprint 7", badgeVariant: "success" },
     ],
   },
   {

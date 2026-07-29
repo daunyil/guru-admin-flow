@@ -32,6 +32,11 @@ import {
   type RekapSemesterDocxExportParams,
   type RekapDocxMeta,
 } from "@shared/exporters";
+import {
+  downloadRekapXls,
+  type RekapXlsMeta,
+  type RekapXlsExportParams,
+} from "@shared/exporters";
 
 /* ------------------------------------------------------------------ */
 /*  Semester month names                                                */
@@ -145,7 +150,22 @@ export function RekapSemesterPage() {
     return gradeRecords.length === 0;
   };
 
-  // --- DOCX Export: build params and create callback ---
+  // --- Build shared meta for XLS export ---
+  const buildXlsMeta = (): RekapXlsMeta => ({
+    schoolName: school?.name ?? "",
+    schoolVillage: school?.village,
+    schoolDistrict: school?.district,
+    yearLabel: year?.label ?? "",
+    classLabel: assignment?.classLabel ?? "",
+    teacherName: teacher?.name ?? "",
+    teacherNip: teacher?.nip,
+    headmasterName: school?.headmasterName,
+    headmasterNip: school?.headmasterNip,
+    subject: assignment?.subject,
+    semester,
+  });
+
+  // --- Build DOCX meta (shared) ---
   const buildDocxMeta = (): RekapDocxMeta => ({
     schoolName: school?.name ?? "",
     schoolVillage: school?.village,
@@ -153,10 +173,51 @@ export function RekapSemesterPage() {
     yearLabel: year?.label ?? "",
     classLabel: assignment?.classLabel ?? "",
     teacherName: teacher?.name ?? "",
+    teacherNip: teacher?.nip,
+    headmasterName: school?.headmasterName,
+    headmasterNip: school?.headmasterNip,
     subject: assignment?.subject,
     semester,
   });
 
+  // --- XLS Export callback (all tabs, async — ExcelJS) ---
+  const xlsExportCallback = useCallback(async (): Promise<void> => {
+    const meta = buildXlsMeta();
+
+    let params: RekapXlsExportParams;
+    if (tab === "absensi-bulanan") {
+      params = {
+        format: "absensi_bulanan",
+        meta,
+        matrix: currentMatrix!,
+        teacherRole: "Wali Kelas",
+      };
+    } else if (tab === "tatap-muka") {
+      params = {
+        format: "tatap_muka",
+        meta,
+        matrix: tatapMukaMatrix!,
+        attendanceThreshold,
+      };
+    } else if (tab === "jurnal") {
+      params = {
+        format: "jurnal_mengajar",
+        meta,
+        matrix: jurnalMatrix!,
+      };
+    } else {
+      params = {
+        format: "nilai",
+        meta,
+        records: gradeRecords,
+        gradeBook,
+      };
+    }
+
+    await downloadRekapXls(params);
+  }, [tab, currentMatrix, tatapMukaMatrix, jurnalMatrix, gradeRecords, gradeBook, school, year, teacher, assignment, semester, attendanceThreshold]);
+
+  // --- DOCX Export callback (alternative, for all tabs) ---
   const docxExportCallback = useCallback(async (): Promise<Blob> => {
     const meta = buildDocxMeta();
 
@@ -175,6 +236,12 @@ export function RekapSemesterPage() {
         matrix: tatapMukaMatrix!,
         attendanceThreshold,
       };
+    } else if (tab === "jurnal") {
+      params = {
+        format: "jurnal_mengajar",
+        meta,
+        matrix: jurnalMatrix!,
+      };
     } else {
       params = {
         format: "nilai",
@@ -185,7 +252,7 @@ export function RekapSemesterPage() {
     }
 
     return exportRekapSemesterDocx(params);
-  }, [tab, currentMatrix, tatapMukaMatrix, gradeRecords, gradeBook, school, year, teacher, assignment, semester, attendanceThreshold]);
+  }, [tab, currentMatrix, tatapMukaMatrix, jurnalMatrix, gradeRecords, gradeBook, school, year, teacher, assignment, semester, attendanceThreshold]);
 
   // --- Early returns (AFTER all hooks) ---
   if (loading) return <LoadingState message="Memuat data semester..." />;
@@ -203,7 +270,7 @@ export function RekapSemesterPage() {
       <div className="space-y-6 p-4">
         <div className="flex items-center gap-3">
           <h1 className="text-2xl font-bold text-slate-900">Rekap Semester</h1>
-          <Badge variant="warning">Sprint 4</Badge>
+          <Badge variant="warning">Sprint 7</Badge>
         </div>
         <EmptyState
           title="Belum ada Kelas dan Mapel"
@@ -220,28 +287,32 @@ export function RekapSemesterPage() {
   //   caused the table to overflow the A4 landscape area BEFORE scaling.
   //   Now: only inject @page margin changes. Table sizing handled by
   //   table-layout:fixed + <colgroup> percentages in the matrix components.
+  // Jurnal tab uses PORTRAIT, all other tabs use LANDSCAPE
+  const isJurnalTab = tab === "jurnal";
+  const currentOrientation = isJurnalTab ? "portrait" as const : "landscape" as const;
+
   const marginCss = MARGIN_OPTIONS.find((o) => o.value === marginPreset)?.css ?? "10mm 10mm";
   const scalePt = SCALE_OPTIONS.find((o) => o.value === scalePreset)?.pt ?? 7;
 
   const printStyleTag = `
     @media print {
-      /* 1. PAKSA BROWSER KUNCI KE LANDSCAPE A4
-         @page landscape named page + page:landscape on .rekap-landscape-doc
-         forces Chrome/Edge to auto-select Landscape orientation in print dialog.
-         User tidak perlu manual ubah Portrait → Landscape lagi. */
+      /* 1. PAGE ORIENTATION — landscape for tabs 1-3, portrait for jurnal tab
+         @page landscape / @page portrait named pages + page:xxx on doc classes
+         forces Chrome/Edge to auto-select correct orientation in print dialog. */
       @page landscape {
         size: A4 landscape;
         margin: ${marginCss} !important;
       }
-      @page :first {
-        margin: ${marginCss} !important;
+      @page portrait {
+        size: A4 portrait;
+        margin: 8mm 10mm 8mm 10mm !important;
       }
       body {
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
       }
 
-      /* 2. KUNCI WIDTH & PADDING TABEL AGAR TIDAK TERLIPAT VERTIKAL */
+      /* 2. LANDSCAPE DOCS — absensi, tatap muka, nilai */
       .rekap-landscape-doc {
         page: landscape;
         font-size: ${scalePt}pt !important;
@@ -257,20 +328,14 @@ export function RekapSemesterPage() {
       .rekap-matrix-table td {
         font-size: ${scalePt - 0.5}pt !important;
         vertical-align: middle !important;
-        word-break: keep-all !important;   /* Cegah kata terpotong per huruf */
+        word-break: keep-all !important;
       }
-
-      /* 3. KHUSUS JUDUL HEADER KIRI (Mengajar ke-, Jumlah Jam, Tanggal)
-         Beri lebar cukup agar teks tidak terhimpit/terlipat per karakter.
-         white-space:nowrap mencegah teks header terlipat vertikal. */
       .rekap-matrix-table .header-label {
         white-space: normal !important;
         text-align: left !important;
         font-weight: bold !important;
         min-width: 80px !important;
       }
-
-      /* 4. PASTIKAN HANYA 1 HALAMAN (BEBAS OVERFLOW) */
       .rekap-landscape-doc {
         page-break-after: avoid !important;
         break-after: avoid !important;
@@ -279,11 +344,67 @@ export function RekapSemesterPage() {
         break-inside: avoid !important;
         margin-top: 15px !important;
       }
-
-      /* Signature text scales with slider — overrides Tailwind text-[9px]/text-[7px] */
       .rekap-landscape-doc .signature-block * {
         font-size: ${scalePt}pt !important;
       }
+
+      /* 3. PORTRAIT DOC — jurnal mengajar
+         JurnalMatrix uses its own scoped <style> for detailed print rules.
+         Here we set page:portrait and ensure proper sizing. */
+      .rekap-jurnal-doc {
+        page: portrait;
+        width: 100% !important;
+        max-width: 100% !important;
+        min-height: auto !important;
+        padding: 0 !important;
+        box-shadow: none !important;
+        border-radius: 0 !important;
+        background: white !important;
+        color: black !important;
+        font-family: Arial, Helvetica, sans-serif !important;
+        font-size: 9pt !important;
+        line-height: 1.35 !important;
+      }
+      .rekap-jurnal-doc .jurnal-table {
+        width: 100% !important;
+        border-collapse: collapse !important;
+        table-layout: fixed !important;
+      }
+      .rekap-jurnal-doc .jurnal-table th,
+      .rekap-jurnal-doc .jurnal-table td {
+        padding: 4px 6px !important;
+        font-size: 8.5pt !important;
+        border: 1px solid #000000 !important;
+      }
+      .rekap-jurnal-doc .jurnal-kop-title {
+        font-size: 13pt !important;
+      }
+      .rekap-jurnal-doc .jurnal-kop-school {
+        font-size: 11pt !important;
+      }
+      .rekap-jurnal-doc .jurnal-kop-year {
+        font-size: 9pt !important;
+      }
+      .rekap-jurnal-doc .jurnal-metadata-grid {
+        font-size: 8.5pt !important;
+      }
+      .rekap-jurnal-doc .jurnal-signature-grid {
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+        margin-top: 18px !important;
+        font-size: 8.5pt !important;
+      }
+      .rekap-jurnal-doc .jurnal-signature-nip {
+        font-size: 8pt !important;
+      }
+      .rekap-jurnal-doc .jurnal-signature-space {
+        height: 45px !important;
+      }
+      .rekap-jurnal-doc .jurnal-row-no-journal,
+      .rekap-jurnal-doc .jurnal-row-cancelled {
+        background-color: transparent !important;
+      }
+
       .page-break-avoid {
         break-inside: avoid;
         page-break-inside: avoid;
@@ -300,7 +421,7 @@ export function RekapSemesterPage() {
       <div className="flex flex-col gap-3 no-print">
         <div className="flex items-center gap-3">
           <h1 className="text-2xl font-bold text-slate-900">Rekap Semester</h1>
-          <Badge variant="success">Sprint 6</Badge>
+          <Badge variant="success">Sprint 7</Badge>
         </div>
 
         {/* Context selector bar */}
@@ -362,16 +483,17 @@ export function RekapSemesterPage() {
             {TAB_ROLES[tab]}
           </div>
 
-          {/* Print/Export buttons + DOCX */}
+          {/* Print/Export buttons + XLS (all tabs) + DOCX */}
           <div className="ml-auto flex gap-2">
             <PrintExportButtons
               filename={`rekap-${tab}-${assignment?.classLabel ?? "semester"}`}
               title={TAB_LABELS[tab]}
               schoolName={school?.name}
-              orientation="landscape"
+              orientation={currentOrientation}
               targetId={getPrintTargetId()}
               disabled={getPrintDisabled()}
               docxExport={docxExportCallback}
+              xlsExport={xlsExportCallback}
             />
           </div>
         </div>

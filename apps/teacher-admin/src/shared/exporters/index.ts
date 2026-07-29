@@ -1,7 +1,7 @@
 /**
  * Barrel export for DOCX exporters.
  * Sprint 6: Promes Merdeka + Rekap Semester landscape exporters.
- * Future: Jurnal, Prota exporters will be added here.
+ * Sprint 7: XLS exporter for Jurnal Mengajar (replaces DOCX).
  */
 
 export {
@@ -18,6 +18,21 @@ export {
   type AbsensiBulananDocxParams,
   type TatapMukaDocxParams,
   type NilaiDocxParams,
+  type JurnalDocxParams,
   type RekapSemesterDocxExportParams,
   type RekapDocxExportResult,
 } from "./rekap-semester-docx-exporter";
+
+export {
+  exportRekapXls,
+  downloadRekapXls,
+  downloadJurnalXls,
+  type RekapXlsMeta,
+  type RekapXlsExportParams,
+  type JurnalXlsMeta,
+  type JurnalXlsExportParams,
+  type AbsensiBulananXlsParams,
+  type TatapMukaXlsParams,
+  type NilaiXlsParams,
+  type JurnalXlsParams,
+} from "./rekap-semester-xls-exporter";
