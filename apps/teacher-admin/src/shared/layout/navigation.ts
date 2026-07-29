@@ -29,6 +29,7 @@ import {
   BarChart3,
   PieChart,
   Settings,
+  Zap,
 } from "./icons";
 
 export interface NavItem {
@@ -65,6 +66,8 @@ export const NAV_GROUPS: NavGroup[] = [
       { to: "/grades", label: "Nilai", icon: FileSpreadsheet },
       // SPRINT-4: Rekap Semester — 3 format: Absensi Bulanan (Wali Kelas), Daftar Hadir Tatap Muka (Guru Mapel), Penilaian Pengetahuan (Guru Mapel)
       { to: "/rekap-semester", label: "Rekap Semester", icon: BarChart3, badge: "Sprint 7", badgeVariant: "success" },
+      // SPRINT-8: KBM Kilat — accordion flow cepat isi KBM (Presensi → Jurnal → Nilai)
+      { to: "/kbm-kilat", label: "KBM Kilat", icon: Zap, badge: "New", badgeVariant: "warning" },
     ],
   },
   {

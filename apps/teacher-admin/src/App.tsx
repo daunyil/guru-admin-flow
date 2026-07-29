@@ -26,7 +26,9 @@ const QuickAttendancePage = lazy(() => import("@harian/attendance/QuickAttendanc
 const QuickJournalPage = lazy(() => import("@harian/journal/QuickJournalPage").then((m) => ({ default: m.QuickJournalPage })));
 const GradesPage = lazy(() => import("@harian/grades/GradesPage").then((m) => ({ default: m.GradesPage })));
 const RekapSemesterPage = lazy(() => import("@harian/rekap-semester/RekapSemesterPage").then((m) => ({ default: m.RekapSemesterPage })));
+const KbmKilatPage = lazy(() => import("@harian/kbm-kilat/KbmKilatPage").then((m) => ({ default: m.KbmKilatPage })));
 // SPRINT-4: Rekap Semester — matriks bulanan absen + rekap nilai
+// SPRINT-8: KBM Kilat — accordion flow cepat isi KBM (Presensi → Jurnal → Nilai)
 
 // 2-piket (Guru Piket)
 const DailyDutyPage = lazy(() => import("@piket/daily-duty/DailyDutyPage").then((m) => ({ default: m.DailyDutyPage })));
@@ -90,6 +92,7 @@ export function App() {
               <Route path="/journal" element={<QuickJournalPage />} />
               <Route path="/grades" element={<GradesPage />} />
               <Route path="/rekap-semester" element={<RekapSemesterPage />} />
+              <Route path="/kbm-kilat" element={<KbmKilatPage />} />
               <Route path="/atp" element={<ATPPage />} />
               <Route path="/lkpd" element={<LKPDPage />} />
               <Route path="/rpp" element={<RPPPage />} />
