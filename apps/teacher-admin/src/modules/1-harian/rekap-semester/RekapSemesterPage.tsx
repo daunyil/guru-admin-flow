@@ -25,6 +25,7 @@ import { useSemesterAggregator } from "./hooks/useSemesterAggregator";
 import { AbsensiBulananMatrix } from "./AbsensiBulananMatrix";
 import { TatapMukaMatrix } from "./TatapMukaMatrix";
 import { NilaiMatrix } from "./NilaiMatrix";
+import { JurnalMatrix } from "./JurnalMatrix";
 import { Select, LoadingState, EmptyState, Badge, Button, PrintExportButtons } from "@shared/ui";
 import {
   exportRekapSemesterDocx,
@@ -62,12 +63,14 @@ const TAB_LABELS: Record<RekapTab, string> = {
   "absensi-bulanan": "Absensi Bulanan",
   "tatap-muka": "Daftar Hadir Tatap Muka",
   "nilai": "Penilaian Pengetahuan",
+  "jurnal": "Jurnal Mengajar",
 };
 
 const TAB_ROLES: Record<RekapTab, string> = {
   "absensi-bulanan": "Wali Kelas / Guru Piket",
   "tatap-muka": "Guru Mata Pelajaran",
   "nilai": "Guru Mata Pelajaran",
+  "jurnal": "Guru Mata Pelajaran",
 };
 
 /* ------------------------------------------------------------------ */
@@ -116,7 +119,7 @@ export function RekapSemesterPage() {
   // Aggregator hook — reads data from DB
   const aggregator = useSemesterAggregator(rekapContext);
   const {
-    gradeRecords, gradeBook, monthlyMatrices, tatapMukaMatrix,
+    gradeRecords, gradeBook, monthlyMatrices, tatapMukaMatrix, jurnalMatrix,
     loading: aggLoading, error: aggError,
   } = aggregator;
 
@@ -131,12 +134,14 @@ export function RekapSemesterPage() {
   const getPrintTargetId = (): string => {
     if (tab === "absensi-bulanan") return "rekap-absensi-doc";
     if (tab === "tatap-muka") return "rekap-tatapmuka-doc";
+    if (tab === "jurnal") return "rekap-jurnal-doc";
     return "rekap-nilai-doc";
   };
 
   const getPrintDisabled = (): boolean => {
     if (tab === "absensi-bulanan") return !currentMatrix;
     if (tab === "tatap-muka") return !tatapMukaMatrix;
+    if (tab === "jurnal") return !jurnalMatrix;
     return gradeRecords.length === 0;
   };
 
@@ -413,7 +418,7 @@ export function RekapSemesterPage() {
 
         {/* Tab buttons — 3 format */}
         <div className="flex gap-1 bg-slate-100 rounded-lg p-1">
-          {(["absensi-bulanan", "tatap-muka", "nilai"] as RekapTab[]).map((tabKey) => (
+          {(["absensi-bulanan", "tatap-muka", "nilai", "jurnal"] as RekapTab[]).map((tabKey) => (
             <button
               key={tabKey}
               className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
@@ -484,6 +489,23 @@ export function RekapSemesterPage() {
           />
         ) : (
           <EmptyState title="Belum ada data nilai" description="Tidak ada GradeBook untuk assignment terpilih. Input nilai di menu Daftar Nilai dulu." />
+        )
+      )}
+
+      {/* FORMAT-4: Jurnal Mengajar (Guru Mapel) */}
+      {!aggLoading && !aggError && tab === "jurnal" && (
+        jurnalMatrix && jurnalMatrix.rows.length > 0 ? (
+          <JurnalMatrix
+            matrix={jurnalMatrix}
+            school={school}
+            teacherName={teacher?.name}
+            yearLabel={year?.label}
+            classLabel={assignment?.classLabel}
+            subject={assignment?.subject}
+            semester={semester}
+          />
+        ) : (
+          <EmptyState title="Belum ada data jurnal" description="Tidak ada sesi mengajar (LessonSession) untuk assignment terpilih. Generate jadwal di menu Jadwal dulu, atau input jurnal harian." />
         )
       )}
     </div>

@@ -14,7 +14,7 @@ import { listClassRosters } from "@shared/db/class-roster-repo";
 import type { ClassRoster } from "@guru-admin/domain";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@shared/db/schema";
-import type { LessonSession } from "@guru-admin/domain";
+import type { LessonSession, TeachingJournal } from "@guru-admin/domain";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                               */
@@ -48,6 +48,38 @@ export type MonthlyAttendanceMatrix = {
     statusByDate: Record<number, "present" | "sick" | "excused" | "late" | "absent" | null>;
     /** Rekap bulanan */
     rekap: { alpa: number; sakit: number; izin: number; terlambat: number; hadir: number; jlh: number };
+  }>;
+};
+
+/** FORMAT-4: Matriks Jurnal Mengajar — 1 row per pertemuan. (Guru Mata Pelajaran) */
+export type JurnalMatrix = {
+  /** Pertemuan rows — each lesson session + its journal. */
+  rows: Array<{
+    meetingNumber: number; // 1-based
+    dateISO: string;
+    sessionId: string;
+    durationJP: number;
+    /** Planned material from Prota (auto-filled). */
+    plannedMaterialTitle: string | null;
+    /** Actual material taught (guru input). */
+    actualMaterialTitle: string | null;
+    /** Realization status: done/continued/cancelled. */
+    realizationStatus: "done" | "continued" | "cancelled" | null;
+    /** Attendance counts. */
+    presentCount: number;
+    sickCount: number;
+    excusedCount: number;
+    lateCount: number;
+    absentCount: number;
+    totalStudents: number;
+    /** Journal note. */
+    note: string | null;
+    /** Follow-up action. */
+    followUp: string | null;
+    /** Journal document status. */
+    journalStatus: string | null;
+    /** Whether journal exists for this session. */
+    hasJournal: boolean;
   }>;
 };
 
@@ -247,6 +279,27 @@ export function useSemesterAggregator(context: RekapContext | null) {
     });
   }, [context, roster, attendanceRecords]);
 
+  // Live query: all teaching journals for this context
+  const teachingJournals = useLiveQuery(
+    () => context
+      ? db.teachingJournals
+          .where("academicYearId")
+          .equals(context.academicYearId)
+          .toArray()
+          .then((journals) =>
+            journals
+              .filter((j) =>
+                !j.deletedAt &&
+                j.semester === context.semester &&
+                j.classId === context.classId &&
+                j.subject === context.subject &&
+                j.teacherId === context.teacherId
+              ) as TeachingJournal[]
+          )
+      : [],
+    [context?.academicYearId, context?.semester, context?.classId, context?.subject, context?.teacherId]
+  );
+
   // Load lesson sessions for Tatap Muka matrix
   const lessonSessions = useLiveQuery(
     () => context
@@ -334,12 +387,49 @@ export function useSemesterAggregator(context: RekapContext | null) {
     return { meetings, students: studentRows }; // eslint-disable-line no-sequences
   }, [context, roster, lessonSessions, attendanceRecords, gradeBook]);
 
+  // FORMAT-4: Build Jurnal Matrix (1 row per pertemuan)
+  const jurnalMatrix = useMemo<JurnalMatrix | null>(() => {
+    if (!context || !lessonSessions || lessonSessions.length === 0) return null;
+
+    // Build lookup: sessionId → journal
+    const journalBySession = new Map<string, TeachingJournal>();
+    for (const j of (teachingJournals ?? [])) {
+      journalBySession.set(j.sessionId, j);
+    }
+
+    const rows = lessonSessions.map((session, idx) => {
+      const journal = journalBySession.get(session.id);
+      return {
+        meetingNumber: idx + 1,
+        dateISO: session.date,
+        sessionId: session.id,
+        durationJP: session.durationJP,
+        plannedMaterialTitle: journal?.plannedMaterialTitle ?? null,
+        actualMaterialTitle: journal?.actualMaterialTitle ?? null,
+        realizationStatus: journal?.realizationStatus ?? null,
+        presentCount: journal?.presentCount ?? 0,
+        sickCount: journal?.sickCount ?? 0,
+        excusedCount: journal?.excusedCount ?? 0,
+        lateCount: journal?.lateCount ?? 0,
+        absentCount: journal?.absentCount ?? 0,
+        totalStudents: journal?.totalStudents ?? 0,
+        note: journal?.note ?? null,
+        followUp: journal?.followUp ?? null,
+        journalStatus: journal?.status ?? null,
+        hasJournal: !!journal,
+      };
+    });
+
+    return { rows };
+  }, [context, lessonSessions, teachingJournals]);
+
   return {
     gradeRecords: enrichedGradeRecords,
     gradeBook,
     roster,
     monthlyMatrices,
     tatapMukaMatrix,
+    jurnalMatrix,
     lessonSessions,
     loading,
     error,

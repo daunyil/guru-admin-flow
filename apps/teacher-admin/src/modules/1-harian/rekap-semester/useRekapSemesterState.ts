@@ -13,7 +13,7 @@ import { listClassRosters } from "@shared/db/class-roster-repo";
 import { todayISODate } from "@guru-admin/shared";
 import type { RekapContext } from "./hooks/useSemesterAggregator";
 
-export type RekapTab = "absensi-bulanan" | "tatap-muka" | "nilai";
+export type RekapTab = "absensi-bulanan" | "tatap-muka" | "nilai" | "jurnal";
 
 export function useRekapSemesterState() {
   const [loading, setLoading] = useState(true);
