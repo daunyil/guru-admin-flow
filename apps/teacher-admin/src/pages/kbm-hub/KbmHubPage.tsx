@@ -646,38 +646,44 @@ function PresensiContent({ kbm }: { kbm: ReturnType<typeof useKbmHub> }) {
 }
 
 /* ============================================================ */
-/*  Jurnal Content                                               */
+/*  Jurnal Content (Fixed Visual Hierarchy & Auto-Center Tab)   */
 /* ============================================================ */
 
 function JurnalContent({ kbm }: { kbm: ReturnType<typeof useKbmHub> }) {
   return (
-    <div className="space-y-3">
-      {/* ---- A. Realization Status ---- */}
-      <div className="flex items-center justify-between bg-slate-50 rounded-xl p-3">
-        <div>
-          <p className="text-[10px] md:text-xs font-bold text-slate-600 uppercase tracking-wider">Status Keterlaksanaan</p>
-        </div>
+    <div className="space-y-3.5 max-w-full overflow-hidden">
+
+      {/* Realization Status */}
+      <div className="flex items-center justify-between bg-slate-50 rounded-xl p-3 border border-slate-200">
+        <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+          Status Keterlaksanaan
+        </span>
         <select
           value={kbm.realizationStatus}
-          onChange={(e) => kbm.setRealizationStatus(e.target.value as "done" | "continued" | "cancelled")}
-          className={`text-xs font-bold rounded-lg px-2.5 py-2 outline-none border min-h-[44px] ${
+          onChange={(e) =>
+            kbm.setRealizationStatus(
+              e.target.value as "done" | "continued" | "cancelled"
+            )
+          }
+          className={`text-xs font-bold rounded-lg px-3 py-2 outline-none border min-h-[38px] ${
             kbm.realizationStatus === "done"
-              ? "bg-emerald-100 text-emerald-700 border-emerald-200"
+              ? "bg-emerald-100 text-emerald-800 border-emerald-300"
               : kbm.realizationStatus === "continued"
-                ? "bg-amber-100 text-amber-700 border-amber-200"
-                : "bg-rose-100 text-rose-700 border-rose-200"
+                ? "bg-amber-100 text-amber-800 border-amber-300"
+                : "bg-rose-100 text-rose-800 border-rose-300"
           }`}
         >
           {REALIZATION_STATUS_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>{opt.label}</option>
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
           ))}
         </select>
       </div>
 
-      {/* Reason field — shown when not "done" */}
       {kbm.realizationStatus !== "done" && (
         <div>
-          <label className="block text-[10px] md:text-xs font-bold text-slate-600 mb-1">
+          <label className="block text-xs font-bold text-slate-600 mb-1">
             Alasan {kbm.realizationStatus === "continued" ? "Penggantian" : "Ketidaklaksanaan"}
           </label>
           <input
@@ -690,98 +696,123 @@ function JurnalContent({ kbm }: { kbm: ReturnType<typeof useKbmHub> }) {
         </div>
       )}
 
-      {/* ---- B. Copy Journal from previous session ---- */}
+      {/* Salin Jurnal Lalu */}
       <button
         onClick={kbm.handleCopyPreviousJournal}
-        className="w-full bg-blue-50 border border-blue-200 text-blue-700 text-[11px] md:text-xs font-bold py-2.5 rounded-xl active:scale-[0.98] transition-transform flex items-center justify-center gap-1.5 hover:bg-blue-100 min-h-[44px]"
+        className="w-full bg-blue-50 border border-blue-200 text-blue-700 text-xs font-bold py-2.5 rounded-xl active:scale-[0.98] transition-transform flex items-center justify-center gap-1.5 hover:bg-blue-100 min-h-[42px]"
       >
-        <span className="text-sm">📋</span>
+        <span className="text-base">📋</span>
         Salin Jurnal Lalu
       </button>
 
-      {/* ---- C. Materi / TP ---- */}
+      {/* Materi / TP */}
       <div>
-        <label className="block text-[10px] md:text-xs font-bold text-slate-600 mb-1">
+        <label className="block text-xs font-bold text-slate-600 mb-1">
           📌 Materi / Tujuan Pembelajaran
         </label>
         <textarea
           value={kbm.journalInput.actualMaterialTitle}
-          onChange={(e) => kbm.setJournalInput((prev) => ({ ...prev, actualMaterialTitle: e.target.value }))}
+          onChange={(e) =>
+            kbm.setJournalInput((prev) => ({
+              ...prev,
+              actualMaterialTitle: e.target.value,
+            }))
+          }
           placeholder="Tulis materi yang diajarkan..."
           rows={2}
           className="w-full bg-white border border-slate-200 rounded-xl p-3 text-xs md:text-sm text-slate-800 outline-none resize-none focus:ring-2 focus:ring-blue-300"
         />
       </div>
 
-      {/* ---- D. Structured Note — 4 Category Tabs ---- */}
-      <div>
-        <label className="block text-[10px] md:text-xs font-bold text-slate-600 mb-1.5">
+      {/* ========== CATATAN TERSTRUKTUR ========== */}
+      <div className="w-full min-w-0 space-y-2">
+        <label className="block text-xs font-bold text-slate-700">
           📝 Catatan Terstruktur
         </label>
 
-        {/* Horizontal Category Tabs */}
-        <div className="flex gap-1 mb-2 overflow-x-auto no-scrollbar">
-          {STRUCTURED_NOTE_CATEGORIES.map((cat) => {
-            const isActive = kbm.activeCategoryTab === cat.key;
-            const count = kbm.structuredNote[cat.key].length;
-            return (
-              <button
-                key={cat.key}
-                onClick={() => kbm.setActiveCategoryTab(cat.key)}
-                className={`shrink-0 px-3 py-2 rounded-xl text-[10px] md:text-xs font-bold transition-all active:scale-95 whitespace-nowrap min-h-[44px] ${
-                  isActive
-                    ? "bg-blue-600 text-white shadow-sm"
-                    : "bg-slate-100 text-slate-600 border border-slate-200"
-                }`}
-              >
-                {cat.icon} {cat.label}
-                {count > 0 && (
-                  <span className={`ml-1 px-1.5 py-0.5 rounded-full text-[9px] ${
-                    isActive ? "bg-white/20" : "bg-blue-100 text-blue-600"
-                  }`}>
-                    {count}
-                  </span>
-                )}
-              </button>
-            );
-          })}
+        {/* 1. CHIP GRUP / KATEGORI (Segmented Control Style) */}
+        <div className="bg-slate-200/70 p-1.5 rounded-2xl border border-slate-300/60">
+          <div className="flex gap-1.5 overflow-x-auto min-w-0 touch-pan-x scrollbar-none scroll-smooth">
+            {STRUCTURED_NOTE_CATEGORIES.map((cat) => {
+              const isActive = kbm.activeCategoryTab === cat.key;
+              const count = kbm.structuredNote[cat.key].length;
+              return (
+                <button
+                  key={cat.key}
+                  onClick={(e) => {
+                    kbm.setActiveCategoryTab(cat.key);
+                    e.currentTarget.scrollIntoView({
+                      behavior: "smooth",
+                      block: "nearest",
+                      inline: "center",
+                    });
+                  }}
+                  className={`shrink-0 px-3.5 py-2 rounded-xl text-xs font-bold transition-all duration-200 active:scale-95 flex items-center gap-1.5 whitespace-nowrap min-h-[38px] ${
+                    isActive
+                      ? "bg-blue-600 text-white shadow-md shadow-blue-500/20 ring-2 ring-blue-600/30"
+                      : "bg-white/80 text-slate-700 hover:bg-white hover:text-slate-900 border border-slate-200/60"
+                  }`}
+                >
+                  <span className="text-sm">{cat.icon}</span>
+                  <span>{cat.label}</span>
+                  {count > 0 && (
+                    <span
+                      className={`px-1.5 py-0.5 rounded-full text-[10px] font-extrabold ${
+                        isActive
+                          ? "bg-white text-blue-700"
+                          : "bg-blue-100 text-blue-700"
+                      }`}
+                    >
+                      {count}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
-        {/* Chips for active category */}
-        <div className="flex flex-wrap gap-1.5">
-          {STRUCTURED_CHIPS[kbm.activeCategoryTab].map((chip) => {
-            const isActive = kbm.structuredNote[kbm.activeCategoryTab].includes(chip);
-            return (
-              <button
-                key={chip}
-                onClick={() => kbm.toggleStructuredChip(kbm.activeCategoryTab, chip)}
-                className={`px-3 py-2 rounded-full text-[11px] md:text-xs font-bold transition-all active:scale-95 min-h-[44px] ${
-                  isActive
-                    ? "bg-blue-600 text-white shadow-sm"
-                    : "bg-slate-100 text-slate-600 border border-slate-200"
-                }`}
-              >
-                {isActive && "✓ "}{chip}
-              </button>
-            );
-          })}
+        {/* 2. CHIP ISI / SUB-CHIP (Panel Pilihan Khusus) */}
+        <div className="bg-slate-50/80 border border-slate-200 rounded-2xl p-3">
+          <div className="text-[11px] font-semibold text-slate-500 mb-2 flex items-center gap-1">
+            <span>Pilih {STRUCTURED_NOTE_CATEGORIES.find(c => c.key === kbm.activeCategoryTab)?.label}:</span>
+          </div>
+
+          <div className="flex flex-wrap gap-1.5 w-full">
+            {STRUCTURED_CHIPS[kbm.activeCategoryTab].map((chip) => {
+              const isActive = kbm.structuredNote[kbm.activeCategoryTab].includes(chip);
+              return (
+                <button
+                  key={chip}
+                  onClick={() => kbm.toggleStructuredChip(kbm.activeCategoryTab, chip)}
+                  className={`px-3 py-1.5 rounded-xl text-xs transition-all active:scale-95 text-left max-w-full break-words leading-tight ${
+                    isActive
+                      ? "bg-blue-100 text-blue-800 border-2 border-blue-500 font-bold shadow-sm"
+                      : "bg-white text-slate-700 hover:bg-slate-100 border border-slate-200 shadow-2xs"
+                  }`}
+                >
+                  {isActive ? "✓ " : "+ "}{chip}
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
 
-      {/* ---- E. Tidak Hadir (Auto-Sync) ---- */}
+      {/* Tidak Hadir (Auto-Sync) */}
       <div>
-        <label className="block text-[10px] md:text-xs font-bold text-slate-600 mb-1">
+        <label className="block text-xs font-bold text-slate-600 mb-1">
           Tidak Hadir (Auto-Sync dari Presensi)
         </label>
-        <div className="bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs md:text-sm text-slate-500">
+        <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs md:text-sm text-slate-600">
           {kbm.absentList.length > 0 ? kbm.absentList.join(", ") : "Nihil (-)"}
         </div>
       </div>
 
-      {/* ---- F. Narasi Jurnal (Auto-Generated) ---- */}
+      {/* Auto Narasi */}
       {kbm.autoNarasi && (
         <div>
-          <label className="block text-[10px] md:text-xs font-bold text-slate-600 mb-1">
+          <label className="block text-xs font-bold text-slate-600 mb-1">
             📝 Narasi Jurnal
             <span className="text-blue-500 font-normal ml-1">(Auto-Generated)</span>
           </label>
@@ -789,19 +820,21 @@ function JurnalContent({ kbm }: { kbm: ReturnType<typeof useKbmHub> }) {
             value={kbm.autoNarasi}
             readOnly
             rows={3}
-            className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs md:text-sm text-slate-600 outline-none resize-none"
+            className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs md:text-sm text-slate-600 outline-none resize-none"
           />
         </div>
       )}
 
-      {/* ---- G. Catatan Tambahan ---- */}
+      {/* Catatan Tambahan */}
       <div>
-        <label className="block text-[10px] md:text-xs font-bold text-slate-600 mb-1">
+        <label className="block text-xs font-bold text-slate-600 mb-1">
           ✏️ Catatan Tambahan
         </label>
         <textarea
           value={kbm.journalInput.note}
-          onChange={(e) => kbm.setJournalInput((prev) => ({ ...prev, note: e.target.value }))}
+          onChange={(e) =>
+            kbm.setJournalInput((prev) => ({ ...prev, note: e.target.value }))
+          }
           placeholder="Catatan bebas tambahan..."
           rows={2}
           className="w-full bg-white border border-slate-200 rounded-xl p-3 text-xs md:text-sm text-slate-800 outline-none resize-none focus:ring-2 focus:ring-blue-300"
