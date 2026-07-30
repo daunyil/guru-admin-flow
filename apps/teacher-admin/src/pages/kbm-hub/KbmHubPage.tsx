@@ -54,6 +54,18 @@ export function KbmHubPage() {
     kbm.setNotice(null);
   }, [kbm.notice, kbm.setNotice, toast]);
 
+  /* ---- 1a: Unsaved changes guard — beforeunload ---- */
+  useEffect(() => {
+    if (!kbm.isDirty) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      // Modern browsers ignore custom messages, but legacy requires returnValue
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [kbm.isDirty]);
+
   /* ---- Render ---- */
   if (kbm.loading) return <LoadingState />;
   if (!kbm.year) return <EmptyState title="Belum ada tahun pelajaran aktif" />;
@@ -222,6 +234,12 @@ function DesktopHeader({ kbm }: { kbm: ReturnType<typeof useKbmHub> }) {
 function CascadingSelector({ kbm, variant }: { kbm: ReturnType<typeof useKbmHub>; variant: "mobile" | "desktop" }) {
   const isMobile = variant === "mobile";
 
+  /* ---- 1a: Guard selector changes with unsaved data ---- */
+  const guardChange = useCallback((action: () => void) => {
+    if (kbm.isDirty && !window.confirm("Data belum disimpan. Yakin ingin berpindah?")) return;
+    action();
+  }, [kbm.isDirty]);
+
   const selectClass = isMobile
     ? "w-full bg-white/15 backdrop-blur-sm text-white text-sm font-bold rounded-xl p-3 border border-white/20 outline-none focus:bg-white/20 transition-colors min-h-[44px]"
     : "w-full bg-white border border-slate-300 text-slate-800 text-sm font-medium rounded-lg p-2.5 outline-none focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400 transition-colors";
@@ -241,7 +259,7 @@ function CascadingSelector({ kbm, variant }: { kbm: ReturnType<typeof useKbmHub>
           id="select-kelas"
           aria-label="Pilih Kelas"
           value={kbm.selectedClassId ?? ""}
-          onChange={(e) => kbm.setSelectedClassId(e.target.value)}
+          onChange={(e) => guardChange(() => kbm.setSelectedClassId(e.target.value))}
           className={selectClass}
         >
           <option value="" className={optionClass}>Pilih Kelas...</option>
@@ -261,7 +279,7 @@ function CascadingSelector({ kbm, variant }: { kbm: ReturnType<typeof useKbmHub>
             id="select-mapel"
             aria-label="Pilih Mata Pelajaran"
             value={kbm.selectedSubject ?? ""}
-            onChange={(e) => kbm.setSelectedSubject(e.target.value)}
+            onChange={(e) => guardChange(() => kbm.setSelectedSubject(e.target.value))}
             className={selectClass}
           >
             <option value="" className={optionClass}>Pilih Mapel...</option>
@@ -285,9 +303,9 @@ function CascadingSelector({ kbm, variant }: { kbm: ReturnType<typeof useKbmHub>
             onChange={(e) => {
               const val = e.target.value;
               if (val === "__tambahan__") {
-                kbm.handlePertemuanTambahan();
+                guardChange(() => kbm.handlePertemuanTambahan());
               } else {
-                kbm.setSelectedSessionId(val || null);
+                guardChange(() => kbm.setSelectedSessionId(val || null));
               }
             }}
             className={selectClass}
@@ -431,12 +449,18 @@ function EditorView({ kbm }: { kbm: ReturnType<typeof useKbmHub> }) {
     setOpenTab(nextOpen ? tab : null);
   }, []);
 
+  /* ---- 1a: Guard navigation with unsaved changes ---- */
+  const guardNavigate = useCallback((action: () => void) => {
+    if (kbm.isDirty && !window.confirm("Data belum disimpan. Yakin ingin keluar?")) return;
+    action();
+  }, [kbm.isDirty]);
+
   return (
     <div className="space-y-3 md:space-y-4">
       {/* Back button + session info */}
       <div className="flex items-center gap-3">
         <button
-          onClick={kbm.backToDashboard}
+          onClick={() => guardNavigate(kbm.backToDashboard)}
           className="text-xs md:text-sm text-emerald-600 hover:text-emerald-700 font-bold flex items-center gap-1 active:scale-95 transition-transform min-h-[44px] min-w-[44px] justify-center"
         >
           ← Kembali

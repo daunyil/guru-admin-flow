@@ -239,6 +239,19 @@ export function useKbmHub() {
   const [notice, setNotice] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
+  // Dirty tracking — any unsaved edits?
+  const isDirty = useMemo(() => {
+    if (changes.size > 0) return true;
+    if (noteMap.size > 0) return true;
+    if (journalInput.actualMaterialTitle || journalInput.note) return true;
+    if (structuredNote.activities.length > 0 || structuredNote.studentResponse.length > 0 ||
+        structuredNote.obstacle.length > 0 || structuredNote.followUp.length > 0) return true;
+    if (realizationStatus !== "done") return true;
+    if (realizationReason) return true;
+    if (nilaiMap.size > 0) return true;
+    return false;
+  }, [changes, noteMap, journalInput, structuredNote, realizationStatus, realizationReason, nilaiMap]);
+
   /* ================================================================ */
   /*  Computed: Dashboard — today's sessions grouped by class         */
   /* ================================================================ */
@@ -547,7 +560,13 @@ export function useKbmHub() {
           sessionId: session.id, date: session.date, roster: r ?? null,
         });
         setRecords(attRecords);
-        setChanges(new Map());
+        // 2a FIX: Load saved attendance into changes Map so UI reflects actual data,
+        // not default "Hadir". Only set non-present statuses (the interesting ones).
+        const savedChanges = new Map<string, AttendanceStatus>();
+        for (const rec of attRecords) {
+          if (rec.status !== "present") savedChanges.set(rec.studentId, rec.status);
+        }
+        setChanges(savedChanges);
         setNoteMap(new Map());
         const j = await initJournalForSession({ session, attendanceRecords: attRecords });
         setJournal(j);
@@ -697,12 +716,24 @@ export function useKbmHub() {
 
   const saveAll = useCallback(async () => {
     if (!selectedSessionId || !journal || !year || !teacher) return;
+    // 3a: Validate materi — warn if empty
+    if (!journalInput.actualMaterialTitle.trim()) {
+      const confirmed = window.confirm("Materi / Tujuan Pembelajaran masih kosong. Yakin ingin menyimpan?");
+      if (!confirmed) return;
+    }
     setSaving(true);
     try {
+      // Only send attendance changes that differ from the saved records
       if (changes.size > 0) {
         const payload = Array.from(changes.entries()).map(([studentId, status]) => ({ studentId, status }));
         const updated = await updateAttendance(selectedSessionId, payload);
-        setRecords(updated); setChanges(new Map());
+        setRecords(updated);
+        // Rebuild changes from saved data (only non-present)
+        const savedChanges = new Map<string, AttendanceStatus>();
+        for (const rec of updated) {
+          if (rec.status !== "present") savedChanges.set(rec.studentId, rec.status);
+        }
+        setChanges(savedChanges);
       }
       const packedNote = packStructuredNote({
         activities: structuredNote.activities,
@@ -804,7 +835,7 @@ export function useKbmHub() {
     reopenPresensi: () => { setPresensiStep("active"); },
 
     // Status
-    notice, setNotice, saving, saveAll,
+    notice, setNotice, saving, saveAll, isDirty,
 
     // Utility
     todayDate: formatLongDateID(todayISODate()),
