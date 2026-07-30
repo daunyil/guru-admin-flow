@@ -159,7 +159,7 @@ export function KbmKilatPage() {
             Tambahkan kelas dan mata pelajaran terlebih dahulu melalui menu Penugasan Mengajar.
           </p>
           <button
-            onClick={() => window.location.hash = "/assignments"}
+            onClick={() => window.location.hash = "#/assignments"}
             className="bg-amber-600 text-white text-xs font-bold px-4 py-2 rounded-xl active:scale-[0.98] transition-transform"
           >
             Ke Penugasan Mengajar

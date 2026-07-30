@@ -95,7 +95,7 @@ export function KbmHubPage() {
             Tambahkan kelas dan mata pelajaran terlebih dahulu.
           </p>
           <button
-            onClick={() => window.location.hash = "/assignments"}
+            onClick={() => window.location.hash = "#/assignments"}
             className="bg-amber-600 text-white text-xs font-bold px-4 py-2.5 rounded-xl active:scale-[0.98] transition-transform min-h-[44px]"
           >
             Ke Penugasan Mengajar
@@ -889,18 +889,21 @@ function JurnalContent({ kbm }: { kbm: ReturnType<typeof useKbmHub> }) {
         </div>
       </div>
 
-      {/* Auto Narasi */}
+      {/* Auto Narasi — B4-06: editable, pre-fills Catatan Tambahan */}
       {kbm.autoNarasi && (
         <div>
           <label className="block text-xs font-bold text-slate-600 mb-1">
             📝 Narasi Jurnal
-            <span className="text-blue-500 font-normal ml-1">(Auto-Generated)</span>
+            <span className="text-blue-500 font-normal ml-1">(Auto-Generated — bisa diedit)</span>
           </label>
           <textarea
-            value={kbm.autoNarasi}
-            readOnly
+            value={kbm.journalInput.note || kbm.autoNarasi}
+            onChange={(e) =>
+              kbm.setJournalInput((prev) => ({ ...prev, note: e.target.value }))
+            }
             rows={3}
-            className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs md:text-sm text-slate-600 outline-none resize-none"
+            className="w-full bg-white border border-slate-200 rounded-xl p-3 text-xs md:text-sm text-slate-700 outline-none resize-none focus:ring-2 focus:ring-teal-400"
+            placeholder={kbm.autoNarasi}
           />
         </div>
       )}

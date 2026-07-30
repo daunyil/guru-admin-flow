@@ -24,7 +24,6 @@ import { LoadingState } from "./shared/ui";
 // 1-harian (Harian Guru)
 const GradesPage = lazy(() => import("@harian/grades/GradesPage").then((m) => ({ default: m.GradesPage })));
 const RekapSemesterPage = lazy(() => import("@harian/rekap-semester/RekapSemesterPage").then((m) => ({ default: m.RekapSemesterPage })));
-// NOTE: KbmKilatPage di-redirect ke /kbm-hub. File masih ada untuk backward compatibility.
 
 // 2-piket (Guru Piket)
 const DailyDutyPage = lazy(() => import("@piket/daily-duty/DailyDutyPage").then((m) => ({ default: m.DailyDutyPage })));

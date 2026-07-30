@@ -9,10 +9,10 @@
 
 import { Link } from "react-router-dom";
 import { Card, CardHeader, Button, EmptyState, Badge } from "@shared/ui";
-import type { LessonSession } from "@guru-admin/domain";
+import type { LessonSession, AcademicYear } from "@guru-admin/domain";
 
 type TodaySessionsCardProps = {
-  activeYear: unknown;
+  activeYear: AcademicYear | undefined;
   todaySessions: LessonSession[];
   todayAttendanceSessionIds: Set<string>;
   todayJournalSessionIds: Set<string>;

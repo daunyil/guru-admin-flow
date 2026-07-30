@@ -9,13 +9,14 @@ import { getPrimaryNavLabels, getMobileNavLabels, GATE_GROUPS } from "../shared/
 
 describe("NAV-DAILY-GATE-01 — Kontrak menu utama", () => {
   it("Sidebar menampilkan Hari Ini", () => { expect(getPrimaryNavLabels()).toContain("Hari Ini"); });
-  it("Sidebar menampilkan KBM (unified)", () => { expect(getPrimaryNavLabels()).toContain("KBM"); });
-  it("Sidebar menampilkan Nilai", () => { expect(getPrimaryNavLabels()).toContain("Nilai"); });
+  it("Sidebar menampilkan KBM Harian (unified)", () => { expect(getPrimaryNavLabels()).toContain("KBM Harian"); });
+  it("Sidebar menampilkan Daftar Nilai", () => { expect(getPrimaryNavLabels()).toContain("Daftar Nilai"); });
   it("Sidebar menampilkan Rekap Semester", () => { expect(getPrimaryNavLabels()).toContain("Rekap Semester"); });
   it("Sidebar TIDAK menampilkan Absen/Jurnal terpisah (unified ke KBM)", () => {
     const labels = getPrimaryNavLabels();
     expect(labels).not.toContain("Absen");
     expect(labels).not.toContain("Jurnal");
+    expect(labels).not.toContain("Nilai"); // renamed to "Daftar Nilai"
   });
   it("Sidebar TIDAK menampilkan modul besar langsung", () => {
     const labels = getPrimaryNavLabels();
@@ -30,7 +31,7 @@ describe("NAV-DAILY-GATE-01 — Kontrak menu utama", () => {
     expect(labels).not.toContain("Pusat Laporan");
   });
   it("Menu utama tepat 4 item (unified KBM)", () => {
-    expect(getPrimaryNavLabels()).toEqual(["Hari Ini", "KBM", "Nilai", "Rekap Semester"]);
+    expect(getPrimaryNavLabels()).toEqual(["Hari Ini", "KBM Harian", "Daftar Nilai", "Rekap Semester"]);
   });
   it("Mobile nav maksimal 5 item", () => { expect(getMobileNavLabels().length).toBeLessThanOrEqual(5); });
   it("Mobile nav tidak ada Lainnya", () => { expect(getMobileNavLabels()).not.toContain("Lainnya"); });

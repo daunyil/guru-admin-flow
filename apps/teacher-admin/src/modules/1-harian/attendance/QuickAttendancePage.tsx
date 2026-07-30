@@ -323,7 +323,7 @@ export function QuickAttendancePage() {
             <p className="text-sm text-slate-600">{saved.subject} - {saved.classLabel} · {formatLongDateID(saved.date)}</p>
             <p className="text-xs text-slate-500">H: {saved.summary.present} · S: {saved.summary.sick} · I: {saved.summary.excused} · A: {saved.summary.absent}</p>
             <div className="grid grid-cols-2 gap-2 mt-4">
-              <Button onClick={() => { window.location.hash = `#/journal?sessionId=${saved.sessionId}`; }}>Lanjut Isi Jurnal</Button>
+              <Button onClick={() => { window.location.hash = `#/kbm-hub?sessionId=${saved.sessionId}&step=jurnal`; }}>Lanjut Isi Jurnal</Button>
               <Button variant="secondary" onClick={closeSaved}>Tutup</Button>
             </div>
           </div>

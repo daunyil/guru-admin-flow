@@ -60,9 +60,8 @@ export const NAV_GROUPS: NavGroup[] = [
     title: "1 · Harian Guru",
     items: [
       // UNIFIED KBM: 1 halaman untuk semua (Dashboard + Presensi + Jurnal + Nilai)
-      // Absen/Jurnal/Nilai dihapus — semua ada di dalam KBM
-      { to: "/kbm-hub", label: "KBM", icon: Zap, badge: "New", badgeVariant: "info" },
-      { to: "/grades", label: "Nilai", icon: FileSpreadsheet },
+      { to: "/kbm-hub", label: "KBM Harian", icon: Zap },
+      { to: "/grades", label: "Daftar Nilai", icon: FileSpreadsheet },
       { to: "/rekap-semester", label: "Rekap Semester", icon: BarChart3 },
     ],
   },

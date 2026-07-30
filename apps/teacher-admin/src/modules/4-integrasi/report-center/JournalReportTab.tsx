@@ -231,7 +231,7 @@ export function JournalReportTab({
           title="Belum Ada Data Jurnal"
           description="Tidak ada jurnal untuk kelas dan mapel ini. Isi jurnal terlebih dahulu."
           action={
-            <Button variant="secondary" onClick={() => (window.location.hash = "#/journal")}>
+            <Button variant="secondary" onClick={() => (window.location.hash = "#/kbm-hub?step=jurnal")}>
               Buka Halaman Jurnal
             </Button>
           }

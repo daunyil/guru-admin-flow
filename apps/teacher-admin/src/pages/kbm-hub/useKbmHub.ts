@@ -106,6 +106,12 @@ export const STRUCTURED_NOTE_CATEGORIES = [
 ] as const;
 
 export type StructuredNoteCategory = (typeof STRUCTURED_NOTE_CATEGORIES)[number]["key"];
+export type StructuredNoteState = {
+  activities: string[];
+  studentResponse: string[];
+  obstacle: string[];
+  followUp: string[];
+};
 
 /** Quick choices for each structured note category */
 export const STRUCTURED_CHIPS: Record<StructuredNoteCategory, readonly string[]> = {
@@ -268,16 +274,36 @@ export function useKbmHub() {
   const [notice, setNotice] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  // Dirty tracking — any unsaved edits?
+  // B4-02: Dirty tracking — compare against loaded snapshot, not just non-empty.
+  // Without a snapshot, any loaded data (e.g. existing journal title) would
+  // make isDirty always true, causing false "unsaved changes" warnings.
+  const loadedSnapshot = useRef<{
+    changes: Map<string, AttendanceStatus>;
+    noteMap: Map<string, string>;
+    journalInput: { actualMaterialTitle: string; note: string };
+    structuredNote: StructuredNoteState;
+    realizationStatus: JournalRealizationStatus;
+    realizationReason: string;
+    nilaiMap: Map<string, number>;
+  } | null>(null);
+
   const isDirty = useMemo(() => {
-    if (changes.size > 0) return true;
-    if (noteMap.size > 0) return true;
-    if (journalInput.actualMaterialTitle || journalInput.note) return true;
-    if (structuredNote.activities.length > 0 || structuredNote.studentResponse.length > 0 ||
-        structuredNote.obstacle.length > 0 || structuredNote.followUp.length > 0) return true;
-    if (realizationStatus !== "done") return true;
-    if (realizationReason) return true;
-    if (nilaiMap.size > 0) return true;
+    const snap = loadedSnapshot.current;
+    if (!snap) return false; // No session loaded yet → not dirty
+    if (changes.size !== snap.changes.size) return true;
+    for (const [k, v] of changes) { if (snap.changes.get(k) !== v) return true; }
+    if (noteMap.size !== snap.noteMap.size) return true;
+    for (const [k, v] of noteMap) { if (snap.noteMap.get(k) !== v) return true; }
+    if (journalInput.actualMaterialTitle !== snap.journalInput.actualMaterialTitle) return true;
+    if (journalInput.note !== snap.journalInput.note) return true;
+    if (structuredNote.activities.join() !== snap.structuredNote.activities.join()) return true;
+    if (structuredNote.studentResponse.join() !== snap.structuredNote.studentResponse.join()) return true;
+    if (structuredNote.obstacle.join() !== snap.structuredNote.obstacle.join()) return true;
+    if (structuredNote.followUp.join() !== snap.structuredNote.followUp.join()) return true;
+    if (realizationStatus !== snap.realizationStatus) return true;
+    if (realizationReason !== snap.realizationReason) return true;
+    if (nilaiMap.size !== snap.nilaiMap.size) return true;
+    for (const [k, v] of nilaiMap) { if (snap.nilaiMap.get(k) !== v) return true; }
     return false;
   }, [changes, noteMap, journalInput, structuredNote, realizationStatus, realizationReason, nilaiMap]);
 
@@ -416,52 +442,43 @@ export function useKbmHub() {
   const buildDashboardCards = useCallback(async (
     todaySessions: LessonSession[]
   ): Promise<DashboardCard[]> => {
-    const cards: DashboardCard[] = [];
     const meetingCounter: Record<string, number> = {};
 
     const sorted = [...todaySessions].sort(
       (a, b) => a.date.localeCompare(b.date) || a.startPeriod - b.startPeriod
     );
 
-    for (const session of sorted) {
+    // B4-08: Parallel queries — use Promise.all instead of sequential await in loop
+    const enriched = await Promise.all(sorted.map(async (session) => {
       const key = `${session.classId}-${session.subject}`;
       meetingCounter[key] = (meetingCounter[key] ?? 0) + 1;
       const meetingNumber = meetingCounter[key];
 
-      // Check attendance
-      const attRecords = await getAttendanceBySession(session.id);
+      // Both queries run in parallel per session
+      const [attRecords, journal] = await Promise.all([
+        getAttendanceBySession(session.id),
+        getJournalBySession(session.id),
+      ]);
+
       const hasAttendance = attRecords.length > 0;
       const attSummary = hasAttendance ? summarizeAttendance(attRecords) : null;
-
-      // Check journal
-      const journal = await getJournalBySession(session.id);
       const hasJournal = !!journal;
       const journalLocked = journal?.locked ?? false;
 
-      // Determine status
       let status: SessionStatus;
       let statusLabel: string;
       let statusIcon: string;
 
       if (session.status === "done" || journalLocked) {
-        status = "done";
-        statusLabel = "Selesai";
-        statusIcon = "✓";
+        status = "done"; statusLabel = "Selesai"; statusIcon = "✓";
       } else if (hasAttendance && hasJournal) {
-        status = "done";
-        statusLabel = "Selesai";
-        statusIcon = "✓";
+        status = "done"; statusLabel = "Selesai"; statusIcon = "✓";
       } else if (hasAttendance) {
-        status = "partial";
-        statusLabel = "Presensi OK";
-        statusIcon = "◐";
+        status = "partial"; statusLabel = "Presensi OK"; statusIcon = "◐";
       } else {
-        status = "unfilled";
-        statusLabel = "Belum Diisi";
-        statusIcon = "○";
+        status = "unfilled"; statusLabel = "Belum Diisi"; statusIcon = "○";
       }
 
-      // Build attendance summary string
       let attendanceSummary = "";
       if (attSummary) {
         const parts: string[] = [];
@@ -473,7 +490,7 @@ export function useKbmHub() {
         attendanceSummary = parts.join(" ");
       }
 
-      cards.push({
+      return {
         session,
         status,
         statusLabel,
@@ -483,10 +500,10 @@ export function useKbmHub() {
         journalLocked,
         realizationStatus: journal?.realizationStatus ?? "done",
         meetingNumber,
-      });
-    }
+      };
+    }));
 
-    return cards;
+    return enriched;
   }, []);
 
   /* ================================================================ */
@@ -554,7 +571,9 @@ export function useKbmHub() {
       }
     })();
     return () => { cancelled = true; };
-  }, [searchParams, buildDashboardCards]);
+    // B4-03: Only depend on specific param values, not the entire searchParams object
+    // which creates a new reference on every render and causes unnecessary re-inits.
+  }, [searchParams.get("sessionId"), searchParams.get("step"), buildDashboardCards]);
 
   /* ---- Load sessions for selected class+subject ---- */
 
@@ -615,6 +634,7 @@ export function useKbmHub() {
         // No lock/finalize — removed isFinalized
         setActiveCategoryTab("activities");
         const assignment = await findAssignmentForSession(session, year);
+        let loadedNilai = new Map<string, number>(); // B4-01: track loaded nilai separately
         if (assignment) {
           const existingBook = await findGradeBook({
             academicYearId: year.id, teacherId: session.teacherId,
@@ -632,20 +652,36 @@ export function useKbmHub() {
               }
             }
             if (existingNilai.size > 0) {
-              setNilaiMap(existingNilai);
-              setNilaiToggle(true);
+              loadedNilai = existingNilai;
             }
           }
         } else { setGradeBook(null); }
         // Auto-detect: if session already saved, skip to jurnal/nilai
-        // Jurnal & Nilai never locked — always 'active' (or 'done' if already filled)
         const sessionAlreadyDone = session.status === "done";
         const hasJournalContent = !!j.actualMaterialTitle;
         setPresensiStep(sessionAlreadyDone ? "done" : "active");
         setJurnalStep(hasJournalContent ? "done" : "active");
         setNilaiStep("active");
-        setNilaiMap(new Map());
-        setNilaiToggle(false);
+        // B4-01 FIX: Only set nilaiMap/toggle AFTER loading logic, not before.
+        // Previously setNilaiMap(new Map()) was called here unconditionally,
+        // wiping the loaded nilai data.
+        setNilaiMap(loadedNilai);
+        setNilaiToggle(loadedNilai.size > 0);
+        // B4-02: Save loaded snapshot for accurate dirty tracking
+        loadedSnapshot.current = {
+          changes: savedChanges,
+          noteMap: new Map(),
+          journalInput: { actualMaterialTitle: j.actualMaterialTitle ?? "", note: unpacked.freeNote },
+          structuredNote: {
+            activities: unpacked.activities,
+            studentResponse: unpacked.studentResponse ? [unpacked.studentResponse] : [],
+            obstacle: unpacked.obstacle ? [unpacked.obstacle] : [],
+            followUp: j.followUp ? [j.followUp] : [],
+          },
+          realizationStatus: j.realizationStatus ?? "done",
+          realizationReason: "",
+          nilaiMap: loadedNilai,
+        };
       } catch (err) {
         console.error("[useKbmHub] Gagal memuat sesi:", err);
       }

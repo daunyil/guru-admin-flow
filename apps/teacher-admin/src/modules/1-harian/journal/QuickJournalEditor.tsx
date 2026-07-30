@@ -312,7 +312,7 @@ export function QuickJournalEditor({
             <Button
               variant="secondary"
               className="text-xs mt-2"
-              onClick={() => (window.location.hash = `/attendance?sessionId=${session.id}`)}
+              onClick={() => (window.location.hash = `#/kbm-hub?sessionId=${session.id}&step=presensi`)}
             >
               Buat Absensi Dulu
             </Button>
