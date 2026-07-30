@@ -21,7 +21,7 @@
  *   8. No lock/finalize — everything stays editable after save
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
   getLessonSessionsByDate,
@@ -251,6 +251,9 @@ export function useKbmHub() {
     if (nilaiMap.size > 0) return true;
     return false;
   }, [changes, noteMap, journalInput, structuredNote, realizationStatus, realizationReason, nilaiMap]);
+
+  // 2c: Undo support — track last status change for 1-level undo
+  const lastStatusChange = useRef<{ studentId: string; prevStatus: AttendanceStatus } | null>(null);
 
   /* ================================================================ */
   /*  Computed: Dashboard — today's sessions grouped by class         */
@@ -610,9 +613,26 @@ export function useKbmHub() {
   /* ================================================================ */
 
   function setStatus(studentId: string, status: AttendanceStatus) {
+    // 2c: Track previous status for undo
+    const prevStatus = changes.get(studentId) ?? records.find((r) => r.studentId === studentId)?.status ?? "present";
+    lastStatusChange.current = { studentId, prevStatus };
     const next = new Map(changes);
     next.set(studentId, status);
     setChanges(next);
+  }
+
+  function undoLastStatus() {
+    if (!lastStatusChange.current) return;
+    const { studentId, prevStatus } = lastStatusChange.current;
+    const next = new Map(changes);
+    if (prevStatus === "present") {
+      // If reverting to present (default), remove from changes
+      next.delete(studentId);
+    } else {
+      next.set(studentId, prevStatus);
+    }
+    setChanges(next);
+    lastStatusChange.current = null;
   }
 
   function setAllPresent() {
@@ -815,7 +835,7 @@ export function useKbmHub() {
 
     // Attendance
     records, changes, effectiveRecords, summary, absentList,
-    noteMap, setStatus, setAllPresent, setStudentNote, donePresensi,
+    noteMap, setStatus, setAllPresent, setStudentNote, donePresensi, undoLastStatus,
 
     // Journal
     journal, journalInput, setJournalInput,

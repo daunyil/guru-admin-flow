@@ -24,7 +24,7 @@
  * DOMAIN-BOUNDARY: Presentation component only. No DB calls directly.
  */
 
-import { useEffect, memo, useCallback, useState } from "react";
+import { useEffect, memo, useCallback, useRef, useState } from "react";
 import {
   useKbmHub,
   STRUCTURED_NOTE_CATEGORIES,
@@ -32,7 +32,7 @@ import {
   REALIZATION_STATUS_OPTIONS,
   NILAI_TYPE_OPTIONS,
 } from "./useKbmHub";
-import type { DashboardCard, DashboardClassGroup } from "./useKbmHub";
+import type { DashboardCard, DashboardClassGroup, StructuredNoteCategory } from "./useKbmHub";
 import { AccordionCard, StudentRow, MiniStat } from "@shared/ui/mobile";
 import { ATTENDANCE_STATUS_OPTIONS } from "@shared/constants/attendance-status";
 import type { AttendanceStatus } from "@guru-admin/domain";
@@ -573,6 +573,16 @@ type PresensiFilter = "all" | "absent";
 
 function PresensiContent({ kbm }: { kbm: ReturnType<typeof useKbmHub> }) {
   const [filter, setFilter] = useState<PresensiFilter>("all");
+  const listRef = useRef<HTMLDivElement>(null);
+
+  // 2b: Smart scroll — auto-scroll to first absent student on mount
+  useEffect(() => {
+    if (!listRef.current) return;
+    const firstAbsent = listRef.current.querySelector("[data-absent='true']");
+    if (firstAbsent) {
+      firstAbsent.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, []);
 
   // Filter logic: show only absent students when filter is "absent"
   const filteredRecords = filter === "absent"
@@ -604,7 +614,7 @@ function PresensiContent({ kbm }: { kbm: ReturnType<typeof useKbmHub> }) {
         })}
       </div>
 
-      {/* Quick action: Set Semua Hadir + Filter toggle */}
+      {/* Quick action: Set Semua Hadir + Undo + Filter toggle */}
       <div className="flex gap-2">
         <button
           onClick={kbm.setAllPresent}
@@ -612,6 +622,14 @@ function PresensiContent({ kbm }: { kbm: ReturnType<typeof useKbmHub> }) {
         >
           <span className="text-sm">⚡</span>
           Set Semua Hadir
+        </button>
+        {/* 2c: Quick Undo — 1-level undo last status change */}
+        <button
+          onClick={kbm.undoLastStatus}
+          className="shrink-0 bg-amber-50 border border-amber-200 text-amber-700 text-[11px] md:text-xs font-bold py-2.5 px-3 rounded-xl active:scale-[0.98] transition-transform flex items-center gap-1.5 hover:bg-amber-100 min-h-[44px]"
+        >
+          <span className="text-sm">↩️</span>
+          Undo
         </button>
         <button
           onClick={() => setFilter(filter === "absent" ? "all" : "absent")}
@@ -627,7 +645,7 @@ function PresensiContent({ kbm }: { kbm: ReturnType<typeof useKbmHub> }) {
       </div>
 
       {/* Student rows — scrollable (memoized for performance) */}
-      <div className="space-y-1.5 max-h-[50vh] md:max-h-[55vh] overflow-y-auto">
+      <div ref={listRef} className="space-y-1.5 max-h-[50vh] md:max-h-[55vh] overflow-y-auto">
         {filteredRecords.length === 0 ? (
           <div className="text-center py-4 text-xs text-slate-400">
             Semua siswa hadir 🎉
@@ -635,17 +653,20 @@ function PresensiContent({ kbm }: { kbm: ReturnType<typeof useKbmHub> }) {
         ) : (
           filteredRecords.map((r) => {
             const originalIdx = kbm.effectiveRecords.indexOf(r);
+            const currentStatus = kbm.changes.get(r.studentId) ?? r.status;
+            const isAbsent = currentStatus !== "present" && currentStatus !== "late";
             return (
-              <MemoPresensiRow
-                key={r.studentId}
-                studentId={r.studentId}
-                number={r.studentNumber ?? originalIdx + 1}
-                name={r.studentName}
-                currentStatus={kbm.changes.get(r.studentId) ?? r.status}
-                note={kbm.noteMap.get(r.studentId) ?? ""}
-                onStatusChange={kbm.setStatus}
-                onNoteChange={kbm.setStudentNote}
-              />
+              <div key={r.studentId} data-absent={isAbsent ? "true" : undefined}>
+                <MemoPresensiRow
+                  studentId={r.studentId}
+                  number={r.studentNumber ?? originalIdx + 1}
+                  name={r.studentName}
+                  currentStatus={currentStatus}
+                  note={kbm.noteMap.get(r.studentId) ?? ""}
+                  onStatusChange={kbm.setStatus}
+                  onNoteChange={kbm.setStudentNote}
+                />
+              </div>
             );
           })
         )}
@@ -819,6 +840,13 @@ function JurnalContent({ kbm }: { kbm: ReturnType<typeof useKbmHub> }) {
                 </button>
               );
             })}
+
+            {/* 3c: Custom "Lainnya..." input */}
+            <CustomChipInput
+              category={kbm.activeCategoryTab}
+              existingChips={kbm.structuredNote[kbm.activeCategoryTab]}
+              onAdd={kbm.toggleStructuredChip}
+            />
           </div>
         </div>
       </div>
@@ -1083,3 +1111,67 @@ const MemoPresensiRow = memo(function MemoPresensiRow({
     </div>
   );
 });
+
+/* ============================================================ */
+/*  3c: Custom Chip Input — "Lainnya..." for structured notes    */
+/* ============================================================ */
+
+function CustomChipInput({
+  category,
+  existingChips,
+  onAdd,
+}: {
+  category: StructuredNoteCategory;
+  existingChips: readonly string[];
+  onAdd: (category: StructuredNoteCategory, chip: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [value, setValue] = useState("");
+
+  const handleSubmit = useCallback(() => {
+    const trimmed = value.trim();
+    if (trimmed && !existingChips.includes(trimmed)) {
+      onAdd(category, trimmed);
+    }
+    setValue("");
+    setOpen(false);
+  }, [value, existingChips, onAdd, category]);
+
+  if (!open) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        className="px-3 py-1.5 rounded-xl text-xs transition-all active:scale-95 bg-white text-slate-500 hover:bg-slate-100 border border-dashed border-slate-300 min-h-[32px]"
+      >
+        + Lainnya...
+      </button>
+    );
+  }
+
+  return (
+    <div className="flex gap-1.5 items-center">
+      <input
+        type="text"
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onKeyDown={(e) => { if (e.key === "Enter") handleSubmit(); if (e.key === "Escape") { setOpen(false); setValue(""); } }}
+        placeholder="Ketik custom..."
+        autoFocus
+        className="px-2.5 py-1.5 rounded-xl text-xs bg-white border border-blue-300 outline-none focus:ring-2 focus:ring-blue-300 w-32 min-h-[32px]"
+      />
+      <button
+        onClick={handleSubmit}
+        disabled={!value.trim()}
+        className="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-blue-600 text-white active:scale-95 disabled:opacity-40 min-h-[32px]"
+      >
+        ✓
+      </button>
+      <button
+        onClick={() => { setOpen(false); setValue(""); }}
+        className="px-2.5 py-1.5 rounded-xl text-xs bg-slate-100 text-slate-500 active:scale-95 min-h-[32px]"
+      >
+        ✕
+      </button>
+    </div>
+  );
+}
