@@ -5,13 +5,20 @@
  *
  * States:
  *   - pending: grayed out, cannot open, step number shown
- *   - active: auto-open, blue step indicator, clickable
+ *   - active: auto-open, colored step indicator, clickable
  *   - done: collapsed with checkmark, green indicator, clickable to re-open
+ *
+ * V2: Added stepColor prop for color-coded step indicators.
+ *   - "green"  → Step 1 (Presensi)
+ *   - "blue"   → Step 2 (Jurnal)
+ *   - "amber"  → Step 3 (Nilai)
+ *   - default  → blue
  */
 
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useState } from "react";
 
 export type StepState = "pending" | "active" | "done";
+export type StepColor = "green" | "blue" | "amber" | "slate";
 
 interface AccordionCardProps {
   step: number;
@@ -19,8 +26,37 @@ interface AccordionCardProps {
   subtitle: string;
   state: StepState;
   defaultOpen?: boolean;
+  /** Controlled open state — when provided, component becomes controlled */
+  open?: boolean;
+  /** Callback when user toggles the accordion (only in controlled mode) */
+  onToggle?: (open: boolean) => void;
+  /** Color theme for the step indicator. Default: "blue" */
+  stepColor?: StepColor;
   children: ReactNode;
 }
+
+const STEP_COLOR_MAP: Record<StepColor, { active: string; done: string; icon: string }> = {
+  green: {
+    active: "bg-emerald-100 text-emerald-700",
+    done: "bg-emerald-100 text-emerald-700",
+    icon: "🟢",
+  },
+  blue: {
+    active: "bg-blue-100 text-blue-700",
+    done: "bg-emerald-100 text-emerald-700",
+    icon: "🔵",
+  },
+  amber: {
+    active: "bg-amber-100 text-amber-700",
+    done: "bg-emerald-100 text-emerald-700",
+    icon: "⚪",
+  },
+  slate: {
+    active: "bg-slate-100 text-slate-700",
+    done: "bg-emerald-100 text-emerald-700",
+    icon: "⚪",
+  },
+};
 
 export function AccordionCard({
   step,
@@ -28,27 +64,41 @@ export function AccordionCard({
   subtitle,
   state,
   defaultOpen = false,
+  open: controlledOpen,
+  onToggle,
+  stepColor = "blue",
   children,
 }: AccordionCardProps) {
-  const [open, setOpen] = useState(defaultOpen);
+  const [internalOpen, setInternalOpen] = useState(defaultOpen);
+  const isControlled = controlledOpen !== undefined;
+  const open = isControlled ? controlledOpen : internalOpen;
 
-  // Auto-open when state becomes active
+  const handleToggle = useCallback(() => {
+    if (isControlled) {
+      onToggle?.(!open);
+    } else {
+      setInternalOpen((prev) => !prev);
+    }
+  }, [isControlled, onToggle, open]);
+
+  // Auto-open when state becomes active (only in uncontrolled mode)
   useEffect(() => {
-    if (state === "active") setOpen(true);
-  }, [state]);
+    if (!isControlled && state === "active") setInternalOpen(true);
+  }, [state, isControlled]);
 
   const isDone = state === "done";
   const isPending = state === "pending";
+  const colorConfig = STEP_COLOR_MAP[stepColor];
 
   return (
     <div
-      className={`bg-white rounded-2xl shadow-sm border overflow-hidden transition-all ${
+      className={`bg-white rounded-2xl shadow-sm border overflow-hidden transition-all mb-3 ${
         isPending ? "border-slate-100 opacity-60" : "border-slate-200"
       }`}
     >
       {/* Header */}
       <button
-        onClick={() => !isPending && setOpen(!open)}
+        onClick={() => !isPending && handleToggle()}
         disabled={isPending}
         className={`w-full p-4 text-left flex justify-between items-center bg-white active:scale-[0.99] transition-transform ${
           isPending ? "cursor-not-allowed" : "cursor-pointer"
@@ -62,7 +112,7 @@ export function AccordionCard({
                 ? "bg-emerald-100 text-emerald-700"
                 : isPending
                   ? "bg-slate-100 text-slate-400"
-                  : "bg-blue-100 text-blue-700"
+                  : colorConfig.active
             }`}
           >
             {isDone ? "✓" : step}

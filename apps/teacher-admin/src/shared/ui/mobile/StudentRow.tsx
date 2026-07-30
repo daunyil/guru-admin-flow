@@ -3,6 +3,9 @@
  *
  * Used by: KBM Kilat (Presensi step), MobileAttendancePage.
  * Replaces 2 inline implementations with unified styling.
+ *
+ * V2: Improved touch targets, better visual hierarchy,
+ *     active status button uses full color from ATTENDANCE_STATUS_OPTIONS.
  */
 
 import { ATTENDANCE_STATUS_OPTIONS, INACTIVE_STATUS_BTN } from "@shared/constants/attendance-status";
@@ -36,30 +39,33 @@ export function StudentRow({
     : ATTENDANCE_STATUS_OPTIONS.filter((o) => o.value !== "late");
 
   return (
-    <div className="flex items-center justify-between p-2 bg-white rounded-xl border border-slate-200">
+    <div className={`flex items-center justify-between bg-white rounded-xl border border-slate-200 ${
+      compact ? "px-2.5 py-2" : "px-3 py-2.5"
+    }`}>
       <span
         className={`font-semibold text-slate-700 truncate ${
-          compact ? "text-xs w-28" : "text-sm w-32"
+          compact ? "text-[11px] w-28" : "text-sm w-32"
         }`}
       >
         {number}. {name}
       </span>
       <div className="flex gap-1">
-        {options.map((opt) => (
-          <button
-            key={opt.value}
-            onClick={() => onStatusChange(opt.value)}
-            className={`rounded-lg font-bold transition-all active:scale-95 ${
-              compact ? "px-2.5 py-1 text-xs" : "px-3 py-1.5 text-sm"
-            } ${
-              status === opt.value ? opt.color : INACTIVE_STATUS_BTN
-            }`}
-            aria-label={`${opt.label} ${name}`}
-            aria-pressed={status === opt.value}
-          >
-            {opt.short}
-          </button>
-        ))}
+        {options.map((opt) => {
+          const isActive = status === opt.value;
+          return (
+            <button
+              key={opt.value}
+              onClick={() => onStatusChange(opt.value)}
+              className={`rounded-lg font-bold transition-all active:scale-95 ${
+                compact ? "px-2 py-1 text-[10px]" : "px-3 py-1.5 text-sm"
+              } ${isActive ? opt.color : INACTIVE_STATUS_BTN}`}
+              aria-label={`${opt.label} ${name}`}
+              aria-pressed={isActive}
+            >
+              {opt.short}
+            </button>
+          );
+        })}
       </div>
     </div>
   );

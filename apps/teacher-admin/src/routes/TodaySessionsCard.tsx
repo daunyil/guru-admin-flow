@@ -1,5 +1,10 @@
 /**
  * TodaySessionsCard — card displaying today's teaching sessions.
+ *
+ * UNIFIED KBM: All links now go to /kbm-hub (single entry point).
+ * - /attendance?sessionId= → /kbm-hub?sessionId= (redirect handled by App.tsx)
+ * - /journal?sessionId= → /kbm-hub?sessionId= (redirect handled by App.tsx)
+ * - /kbm-kilat → /kbm-hub (redirect handled by App.tsx)
  */
 
 import { Link } from "react-router-dom";
@@ -39,19 +44,17 @@ export function TodaySessionsCard({
           action={
             <div className="flex gap-2">
               <Link to="/new-year"><Button variant="secondary">Buat Tahun Pelajaran</Button></Link>
-              <Link to="/attendance?mode=susulan"><Button variant="secondary">Absen Susulan</Button></Link>
-              <Link to="/journal?mode=manual"><Button variant="secondary">Jurnal Manual</Button></Link>
+              <Link to="/kbm-hub"><Button variant="secondary">KBM</Button></Link>
             </div>
           }
         />
       ) : todaySessions.length === 0 ? (
         <EmptyState
           title="Tidak ada jadwal mengajar hari ini"
-          description="Tidak masalah. Anda bisa absen susulan atau buat jurnal manual kapan saja."
+          description="Tidak masalah. Gunakan KBM untuk mengisi sesi lain atau buat pertemuan tambahan."
           action={
             <div className="flex gap-2">
-              <Link to="/attendance?mode=susulan"><Button variant="secondary">Absen Susulan</Button></Link>
-              <Link to="/journal?mode=manual"><Button variant="secondary">Jurnal Manual</Button></Link>
+              <Link to="/kbm-hub"><Button>KBM</Button></Link>
             </div>
           }
         />
@@ -91,11 +94,8 @@ export function TodaySessionsCard({
                   </div>
                   {s.status === "planned" && (
                     <div className="flex flex-col gap-1 shrink-0">
-                      <Link to={`/attendance?sessionId=${s.id}`}>
-                        <Button variant="secondary" className="text-xs px-3 py-1.5">Absen</Button>
-                      </Link>
-                      <Link to={`/journal?sessionId=${s.id}`}>
-                        <Button className="text-xs px-3 py-1.5">Jurnal</Button>
+                      <Link to={`/kbm-hub?sessionId=${s.id}`}>
+                        <Button variant="secondary" className="text-xs px-3 py-1.5">KBM</Button>
                       </Link>
                     </div>
                   )}

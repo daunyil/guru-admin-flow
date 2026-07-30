@@ -1,5 +1,9 @@
 /**
  * QuickAttendancePage shared types and constants.
+ *
+ * statusButtons has been REMOVED — use ATTENDANCE_STATUS_OPTIONS from
+ * @shared/constants/attendance-status instead.
+ * It provides .color (equivalent to old .active) + .short + .label + .textColor.
  */
 
 import type { summarizeAttendance, AttendanceStatus } from "@guru-admin/domain";
@@ -7,8 +11,8 @@ import type { summarizeAttendance, AttendanceStatus } from "@guru-admin/domain";
 /** Attendance status values — sourced from domain. */
 export type Status = AttendanceStatus;
 
-/** Sidebar mode: regular schedule vs make-up (susulan). */
-export type Mode = "jadwal" | "susulan";
+/** Sidebar mode: regular schedule vs make-up (susulan) vs free-form (manual). */
+export type Mode = "jadwal" | "susulan" | "manual";
 
 /** Info returned after a successful save, used for the toast notification. */
 export type SaveInfo = {
@@ -19,11 +23,8 @@ export type SaveInfo = {
   summary: ReturnType<typeof summarizeAttendance>;
 };
 
-/** Status toggle buttons config for the attendance editor. */
-export const statusButtons: Array<{ value: AttendanceStatus; short: string; active: string }> = [
-  { value: "present", short: "H", active: "bg-brand-600 text-white" },
-  { value: "sick", short: "S", active: "bg-amber-500 text-white" },
-  { value: "excused", short: "I", active: "bg-slate-500 text-white" },
-  { value: "late", short: "T", active: "bg-orange-500 text-white" },
-  { value: "absent", short: "A", active: "bg-rose-600 text-white" },
-];
+/**
+ * @deprecated Use ATTENDANCE_STATUS_OPTIONS from @shared/constants/attendance-status instead.
+ * This re-export is kept for backward compatibility during migration.
+ */
+export { ATTENDANCE_STATUS_OPTIONS as statusButtons } from "@shared/constants/attendance-status";

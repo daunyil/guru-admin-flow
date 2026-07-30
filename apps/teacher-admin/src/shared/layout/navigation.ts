@@ -19,8 +19,6 @@
 
 import { FEATURE_FLAGS } from "@guru-admin/shared";
 import {
-  CheckCircle,
-  BookOpen,
   FileSpreadsheet,
   ClipboardList,
   BookMarked,
@@ -35,7 +33,7 @@ import {
 export interface NavItem {
   to: string;
   label: string;
-  icon: typeof CheckCircle;
+  icon: typeof Zap;
   badge?: string;         // e.g. "Sprint 4", "New"
   badgeVariant?: "info" | "success" | "warning";
 }
@@ -61,13 +59,11 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     title: "1 · Harian Guru",
     items: [
-      { to: "/attendance", label: "Absen", icon: CheckCircle },
-      { to: "/journal", label: "Jurnal", icon: BookOpen },
+      // UNIFIED KBM: 1 halaman untuk semua (Dashboard + Presensi + Jurnal + Nilai)
+      // Absen/Jurnal/Nilai dihapus — semua ada di dalam KBM
+      { to: "/kbm-hub", label: "KBM", icon: Zap, badge: "New", badgeVariant: "info" },
       { to: "/grades", label: "Nilai", icon: FileSpreadsheet },
-      // SPRINT-4: Rekap Semester — 3 format: Absensi Bulanan (Wali Kelas), Daftar Hadir Tatap Muka (Guru Mapel), Penilaian Pengetahuan (Guru Mapel)
-      { to: "/rekap-semester", label: "Rekap Semester", icon: BarChart3, badge: "Sprint 7", badgeVariant: "success" },
-      // SPRINT-8: KBM Kilat — accordion flow cepat isi KBM (Presensi → Jurnal → Nilai)
-      { to: "/kbm-kilat", label: "KBM Kilat", icon: Zap, badge: "New", badgeVariant: "warning" },
+      { to: "/rekap-semester", label: "Rekap Semester", icon: BarChart3 },
     ],
   },
   {
@@ -106,8 +102,8 @@ export const NAV_GROUPS: NavGroup[] = [
 
 export const MOBILE_PRIMARY: NavItem[] = [
   { to: "/", label: "Home", icon: Home },
-  { to: "/attendance", label: "Absen", icon: CheckCircle },
-  { to: "/journal", label: "Jurnal", icon: BookOpen },
+  // UNIFIED KBM: 1 tombol untuk semua kebutuhan KBM
+  { to: "/kbm-hub", label: "KBM", icon: Zap },
   { to: "/grades", label: "Nilai", icon: FileSpreadsheet },
   ...(FEATURE_FLAGS.dailyDuty
     ? [{ to: "/piket", label: "Piket", icon: ClipboardList }]

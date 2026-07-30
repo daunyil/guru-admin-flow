@@ -54,6 +54,10 @@ export function QuickAttendancePage() {
     handleSaveDoc,
     handleSetFinal,
     handleOrientationChange,
+    // Manual attendance
+    showEmergencyOptions,
+    setShowEmergencyOptions,
+    handleStartManualAttendance,
   } = state;
 
   /* ---------------------------------------------------------------- */
@@ -110,6 +114,13 @@ export function QuickAttendancePage() {
           <div className="flex gap-2 mt-2 flex-wrap">
             <Button variant={mode === "jadwal" ? "primary" : "secondary"} onClick={() => { setMode("jadwal"); setSelectedSessionId(null); }} className="text-xs">Reguler</Button>
             <Button variant={mode === "susulan" ? "primary" : "secondary"} onClick={() => { setMode("susulan"); setSelectedSessionId(null); }} className="text-xs">Susulan</Button>
+            <Button
+              variant={showEmergencyOptions ? "danger" : "secondary"}
+              onClick={() => setShowEmergencyOptions(!showEmergencyOptions)}
+              className="text-xs"
+            >
+              {showEmergencyOptions ? "▲" : "▼"} Opsi
+            </Button>
           </div>
         </div>
 
@@ -172,6 +183,53 @@ export function QuickAttendancePage() {
             )}
             {assignmentId && allSessions.length === 0 && (
               <p className="text-xs text-amber-600 italic mt-2">Belum ada sesi untuk kelas dan mapel ini. Buat jadwal mengajar terlebih dahulu.</p>
+            )}
+          </div>
+        )}
+        {/* -- Opsi Darurat (Manual) -- */}
+        {showEmergencyOptions && (
+          <div className="doc-sidebar-section">
+            <h3 className="doc-sidebar-section-title">Opsi Darurat</h3>
+            {!assignment() ? (
+              <p className="text-xs text-slate-400 italic">Pilih Kelas dan Mapel terlebih dahulu.</p>
+            ) : (
+              <>
+                <p className="text-xs text-amber-800 mb-2">
+                  Hanya untuk kondisi bila sesi tidak tersedia di jadwal.
+                </p>
+                <Button
+                  variant={mode === "manual" ? "primary" : "secondary"}
+                  onClick={() => setMode("manual")}
+                  className="text-xs w-full"
+                >
+                  Absen di Luar Jadwal
+                </Button>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* -- Mode Manual CTA -- */}
+        {mode === "manual" && (
+          <div className="doc-sidebar-section">
+            <h3 className="doc-sidebar-section-title">Absen Manual</h3>
+            {!assignment() ? (
+              <div>
+                <p className="text-xs text-slate-400 italic mb-2">Pilih Kelas dan Mapel untuk absen manual.</p>
+                <Select label="Kelas dan Mapel" id="manual-asg" value={assignmentId} onChange={(v) => { setAssignmentId(v); setSelectedSessionId(null); }} options={[{ value: "", label: "-- Pilih --" }, ...assignments.map((a) => ({ value: a.id, label: `${a.classLabel} · ${a.subject}` }))]} />
+              </div>
+            ) : (
+              <>
+                <p className="text-xs text-amber-800 mb-2">
+                  {assignment()?.classLabel} · {assignment()?.subject} · {formatLongDateID(date)}
+                </p>
+                <Button onClick={handleStartManualAttendance} className="text-xs w-full">
+                  Mulai Absen Manual
+                </Button>
+                <p className="text-[10px] text-slate-400 mt-1">
+                  Sesi manual yang sudah ada akan dipakai ulang.
+                </p>
+              </>
             )}
           </div>
         )}

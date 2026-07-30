@@ -7,8 +7,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { getLessonSessionsByDate, listLessonSessions } from "@shared/db/lesson-session-repo";
+import { getLessonSessionsByDate, listLessonSessions, findOrCreateManualSession } from "@shared/db/lesson-session-repo";
 import { getAttendanceBySession } from "@shared/db/attendance-repo";
+import { findClassRoster } from "@shared/db/class-roster-repo";
 import { db } from "@shared/db/schema";
 import { getActiveAcademicYear, getTeacherProfile } from "@shared/db/profile-repo";
 import { listAssignmentsByTeacher } from "@shared/db/teaching-assignment-repo";
@@ -28,6 +29,7 @@ export function useQuickAttendanceState() {
   const [year, setYear] = useState<AcademicYear | null>(null);
   const [teacher, setTeacher] = useState<TeacherProfile | undefined>();
   const [mode, setMode] = useState<Mode>("jadwal");
+  const [showEmergencyOptions, setShowEmergencyOptions] = useState(false);
   const [date, setDate] = useState(todayISODate());
   const [sessions, setSessions] = useState<LessonSession[]>([]);
   const [assignments, setAssignments] = useState<TeachingAssignment[]>([]);
@@ -69,7 +71,9 @@ export function useQuickAttendanceState() {
       }
       const sid = searchParams.get("sessionId");
       if (sid) setSelectedSessionId(sid);
-      if (searchParams.get("mode") === "susulan") setMode("susulan");
+      const urlMode = searchParams.get("mode");
+      if (urlMode === "susulan") setMode("susulan");
+      else if (urlMode === "manual") setMode("manual");
     } catch (err) {
       console.error("[QuickAttendance] Gagal init:", err);
       setNotice("Gagal memuat data. Coba muat ulang.");
@@ -219,6 +223,44 @@ export function useQuickAttendanceState() {
   }, [assignmentId, docSemester, year?.label, allSessions.length, doneIds.size]);
 
   /* ---------------------------------------------------------------- */
+  /*  Manual attendance (tanpa terikat jadwal)                        */
+  /* ---------------------------------------------------------------- */
+
+  /**
+   * handleStartManualAttendance — Buat absen manual tanpa jadwal.
+   *
+   * Mirip dengan Journal's handleStartManualJournal:
+   *   1. Cari atau buat LessonSession manual via findOrCreateManualSession()
+   *   2. Set selectedSessionId → AttendanceEditor akan terbuka
+   */
+  async function handleStartManualAttendance() {
+    const asg = assignment();
+    if (!year || !teacher || !asg) {
+      setNotice("Pilih Kelas dan Mapel terlebih dahulu.");
+      return;
+    }
+    try {
+      const roster = await findClassRoster(year.id, asg.classId);
+      if (!roster) {
+        setNotice("Belum ada daftar siswa untuk kelas ini. Buat dulu di menu Kelas & Mapel.");
+        return;
+      }
+      const { session } = await findOrCreateManualSession({
+        mode: "manual",
+        academicYear: year,
+        teacherId: teacher.id,
+        roster,
+        subject: asg.subject,
+        date,
+      });
+      setSelectedSessionId(session.id);
+    } catch (err) {
+      console.error("[QuickAttendance] Gagal buat sesi manual:", err);
+      setNotice("Gagal membuat sesi absen manual. Coba lagi.");
+    }
+  }
+
+  /* ---------------------------------------------------------------- */
   /*  Return                                                          */
   /* ---------------------------------------------------------------- */
 
@@ -261,5 +303,9 @@ export function useQuickAttendanceState() {
     handleSaveDoc,
     handleSetFinal,
     handleOrientationChange,
+    // Manual attendance
+    showEmergencyOptions,
+    setShowEmergencyOptions,
+    handleStartManualAttendance,
   };
 }

@@ -10,8 +10,8 @@ import { findClassRoster } from "@shared/db/class-roster-repo";
 import { generateDefaultAttendance, summarizeAttendance } from "@guru-admin/domain";
 import type { AcademicYear, AttendanceRecord, ClassRoster, LessonSession } from "@guru-admin/domain";
 import { formatLongDateID, nowTimestamp } from "@guru-admin/shared";
+import { ATTENDANCE_STATUS_OPTIONS, INACTIVE_STATUS_BTN } from "@shared/constants/attendance-status";
 import type { Status, SaveInfo } from "./quick-attendance-types";
-import { statusButtons } from "./quick-attendance-types";
 
 interface AttendanceEditorProps {
   sessionId: string;
@@ -72,25 +72,30 @@ export function AttendanceEditor({ sessionId, date, year, onSaved, onError }: At
         <h3 className="text-sm font-bold text-slate-900">Absensi — {roster.classLabel}</h3>
         <p className="text-xs text-slate-500">{session?.subject ?? "Mapel"} · {formatLongDateID(session?.date ?? date)}</p>
       </div>
+      {/* Summary stats — using unified ATTENDANCE_STATUS_OPTIONS */}
       <div className="grid grid-cols-5 gap-2 mb-4 text-center no-print">
-        <div className="p-2 bg-brand-50 rounded"><span className="font-bold text-brand-700">H {summary.present}</span></div>
-        <div className="p-2 bg-amber-50 rounded"><span className="font-bold text-amber-700">S {summary.sick}</span></div>
-        <div className="p-2 bg-slate-100 rounded"><span className="font-bold text-slate-600">I {summary.excused}</span></div>
-        <div className="p-2 bg-orange-50 rounded"><span className="font-bold text-orange-700">T {summary.late}</span></div>
-        <div className="p-2 bg-rose-50 rounded"><span className="font-bold text-rose-700">A {summary.absent}</span></div>
+        {ATTENDANCE_STATUS_OPTIONS.map((opt) => {
+          const key = opt.value as keyof typeof summary;
+          return (
+            <div key={opt.value} className="p-2 rounded">
+              <span className={`font-bold ${opt.textColor}`}>{opt.short} {summary[key] as number}</span>
+            </div>
+          );
+        })}
       </div>
+      {/* Student rows — using unified ATTENDANCE_STATUS_OPTIONS */}
       <div className="space-y-2 max-h-96 overflow-y-auto no-print">
         {records.map((r) => (
           <div key={r.id} className="p-2 border rounded-md flex items-center justify-between gap-2">
             <span className="text-sm font-medium truncate">{r.studentNumber ?? ""}. {r.studentName}</span>
             <div className="flex gap-1">
-              {statusButtons.map((s) => (
+              {ATTENDANCE_STATUS_OPTIONS.map((opt) => (
                 <button
-                  key={s.value}
-                  onClick={() => { const m = new Map(changes); m.set(r.studentId, s.value); setChanges(m); }}
-                  className={`px-3 py-1.5 text-xs rounded-md font-bold ${eff(r) === s.value ? s.active : "bg-slate-100"}`}
+                  key={opt.value}
+                  onClick={() => { const m = new Map(changes); m.set(r.studentId, opt.value); setChanges(m); }}
+                  className={`px-3 py-1.5 text-xs rounded-md font-bold transition-all active:scale-95 ${eff(r) === opt.value ? opt.color : INACTIVE_STATUS_BTN}`}
                 >
-                  {s.short}
+                  {opt.short}
                 </button>
               ))}
             </div>

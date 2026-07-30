@@ -138,27 +138,6 @@
   .siakad-title {
     @apply text-[11px] font-extrabold uppercase tracking-[0.08em] text-brand-800 mb-4;
   }
-  .siakad-student-row {
-    @apply bg-white rounded-2xl border border-slate-100 px-3 py-2 flex items-center justify-between gap-2 shadow-sm;
-  }
-  .abs-status-btn {
-    @apply w-10 h-10 rounded-xl border-2 border-slate-200 bg-white text-xs font-extrabold text-slate-400 active:scale-95 transition;
-  }
-  .abs-status-btn.active-present {
-    @apply bg-emerald-600 border-emerald-600 text-white;
-  }
-  .abs-status-btn.active-sick {
-    @apply bg-blue-600 border-blue-600 text-white;
-  }
-  .abs-status-btn.active-excused {
-    @apply bg-amber-500 border-amber-500 text-white;
-  }
-  .abs-status-btn.active-late {
-    @apply bg-orange-500 border-orange-500 text-white;
-  }
-  .abs-status-btn.active-absent {
-    @apply bg-rose-600 border-rose-600 text-white;
-  }
   .report-table {
     width: 100%;
     border-collapse: collapse;

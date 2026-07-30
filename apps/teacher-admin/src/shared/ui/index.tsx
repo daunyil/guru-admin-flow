@@ -8,6 +8,7 @@ import { type ReactNode } from "react";
 export { ContextCard, InfoCard } from "./ContextCard";
 export { downloadHTML, generateStandaloneHTML } from "./html-export";
 export { PrintExportButtons } from "./PrintExportButtons";
+export { Toast, useToast, type ToastState, type ToastVariant, type UseToastReturn } from "./Toast";
 
 export function Card({ children, className = "" }: { children: ReactNode; className?: string }) {
   return <div className={`card p-5 ${className}`}>{children}</div>;

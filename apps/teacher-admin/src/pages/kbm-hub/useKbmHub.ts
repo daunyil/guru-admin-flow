@@ -1,25 +1,24 @@
 /**
- * useKbmSession — Unified state hook for KBM Kilat flow.
+ * useKbmHub — Unified state hook for KBM Hub (Clean Break module).
  *
- * V4: REFACTOR TOTAL & COMPLETION
- *   - Realization Status (Terlaksana / Tidak Terlaksana / Diganti)
- *   - Copy Journal from previous session
- *   - Structured Note with 4 Category Tabs (Aktivitas, Respons, Hambatan, Tindak Lanjut)
- *   - Journal Finalize & Lock (isFinalized / locked)
- *   - Read-only mode when locked
- *   - MULAI KBM SESI INI action button
+ * STRATEGI CLEAN BREAK: Modul baru terisolasi dari UI legacy.
+ *   - TIDAK mengedit komponen UI legacy (AttendancePage, JournalPage, dll).
+ *   - Mengimpor fungsi DB/services yang SUDAH ADA di project.
+ *   - Tidak membuat fungsi DB baru dari nol.
+ *
+ * UNIFIED UX: 1 halaman KBM untuk semua kebutuhan guru:
+ *   - Dashboard sesi hari ini (status overview)
+ *   - Editor KBM (Presensi → Jurnal → Nilai → Simpan/Finalisasi)
  *
  * Data flow:
  *   1. Init: load year, teacher, assignments (ALWAYS available)
- *   2. Cascading: Kelas → Mapel → Sesi (from assignments, not sessions)
+ *   2. Dashboard: today's sessions with status (done/partial/unfilled)
  *   3. Select session → initAttendance + initJournal
- *   4. Presensi: changes Map → donePresensi (auto-generate narasi)
+ *   4. Presensi: changes Map → donePresensi
  *   5. Jurnal: structured note (4 categories) + narasi → doneJurnal
  *   6. Nilai (optional): toggle ON → nilaiMap
  *   7. saveAll → attendance-repo + journal-repo + gradebook-repo
- *   8. Finalize → lock journal + all steps
- *
- * DOMAIN-BOUNDARY: Module 1-harian, presentation hook only.
+ *   8. No lock/finalize — everything stays editable after save
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -34,12 +33,12 @@ import {
 import {
   initAttendanceForSession,
   updateAttendance,
+  getAttendanceBySession,
 } from "@shared/db/attendance-repo";
 import {
   initJournalForSession,
   updateJournal,
-  finalizeJournal,
-  unlockJournal,
+  getJournalBySession,
 } from "@shared/db/journal-repo";
 import {
   findGradeBook,
@@ -73,7 +72,6 @@ import type {
 } from "@guru-admin/domain";
 import { formatLongDateID, todayISODate } from "@guru-admin/shared";
 import { ATTENDANCE_STATUS_OPTIONS } from "@shared/constants/attendance-status";
-import type { StepState } from "@shared/ui/mobile/AccordionCard";
 
 /* ============================================================ */
 /*  Types                                                        */
@@ -112,38 +110,23 @@ export type StructuredNoteCategory = (typeof STRUCTURED_NOTE_CATEGORIES)[number]
 /** Quick choices for each structured note category */
 export const STRUCTURED_CHIPS: Record<StructuredNoteCategory, readonly string[]> = {
   activities: [
-    "Diskusi Kelompok",
-    "Presentasi",
-    "Ceramah",
-    "Latihan",
-    "Kuis",
-    "Tanya Jawab",
-    "Praktik",
-    "Project",
+    "Diskusi Kelompok", "Presentasi", "Ceramah", "Latihan",
+    "Kuis", "Tanya Jawab", "Praktik", "Project",
   ] as const,
   studentResponse: [
-    "Aktif",
-    "Cukup aktif",
-    "Masih pasif",
-    "Perlu bimbingan",
-    "Antusias",
+    "Aktif", "Cukup aktif", "Masih pasif", "Perlu bimbingan", "Antusias",
   ] as const,
   obstacle: [
-    "Sebagian siswa belum memahami materi",
-    "Waktu pembelajaran terbatas",
-    "Sebagian siswa belum aktif",
-    "Tidak ada kendala berarti",
+    "Sebagian siswa belum memahami materi", "Waktu pembelajaran terbatas",
+    "Sebagian siswa belum aktif", "Tidak ada kendala berarti",
   ] as const,
   followUp: [
-    "Penguatan materi",
-    "Latihan tambahan",
-    "Bimbingan individu",
-    "Remedial ringan",
-    "Dilanjutkan pertemuan berikutnya",
+    "Penguatan materi", "Latihan tambahan", "Bimbingan individu",
+    "Remedial ringan", "Dilanjutkan pertemuan berikutnya",
   ] as const,
 };
 
-/** Realization status options for Step 2 dropdown */
+/** Realization status options */
 export const REALIZATION_STATUS_OPTIONS = [
   { value: "done" as const, label: "Terlaksana", color: "emerald" },
   { value: "continued" as const, label: "Diganti", color: "amber" },
@@ -159,11 +142,46 @@ export const NILAI_TYPE_OPTIONS = [
   { value: "pas", label: "Penilaian Akhir Semester (PAS)" },
 ] as const;
 
+/** Step flow state — re-exported from shared for backward compat */
+export type { StepState } from "@shared/ui/mobile/AccordionCard";
+import type { StepState as StepStateLocal } from "@shared/ui/mobile/AccordionCard";
+
+/* ============================================================ */
+/*  Dashboard Types                                              */
+/* ============================================================ */
+
+export type SessionStatus = "done" | "partial" | "unfilled";
+
+export type DashboardCard = {
+  session: LessonSession;
+  status: SessionStatus;
+  statusLabel: string;
+  statusIcon: string;
+  attendanceSummary: string;
+  hasJournal: boolean;
+  journalLocked: boolean;
+  realizationStatus: string;
+  meetingNumber: number;
+};
+
+export type DashboardClassGroup = {
+  classId: string;
+  classLabel: string;
+  cards: DashboardCard[];
+};
+
+export type DaySummary = {
+  total: number;
+  done: number;
+  partial: number;
+  unfilled: number;
+};
+
 /* ============================================================ */
 /*  Hook                                                         */
 /* ============================================================ */
 
-export function useKbmSession() {
+export function useKbmHub() {
   const [searchParams] = useSearchParams();
 
   // Core state
@@ -176,7 +194,11 @@ export function useKbmSession() {
   const [selectedSession, setSelectedSession] = useState<LessonSession | null>(null);
   const [roster, setRoster] = useState<ClassRoster | null>(null);
 
-  // Cascading selector — driven by ASSIGNMENTS (not sessions)
+  // Dashboard state
+  const [dashboardCards, setDashboardCards] = useState<DashboardCard[]>([]);
+  const [dashboardLoading, setDashboardLoading] = useState(false);
+
+  // Cascading selector — driven by ASSIGNMENTS
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
   const [selectedSubject, setSelectedSubject] = useState<string | null>(null);
 
@@ -200,7 +222,7 @@ export function useKbmSession() {
     followUp: [] as string[],
   });
   const [activeCategoryTab, setActiveCategoryTab] = useState<StructuredNoteCategory>("activities");
-  const [isFinalized, setIsFinalized] = useState(false);
+  // No lock/finalize — removed isFinalized state
 
   // Nilai data
   const [gradeBook, setGradeBook] = useState<GradeBook | null>(null);
@@ -208,15 +230,50 @@ export function useKbmSession() {
   const [nilaiToggle, setNilaiToggle] = useState(false);
   const [nilaiType, setNilaiType] = useState("uh1");
 
-  // Step flow
-  const [presensiStep, setPresensiStep] = useState<StepState>("active");
-  const [jurnalStep, setJurnalStep] = useState<StepState>("pending");
-  const [nilaiStep, setNilaiStep] = useState<StepState>("pending");
-  const [showBottomBar, setShowBottomBar] = useState(false);
+  // Step flow — jurnal & nilai never locked, always accessible from the start
+  const [presensiStep, setPresensiStep] = useState<StepStateLocal>("active");
+  const [jurnalStep, setJurnalStep] = useState<StepStateLocal>("active");
+  const [nilaiStep, setNilaiStep] = useState<StepStateLocal>("active");
 
   // Status
   const [notice, setNotice] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  /* ================================================================ */
+  /*  Computed: Dashboard — today's sessions grouped by class         */
+  /* ================================================================ */
+
+  const dashboardClassGroups = useMemo<DashboardClassGroup[]>(() => {
+    const groupMap = new Map<string, DashboardCard[]>();
+    for (const card of dashboardCards) {
+      const existing = groupMap.get(card.session.classId) ?? [];
+      existing.push(card);
+      groupMap.set(card.session.classId, existing);
+    }
+    const entries = Array.from(groupMap.entries());
+    entries.sort((a, b) => {
+      const labelA = a[1][0]?.session.classLabel ?? "";
+      const labelB = b[1][0]?.session.classLabel ?? "";
+      return labelA.localeCompare(labelB);
+    });
+    return entries.map(([classId, cards]) => ({
+      classId,
+      classLabel: cards[0]?.session.classLabel ?? classId,
+      cards: cards.sort((a, b) => a.session.startPeriod - b.session.startPeriod),
+    }));
+  }, [dashboardCards]);
+
+  const daySummary = useMemo<DaySummary>(() => {
+    const done = dashboardCards.filter((s) => s.status === "done").length;
+    const partial = dashboardCards.filter((s) => s.status === "partial").length;
+    const unfilled = dashboardCards.filter((s) => s.status === "unfilled").length;
+    return { total: dashboardCards.length, done, partial, unfilled };
+  }, [dashboardCards]);
+
+  const progressPercent = useMemo(() => {
+    if (daySummary.total === 0) return 0;
+    return Math.round((daySummary.done / daySummary.total) * 100);
+  }, [daySummary]);
 
   /* ================================================================ */
   /*  Computed: Cascading selector — PRIMARY SOURCE = ASSIGNMENTS     */
@@ -225,14 +282,11 @@ export function useKbmSession() {
   const classOptions = useMemo<ClassOption[]>(() => {
     const seen = new Map<string, string>();
     for (const a of assignments) {
-      if (!seen.has(a.classId)) {
-        seen.set(a.classId, a.classLabel);
-      }
+      if (!seen.has(a.classId)) seen.set(a.classId, a.classLabel);
     }
-    return Array.from(seen.entries()).map(([classId, classLabel]) => ({
-      classId,
-      classLabel,
-    })).sort((a, b) => a.classLabel.localeCompare(b.classLabel));
+    return Array.from(seen.entries())
+      .map(([classId, classLabel]) => ({ classId, classLabel }))
+      .sort((a, b) => a.classLabel.localeCompare(b.classLabel));
   }, [assignments]);
 
   const subjectOptions = useMemo<SubjectOption[]>(() => {
@@ -254,35 +308,18 @@ export function useKbmSession() {
     const filtered = sessions
       .filter((s) => s.classId === selectedClassId && s.subject === selectedSubject)
       .sort((a, b) => a.date.localeCompare(b.date) || a.startPeriod - b.startPeriod);
-
     const today = todayISODate();
     let meetingNumber = 0;
-
     return filtered.map((s) => {
       meetingNumber++;
       const isToday = s.date === today;
       const isDone = s.status === "done";
       const isUnfilled = s.status === "planned" && !isToday;
-
       let statusIcon = "⚠️";
       let statusLabel = "Belum Diisi";
-      if (isDone) {
-        statusIcon = "✓";
-        statusLabel = "Selesai";
-      } else if (isToday) {
-        statusIcon = "⭐";
-        statusLabel = "Hari Ini";
-      }
-
-      return {
-        session: s,
-        meetingNumber,
-        statusLabel,
-        statusIcon,
-        isToday,
-        isDone,
-        isUnfilled,
-      };
+      if (isDone) { statusIcon = "✓"; statusLabel = "Selesai"; }
+      else if (isToday) { statusIcon = "⭐"; statusLabel = "Hari Ini"; }
+      return { session: s, meetingNumber, statusLabel, statusIcon, isToday, isDone, isUnfilled };
     });
   }, [sessions, selectedClassId, selectedSubject]);
 
@@ -294,16 +331,10 @@ export function useKbmSession() {
   /* ---- Computed: Attendance ---- */
 
   const effectiveRecords = useMemo(() => {
-    return records.map((r) => ({
-      ...r,
-      status: changes.get(r.studentId) ?? r.status,
-    }));
+    return records.map((r) => ({ ...r, status: changes.get(r.studentId) ?? r.status }));
   }, [records, changes]);
 
-  const summary = useMemo(
-    () => summarizeAttendance(effectiveRecords),
-    [effectiveRecords]
-  );
+  const summary = useMemo(() => summarizeAttendance(effectiveRecords), [effectiveRecords]);
 
   const absentList = useMemo(() => {
     return effectiveRecords
@@ -314,7 +345,7 @@ export function useKbmSession() {
       });
   }, [effectiveRecords]);
 
-  /* ---- Computed: Auto-generated narasi from structured note ---- */
+  /* ---- Computed: Auto-generated narasi ---- */
 
   const autoNarasi = useMemo(() => {
     const result = buildJournalNarrative({
@@ -326,97 +357,161 @@ export function useKbmSession() {
       freeNote: journalInput.note || undefined,
     });
     return [result.activityNarrative, result.noteNarrative, result.followUpNarrative]
-      .filter(Boolean)
-      .join(" ");
+      .filter(Boolean).join(" ");
   }, [journalInput.actualMaterialTitle, journalInput.note, structuredNote]);
-
-  /* ---- Computed: isReadyToStart — class+subject+session all selected ---- */
 
   const isReadyToStart = useMemo(() => {
     return !!(selectedClassId && selectedSubject && selectedSessionId);
   }, [selectedClassId, selectedSubject, selectedSessionId]);
 
   /* ================================================================ */
-  /*  Init — Load year, teacher, assignments, and sessions            */
+  /*  Build Dashboard Cards — check attendance + journal status       */
+  /* ================================================================ */
+
+  const buildDashboardCards = useCallback(async (
+    todaySessions: LessonSession[]
+  ): Promise<DashboardCard[]> => {
+    const cards: DashboardCard[] = [];
+    const meetingCounter: Record<string, number> = {};
+
+    const sorted = [...todaySessions].sort(
+      (a, b) => a.date.localeCompare(b.date) || a.startPeriod - b.startPeriod
+    );
+
+    for (const session of sorted) {
+      const key = `${session.classId}-${session.subject}`;
+      meetingCounter[key] = (meetingCounter[key] ?? 0) + 1;
+      const meetingNumber = meetingCounter[key];
+
+      // Check attendance
+      const attRecords = await getAttendanceBySession(session.id);
+      const hasAttendance = attRecords.length > 0;
+      const attSummary = hasAttendance ? summarizeAttendance(attRecords) : null;
+
+      // Check journal
+      const journal = await getJournalBySession(session.id);
+      const hasJournal = !!journal;
+      const journalLocked = journal?.locked ?? false;
+
+      // Determine status
+      let status: SessionStatus;
+      let statusLabel: string;
+      let statusIcon: string;
+
+      if (session.status === "done" || journalLocked) {
+        status = "done";
+        statusLabel = "Selesai";
+        statusIcon = "✓";
+      } else if (hasAttendance && hasJournal) {
+        status = "done";
+        statusLabel = "Selesai";
+        statusIcon = "✓";
+      } else if (hasAttendance) {
+        status = "partial";
+        statusLabel = "Presensi OK";
+        statusIcon = "◐";
+      } else {
+        status = "unfilled";
+        statusLabel = "Belum Diisi";
+        statusIcon = "○";
+      }
+
+      // Build attendance summary string
+      let attendanceSummary = "";
+      if (attSummary) {
+        const parts: string[] = [];
+        if (attSummary.present > 0) parts.push(`H:${attSummary.present}`);
+        if (attSummary.sick > 0) parts.push(`S:${attSummary.sick}`);
+        if (attSummary.excused > 0) parts.push(`I:${attSummary.excused}`);
+        if (attSummary.late > 0) parts.push(`T:${attSummary.late}`);
+        if (attSummary.absent > 0) parts.push(`A:${attSummary.absent}`);
+        attendanceSummary = parts.join(" ");
+      }
+
+      cards.push({
+        session,
+        status,
+        statusLabel,
+        statusIcon,
+        attendanceSummary,
+        hasJournal,
+        journalLocked,
+        realizationStatus: journal?.realizationStatus ?? "done",
+        meetingNumber,
+      });
+    }
+
+    return cards;
+  }, []);
+
+  /* ================================================================ */
+  /*  Init                                                            */
   /* ================================================================ */
 
   useEffect(() => {
+    let cancelled = false;
     void (async () => {
       try {
         const activeYear = await getActiveAcademicYear();
         const profile = await getTeacherProfile();
+        if (cancelled) return;
         setYear(activeYear ?? null);
         setTeacher(profile);
 
         if (activeYear && profile) {
-          // 1. Load TeachingAssignments — PRIMARY source for Kelas/Mapel
           const teacherAssignments = await listAssignments(activeYear.id);
           const myAssignments = teacherAssignments.filter(
             (a) => a.teacherId === profile.id && !a.deletedAt
           );
+          if (cancelled) return;
           setAssignments(myAssignments);
 
-          // 2. Load ALL sessions for the teacher (for today + recent)
-          const todaySessions = await getLessonSessionsByDate(
-            profile.id,
-            todayISODate()
-          );
-          setSessions(todaySessions);
+          // Load today's sessions for dashboard
+          const todaySess = await getLessonSessionsByDate(profile.id, todayISODate());
+          if (cancelled) return;
+          setSessions(todaySess);
 
-          // 3. Auto-select from URL param or first available
+          // Build dashboard cards
+          const cards = await buildDashboardCards(todaySess);
+          if (cancelled) return;
+          setDashboardCards(cards);
+
+          // Auto-select from URL param or first available
           const sid = searchParams.get("sessionId");
           const stepParam = searchParams.get("step");
 
-          // Set initial step from URL param (for bottom nav shortcuts)
-          if (stepParam === "presensi") {
-            setPresensiStep("active");
-            setJurnalStep("pending");
-            setNilaiStep("pending");
-          } else if (stepParam === "jurnal") {
-            setPresensiStep("done");
-            setJurnalStep("active");
-            setNilaiStep("pending");
-          } else if (stepParam === "nilai") {
-            setPresensiStep("done");
-            setJurnalStep("done");
-            setNilaiStep("active");
-            setShowBottomBar(true);
-          }
+          if (stepParam === "presensi") { setPresensiStep("active"); }
+          else if (stepParam === "jurnal") { setPresensiStep("done"); setJurnalStep("active"); }
+          else if (stepParam === "nilai") { setPresensiStep("done"); setNilaiStep("active"); }
 
           if (sid) {
             setSelectedSessionId(sid);
-            const targetSession = todaySessions.find((s) => s.id === sid);
+            const targetSession = todaySess.find((s) => s.id === sid);
             if (targetSession) {
               setSelectedClassId(targetSession.classId);
               setSelectedSubject(targetSession.subject);
             }
           } else if (myAssignments.length > 0) {
-            // Auto-select first assignment's class+subject
             const first = myAssignments[0];
             setSelectedClassId(first.classId);
             setSelectedSubject(first.subject);
-
-            // If there's a session for this class+subject today, auto-select it
-            const matching = todaySessions.find(
+            const matching = todaySess.find(
               (s) => s.classId === first.classId && s.subject === first.subject && s.status === "planned"
             );
-            if (matching) {
-              setSelectedSessionId(matching.id);
-            }
+            if (matching) setSelectedSessionId(matching.id);
           }
         }
       } catch (err) {
-        console.error("[useKbmSession] Gagal init:", err);
+        console.error("[useKbmHub] Gagal init:", err);
         setNotice("Gagal memuat data. Coba muat ulang.");
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     })();
-  }, [searchParams]);
+    return () => { cancelled = true; };
+  }, [searchParams, buildDashboardCards]);
 
-  /* ================================================================ */
-  /*  Load sessions for selected class+subject                        */
-  /* ================================================================ */
+  /* ---- Load sessions for selected class+subject ---- */
 
   useEffect(() => {
     if (!year || !selectedClassId || !selectedSubject) return;
@@ -432,12 +527,12 @@ export function useKbmSession() {
           return [...prev, ...newOnes];
         });
       } catch (err) {
-        console.error("[useKbmSession] Gagal memuat sesi untuk kelas+mapel:", err);
+        console.error("[useKbmHub] Gagal memuat sesi:", err);
       }
     })();
   }, [year, selectedClassId, selectedSubject]);
 
-  /* ---- Load session data (attendance, journal, etc.) ---- */
+  /* ---- Load session data ---- */
 
   useEffect(() => {
     if (!selectedSessionId || !year) return;
@@ -446,33 +541,18 @@ export function useKbmSession() {
         const session = await getLessonSession(selectedSessionId);
         if (!session) return;
         setSelectedSession(session);
-
         const r = await findClassRoster(year.id, session.classId);
         setRoster(r ?? null);
-
-        // Init attendance
         const attRecords = await initAttendanceForSession({
-          sessionId: session.id,
-          date: session.date,
-          roster: r ?? null,
+          sessionId: session.id, date: session.date, roster: r ?? null,
         });
         setRecords(attRecords);
         setChanges(new Map());
         setNoteMap(new Map());
-
-        // Init journal
-        const j = await initJournalForSession({
-          session,
-          attendanceRecords: attRecords,
-        });
+        const j = await initJournalForSession({ session, attendanceRecords: attRecords });
         setJournal(j);
-
-        // Unpack structured note from journal
         const unpacked = unpackStructuredNote(j.note);
-        setJournalInput({
-          actualMaterialTitle: j.actualMaterialTitle ?? "",
-          note: unpacked.freeNote,
-        });
+        setJournalInput({ actualMaterialTitle: j.actualMaterialTitle ?? "", note: unpacked.freeNote });
         setRealizationStatus(j.realizationStatus ?? "done");
         setRealizationReason("");
         setStructuredNote({
@@ -481,46 +561,33 @@ export function useKbmSession() {
           obstacle: unpacked.obstacle ? [unpacked.obstacle] : [],
           followUp: j.followUp ? [j.followUp] : [],
         });
-        setIsFinalized(j.locked ?? false);
+        // No lock/finalize — removed isFinalized
         setActiveCategoryTab("activities");
-
-        // Init gradebook
         const assignment = await findAssignmentForSession(session, year);
         if (assignment) {
           const existingBook = await findGradeBook({
-            academicYearId: year.id,
-            teacherId: session.teacherId,
-            classId: session.classId,
-            semester: session.semester,
-            subject: session.subject,
+            academicYearId: year.id, teacherId: session.teacherId,
+            classId: session.classId, semester: session.semester, subject: session.subject,
           });
           setGradeBook(existingBook ?? null);
-        } else {
-          setGradeBook(null);
-        }
-
-        // Reset step flow — respect locked state
-        if (j.locked) {
-          setPresensiStep("done");
-          setJurnalStep("done");
-          setNilaiStep("done");
-          setShowBottomBar(true);
-        } else {
-          setPresensiStep("active");
-          setJurnalStep("pending");
-          setNilaiStep("pending");
-          setShowBottomBar(false);
-        }
+        } else { setGradeBook(null); }
+        // Auto-detect: if session already saved, skip to jurnal/nilai
+        // Jurnal & Nilai never locked — always 'active' (or 'done' if already filled)
+        const sessionAlreadyDone = session.status === "done";
+        const hasJournalContent = !!j.actualMaterialTitle;
+        setPresensiStep(sessionAlreadyDone ? "done" : "active");
+        setJurnalStep(hasJournalContent ? "done" : "active");
+        setNilaiStep("active");
         setNilaiMap(new Map());
         setNilaiToggle(false);
       } catch (err) {
-        console.error("[useKbmSession] Gagal memuat sesi:", err);
+        console.error("[useKbmHub] Gagal memuat sesi:", err);
       }
     })();
   }, [selectedSessionId, year]);
 
   /* ================================================================ */
-  /*  Actions: Attendance                                             */
+  /*  Actions                                                         */
   /* ================================================================ */
 
   function setStatus(studentId: string, status: AttendanceStatus) {
@@ -531,235 +598,127 @@ export function useKbmSession() {
 
   function setAllPresent() {
     const next = new Map<string, AttendanceStatus>();
-    for (const r of records) {
-      next.set(r.studentId, "present");
-    }
+    for (const r of records) next.set(r.studentId, "present");
     setChanges(next);
     setNoteMap(new Map());
   }
 
   function setStudentNote(studentId: string, note: string) {
     const next = new Map(noteMap);
-    if (note) {
-      next.set(studentId, note);
-    } else {
-      next.delete(studentId);
-    }
+    if (note) next.set(studentId, note); else next.delete(studentId);
     setNoteMap(next);
   }
-
-  /* ================================================================ */
-  /*  Actions: Structured Note                                        */
-  /* ================================================================ */
 
   function toggleStructuredChip(category: StructuredNoteCategory, chip: string) {
     setStructuredNote((prev) => {
       const current = prev[category];
-      const next = current.includes(chip)
-        ? current.filter((c) => c !== chip)
-        : [...current, chip];
+      const next = current.includes(chip) ? current.filter((c) => c !== chip) : [...current, chip];
       return { ...prev, [category]: next };
     });
   }
 
-  /* ================================================================ */
-  /*  Actions: Step flow                                              */
-  /* ================================================================ */
-
-  function donePresensi() {
-    setPresensiStep("done");
-    setJurnalStep("active");
-  }
-
-  function doneJurnal() {
-    setJurnalStep("done");
-    setNilaiStep("active");
-    setShowBottomBar(true);
-  }
-
-  /* ================================================================ */
-  /*  Actions: Nilai                                                  */
-  /* ================================================================ */
+  function donePresensi() { setPresensiStep("done"); }
+  // No doneJurnal — jurnal & nilai stay editable, no lock needed
 
   function setNilai(studentId: string, value: number | null) {
     const next = new Map(nilaiMap);
-    if (value !== null && value >= 0 && value <= 100) {
-      next.set(studentId, value);
-    } else {
-      next.delete(studentId);
-    }
+    if (value !== null && value >= 0 && value <= 100) next.set(studentId, value);
+    else next.delete(studentId);
     setNilaiMap(next);
   }
 
-  /* ================================================================ */
-  /*  Actions: Pertemuan Tambahan                                     */
-  /* ================================================================ */
+  /** Select a session from dashboard card */
+  function selectDashboardSession(sessionId: string) {
+    const session = sessions.find((s) => s.id === sessionId);
+    if (session) {
+      setSelectedClassId(session.classId);
+      setSelectedSubject(session.subject);
+    }
+    setSelectedSessionId(sessionId);
+  }
+
+  /** Back to dashboard from editor */
+  function backToDashboard() {
+    setSelectedSessionId(null);
+    setSelectedSession(null);
+    // Refresh dashboard cards
+    void refreshDashboard();
+  }
 
   const handlePertemuanTambahan = useCallback(async () => {
     if (!year || !teacher || !selectedClassId || !selectedSubject) return;
-
     const r = await findClassRoster(year.id, selectedClassId);
-    if (!r) {
-      setNotice("Roster kelas tidak ditemukan. Pastikan data kelas sudah diatur.");
-      return;
-    }
-
+    if (!r) { setNotice("Roster kelas tidak ditemukan."); return; }
     try {
       const { session, created } = await findOrCreateManualSession({
-        mode: "manual",
-        academicYear: year,
-        teacherId: teacher.id,
-        roster: r,
-        subject: selectedSubject,
-        date: todayISODate(),
+        mode: "manual", academicYear: year, teacherId: teacher.id,
+        roster: r, subject: selectedSubject, date: todayISODate(),
       });
-
-      if (created) {
-        setSessions((prev) => [...prev, session]);
-      }
-
+      if (created) setSessions((prev) => [...prev, session]);
       setSelectedSessionId(session.id);
     } catch (err) {
-      console.error("[useKbmSession] Gagal buat sesi tambahan:", err);
+      console.error("[useKbmHub] Gagal buat sesi tambahan:", err);
       setNotice("Gagal membuat sesi tambahan.");
     }
   }, [year, teacher, selectedClassId, selectedSubject]);
 
-  /* ================================================================ */
-  /*  Actions: Copy Journal from previous session                     */
-  /* ================================================================ */
-
   const handleCopyPreviousJournal = useCallback(async () => {
     if (!year || !selectedClassId || !selectedSubject || !selectedSession) return;
-
     try {
-      // Find the previous session for this class+subject
       const allSessions = await listLessonSessions(year.id);
       const relevant = allSessions
         .filter((s) => s.classId === selectedClassId && s.subject === selectedSubject && s.id !== selectedSession.id)
         .sort((a, b) => b.date.localeCompare(a.date));
-
-      if (relevant.length === 0) {
-        setNotice("Tidak ada jurnal sebelumnya untuk kelas & mapel ini.");
-        return;
-      }
-
-      // Find the most recent session with a journal
-      const { getJournalBySession } = await import("@shared/db/journal-repo");
+      if (relevant.length === 0) { setNotice("Tidak ada jurnal sebelumnya."); return; }
       for (const prevSession of relevant) {
         const prevJournal = await getJournalBySession(prevSession.id);
         if (prevJournal && prevJournal.actualMaterialTitle) {
           setJournalInput((prev) => ({
-            ...prev,
-            actualMaterialTitle: prevJournal.actualMaterialTitle ?? prev.actualMaterialTitle,
+            ...prev, actualMaterialTitle: prevJournal.actualMaterialTitle ?? prev.actualMaterialTitle,
           }));
-
-          // Unpack the previous journal's structured note
           const unpacked = unpackStructuredNote(prevJournal.note);
           setStructuredNote((prev) => ({
             activities: unpacked.activities.length > 0 ? unpacked.activities : prev.activities,
             studentResponse: unpacked.studentResponse ? [unpacked.studentResponse] : prev.studentResponse,
             obstacle: unpacked.obstacle ? [unpacked.obstacle] : prev.obstacle,
-            followUp: prevJournal.followUp ? [prevJournal.followUp] : (unpacked.freeNote ? prev.followUp : prev.followUp),
+            followUp: prevJournal.followUp ? [prevJournal.followUp] : prev.followUp,
           }));
-
-          setNotice("Jurnal sebelumnya berhasil disalin!");
-          return;
+          setNotice("Jurnal sebelumnya berhasil disalin!"); return;
         }
       }
-
       setNotice("Tidak ada jurnal sebelumnya yang berisi materi.");
     } catch (err) {
-      console.error("[useKbmSession] Gagal salin jurnal:", err);
+      console.error("[useKbmHub] Gagal salin jurnal:", err);
       setNotice("Gagal menyalin jurnal sebelumnya.");
     }
   }, [year, selectedClassId, selectedSubject, selectedSession]);
 
-  /* ================================================================ */
-  /*  Actions: Finalize & Lock                                        */
-  /* ================================================================ */
-
-  const handleFinalize = useCallback(async () => {
-    if (!journal) return;
-    try {
-      const result = await finalizeJournal(journal.id);
-      if (result.success && result.journal) {
-        setJournal(result.journal);
-        setIsFinalized(true);
-        setPresensiStep("done");
-        setJurnalStep("done");
-        setNilaiStep("done");
-        setNotice("Jurnal berhasil dikunci & difinalisasi!");
-      } else {
-        setNotice(result.errors.join(" ") || "Gagal finalisasi jurnal.");
-      }
-    } catch (err) {
-      console.error("[useKbmSession] Gagal finalisasi:", err);
-      setNotice("Gagal finalisasi jurnal.");
-    }
-  }, [journal]);
-
-  const handleUnlock = useCallback(async () => {
-    if (!journal) return;
-    try {
-      const unlocked = await unlockJournal(journal.id);
-      if (unlocked) {
-        setJournal(unlocked);
-        setIsFinalized(false);
-        setNotice("Jurnal berhasil dibuka kunci. Anda bisa mengedit kembali.");
-      }
-    } catch (err) {
-      console.error("[useKbmSession] Gagal buka kunci:", err);
-      setNotice("Gagal membuka kunci jurnal.");
-    }
-  }, [journal]);
-
-  /* ================================================================ */
-  /*  Actions: saveAll                                                */
-  /* ================================================================ */
+  // No finalize/unlock — removed handleFinalize & handleUnlock
 
   const saveAll = useCallback(async () => {
     if (!selectedSessionId || !journal || !year || !teacher) return;
     setSaving(true);
     try {
-      // 1. Save attendance changes
       if (changes.size > 0) {
-        const payload = Array.from(changes.entries()).map(
-          ([studentId, status]) => ({ studentId, status })
-        );
+        const payload = Array.from(changes.entries()).map(([studentId, status]) => ({ studentId, status }));
         const updated = await updateAttendance(selectedSessionId, payload);
-        setRecords(updated);
-        setChanges(new Map());
+        setRecords(updated); setChanges(new Map());
       }
-
-      // 2. Save journal — pack structured note + narasi
       const packedNote = packStructuredNote({
         activities: structuredNote.activities,
         studentResponse: structuredNote.studentResponse.join(", "),
         obstacle: structuredNote.obstacle.join(", "),
         freeNote: journalInput.note || "",
       });
-
       await updateJournal(journal.id, {
         actualMaterialTitle: journalInput.actualMaterialTitle || undefined,
         note: packedNote,
         followUp: structuredNote.followUp.join(", ") || undefined,
         realizationStatus,
       });
-
-      // 3. Save nilai — integrate with gradebook-repo
       if (nilaiToggle && nilaiMap.size > 0 && selectedSession) {
-        await saveNilaiToGradeBook(
-          year,
-          teacher,
-          selectedSession,
-          roster,
-          gradeBook,
-          nilaiMap
-        );
+        await saveNilaiToGradeBook(year, teacher, selectedSession, roster, gradeBook, nilaiMap);
       }
-
-      // 4. Mark session as done
       if (selectedSession) {
         await updateLessonSession(selectedSession.id, { status: "done" });
         setSelectedSession((prev) => prev ? { ...prev, status: "done" } : null);
@@ -767,25 +726,36 @@ export function useKbmSession() {
           prev.map((s) => s.id === selectedSession.id ? { ...s, status: "done" as const } : s)
         );
       }
-
       setNotice("KBM Sesi Berhasil Disimpan!");
+      // Refresh dashboard after save
+      void refreshDashboard();
     } catch (err) {
-      console.error("[useKbmSession] Gagal simpan:", err);
+      console.error("[useKbmHub] Gagal simpan:", err);
       setNotice("Gagal menyimpan. Coba lagi.");
+    } finally { setSaving(false); }
+  }, [selectedSessionId, journal, changes, journalInput, structuredNote, realizationStatus, nilaiToggle, nilaiMap, year, teacher, selectedSession, roster, gradeBook]);
+
+  /* ---- Refresh dashboard ---- */
+  const refreshDashboard = useCallback(async () => {
+    if (!teacher) return;
+    setDashboardLoading(true);
+    try {
+      const todaySess = await getLessonSessionsByDate(teacher.id, todayISODate());
+      setSessions(todaySess);
+      const cards = await buildDashboardCards(todaySess);
+      setDashboardCards(cards);
+    } catch (err) {
+      console.error("[useKbmHub] Gagal refresh dashboard:", err);
     } finally {
-      setSaving(false);
+      setDashboardLoading(false);
     }
-  }, [selectedSessionId, journal, changes, journalInput, structuredNote, realizationStatus, nilaiToggle, nilaiMap, year, teacher, selectedSession, roster, gradeBook, autoNarasi]);
+  }, [teacher, buildDashboardCards]);
 
   /* ---- Cascading selector handlers ---- */
 
   function handleClassChange(classId: string) {
-    setSelectedClassId(classId);
-    setSelectedSubject(null);
-    setSelectedSessionId(null);
-    setSelectedSession(null);
+    setSelectedClassId(classId); setSelectedSubject(null); setSelectedSessionId(null); setSelectedSession(null);
   }
-
   function handleSubjectChange(subject: string) {
     setSelectedSubject(subject);
     if (!selectedClassId) return;
@@ -793,27 +763,24 @@ export function useKbmSession() {
       .filter((s) => s.classId === selectedClassId && s.subject === subject)
       .sort((a, b) => a.date.localeCompare(b.date) || a.startPeriod - b.startPeriod);
     const firstUnfilled = matching.find((s) => s.status !== "done");
-    if (firstUnfilled) {
-      setSelectedSessionId(firstUnfilled.id);
-    } else {
-      setSelectedSessionId(null);
-      setSelectedSession(null);
-    }
+    if (firstUnfilled) setSelectedSessionId(firstUnfilled.id);
+    else { setSelectedSessionId(null); setSelectedSession(null); }
   }
 
   /* ---- Return ---- */
   return {
     // Loading & core
     loading, year, teacher, sessions, assignments,
-    selectedSessionId, setSelectedSessionId,
-    selectedSession, roster,
+    selectedSessionId, setSelectedSessionId, selectedSession, roster,
+
+    // Dashboard
+    dashboardCards, dashboardClassGroups, daySummary, progressPercent,
+    dashboardLoading, selectDashboardSession, backToDashboard, refreshDashboard,
 
     // Cascading selector (assignment-driven)
     selectedClassId, setSelectedClassId: handleClassChange,
     selectedSubject, setSelectedSubject: handleSubjectChange,
-    classOptions, subjectOptions, filteredSessions,
-    hasNoSessions, handlePertemuanTambahan,
-    isReadyToStart,
+    classOptions, subjectOptions, filteredSessions, hasNoSessions, handlePertemuanTambahan, isReadyToStart,
 
     // Attendance
     records, changes, effectiveRecords, summary, absentList,
@@ -821,24 +788,20 @@ export function useKbmSession() {
 
     // Journal
     journal, journalInput, setJournalInput,
-    realizationStatus, setRealizationStatus,
-    realizationReason, setRealizationReason,
-    structuredNote, setStructuredNote, toggleStructuredChip,
-    activeCategoryTab, setActiveCategoryTab,
-    autoNarasi,
-    doneJurnal,
-    handleCopyPreviousJournal,
+    realizationStatus, setRealizationStatus, realizationReason, setRealizationReason,
+    structuredNote, setStructuredNote, toggleStructuredChip, activeCategoryTab, setActiveCategoryTab,
+    autoNarasi, handleCopyPreviousJournal,
 
-    // Finalize & Lock
-    isFinalized, handleFinalize, handleUnlock,
+    // No finalize/lock
+    // isFinalized, handleFinalize, handleUnlock removed,
 
     // Nilai
-    gradeBook, nilaiMap,
-    setNilai, nilaiToggle, setNilaiToggle, nilaiType, setNilaiType,
+    gradeBook, nilaiMap, setNilai, nilaiToggle, setNilaiToggle, nilaiType, setNilaiType,
 
     // Step flow
     presensiStep, jurnalStep, nilaiStep,
-    showBottomBar,
+    // Re-open presensi (for editing after done)
+    reopenPresensi: () => { setPresensiStep("active"); },
 
     // Status
     notice, setNotice, saving, saveAll,
@@ -849,99 +812,52 @@ export function useKbmSession() {
 }
 
 /* ============================================================ */
-/*  Helper: Find assignment for session                          */
+/*  Helpers                                                      */
 /* ============================================================ */
 
-async function findAssignmentForSession(
-  session: LessonSession,
-  year: AcademicYear
-) {
+async function findAssignmentForSession(session: LessonSession, year: AcademicYear) {
   const teacherAssignments = await listAssignments(year.id);
   return teacherAssignments.find(
-    (a) =>
-      a.teacherId === session.teacherId &&
-      a.classId === session.classId &&
-      a.subject === session.subject &&
-      a.semester === session.semester &&
-      !a.deletedAt
+    (a) => a.teacherId === session.teacherId && a.classId === session.classId &&
+      a.subject === session.subject && a.semester === session.semester && !a.deletedAt
   );
 }
 
-/* ============================================================ */
-/*  Helper: Save Nilai to GradeBook                             */
-/* ============================================================ */
-
 async function saveNilaiToGradeBook(
-  year: AcademicYear,
-  teacher: TeacherProfile,
-  session: LessonSession,
-  roster: ClassRoster | null,
-  existingBook: GradeBook | null,
-  nilaiMap: Map<string, number>
+  year: AcademicYear, teacher: TeacherProfile, session: LessonSession,
+  roster: ClassRoster | null, existingBook: GradeBook | null, nilaiMap: Map<string, number>
 ): Promise<void> {
   if (!roster || nilaiMap.size === 0) return;
-
-  const baseEntries: GradeEntry[] = roster.students
-    .sort((a, b) => a.number - b.number)
-    .map((s) => {
-      const nilai = nilaiMap.get(s.id) ?? null;
-      const existingEntry = existingBook?.entries.find(
-        (e) => e.studentId === s.id
-      );
-
-      if (existingEntry) {
-        return {
-          ...existingEntry,
-          uh1: nilai ?? existingEntry.uh1,
-        };
-      }
-
-      return {
-        studentId: s.id,
-        studentName: s.name,
-        studentNumber: s.number,
-        nis: s.nis,
-        kd1: null, kd2: null, kd3: null, kd4: null, kd5: null, kd6: null,
-        kd7: null, kd8: null, kd9: null, kd10: null,
-        uh1: nilai,
-        uh2: null, uh3: null, uh4: null, uh5: null, uh6: null,
-        uh7: null, uh8: null, uh9: null, uh10: null,
-        pts: null, pas: null, uts: null, uas: null,
-        finalScore: null, averageKd: null,
-        dailyScore: null, assignmentScore: null, summativeScore: null,
-        remedialScore: null, averageScore: null,
-        status: nilai !== null ? "complete" as const : "incomplete" as const,
-      } as GradeEntry;
-    });
-
+  const baseEntries: GradeEntry[] = roster.students.sort((a, b) => a.number - b.number).map((s) => {
+    const nilai = nilaiMap.get(s.id) ?? null;
+    const existingEntry = existingBook?.entries.find((e) => e.studentId === s.id);
+    if (existingEntry) return { ...existingEntry, uh1: nilai ?? existingEntry.uh1 };
+    return {
+      studentId: s.id, studentName: s.name, studentNumber: s.number, nis: s.nis,
+      kd1: null, kd2: null, kd3: null, kd4: null, kd5: null, kd6: null,
+      kd7: null, kd8: null, kd9: null, kd10: null,
+      uh1: nilai, uh2: null, uh3: null, uh4: null, uh5: null, uh6: null,
+      uh7: null, uh8: null, uh9: null, uh10: null,
+      pts: null, pas: null, uts: null, uas: null,
+      finalScore: null, averageKd: null,
+      dailyScore: null, assignmentScore: null, summativeScore: null,
+      remedialScore: null, averageScore: null,
+      status: nilai !== null ? "complete" as const : "incomplete" as const,
+    } as GradeEntry;
+  });
   if (existingBook) {
     await updateGradeBook(existingBook.id, {
-      entries: baseEntries,
-      passingScore: existingBook.passingScore,
-      gradeModel: existingBook.gradeModel ?? "uh",
-      uhCount: existingBook.uhCount ?? 2,
-      kdCount: existingBook.kdCount ?? 6,
-      weightUH: existingBook.weightUH ?? 25,
-      weightUTS: existingBook.weightUTS ?? 25,
-      weightUAS: existingBook.weightUAS ?? 50,
+      entries: baseEntries, passingScore: existingBook.passingScore,
+      gradeModel: existingBook.gradeModel ?? "uh", uhCount: existingBook.uhCount ?? 2,
+      kdCount: existingBook.kdCount ?? 6, weightUH: existingBook.weightUH ?? 25,
+      weightUTS: existingBook.weightUTS ?? 25, weightUAS: existingBook.weightUAS ?? 50,
     });
   } else {
     await saveGradeBook({
-      academicYearId: year.id,
-      teacherId: teacher.id,
-      classId: session.classId,
-      classLabel: session.classLabel,
-      subject: session.subject,
-      semester: session.semester,
-      passingScore: 75,
-      entries: baseEntries,
-      status: "draft",
-      gradeModel: "uh",
-      uhCount: 2,
-      kdCount: 6,
-      weightUH: 25,
-      weightUTS: 25,
-      weightUAS: 50,
+      academicYearId: year.id, teacherId: teacher.id, classId: session.classId,
+      classLabel: session.classLabel, subject: session.subject, semester: session.semester,
+      passingScore: 75, entries: baseEntries, status: "draft", gradeModel: "uh",
+      uhCount: 2, kdCount: 6, weightUH: 25, weightUTS: 25, weightUAS: 50,
     });
   }
 }

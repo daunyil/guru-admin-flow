@@ -8,7 +8,7 @@
  */
 
 import { lazy, Suspense } from "react";
-import { HashRouter, Routes, Route } from "react-router-dom";
+import { HashRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthGate } from "./modules/auth/AuthGate";
 import { AppShell } from "./shared/layout/AppShell";
 import { ErrorBoundary } from "./shared/ui/ErrorBoundary";
@@ -22,13 +22,9 @@ import { LoadingState } from "./shared/ui";
 /* ------------------------------------------------------------------ */
 
 // 1-harian (Harian Guru)
-const QuickAttendancePage = lazy(() => import("@harian/attendance/QuickAttendancePage").then((m) => ({ default: m.QuickAttendancePage })));
-const QuickJournalPage = lazy(() => import("@harian/journal/QuickJournalPage").then((m) => ({ default: m.QuickJournalPage })));
 const GradesPage = lazy(() => import("@harian/grades/GradesPage").then((m) => ({ default: m.GradesPage })));
 const RekapSemesterPage = lazy(() => import("@harian/rekap-semester/RekapSemesterPage").then((m) => ({ default: m.RekapSemesterPage })));
-const KbmKilatPage = lazy(() => import("@harian/kbm-kilat/KbmKilatPage").then((m) => ({ default: m.KbmKilatPage })));
-// SPRINT-4: Rekap Semester — matriks bulanan absen + rekap nilai
-// SPRINT-8: KBM Kilat — accordion flow cepat isi KBM (Presensi → Jurnal → Nilai)
+// NOTE: KbmKilatPage di-redirect ke /kbm-hub. File masih ada untuk backward compatibility.
 
 // 2-piket (Guru Piket)
 const DailyDutyPage = lazy(() => import("@piket/daily-duty/DailyDutyPage").then((m) => ({ default: m.DailyDutyPage })));
@@ -65,6 +61,9 @@ const AssignmentsPage = lazy(() => import("@modules/5-data-dasar/assignments/Ass
 // Auth (cross-module)
 const TestPrintPage = lazy(() => import("@shared/documents/DocumentPrintPreviewExample").then((m) => ({ default: m.DocumentPrintPreviewExample })));
 
+// CLEAN BREAK: KBM Hub — modul baru terisolasi dari UI legacy
+const KbmHubPage = lazy(() => import("./pages/kbm-hub/KbmHubPage").then((m) => ({ default: m.KbmHubPage })));
+
 /* ------------------------------------------------------------------ */
 /*  App                                                               */
 /* ------------------------------------------------------------------ */
@@ -88,11 +87,15 @@ export function App() {
               <Route path="/schedule" element={<SchedulePage />} />
               <Route path="/roster" element={<RosterPage />} />
               <Route path="/assignments" element={<AssignmentsPage />} />
-              <Route path="/attendance" element={<QuickAttendancePage />} />
-              <Route path="/journal" element={<QuickJournalPage />} />
+              {/* UNIFIED KBM: /kbm-hub adalah satu-satunya halaman KBM */}
+              {/* Legacy redirects: /attendance, /journal, /kbm-kilat → /kbm-hub */}
+              <Route path="/attendance" element={<Navigate to="/kbm-hub?step=presensi" replace />} />
+              <Route path="/journal" element={<Navigate to="/kbm-hub?step=jurnal" replace />} />
+              <Route path="/kbm-kilat" element={<Navigate to="/kbm-hub" replace />} />
               <Route path="/grades" element={<GradesPage />} />
               <Route path="/rekap-semester" element={<RekapSemesterPage />} />
-              <Route path="/kbm-kilat" element={<KbmKilatPage />} />
+              {/* KBM Hub — unified dashboard + editor */}
+              <Route path="/kbm-hub" element={<KbmHubPage />} />
               <Route path="/atp" element={<ATPPage />} />
               <Route path="/lkpd" element={<LKPDPage />} />
               <Route path="/rpp" element={<RPPPage />} />

@@ -22,8 +22,8 @@ describe("NAV-DAILY-GATE-01 — Kontrak menu utama", () => {
     expect(labels).not.toContain("Paket Admin");
     expect(labels).not.toContain("Pusat Laporan");
   });
-  it("Menu utama tepat 5 item", () => {
-    expect(getPrimaryNavLabels()).toEqual(["Hari Ini", "Absen", "Jurnal", "Nilai", "Rekap Semester"]);
+  it("Menu utama tepat 6 item", () => {
+    expect(getPrimaryNavLabels()).toEqual(["Hari Ini", "KBM", "Absen", "Jurnal", "Nilai", "Rekap Semester"]);
   });
   it("Mobile nav maksimal 5 item", () => { expect(getMobileNavLabels().length).toBeLessThanOrEqual(5); });
   it("Mobile nav tidak ada Lainnya", () => { expect(getMobileNavLabels()).not.toContain("Lainnya"); });
