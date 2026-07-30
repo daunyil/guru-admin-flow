@@ -11,12 +11,12 @@ export { PrintExportButtons } from "./PrintExportButtons";
 export { Toast, useToast, type ToastState, type ToastVariant, type UseToastReturn } from "./Toast";
 
 export function Card({ children, className = "" }: { children: ReactNode; className?: string }) {
-  return <div className={`card p-5 ${className}`}>{children}</div>;
+  return <div className={`card p-3 ${className}`}>{children}</div>;
 }
 
 export function CardHeader({ title, description }: { title: string; description?: string }) {
   return (
-    <div className="mb-4">
+    <div className="mb-2">
       <h3 className="text-lg font-semibold text-slate-900">{title}</h3>
       {description && <p className="text-sm text-slate-500 mt-1">{description}</p>}
     </div>
@@ -176,8 +176,8 @@ export { ErrorBoundary } from "./ErrorBoundary";
 
 export function LoadingState({ message = "Memuat…" }: { message?: string }) {
   return (
-    <div className="flex items-center justify-center py-16 px-4" role="status" aria-live="polite">
-      <div className="flex flex-col items-center gap-3">
+    <div className="flex items-center justify-center py-8 px-4" role="status" aria-live="polite">
+      <div className="flex flex-col items-center gap-2">
         <div className="loading-spinner" />
         <p className="text-sm text-slate-500">{message}</p>
       </div>
@@ -195,10 +195,10 @@ export function EmptyState({
   action?: ReactNode;
 }) {
   return (
-    <div className="text-center py-12 px-4">
+    <div className="text-center py-6 px-4">
       <h3 className="text-base font-semibold text-slate-900">{title}</h3>
-      {description && <p className="text-sm text-slate-500 mt-2 max-w-md mx-auto">{description}</p>}
-      {action && <div className="mt-4">{action}</div>}
+      {description && <p className="text-sm text-slate-500 mt-1 max-w-md mx-auto">{description}</p>}
+      {action && <div className="mt-3">{action}</div>}
     </div>
   );
 }

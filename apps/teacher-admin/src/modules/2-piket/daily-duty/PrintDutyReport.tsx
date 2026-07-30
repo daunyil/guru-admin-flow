@@ -11,7 +11,7 @@ export function PrintDutyReport({ date, yearLabel, teacherName, records, attenda
   const hasAnyData = records.length > 0 || attendanceDetail.length > 0 || ledger.length > 0;
   return (
     <Card>
-      <div className="flex justify-between items-center mb-3 flex-wrap gap-2">
+      <div className="flex justify-between items-center mb-2 flex-wrap gap-2">
         <h3 className="text-sm font-bold text-slate-700">Cetak Laporan Piket</h3>
         <div className="flex gap-2">
           <Button variant="secondary" className="text-xs" onClick={() => setShowDocument(!showDocument)}>
@@ -22,7 +22,7 @@ export function PrintDutyReport({ date, yearLabel, teacherName, records, attenda
         </div>
       </div>
       {!hasAnyData && (
-        <div className="p-2 bg-amber-50 rounded text-xs text-amber-800 mb-3">
+        <div className="p-1.5 bg-amber-50 rounded text-xs text-amber-800 mb-2">
           ⚠ Belum ada data untuk tanggal ini. Tombol cetak disembunyikan sampai ada catatan, rekap kehadiran, atau ledger poin.
         </div>
       )}

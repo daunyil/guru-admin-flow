@@ -76,7 +76,7 @@
   }
 
   .page-header {
-    @apply mb-4;
+    @apply mb-2;
   }
   .page-header h1 {
     @apply text-2xl font-bold text-slate-900;

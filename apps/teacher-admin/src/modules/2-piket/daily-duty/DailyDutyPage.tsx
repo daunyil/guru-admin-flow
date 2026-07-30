@@ -35,12 +35,12 @@ export function DailyDutyPage() {
   if (state.loading) return <LoadingState />;
   if (state.initError) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-2">
         <div className="page-header">
           <h1 className="text-2xl font-bold text-slate-900">Piket Harian</h1>
         </div>
         <Card>
-          <div className="text-center py-8 space-y-4">
+          <div className="text-center py-4 space-y-2">
             <div className="text-4xl">⚠️</div>
             <h3 className="text-base font-semibold text-slate-900">Gagal Memuat Data</h3>
             <p className="text-sm text-slate-500 max-w-md mx-auto">{state.initError}</p>
@@ -59,7 +59,7 @@ export function DailyDutyPage() {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-2">
       {/* ─── Header ─── */}
       <div className="page-header">
         <div className="flex items-center justify-between flex-wrap gap-2">
@@ -69,7 +69,7 @@ export function DailyDutyPage() {
               {state.year ? `TP ${state.year.label}` : ""} · Guru Piket: {state.teacher?.name ?? "-"}
             </p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${statusColorMap[state.reportStatus.color] ?? "bg-slate-100 text-slate-600"}`}>
               {state.reportStatus.label}
             </span>
@@ -87,7 +87,7 @@ export function DailyDutyPage() {
       {/* ─── P0-2: Load error → show retry ─── */}
       {state.loadError && (
         <Card>
-          <div className="flex items-center justify-between gap-3 p-1">
+          <div className="flex items-center justify-between gap-2 p-1">
             <div className="flex items-center gap-2">
               <span className="text-amber-600 text-lg">⚠️</span>
               <p className="text-sm text-slate-700">{state.loadError}</p>

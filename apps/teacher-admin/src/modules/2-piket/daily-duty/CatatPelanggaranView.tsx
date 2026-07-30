@@ -63,7 +63,7 @@ export function CatatPelanggaranView(props: CatatPelanggaranViewProps) {
   const canSave = selectedStudent && selectedRule && !reportFinalized && !isSubmitting;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-2">
       {/* ─── Preset Chips: Pelanggaran Populer (1-Tap) ─── */}
       <Card>
         <CardHeader
@@ -79,13 +79,13 @@ export function CatatPelanggaranView(props: CatatPelanggaranViewProps) {
         ) : (
           <>
             {reportFinalized && (
-              <div className="p-2 bg-amber-50 rounded text-xs text-amber-800 mb-3">
+              <div className="p-1.5 bg-amber-50 rounded text-xs text-amber-800 mb-2">
                 ⚠ Laporan sudah difinalisasi. Buka revisi dulu di tab Rekap → Catatan.
               </div>
             )}
 
             {/* Popular rule chips */}
-            <div className="space-y-3">
+            <div className="space-y-2">
               <div>
                 <label className="label">Pilih Aturan Cepat (1-Tap)</label>
                 <div className="flex gap-2 flex-wrap">
@@ -125,7 +125,7 @@ export function CatatPelanggaranView(props: CatatPelanggaranViewProps) {
               </div>
 
               {/* ─── Batch Mode Toggle (Kunci Aturan) ─── */}
-              <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+              <div className="flex items-center justify-between p-2 bg-slate-50 rounded-lg">
                 <div className="flex items-center gap-2">
                   <span className="text-base">🔒</span>
                   <div>
@@ -162,7 +162,7 @@ export function CatatPelanggaranView(props: CatatPelanggaranViewProps) {
 
       {/* ─── Student Search ─── */}
       <Card>
-        <div className="space-y-3">
+        <div className="space-y-2">
           <div>
             <label className="label">Filter kelas</label>
             <div className="flex gap-2 flex-wrap">
@@ -212,7 +212,7 @@ export function CatatPelanggaranView(props: CatatPelanggaranViewProps) {
       {/* ─── Rule Search (Expanded) ─── */}
       <div id="rule-search-section">
       <Card>
-        <div className="space-y-3">
+        <div className="space-y-2">
           <Input
             label="🔍 Cari pelanggaran"
             id="rule-search"
@@ -251,8 +251,8 @@ export function CatatPelanggaranView(props: CatatPelanggaranViewProps) {
       {/* ─── Selection Summary ─── */}
       {(selectedStudent || selectedRule) && (
         <Card className="bg-slate-50">
-          <div className="p-3 space-y-1 text-sm">
-            <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-2">Ringkasan Pilihan</p>
+          <div className="space-y-1 text-sm">
+            <p className="text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">Ringkasan Pilihan</p>
             {selectedStudent && (
               <div className="flex items-center gap-2">
                 <span className="text-base">👤</span>
@@ -273,7 +273,7 @@ export function CatatPelanggaranView(props: CatatPelanggaranViewProps) {
 
       {/* ─── Additional Notes ─── */}
       <Card>
-        <div className="space-y-3">
+        <div className="space-y-2">
           <Textarea
             label={`Catatan tambahan${selectedRule?.type === "other" ? " (wajib untuk Lainnya)" : " (opsional)"}`}
             id="duty-note"
@@ -292,12 +292,12 @@ export function CatatPelanggaranView(props: CatatPelanggaranViewProps) {
       </Card>
 
       {/* ─── Sticky Save Button (Large & Guarded) ─── */}
-      <div className="sticky bottom-4 z-10">
+      <div className="sticky bottom-2 z-10">
         <button
           type="button"
           onClick={() => void handleCatat()}
           disabled={!canSave}
-          className={`w-full flex items-center justify-center gap-2 px-6 py-4 rounded-xl text-base font-bold transition-all duration-200 shadow-lg ${
+          className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-base font-bold transition-all duration-200 shadow-lg ${
             canSave
               ? "bg-brand-600 text-white hover:bg-brand-700 active:scale-[0.98]"
               : isSubmitting
