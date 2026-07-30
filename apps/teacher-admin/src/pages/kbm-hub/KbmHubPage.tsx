@@ -38,6 +38,7 @@ import { AccordionCard, StudentRow, MiniStat } from "@shared/ui/mobile";
 import { ATTENDANCE_STATUS_OPTIONS } from "@shared/constants/attendance-status";
 import type { AttendanceStatus } from "@guru-admin/domain";
 import { LoadingState, EmptyState, Toast, useToast } from "@shared/ui";
+import { useDirtyGuard } from "@shared/hooks/useDirtyGuard";
 
 /* ============================================================ */
 /*  Component                                                    */
@@ -55,17 +56,8 @@ export function KbmHubPage() {
     kbm.setNotice(null);
   }, [kbm.notice, kbm.setNotice, toast]);
 
-  /* ---- 1a: Unsaved changes guard — beforeunload ---- */
-  useEffect(() => {
-    if (!kbm.isDirty) return;
-    const handler = (e: BeforeUnloadEvent) => {
-      e.preventDefault();
-      // Modern browsers ignore custom messages, but legacy requires returnValue
-      e.returnValue = "";
-    };
-    window.addEventListener("beforeunload", handler);
-    return () => window.removeEventListener("beforeunload", handler);
-  }, [kbm.isDirty]);
+  /* ---- 1a: Unsaved changes guard — B4-01: use shared hook ---- */
+  useDirtyGuard(kbm.isDirty, { message: "Data KBM belum disimpan. Yakin ingin keluar?" });
 
   /* ---- Render ---- */
   if (kbm.loading) return <LoadingState />;
@@ -471,18 +463,15 @@ function EditorView({ kbm }: { kbm: ReturnType<typeof useKbmHub> }) {
     setOpenTab(nextOpen ? tab : null);
   }, []);
 
-  /* ---- 1a: Guard navigation with unsaved changes ---- */
-  const guardNavigate = useCallback((action: () => void) => {
-    if (kbm.isDirty && !window.confirm("Data belum disimpan. Yakin ingin keluar?")) return;
-    action();
-  }, [kbm.isDirty]);
+  /* ---- 1a: Guard navigation with unsaved changes — B4-01: use guardAction from shared hook ---- */
+  const { guardAction } = useDirtyGuard(kbm.isDirty, { message: "Data KBM belum disimpan. Yakin ingin keluar?" });
 
   return (
     <div className="space-y-3 md:space-y-4">
       {/* Back button + session info */}
       <div className="flex items-center gap-3">
         <button
-          onClick={() => guardNavigate(kbm.backToDashboard)}
+          onClick={() => guardAction(kbm.backToDashboard)}
           className="text-xs md:text-sm text-emerald-600 hover:text-emerald-700 font-bold flex items-center gap-1 active:scale-95 transition-transform min-h-[44px] min-w-[44px] justify-center"
         >
           ← Kembali

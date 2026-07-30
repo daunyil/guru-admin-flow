@@ -3,7 +3,7 @@
  * and computed values for TodayPage.
  */
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import {
   getActiveAcademicYear,
   getSchoolProfile,
@@ -11,8 +11,9 @@ import {
 } from "@shared/db/profile-repo";
 import { getLessonSessionsByDate, listLessonSessions } from "@shared/db/lesson-session-repo";
 import { listJournals } from "@shared/db/journal-repo";
-import { getAttendanceByTeacherDate, countSessionsWithAttendance } from "@shared/db/attendance-repo";
+import { getAttendanceByTeacherDate, batchCountSessionsWithAttendance } from "@shared/db/attendance-repo";
 import { listAssignmentsByTeacher } from "@shared/db/teaching-assignment-repo";
+import { getDutyReportByDate, listDutyRecordsByDate } from "@shared/db/daily-duty-repo";
 import { seedSampleData } from "@shared/db/seed-sample-data";
 import type {
   AcademicYear,
@@ -22,8 +23,10 @@ import type {
   TeachingJournal,
   AttendanceRecord,
   TeachingAssignment,
+  DutyReport,
+  DutyRecord,
 } from "@guru-admin/domain";
-import { formatLongDateID, todayISODate } from "@guru-admin/shared";
+import { formatLongDateID, todayISODate, FEATURE_FLAGS } from "@guru-admin/shared";
 import type { ModuleEntry, ModuleStatus, PendingItem } from "./today-page-utils";
 
 /* ================================================================== */
@@ -46,10 +49,14 @@ export type TodayPageState = {
   todayLabel: string;
   todayAttendanceSessionIds: Set<string>;
   todayJournalSessionIds: Set<string>;
+  todayDutyReport: DutyReport | undefined;
+  todayDutyRecords: DutyRecord[];
   pendingItems: PendingItem[];
   moduleList: ModuleEntry[];
   categories: string[];
   modulesByCategory: { category: string; modules: ModuleEntry[] }[];
+  /** B4-03: incremental loading — sessions are loaded and ready to render */
+  sessionsLoaded: boolean;
   handleSeedSampleData: () => void;
   handleReload: () => void;
 };
@@ -70,6 +77,11 @@ export function useTodayPageState(): TodayPageState {
   const [seeding, setSeeding] = useState(false);
   const [seedMsg, setSeedMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [todayDutyReport, setTodayDutyReport] = useState<DutyReport | undefined>();
+  const [todayDutyRecords, setTodayDutyRecords] = useState<DutyRecord[]>([]);
+
+  // B4-03: Incremental loading — show header/school info first, then sessions
+  const [sessionsLoaded, setSessionsLoaded] = useState(false);
 
   // Untuk menghitung status absensi & jurnal per assignment
   const [attSessionCounts, setAttSessionCounts] = useState<Record<string, { done: number; total: number }>>({});
@@ -78,6 +90,7 @@ export function useTodayPageState(): TodayPageState {
   useEffect(() => {
     void (async () => {
       try {
+        // B4-03: Phase 1 — load header data first (fast)
         const [year, sp, tp] = await Promise.all([
           getActiveAcademicYear(),
           getSchoolProfile(),
@@ -86,7 +99,9 @@ export function useTodayPageState(): TodayPageState {
         setActiveYear(year);
         setSchool(sp);
         setTeacher(tp);
+        setLoading(false); // B4-03: Show header immediately
 
+        // B4-03: Phase 2 — load today's sessions (moderate)
         if (tp) {
           const today = todayISODate();
           const [sessions, todayAtt] = await Promise.all([
@@ -95,7 +110,9 @@ export function useTodayPageState(): TodayPageState {
           ]);
           setTodaySessions(sessions);
           setAttendanceRecords(todayAtt);
+          setSessionsLoaded(true); // B4-03: Show session cards
 
+          // B4-03: Phase 3 — load detailed counts (slow, non-blocking)
           if (year) {
             const allJournals = await listJournals(year.id);
             setJournals(allJournals);
@@ -110,17 +127,35 @@ export function useTodayPageState(): TodayPageState {
             const attCounts: Record<string, { done: number; total: number }> = {};
             const jrnCounts: Record<string, { done: number; total: number; drafts: number }> = {};
 
+            // B4-03: Batch query — collect all session IDs first, then count in one pass
+            const allAsgSessionIds: string[] = [];
+            const asgSessionMap: Record<string, string[]> = {};
             for (const asg of asgList) {
               const asgSessions = allSessions.filter(
                 (s) => s.classId === asg.classId && s.subject === asg.subject && s.teacherId === asg.teacherId && !s.deletedAt
               );
-              const asgSessionIds = asgSessions.map((s) => s.id);
+              const ids = asgSessions.map((s) => s.id);
+              asgSessionMap[asg.id] = ids;
+              allAsgSessionIds.push(...ids);
+            }
 
-              // Absensi: hitung sesi yang sudah ada attendance
-              const doneCount = await countSessionsWithAttendance(asgSessionIds);
+            // B4-03: Single batch count instead of N+1 loop
+            const attCountMap = await batchCountSessionsWithAttendance(allAsgSessionIds);
+
+            for (const asg of asgList) {
+              const asgSessionIds = asgSessionMap[asg.id] ?? [];
+              const asgSessions = allSessions.filter(
+                (s) => asgSessionIds.includes(s.id)
+              );
+
+              // Use batch result instead of per-assignment query
+              let doneCount = 0;
+              for (const sid of asgSessionIds) {
+                if (attCountMap[sid]) doneCount++;
+              }
               attCounts[asg.id] = { done: doneCount, total: asgSessions.length };
 
-              // Jurnal: cek journal records
+              // Jurnal: cek journal records (already in memory)
               const asgJournals = allJournals.filter(
                 (j) => j.classId === asg.classId && j.subject === asg.subject && j.teacherId === asg.teacherId
               );
@@ -132,11 +167,25 @@ export function useTodayPageState(): TodayPageState {
             setAttSessionCounts(attCounts);
             setJrnSessionCounts(jrnCounts);
           }
+
+          // MODUL-2-PIKET: Load today's piket data (Phase 3, non-blocking)
+          if (year && FEATURE_FLAGS.dailyDuty) {
+            try {
+              const [dutyReport, dutyRecords] = await Promise.all([
+                getDutyReportByDate(year.id, today),
+                listDutyRecordsByDate(year.id, today),
+              ]);
+              setTodayDutyReport(dutyReport);
+              setTodayDutyRecords(dutyRecords);
+            } catch (e) {
+              // Piket data is non-critical — don't block the page
+              console.warn("[TodayPage] Gagal memuat data piket:", e);
+            }
+          }
         }
       } catch (err) {
         console.error("[TodayPage] Gagal memuat data:", err);
         setErrorMsg(err instanceof Error ? err.message : "Gagal memuat data. Coba muat ulang halaman.");
-      } finally {
         setLoading(false);
       }
     })();
@@ -146,13 +195,15 @@ export function useTodayPageState(): TodayPageState {
   const today = todayISODate();
   const todayLabel = formatLongDateID(today);
 
-  // Computed: session ID sets for attendance/journal lookup
-  const todayAttendanceSessionIds = new Set(
-    attendanceRecords.filter((r) => r.date === today).map((r) => r.sessionId)
+  // B4-03: Memoized computed Sets — avoid recreating on every render
+  const todayAttendanceSessionIds = useMemo(
+    () => new Set(attendanceRecords.filter((r) => r.date === today).map((r) => r.sessionId)),
+    [attendanceRecords, today]
   );
 
-  const todayJournalSessionIds = new Set(
-    journals.filter((j) => j.date === today).map((j) => j.sessionId)
+  const todayJournalSessionIds = useMemo(
+    () => new Set(journals.filter((j) => j.date === today).map((j) => j.sessionId)),
+    [journals, today]
   );
 
   // Computed: pending work
@@ -188,6 +239,25 @@ export function useTodayPageState(): TodayPageState {
       link: `/journal`,
       urgency: "medium",
     });
+  }
+
+  // MODUL-2-PIKET: Pending items for piket duty
+  if (FEATURE_FLAGS.dailyDuty) {
+    if (!todayDutyReport) {
+      pendingItems.push({
+        id: "piket-no-report",
+        label: "Laporan Piket hari ini belum dibuat",
+        link: "/piket",
+        urgency: "medium",
+      });
+    } else if (!todayDutyReport.finalized) {
+      pendingItems.push({
+        id: "piket-not-finalized",
+        label: `Laporan Piket belum difinalisasi (${todayDutyRecords.length} catatan)`,
+        link: "/piket",
+        urgency: "low",
+      });
+    }
   }
 
   // Computed: build module list with statuses
@@ -255,6 +325,28 @@ export function useTodayPageState(): TodayPageState {
         },
       ] as ModuleEntry[];
     }).flat(),
+
+    // === KEDISIPLINAN (MODUL-2-PIKET) ===
+    ...(FEATURE_FLAGS.dailyDuty
+      ? [{
+          id: "piket-daily",
+          label: "Piket Harian",
+          to: "/piket",
+          category: "Kedisiplinan",
+          status: ((): ModuleStatus => {
+            if (!todayDutyReport) return "belum_diisi";
+            if (todayDutyReport.finalized) return "lengkap";
+            if (todayDutyRecords.length > 0) return "perlu_finalisasi";
+            return "draft";
+          })(),
+          statusLabel: ((): string => {
+            if (!todayDutyReport) return "Belum diisi";
+            if (todayDutyReport.finalized) return `Lengkap — ${todayDutyRecords.length} catatan`;
+            if (todayDutyRecords.length > 0) return `${todayDutyRecords.length} catatan, perlu finalisasi`;
+            return "Laporan dibuat, belum ada catatan";
+          })(),
+        } as ModuleEntry]
+      : []),
 
     // === DATA DASAR ===
     {
@@ -473,10 +565,13 @@ export function useTodayPageState(): TodayPageState {
     todayLabel,
     todayAttendanceSessionIds,
     todayJournalSessionIds,
+    todayDutyReport,
+    todayDutyRecords,
     pendingItems,
     moduleList,
     categories,
     modulesByCategory,
+    sessionsLoaded, // B4-03: incremental loading flag
     handleSeedSampleData,
     handleReload,
   };

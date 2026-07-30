@@ -925,3 +925,25 @@ Work Log:
 Stage Summary:
 - Tablet responsive handling implemented — landscape canvas scales to 70% on 768-900px viewports, preserving WYSIWYG document preview experience
 - Build verified: zero errors
+
+---
+Task ID: MODUL-2-PIKET-01
+Agent: Super Z
+Task: Modul 2 Piket — TodayPage Integration + Backup UI Fix
+
+Work Log:
+- EXPLORE: Full audit of Modul 2 (Piket) — found module already UX READY with 5 sprints of development
+- IDENTIFY: 3 critical gaps — (1) Piket missing from TodayPage dashboard, (2) Backup UI doesn't show piket counts, (3) Pending items don't show piket status
+- CODE: useTodayPageState.ts — Added piket data loading (getDutyReportByDate, listDutyRecordsByDate) in Phase 3
+- CODE: useTodayPageState.ts — Added "Kedisiplinan" category with "Piket Harian" entry showing status (belum_diisi/draft/perlu_finalisasi/lengkap)
+- CODE: useTodayPageState.ts — Added piket pending items (report not created, report not finalized)
+- CODE: backup.ts (domain) — Added dutyRules/dutyReports/dutyRecords to BackupSummary type and validateBackup()
+- CODE: BackupPage.tsx — Added piket counts to handleExport() summary and both export/restore Stat grids
+- ANALYZE: PromesMerdekaDocument test failure — pre-existing issue with @shared/documents alias when running from monorepo root (works fine from apps/teacher-admin/)
+
+Stage Summary:
+- TodayPage now shows "Piket Harian" under "Kedisiplinan" category with real-time status
+- Backup UI now shows piket counts (Aturan, Laporan, Catatan) in both export and restore sections
+- Pending items card shows piket status when report not created or not finalized
+- Build: SUCCESS, Tests: 716/716 PASS (1 pre-existing test file failure)
+- Commit: ready

@@ -19,15 +19,22 @@ interface AttendanceEditorProps {
   year: AcademicYear | null;
   onSaved: (info: SaveInfo) => void | Promise<void>;
   onError: (msg: string) => void;
+  /** B4-01: Callback when dirty state changes (changes.size > 0) */
+  onDirtyChange?: (dirty: boolean) => void;
 }
 
-export function AttendanceEditor({ sessionId, date, year, onSaved, onError }: AttendanceEditorProps) {
+export function AttendanceEditor({ sessionId, date, year, onSaved, onError, onDirtyChange }: AttendanceEditorProps) {
   const [loading, setLoading] = useState(true);
   const [session, setSession] = useState<LessonSession | null>(null);
   const [roster, setRoster] = useState<ClassRoster | null>(null);
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [changes, setChanges] = useState<Map<string, Status>>(new Map());
   const [isNew, setIsNew] = useState(false);
+
+  // B4-01: Notify parent when dirty state changes
+  useEffect(() => {
+    onDirtyChange?.(changes.size > 0);
+  }, [changes.size, onDirtyChange]);
 
   useEffect(() => {
     void (async () => {
@@ -54,7 +61,7 @@ export function AttendanceEditor({ sessionId, date, year, onSaved, onError }: At
           ? await updateAttendance(session.id, Array.from(changes.entries()).map(([studentId, status]) => ({ studentId, status: status as AttendanceRecord["status"] })))
           : records);
       if (isNew) { await saveDefaultAttendance(next); setIsNew(false); }
-      setRecords(next); setChanges(new Map());
+      setRecords(next); setChanges(new Map()); // B4-01: changes cleared → onDirtyChange fires via useEffect
       await onSaved({ sessionId: session.id, subject: session.subject, classLabel: session.classLabel, date: session.date, summary: summarizeAttendance(next) });
     } catch (e) {
       onError(e instanceof Error ? e.message : "Gagal menyimpan absensi. Coba lagi.");

@@ -252,6 +252,32 @@ export async function countSessionsWithAttendance(sessionIds: string[]): Promise
   return count;
 }
 
+/**
+ * B4-03: Batch version of countSessionsWithAttendance.
+ * Returns a map of sessionId → boolean (has attendance or not).
+ * Much more efficient than N sequential queries for TodayPage.
+ */
+export async function batchCountSessionsWithAttendance(sessionIds: string[]): Promise<Record<string, boolean>> {
+  if (sessionIds.length === 0) return {};
+  const result: Record<string, boolean> = {};
+  const idSet = new Set(sessionIds);
+
+  // Single query: get all records matching any of the sessionIds
+  // Dexie's anyOf() uses the sessionId index efficiently
+  const records = await db.attendanceRecords
+    .where("sessionId")
+    .anyOf(sessionIds)
+    .toArray();
+
+  // Build result map from deduplicated sessionIds
+  for (const r of records) {
+    if (!r.deletedAt && idSet.has(r.sessionId)) {
+      result[r.sessionId] = true;
+    }
+  }
+  return result;
+}
+
 /** Hapus semua absensi untuk sesi (sebelum re-init). */
 export async function clearAttendanceForSession(sessionId: string): Promise<void> {
   const all = await db.attendanceRecords

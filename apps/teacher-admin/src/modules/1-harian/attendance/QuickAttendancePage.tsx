@@ -9,15 +9,23 @@
  *   - ensureDoc pattern: find-or-create saat assignment dipilih.
  */
 
+import { useState, useCallback } from "react";
 import { Card, Input, Select, Button, EmptyState, Badge, LoadingState } from "@shared/ui";
 import { formatLongDateID } from "@guru-admin/shared";
 import { DocumentPreview } from "@shared/documents";
+import { useDirtyGuard } from "@shared/hooks/useDirtyGuard";
 import { useQuickAttendanceState } from "./useQuickAttendanceState";
 import { AttendanceUnfilledList } from "./AttendanceUnfilledList";
 import { AttendanceEditor } from "./AttendanceEditor";
 
 export function QuickAttendancePage() {
   const state = useQuickAttendanceState();
+
+  // B4-01: Dirty guard for unsaved attendance changes
+  const [isDirty, setIsDirty] = useState(false);
+  useDirtyGuard(isDirty, { message: "Data presensi belum disimpan. Yakin ingin keluar?" });
+
+  const handleDirtyChange = useCallback((dirty: boolean) => setIsDirty(dirty), []);
 
   const {
     loading,
@@ -274,7 +282,7 @@ export function QuickAttendancePage() {
               onPickSession={handlePickSession}
             />
           ) : (
-            <AttendanceEditor sessionId={selectedSessionId} date={date} year={year} onSaved={afterSave} onError={setNotice} />
+            <AttendanceEditor sessionId={selectedSessionId} date={date} year={year} onSaved={afterSave} onError={setNotice} onDirtyChange={handleDirtyChange} />
           )}
 
           {/* Rekap Absensi Document (shown when susulan mode has data) */}

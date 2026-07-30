@@ -21,7 +21,7 @@
  *   - Removed: showDocument toggle, PrintExportButtons (DocumentPreview handles printing).
  */
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Card, EmptyState, LoadingState } from "@shared/ui";
 import {
@@ -49,6 +49,8 @@ import {
 } from "@guru-admin/domain";
 import { todayISODate } from "@guru-admin/shared";
 
+import { useDirtyGuard } from "@shared/hooks/useDirtyGuard";
+
 // WYSIWYG-DOC-FASE9
 import { DocumentPreview } from "@shared/documents";
 
@@ -61,6 +63,12 @@ import { useJournalDocument } from "./useJournalDocument";
 
 export function QuickJournalPage() {
   const [loading, setLoading] = useState(true);
+
+  // B4-01: Dirty guard for unsaved journal changes
+  const [isDirty, setIsDirty] = useState(false);
+  useDirtyGuard(isDirty, { message: "Data jurnal belum disimpan. Yakin ingin keluar?" });
+  const handleDirtyChange = useCallback((dirty: boolean) => setIsDirty(dirty), []);
+
   const [year, setActiveYear] = useState<AcademicYear | null>(null);
   const [school, setSchool] = useState<SchoolProfile | undefined>();
   const [teacher, setTeacher] = useState<TeacherProfile | undefined>();
@@ -362,6 +370,7 @@ export function QuickJournalPage() {
               academicYearId={year?.id ?? ""}
               schoolName={school?.name ?? ""}
               teacherName={assignment?.teacherName ?? teacher?.name ?? ""}
+              onDirtyChange={handleDirtyChange}
               onSaved={(msg) => {
                 setMessage({ type: "success", text: msg });
                 void loadAssignmentData();

@@ -28,7 +28,31 @@ import { ModuleRow } from "./ModuleRow";
 export function TodayPage() {
   const state = useTodayPageState();
 
-  if (state.loading) return <p className="text-sm text-slate-500">Memuat...</p>;
+  // B4-03: Phase 1 — show skeleton while loading basic data
+  if (state.loading) {
+    return (
+      <div className="space-y-4">
+        {/* Header skeleton */}
+        <div className="animate-pulse">
+          <div className="h-8 bg-slate-200 rounded w-48 mb-2" />
+          <div className="h-4 bg-slate-200 rounded w-32" />
+        </div>
+        {/* Session card skeleton */}
+        <div className="animate-pulse border border-slate-200 rounded-lg p-4">
+          <div className="h-5 bg-slate-200 rounded w-40 mb-3" />
+          <div className="space-y-2">
+            <div className="h-12 bg-slate-100 rounded" />
+            <div className="h-12 bg-slate-100 rounded" />
+          </div>
+        </div>
+        {/* Pending items skeleton */}
+        <div className="animate-pulse border border-slate-200 rounded-lg p-4">
+          <div className="h-5 bg-slate-200 rounded w-32 mb-3" />
+          <div className="h-8 bg-slate-100 rounded" />
+        </div>
+      </div>
+    );
+  }
 
   if (state.errorMsg) {
     return (

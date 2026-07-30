@@ -58,6 +58,10 @@ export function BackupPage() {
           enrichmentPrograms: backup.data.enrichmentPrograms.length,
           documentSnapshots: backup.data.documentSnapshots.length,
           schoolDocuments: backup.data.schoolDocuments?.length ?? 0,
+          // MODUL-2-PIKET: piket counts in export summary
+          dutyRules: backup.data.dutyRules?.length ?? 0,
+          dutyReports: backup.data.dutyReports?.length ?? 0,
+          dutyRecords: backup.data.dutyRecords?.length ?? 0,
         },
         hasSchoolProfile: backup.data.schoolProfile !== null,
         hasTeacherProfile: backup.data.teacherProfile !== null,
@@ -165,6 +169,9 @@ export function BackupPage() {
               <Stat label="Laporan" value={summary.counts.semesterReports} />
               <Stat label="Nilai" value={summary.counts.gradeBooks} />
               <Stat label="Snapshot" value={summary.counts.documentSnapshots} />
+              <Stat label="Piket Aturan" value={summary.counts.dutyRules} />
+              <Stat label="Piket Laporan" value={summary.counts.dutyReports} />
+              <Stat label="Piket Catatan" value={summary.counts.dutyRecords} />
             </dl>
             <p className="text-xs text-brand-700 mt-2">
               schemaVersion: {summary.schemaVersion} • appVersion: {summary.appVersion}
@@ -212,6 +219,9 @@ export function BackupPage() {
                     <Stat label="Jurnal" value={pendingSummary.counts.teachingJournals} />
                     <Stat label="Laporan" value={pendingSummary.counts.semesterReports} />
                     <Stat label="Nilai" value={pendingSummary.counts.gradeBooks} />
+                    <Stat label="Piket Aturan" value={pendingSummary.counts.dutyRules} />
+                    <Stat label="Piket Laporan" value={pendingSummary.counts.dutyReports} />
+                    <Stat label="Piket Catatan" value={pendingSummary.counts.dutyRecords} />
                   </dl>
                   <p className="text-xs text-amber-800 mb-3">
                     schemaVersion: {pendingSummary.schemaVersion} • di-export: {pendingSummary.exportedAt}

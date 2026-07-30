@@ -218,6 +218,10 @@ export function useKbmSession() {
   const [notice, setNotice] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
+  // B4-01: Dirty tracking — simple flag set when user edits, reset on save
+  const [hasEdits, setHasEdits] = useState(false);
+  const isDirty = useMemo(() => hasEdits || changes.size > 0 || noteMap.size > 0 || nilaiMap.size > 0, [hasEdits, changes.size, noteMap.size, nilaiMap.size]);
+
   /* ================================================================ */
   /*  Computed: Cascading selector — PRIMARY SOURCE = ASSIGNMENTS     */
   /* ================================================================ */
@@ -459,6 +463,7 @@ export function useKbmSession() {
         setRecords(attRecords);
         setChanges(new Map());
         setNoteMap(new Map());
+        setHasEdits(false); // B4-01: reset dirty on session load
 
         // Init journal
         const j = await initJournalForSession({
@@ -527,6 +532,7 @@ export function useKbmSession() {
     const next = new Map(changes);
     next.set(studentId, status);
     setChanges(next);
+    setHasEdits(true); // B4-01
   }
 
   function setAllPresent() {
@@ -536,6 +542,7 @@ export function useKbmSession() {
     }
     setChanges(next);
     setNoteMap(new Map());
+    setHasEdits(true); // B4-01
   }
 
   function setStudentNote(studentId: string, note: string) {
@@ -546,6 +553,7 @@ export function useKbmSession() {
       next.delete(studentId);
     }
     setNoteMap(next);
+    setHasEdits(true); // B4-01
   }
 
   /* ================================================================ */
@@ -560,6 +568,7 @@ export function useKbmSession() {
         : [...current, chip];
       return { ...prev, [category]: next };
     });
+    setHasEdits(true); // B4-01
   }
 
   /* ================================================================ */
@@ -589,6 +598,7 @@ export function useKbmSession() {
       next.delete(studentId);
     }
     setNilaiMap(next);
+    setHasEdits(true); // B4-01
   }
 
   /* ================================================================ */
@@ -769,6 +779,7 @@ export function useKbmSession() {
       }
 
       setNotice("KBM Sesi Berhasil Disimpan!");
+      setHasEdits(false); // B4-01: reset dirty after save
     } catch (err) {
       console.error("[useKbmSession] Gagal simpan:", err);
       setNotice("Gagal menyimpan. Coba lagi.");
@@ -842,6 +853,9 @@ export function useKbmSession() {
 
     // Status
     notice, setNotice, saving, saveAll,
+
+    // B4-01: Dirty state
+    isDirty,
 
     // Utility
     todayDate: formatLongDateID(todayISODate()),

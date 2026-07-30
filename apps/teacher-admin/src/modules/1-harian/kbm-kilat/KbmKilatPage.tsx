@@ -30,6 +30,7 @@ import { LoadingState, EmptyState, Toast, useToast } from "@shared/ui";
 import type { UseToastReturn } from "@shared/ui/Toast";
 import { AccordionCard, MiniStat, StudentRow } from "@shared/ui/mobile";
 import { ATTENDANCE_STATUS_OPTIONS } from "@shared/constants/attendance-status";
+import { useDirtyGuard } from "@shared/hooks/useDirtyGuard";
 
 /* ============================================================ */
 /*  Component                                                    */
@@ -38,6 +39,9 @@ import { ATTENDANCE_STATUS_OPTIONS } from "@shared/constants/attendance-status";
 export function KbmKilatPage() {
   const kbm = useKbmSession();
   const toast = useToast();
+
+  // B4-01: Dirty guard for unsaved KBM changes
+  useDirtyGuard(kbm.isDirty, { message: "Data KBM belum disimpan. Yakin ingin keluar?" });
 
   /* ---- Render ---- */
   if (kbm.loading) return <LoadingState />;

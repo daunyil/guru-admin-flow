@@ -37,6 +37,7 @@ export function QuickJournalEditor({
   teacherName,
   onSaved,
   onError,
+  onDirtyChange,
 }: {
   sessionId: string;
   academicYearId: string;
@@ -44,6 +45,8 @@ export function QuickJournalEditor({
   teacherName: string;
   onSaved: (msg: string) => void;
   onError: (msg: string) => void;
+  /** B4-01: Callback when dirty state changes */
+  onDirtyChange?: (dirty: boolean) => void;
 }) {
   const [loading, setLoading] = useState(true);
   const [session, setSession] = useState<LessonSession | null>(null);
@@ -67,9 +70,13 @@ export function QuickJournalEditor({
   const [availableUnits, setAvailableUnits] = useState<ProtaUnit[]>([]);
   const [selectedUnitId, setSelectedUnitId] = useState<string>("");
 
+  // B4-01: Track whether the user has made edits since last save
+  const [hasEdits, setHasEdits] = useState(false);
+
   // Helper: reset reviewOpened saat input berubah (spec §4: "Jika isi jurnal berubah setelah review, reviewOpened kembali false.")
   function invalidateReview() {
     setReviewOpened(false);
+    setHasEdits(true);
   }
 
   // Wrapped setters that invalidate review
@@ -144,6 +151,18 @@ export function QuickJournalEditor({
     [actualMaterialTitle, journal, activities, studentResponse, obstacle, followUp, freeNote],
   );
 
+  // B4-02: Effective narrative — combine auto-generated parts for display
+  // Used in the document section and the editable narasi textarea
+  const effectiveNarrative = useMemo(() => {
+    return [narrative.activityNarrative, narrative.noteNarrative, narrative.followUpNarrative]
+      .filter(Boolean).join(" ");
+  }, [narrative]);
+
+  // B4-01: Notify parent when dirty state changes
+  useEffect(() => {
+    onDirtyChange?.(hasEdits);
+  }, [hasEdits, onDirtyChange]);
+
   // JOURNAL-REVIEW-NARRATIVE-03 §4: tombol final aktif hanya bila canFinalizeJournal.ok
   const finalizeCheck = canFinalizeJournal({
     material: actualMaterialTitle || journal?.plannedMaterialTitle || "",
@@ -154,6 +173,7 @@ export function QuickJournalEditor({
   async function handleSaveDraft() {
     if (!journal) return;
     try {
+      // B4-02: Save with the current freeNote (which may contain narrative edits)
       const structuredNote = packStructuredNote({ activities, studentResponse, obstacle, freeNote });
       const updated = await updateJournal(journal.id, {
         realizationStatus,
@@ -163,6 +183,7 @@ export function QuickJournalEditor({
       });
       if (updated) {
         setJournal(updated);
+        setHasEdits(false); // B4-01: reset dirty after save
         onSaved("Draft jurnal tersimpan.");
       }
     } catch (e) {
@@ -197,6 +218,7 @@ export function QuickJournalEditor({
       const result = await finalizeJournal(updated.id);
       if (result.success && result.journal) {
         setJournal(result.journal);
+        setHasEdits(false); // B4-01: reset dirty after final
         onSaved("Jurnal disetujui & difinalkan (terkunci).");
       } else {
         onError(result.errors.join(", ") || "Gagal finalisasi jurnal.");
@@ -536,10 +558,8 @@ export function QuickJournalEditor({
             <tr><td style={{ fontWeight: "bold", background: "#f5f5f5" }}>Materi</td><td>{effectiveMaterial || "-"}</td></tr>
             <tr><td style={{ fontWeight: "bold", background: "#f5f5f5" }}>Tujuan Pembelajaran</td><td>{journal.plannedLearningOutcome ?? "-"}</td></tr>
             <tr><td style={{ fontWeight: "bold", background: "#f5f5f5" }}>Kehadiran</td><td>H: {journal.presentCount} · S: {journal.sickCount} · I: {journal.excusedCount} · A: {journal.absentCount} · Total: {journal.totalStudents}</td></tr>
-            {/* JOURNAL-REVIEW-NARRATIVE-03 §8: pakai narrative */}
-            <tr><td style={{ fontWeight: "bold", background: "#f5f5f5" }}>Kegiatan Pembelajaran</td><td>{narrative.activityNarrative}</td></tr>
-            <tr><td style={{ fontWeight: "bold", background: "#f5f5f5" }}>Catatan / Respons Siswa</td><td>{narrative.noteNarrative}</td></tr>
-            <tr><td style={{ fontWeight: "bold", background: "#f5f5f5" }}>Tindak Lanjut</td><td>{narrative.followUpNarrative}</td></tr>
+            {/* JOURNAL-REVIEW-NARRATIVE-03 §8: B4-02: pakai effectiveNarrative */}
+            <tr><td style={{ fontWeight: "bold", background: "#f5f5f5" }}>Kegiatan Pembelajaran</td><td>{effectiveNarrative || "-"}</td></tr>
           </tbody>
         </table>
         <div className="signature-grid">

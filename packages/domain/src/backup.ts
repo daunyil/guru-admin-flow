@@ -112,6 +112,10 @@ export function validateBackup(input: unknown):
       enrichmentPrograms: backup.data.enrichmentPrograms.length,
       documentSnapshots: backup.data.documentSnapshots.length,
       schoolDocuments: backup.data.schoolDocuments?.length ?? 0,
+      // MODUL-2-PIKET: piket counts in backup summary
+      dutyRules: backup.data.dutyRules?.length ?? 0,
+      dutyReports: backup.data.dutyReports?.length ?? 0,
+      dutyRecords: backup.data.dutyRecords?.length ?? 0,
     },
     hasSchoolProfile: backup.data.schoolProfile !== null,
     hasTeacherProfile: backup.data.teacherProfile !== null,
@@ -143,6 +147,10 @@ export type BackupSummary = {
     enrichmentPrograms: number;
     documentSnapshots: number;
     schoolDocuments: number;
+    // MODUL-2-PIKET: piket counts in backup summary
+    dutyRules: number;
+    dutyReports: number;
+    dutyRecords: number;
   };
   hasSchoolProfile: boolean;
   hasTeacherProfile: boolean;
