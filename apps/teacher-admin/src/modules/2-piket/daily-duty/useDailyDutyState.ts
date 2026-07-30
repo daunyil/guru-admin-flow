@@ -1,9 +1,19 @@
 /**
  * Custom hook encapsulating all state, effects, handlers, and computed values
  * for the DailyDutyPage component.
+ *
+ * PIKET-UI-V2: Opsi B (Segmented Switcher)
+ * - mainView: "catat" | "rekap"
+ * - rekapSubTab: "presensi" | "catatan" | "poin" | "cetak"
+ *
+ * Bug fixes:
+ * - P0-1/P0-2: try/catch/finally + error state + retry button
+ * - P1-1: isSubmitting guard on async handlers
+ * - P1-2: auto-reset selectedStudent & selectedRule when date changes
+ * - P1-4: responsive grid (handled in PointLedgerTab)
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { getActiveAcademicYear, getSchoolProfile, getTeacherProfile } from "@shared/db/profile-repo";
 import { listClassRosters } from "@shared/db/class-roster-repo";
 import { todayISODate } from "@guru-admin/shared";
@@ -42,7 +52,7 @@ import {
   validateDutyRecordInput,
 } from "@guru-admin/domain";
 import { buildPiketLetter, type PiketLetterDocument, type PiketLetterType } from "./piket-letter";
-import type { Tab } from "./types";
+import type { MainView, RekapSubTab } from "./types";
 
 type MessageType = { type: "success" | "error" | "warning"; text: string } | null;
 
@@ -53,7 +63,10 @@ export function useDailyDutyState() {
   const [school, setSchool] = useState<SchoolProfile | undefined>();
   const [teacher, setTeacher] = useState<TeacherProfile | undefined>();
   const [date, setDate] = useState(todayISODate());
-  const [tab, setTab] = useState<Tab>("catat");
+
+  // ─── UI-V2: Segmented Switcher state ───
+  const [mainView, setMainView] = useState<MainView>("catat");
+  const [rekapSubTab, setRekapSubTab] = useState<RekapSubTab>("presensi");
 
   // ─── Data state ───
   const [rules, setRules] = useState<DutyRule[]>([]);
@@ -63,14 +76,21 @@ export function useDailyDutyState() {
   const [reportNote, setReportNote] = useState("");
   const [reportFinalized, setReportFinalized] = useState(false);
 
-  // PIKET-AUDIT-05C: message dibedakan success/error/warning + auto-dismiss
+  // ─── P0-1/P0-2: Error state + retry ───
+  const [initError, setInitError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  // ─── P1-1: isSubmitting guard ───
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // ─── Message (auto-dismiss) ───
   const [message, setMessage] = useState<MessageType>(null);
 
   function notify(type: "success" | "error" | "warning", text: string) {
     setMessage({ type, text });
   }
 
-  // PIKET-AUDIT-05C: auto-dismiss message setelah 4 detik
+  // Auto-dismiss message setelah 4 detik
   useEffect(() => {
     if (!message) return;
     const t = setTimeout(() => setMessage(null), 4000);
@@ -86,6 +106,9 @@ export function useDailyDutyState() {
   const [catatan, setCatatan] = useState("");
   const [tindakLanjut, setTindakLanjut] = useState("");
 
+  // ─── Batch Mode (Kunci Aturan) ───
+  const [batchMode, setBatchMode] = useState(false);
+
   // ─── Ledger state ───
   const [ledgerRecords, setLedgerRecords] = useState<DutyRecord[]>([]);
   const [ledgerClassFilter, setLedgerClassFilter] = useState<string>("all");
@@ -95,48 +118,90 @@ export function useDailyDutyState() {
   const [ledgerDetailRecords, setLedgerDetailRecords] = useState<DutyRecord[]>([]);
   const [letterPreview, setLetterPreview] = useState<PiketLetterDocument | null>(null);
 
+  // ─── P1-2: Auto-reset selection saat tanggal berubah ───
+  const prevDateRef = useState(todayISODate());
+  useEffect(() => {
+    if (prevDateRef[0] !== date) {
+      prevDateRef[1](date);
+      // Reset input draft saat tanggal berubah
+      setSelectedStudent(null);
+      if (!batchMode) {
+        setSelectedRule(null);
+      }
+      setCatatan("");
+      setTindakLanjut("");
+      setStudentQuery("");
+      setRuleQuery("");
+    }
+  }, [date, batchMode]);
+
   // ─── Effects ───
   useEffect(() => { void init(); }, []);
-  useEffect(() => { if (year) void loadData(); }, [date, year]);
-  useEffect(() => { if (year) void loadLedgerData(); }, [year]);
 
+  useEffect(() => {
+    if (year) void loadData();
+  }, [date, year]);
+
+  useEffect(() => {
+    if (year) void loadLedgerData();
+  }, [year]);
+
+  // ─── P0-1/P0-2: init with try/catch/finally ───
   async function init() {
-    const [y, sp, tp] = await Promise.all([
-      getActiveAcademicYear(),
-      getSchoolProfile(),
-      getTeacherProfile(),
-    ]);
-    setYear(y ?? null);
-    setSchool(sp);
-    setTeacher(tp);
-    if (y) setRosters(await listClassRosters(y.id));
-    await seedDefaultDutyRulesIfEmpty();
-    setRules(await listDutyRules());
-    setLoading(false);
-  }
-
-  async function loadData() {
-    if (!year) return;
-    const [recs, detail, report] = await Promise.all([
-      listDutyRecordsByDate(year.id, date),
-      getAttendanceDetailForDate({ academicYearId: year.id, date }),
-      getDutyReportByDate(year.id, date),
-    ]);
-    setRecords(recs);
-    setAttendanceDetail(detail);
-    if (report) {
-      setReportNote(report.note ?? "");
-      setReportFinalized(report.finalized);
-    } else {
-      setReportNote("");
-      setReportFinalized(false);
+    setInitError(null);
+    try {
+      const [y, sp, tp] = await Promise.all([
+        getActiveAcademicYear(),
+        getSchoolProfile(),
+        getTeacherProfile(),
+      ]);
+      setYear(y ?? null);
+      setSchool(sp);
+      setTeacher(tp);
+      if (y) setRosters(await listClassRosters(y.id));
+      await seedDefaultDutyRulesIfEmpty();
+      setRules(await listDutyRules());
+    } catch (e) {
+      setInitError(e instanceof Error ? e.message : "Gagal memuat data awal. Coba lagi.");
+    } finally {
+      setLoading(false);
     }
   }
 
+  // ─── P0-1/P0-2: loadData with try/catch/finally ───
+  async function loadData() {
+    if (!year) return;
+    setLoadError(null);
+    try {
+      const [recs, detail, report] = await Promise.all([
+        listDutyRecordsByDate(year.id, date),
+        getAttendanceDetailForDate({ academicYearId: year.id, date }),
+        getDutyReportByDate(year.id, date),
+      ]);
+      setRecords(recs);
+      setAttendanceDetail(detail);
+      if (report) {
+        setReportNote(report.note ?? "");
+        setReportFinalized(report.finalized);
+      } else {
+        setReportNote("");
+        setReportFinalized(false);
+      }
+    } catch (e) {
+      setLoadError(e instanceof Error ? e.message : "Gagal memuat data tanggal ini.");
+    }
+  }
+
+  // ─── P0-1/P0-2: loadLedgerData with try/catch/finally ───
   async function loadLedgerData() {
     if (!year) return;
-    const all = await listDutyRecordsByAcademicYear(year.id);
-    setLedgerRecords(all);
+    try {
+      const all = await listDutyRecordsByAcademicYear(year.id);
+      setLedgerRecords(all);
+    } catch (e) {
+      // Ledger error is non-blocking; just log it
+      console.error("[Piket] loadLedgerData error:", e);
+    }
   }
 
   async function refreshDutyData() {
@@ -192,21 +257,40 @@ export function useDailyDutyState() {
 
   const summary = useMemo(() => summarizeDutyRecords(records), [records]);
 
+  // ─── Computed: report status label & color ───
+  const reportStatus = useMemo<{ label: string; color: string }>(() => {
+    if (reportFinalized) return { label: "Lengkap", color: "emerald" };
+    if (records.length > 0) return { label: "Draft", color: "amber" };
+    return { label: "Belum diisi", color: "slate" };
+  }, [reportFinalized, records.length]);
+
+  // ─── Computed: popular rules for preset chips ───
+  const popularRules = useMemo<DutyRule[]>(() => {
+    const popularTypes: DutyRule["type"][] = ["late", "incomplete_uniform", "skipping_class"];
+    const typeMap = new Map(rules.map((r) => [r.type, r]));
+    return popularTypes.map((t) => typeMap.get(t)).filter((r): r is DutyRule => !!r);
+  }, [rules]);
+
   // ─── Handlers ───
 
-  /** Select a student and clear rule/catatan/tindakLanjut — mirrors original inline onClick */
+  /** Select a student — Flexi-Order: does NOT reset rule if batch mode is on */
   function handleSelectStudent(s: StudentSearchable) {
     setSelectedStudent(s);
-    setSelectedRule(null);
-    setCatatan("");
-    setTindakLanjut("");
+    if (!batchMode) {
+      // In non-batch mode, we keep the rule if it's already selected (flexi-order)
+      // Reset catatan and tindakLanjut only
+      setCatatan("");
+      setTindakLanjut("");
+    }
   }
 
+  /** P1-1: handleCatat with isSubmitting guard */
   async function handleCatat() {
-    if (!year || !teacher) return;
+    if (!year || !teacher || isSubmitting) return;
     const validation = validateDutyRecordInput({ selectedStudent, selectedRule, note: catatan });
     if (!validation.ok) { notify("warning", validation.message); return; }
 
+    setIsSubmitting(true);
     try {
       const report = await findOrCreateDutyReport({
         academicYearId: year.id,
@@ -238,29 +322,41 @@ export function useDailyDutyState() {
         recordedByTeacherName: teacher.name,
       });
       notify("success", `Catatan tersimpan: ${selectedStudent!.name} — ${selectedRule!.label} (${selectedRule!.points} poin).`);
+      // Reset student only (keep rule in batch mode)
       setSelectedStudent(null);
-      setSelectedRule(null);
+      if (!batchMode) {
+        setSelectedRule(null);
+      }
       setCatatan("");
       setTindakLanjut("");
+      setStudentQuery("");
       await refreshDutyData();
     } catch (e) {
       notify("error", e instanceof Error ? e.message : "Gagal menyimpan catatan.");
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
+  /** P1-1: handleDeleteRecord with isSubmitting guard */
   async function handleDeleteRecord(id: string) {
+    if (isSubmitting) return;
     if (!window.confirm("Hapus catatan ini?")) return;
+    setIsSubmitting(true);
     try {
       await deleteDutyRecord(id);
       notify("success", "Catatan dihapus.");
       await refreshDutyData();
     } catch (e) {
       notify("error", e instanceof Error ? e.message : "Gagal menghapus catatan.");
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
   async function handleFinalize() {
-    if (!year) return;
+    if (!year || isSubmitting) return;
+    setIsSubmitting(true);
     try {
       const report = await getDutyReportByDate(year.id, date);
       if (!report) { notify("warning", "Belum ada laporan untuk difinalisasi."); return; }
@@ -269,11 +365,14 @@ export function useDailyDutyState() {
       notify("success", "Laporan piket difinalisasi.");
     } catch (e) {
       notify("error", e instanceof Error ? e.message : "Gagal finalisasi laporan.");
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
   async function handleUnlock() {
-    if (!year) return;
+    if (!year || isSubmitting) return;
+    setIsSubmitting(true);
     try {
       const report = await getDutyReportByDate(year.id, date);
       if (!report) { notify("warning", "Belum ada laporan untuk dibuka."); return; }
@@ -282,14 +381,17 @@ export function useDailyDutyState() {
       notify("success", "Laporan dibuka untuk revisi.");
     } catch (e) {
       notify("error", e instanceof Error ? e.message : "Gagal membuka revisi.");
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
   async function handleSyncAlpa() {
-    if (!year || !teacher) return;
+    if (!year || !teacher || isSubmitting) return;
     if (reportFinalized) { notify("warning", "Laporan sudah difinalisasi. Buka revisi dulu."); return; }
     const ok = window.confirm("Sinkron Alpa dari Absen? Siswa dengan status Alpa di absen utama akan dibuat catatan piket (10 poin). Catatan yang sudah ada tidak akan dobel.");
     if (!ok) return;
+    setIsSubmitting(true);
     try {
       const result = await syncAlpaFromAttendance({
         academicYearId: year.id,
@@ -301,12 +403,15 @@ export function useDailyDutyState() {
       await refreshDutyData();
     } catch (e) {
       notify("error", e instanceof Error ? e.message : "Gagal sinkron Alpa dari absen.");
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
   async function handleSaveNote() {
-    if (!year) return;
+    if (!year || isSubmitting) return;
     if (!teacher?.id) { notify("error", "Profil guru belum lengkap. Buka menu Profil."); return; }
+    setIsSubmitting(true);
     try {
       const report = await findOrCreateDutyReport({
         academicYearId: year.id,
@@ -318,6 +423,8 @@ export function useDailyDutyState() {
       notify("success", "Catatan piket tersimpan.");
     } catch (e) {
       notify("error", e instanceof Error ? e.message : "Gagal menyimpan catatan umum.");
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
@@ -342,10 +449,8 @@ export function useDailyDutyState() {
       notify("error", "Lengkapi profil sekolah terlebih dahulu.");
       return;
     }
-    // PIKET-AUDIT-05C: warning bila siswa Aman (<25 poin) — surat tidak direkomendasikan
     if (ledgerDetailStudent.totalPoints < 25) {
       notify("warning", `Siswa ini berstatus "Aman" (${ledgerDetailStudent.totalPoints} poin). Surat biasanya untuk siswa dengan poin >= 25.`);
-      // tetap lanjut — guru boleh membuat surat bila ingin
     }
     const letter = buildPiketLetter({
       letterType,
@@ -367,17 +472,29 @@ export function useDailyDutyState() {
     setLetterPreview(letter);
   }
 
+  /** P0-1/P0-2: retry handler */
+  const handleRetryInit = useCallback(() => { void init(); }, []);
+
+  const handleRetryLoad = useCallback(() => { void loadData(); }, [date, year]);
+
   return {
     // Loading
     loading,
+    initError,
+    loadError,
+    handleRetryInit,
+    handleRetryLoad,
     // Core data
     year,
     school,
     teacher,
     date,
     setDate,
-    tab,
-    setTab,
+    // UI-V2: Segmented Switcher
+    mainView,
+    setMainView,
+    rekapSubTab,
+    setRekapSubTab,
     // Data
     rules,
     rosters,
@@ -386,9 +503,12 @@ export function useDailyDutyState() {
     reportNote,
     setReportNote,
     reportFinalized,
+    reportStatus,
     // Message
     message,
     notify,
+    // P1-1: isSubmitting
+    isSubmitting,
     // Catat tab
     catatClassFilter,
     setCatatClassFilter,
@@ -404,6 +524,11 @@ export function useDailyDutyState() {
     setCatatan,
     tindakLanjut,
     setTindakLanjut,
+    // Batch Mode
+    batchMode,
+    setBatchMode,
+    // Popular rules
+    popularRules,
     handleSelectStudent,
     // Computed
     allStudents,

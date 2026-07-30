@@ -51,7 +51,7 @@ export function PointLedgerTab(props: PointLedgerTabProps) {
       <CardHeader title="Rekap Poin Siswa" description={`${ledger.length} siswa · ${ledgerRecords.length} catatan total · TP ${yearLabel}`} />
       {/* PIKET-AUDIT-05C: summary stats per status */}
       {ledger.length > 0 && (
-        <div className="grid grid-cols-5 gap-2 text-center mb-3 text-xs">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 text-center mb-3 text-xs">
           <div className="p-2 bg-emerald-50 rounded"><p className="font-bold text-emerald-700">{ledger.filter((i) => i.statusLabel === "Aman").length}</p><p>Aman</p></div>
           <div className="p-2 bg-amber-50 rounded"><p className="font-bold text-amber-700">{ledger.filter((i) => i.statusLabel === "Pembinaan ringan").length}</p><p>Pembinaan</p></div>
           <div className="p-2 bg-orange-50 rounded"><p className="font-bold text-orange-700">{ledger.filter((i) => i.statusLabel === "Panggilan orang tua").length}</p><p>Panggilan</p></div>

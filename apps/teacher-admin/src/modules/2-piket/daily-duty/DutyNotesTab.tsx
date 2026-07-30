@@ -12,6 +12,7 @@ interface DutyNotesTabProps {
   handleSyncAlpa: () => Promise<void>;
   handleFinalize: () => Promise<void>;
   handleUnlock: () => Promise<void>;
+  isSubmitting: boolean;
 }
 
 export function DutyNotesTab(props: DutyNotesTabProps) {
@@ -26,6 +27,7 @@ export function DutyNotesTab(props: DutyNotesTabProps) {
     handleSyncAlpa,
     handleFinalize,
     handleUnlock,
+    isSubmitting,
   } = props;
 
   return (
@@ -45,9 +47,9 @@ export function DutyNotesTab(props: DutyNotesTabProps) {
       <div className="mt-4 space-y-2">
         <Textarea label="Catatan Umum Guru Piket" id="duty-report-note" value={reportNote} onChange={setReportNote} rows={3} />
         <div className="flex gap-2 flex-wrap">
-          <Button variant="secondary" className="text-sm" onClick={handleSaveNote} disabled={reportFinalized}>Simpan Catatan</Button>
-          {!reportFinalized && <Button variant="secondary" className="text-sm" onClick={() => void handleSyncAlpa()}>Sinkron Alpa dari Absen</Button>}
-          {!reportFinalized ? <Button className="text-sm" onClick={handleFinalize}>Finalisasi</Button> : <Button variant="secondary" className="text-sm" onClick={handleUnlock}>Buka Revisi</Button>}
+          <Button variant="secondary" className="text-sm" onClick={handleSaveNote} disabled={reportFinalized || isSubmitting}>{isSubmitting ? "Menyimpan…" : "Simpan Catatan"}</Button>
+          {!reportFinalized && <Button variant="secondary" className="text-sm" onClick={() => void handleSyncAlpa()} disabled={isSubmitting}>Sinkron Alpa dari Absen</Button>}
+          {!reportFinalized ? <Button className="text-sm" onClick={handleFinalize} disabled={isSubmitting}>{isSubmitting ? "Memproses…" : "Finalisasi"}</Button> : <Button variant="secondary" className="text-sm" onClick={handleUnlock} disabled={isSubmitting}>{isSubmitting ? "Memproses…" : "Buka Revisi"}</Button>}
         </div>
       </div>
     </Card>
