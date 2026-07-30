@@ -70,7 +70,7 @@ import type {
   TeacherProfile,
   JournalRealizationStatus,
 } from "@guru-admin/domain";
-import { formatLongDateID, todayISODate } from "@guru-admin/shared";
+import { formatLongDateID, formatShortDateID, todayISODate, DAY_LABELS_ID_SHORT, MONTH_LABELS_ID_SHORT } from "@guru-admin/shared";
 import { ATTENDANCE_STATUS_OPTIONS } from "@shared/constants/attendance-status";
 
 /* ============================================================ */
@@ -133,7 +133,7 @@ export const REALIZATION_STATUS_OPTIONS = [
   { value: "cancelled" as const, label: "Tidak Terlaksana", color: "rose" },
 ] as const;
 
-/** Nilai type options */
+/** Nilai type options — each value maps to a GradeEntry field */
 export const NILAI_TYPE_OPTIONS = [
   { value: "uh1", label: "Ulangan Harian 1 (UH-1)" },
   { value: "uh2", label: "Ulangan Harian 2 (UH-2)" },
@@ -141,6 +141,33 @@ export const NILAI_TYPE_OPTIONS = [
   { value: "pts", label: "Penilaian Tengah Semester (PTS)" },
   { value: "pas", label: "Penilaian Akhir Semester (PAS)" },
 ] as const;
+
+/** 4a: Map nilaiType selector value → GradeEntry field key */
+export const NILAI_TYPE_TO_FIELD: Record<string, string> = {
+  uh1: "uh1", uh2: "uh2", uh3: "uh3",
+  uh4: "uh4", uh5: "uh5", uh6: "uh6",
+  uh7: "uh7", uh8: "uh8", uh9: "uh9", uh10: "uh10",
+  pts: "pts", pas: "pas", uts: "uts", uas: "uas",
+};
+
+/** 5a: Format session date for dropdown — "Sen, 15 Jul" */
+export function formatSessionDateLabel(iso: string): string {
+  if (!iso || iso.length < 10) return "-";
+  try {
+    const date = new Date(
+      parseInt(iso.slice(0, 4)),
+      parseInt(iso.slice(5, 7)) - 1,
+      parseInt(iso.slice(8, 10))
+    );
+    const dayIdx = date.getDay() === 0 ? 7 : date.getDay();
+    const dayShort = DAY_LABELS_ID_SHORT[dayIdx] ?? "?";
+    const day = date.getDate();
+    const monthShort = MONTH_LABELS_ID_SHORT[date.getMonth() + 1] ?? "?";
+    return `${dayShort}, ${day} ${monthShort}`;
+  } catch {
+    return iso.slice(5);
+  }
+}
 
 /** Step flow state — re-exported from shared for backward compat */
 export type { StepState } from "@shared/ui/mobile/AccordionCard";
@@ -228,7 +255,9 @@ export function useKbmHub() {
   const [gradeBook, setGradeBook] = useState<GradeBook | null>(null);
   const [nilaiMap, setNilaiMap] = useState<Map<string, number>>(new Map());
   const [nilaiToggle, setNilaiToggle] = useState(false);
-  const [nilaiType, setNilaiType] = useState("uh1");
+  const [nilaiType, setNilaiType] = useState<string>("uh1");
+  // 5b: Save success state for brief green checkmark
+  const [justSaved, setJustSaved] = useState(false);
 
   // Step flow — jurnal & nilai never locked, always accessible from the start
   const [presensiStep, setPresensiStep] = useState<StepStateLocal>("active");
@@ -592,6 +621,21 @@ export function useKbmHub() {
             classId: session.classId, semester: session.semester, subject: session.subject,
           });
           setGradeBook(existingBook ?? null);
+          // 4b: Load existing nilai from GradeBook into nilaiMap
+          if (existingBook) {
+            const existingNilai = new Map<string, number>();
+            for (const entry of existingBook.entries) {
+              const field = NILAI_TYPE_TO_FIELD[nilaiType] ?? "uh1";
+              const val = entry[field as keyof GradeEntry];
+              if (typeof val === "number" && val !== null) {
+                existingNilai.set(entry.studentId, val);
+              }
+            }
+            if (existingNilai.size > 0) {
+              setNilaiMap(existingNilai);
+              setNilaiToggle(true);
+            }
+          }
         } else { setGradeBook(null); }
         // Auto-detect: if session already saved, skip to jurnal/nilai
         // Jurnal & Nilai never locked — always 'active' (or 'done' if already filled)
@@ -768,7 +812,7 @@ export function useKbmHub() {
         realizationStatus,
       });
       if (nilaiToggle && nilaiMap.size > 0 && selectedSession) {
-        await saveNilaiToGradeBook(year, teacher, selectedSession, roster, gradeBook, nilaiMap);
+        await saveNilaiToGradeBook(year, teacher, selectedSession, roster, gradeBook, nilaiMap, nilaiType);
       }
       if (selectedSession) {
         await updateLessonSession(selectedSession.id, { status: "done" });
@@ -778,6 +822,9 @@ export function useKbmHub() {
         );
       }
       setNotice("KBM Sesi Berhasil Disimpan!");
+      // 5b: Brief green checkmark feedback
+      setJustSaved(true);
+      setTimeout(() => setJustSaved(false), 2000);
       // Refresh dashboard after save
       void refreshDashboard();
     } catch (err) {
@@ -848,6 +895,7 @@ export function useKbmHub() {
 
     // Nilai
     gradeBook, nilaiMap, setNilai, nilaiToggle, setNilaiToggle, nilaiType, setNilaiType,
+    justSaved,
 
     // Step flow
     presensiStep, jurnalStep, nilaiStep,
@@ -876,24 +924,31 @@ async function findAssignmentForSession(session: LessonSession, year: AcademicYe
 
 async function saveNilaiToGradeBook(
   year: AcademicYear, teacher: TeacherProfile, session: LessonSession,
-  roster: ClassRoster | null, existingBook: GradeBook | null, nilaiMap: Map<string, number>
+  roster: ClassRoster | null, existingBook: GradeBook | null, nilaiMap: Map<string, number>,
+  nilaiType: string
 ): Promise<void> {
   if (!roster || nilaiMap.size === 0) return;
+  // 4a: Map nilaiType to the correct GradeEntry field
+  const targetField = NILAI_TYPE_TO_FIELD[nilaiType] ?? "uh1";
   const baseEntries: GradeEntry[] = roster.students.sort((a, b) => a.number - b.number).map((s) => {
     const nilai = nilaiMap.get(s.id) ?? null;
     const existingEntry = existingBook?.entries.find((e) => e.studentId === s.id);
-    if (existingEntry) return { ...existingEntry, uh1: nilai ?? existingEntry.uh1 };
+    if (existingEntry) {
+      // Merge: only update the target field, preserve all other fields
+      return { ...existingEntry, [targetField]: nilai ?? existingEntry[targetField as keyof GradeEntry] };
+    }
     return {
       studentId: s.id, studentName: s.name, studentNumber: s.number, nis: s.nis,
       kd1: null, kd2: null, kd3: null, kd4: null, kd5: null, kd6: null,
       kd7: null, kd8: null, kd9: null, kd10: null,
-      uh1: nilai, uh2: null, uh3: null, uh4: null, uh5: null, uh6: null,
+      uh1: null, uh2: null, uh3: null, uh4: null, uh5: null, uh6: null,
       uh7: null, uh8: null, uh9: null, uh10: null,
       pts: null, pas: null, uts: null, uas: null,
       finalScore: null, averageKd: null,
       dailyScore: null, assignmentScore: null, summativeScore: null,
       remedialScore: null, averageScore: null,
       status: nilai !== null ? "complete" as const : "incomplete" as const,
+      [targetField]: nilai,
     } as GradeEntry;
   });
   if (existingBook) {

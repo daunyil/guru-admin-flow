@@ -31,6 +31,7 @@ import {
   STRUCTURED_CHIPS,
   REALIZATION_STATUS_OPTIONS,
   NILAI_TYPE_OPTIONS,
+  formatSessionDateLabel,
 } from "./useKbmHub";
 import type { DashboardCard, DashboardClassGroup, StructuredNoteCategory } from "./useKbmHub";
 import { AccordionCard, StudentRow, MiniStat } from "@shared/ui/mobile";
@@ -125,6 +126,20 @@ export function KbmHubPage() {
         <DashboardView kbm={kbm} />
       )}
 
+      {/* 5c: Dashboard empty state — has assignments but no sessions today */}
+      {!kbm.isReadyToStart && kbm.daySummary.total === 0 && kbm.classOptions.length > 0 && (
+        <div className="bg-slate-50 rounded-2xl border border-slate-200 p-6 text-center shadow-sm">
+          <div className="text-4xl mb-3">📅</div>
+          <p className="text-sm font-bold text-slate-800 mb-1">Tidak Ada Jadwal Hari Ini</p>
+          <p className="text-xs text-slate-500 mb-4">
+            Pilih kelas & mapel di atas, lalu buat sesi KBM baru.
+          </p>
+          <p className="text-[10px] text-slate-400">
+            💡 Tip: Gunakan tombol "Pertemuan Tambahan" untuk mengajar di luar jadwal
+          </p>
+        </div>
+      )}
+
       {/* ========== EDITOR: Session Selected ========== */}
       {kbm.isReadyToStart && kbm.selectedSession && (
         <EditorView kbm={kbm} />
@@ -135,14 +150,21 @@ export function KbmHubPage() {
         <div className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-white/95 backdrop-blur-md border-t border-slate-200 p-3 shadow-[0_-4px_20px_rgba(0,0,0,0.08)]">
           <button
             onClick={kbm.saveAll}
-            disabled={kbm.saving}
+            disabled={kbm.saving || kbm.justSaved}
             className={`w-full font-bold py-3.5 px-4 rounded-xl text-sm flex justify-center items-center gap-2 transition-all active:scale-[0.98] min-h-[44px] ${
-              kbm.saving
-                ? "bg-slate-400 text-white cursor-wait"
-                : "bg-emerald-600 text-white shadow-lg shadow-emerald-600/30 hover:bg-emerald-700"
+              kbm.justSaved
+                ? "bg-emerald-500 text-white"
+                : kbm.saving
+                  ? "bg-slate-400 text-white cursor-wait"
+                  : "bg-emerald-600 text-white shadow-lg shadow-emerald-600/30 hover:bg-emerald-700"
             }`}
           >
-            {kbm.saving ? (
+            {kbm.justSaved ? (
+              <>
+                <span className="text-base">✅</span>
+                Tersimpan!
+              </>
+            ) : kbm.saving ? (
               <>
                 <span className="animate-spin inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full" />
                 Menyimpan...
@@ -313,7 +335,7 @@ function CascadingSelector({ kbm, variant }: { kbm: ReturnType<typeof useKbmHub>
             <option value="" className={optionClass}>Pilih Pertemuan...</option>
             {kbm.filteredSessions.map((s) => (
               <option key={s.session.id} value={s.session.id} className={optionClass}>
-                {s.statusIcon} P{s.meetingNumber} — {s.statusLabel} ({s.session.date?.slice(5) ?? "-"})
+                {s.statusIcon} P{s.meetingNumber} — {s.statusLabel} ({formatSessionDateLabel(s.session.date)})
               </option>
             ))}
             <option value="__tambahan__" className={optionClass}>
@@ -542,14 +564,20 @@ function EditorView({ kbm }: { kbm: ReturnType<typeof useKbmHub> }) {
       <div className="hidden md:block">
         <button
           onClick={kbm.saveAll}
-          disabled={kbm.saving}
+          disabled={kbm.saving || kbm.justSaved}
           className={`w-full font-bold py-3 px-4 rounded-xl text-sm flex justify-center items-center gap-2 transition-all ${
-            kbm.saving
-              ? "bg-slate-400 text-white cursor-wait"
-              : "bg-emerald-600 text-white shadow-lg shadow-emerald-600/20 hover:bg-emerald-700"
+            kbm.justSaved
+              ? "bg-emerald-500 text-white"
+              : kbm.saving
+                ? "bg-slate-400 text-white cursor-wait"
+                : "bg-emerald-600 text-white shadow-lg shadow-emerald-600/20 hover:bg-emerald-700"
           }`}
         >
-          {kbm.saving ? (
+          {kbm.justSaved ? (
+            <>
+              ✅ Tersimpan!
+            </>
+          ) : kbm.saving ? (
             <>
               <span className="animate-spin inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full" />
               Menyimpan...

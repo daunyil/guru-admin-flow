@@ -54,6 +54,24 @@ export const DAY_LABELS_ID: Record<number, string> = {
   7: "Minggu",
 };
 
+/** Short day labels for compact UI (dropdowns, badges) */
+export const DAY_LABELS_ID_SHORT: Record<number, string> = {
+  1: "Sen",
+  2: "Sel",
+  3: "Rab",
+  4: "Kam",
+  5: "Jum",
+  6: "Sab",
+  7: "Min",
+};
+
+/** Short month labels for compact UI */
+export const MONTH_LABELS_ID_SHORT: Record<number, string> = {
+  1: "Jan", 2: "Feb", 3: "Mar", 4: "Apr",
+  5: "Mei", 6: "Jun", 7: "Jul", 8: "Agu",
+  9: "Sep", 10: "Okt", 11: "Nov", 12: "Des",
+};
+
 export const MONTH_LABELS_ID: Record<number, string> = {
   1: "Januari",
   2: "Februari",
