@@ -25,6 +25,13 @@ export default defineConfig({
       "@shared/supabase": resolve(__dirname, "src/shared/supabase/index.ts"),
       "@shared/constants/attendance-status": resolve(__dirname, "src/shared/constants/attendance-status.ts"),
       "@harian/kbm-kilat/useKbmSession": resolve(__dirname, "src/modules/1-harian/kbm-kilat/useKbmSession.ts"),
+      // Module group aliases — needed for cross-module imports in exporters
+      "@shared": resolve(__dirname, "src/shared"),
+      "@modules": resolve(__dirname, "src/modules"),
+      "@routes": resolve(__dirname, "src/routes"),
+      "@harian": resolve(__dirname, "src/modules/1-harian"),
+      "@piket": resolve(__dirname, "src/modules/2-piket"),
+      "@admin": resolve(__dirname, "src/modules/3-administrasi"),
     },
   },
   test: {

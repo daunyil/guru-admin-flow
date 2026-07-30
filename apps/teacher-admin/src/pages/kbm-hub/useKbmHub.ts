@@ -70,7 +70,7 @@ import type {
   TeacherProfile,
   JournalRealizationStatus,
 } from "@guru-admin/domain";
-import { formatLongDateID, formatShortDateID, todayISODate, DAY_LABELS_ID_SHORT, MONTH_LABELS_ID_SHORT } from "@guru-admin/shared";
+import { formatLongDateID, todayISODate, DAY_LABELS_ID_SHORT, MONTH_LABELS_ID_SHORT } from "@guru-admin/shared";
 import { ATTENDANCE_STATUS_OPTIONS } from "@shared/constants/attendance-status";
 
 /* ============================================================ */

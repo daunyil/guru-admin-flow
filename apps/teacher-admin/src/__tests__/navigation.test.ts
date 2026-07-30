@@ -1,15 +1,22 @@
 /**
  * NAV-DAILY-GATE-01: Test kontrak navigasi.
+ *
+ * Updated Batch 3: Absen & Jurnal di-unified ke KBM.
+ * Primary nav = ["Hari Ini", "KBM", "Nilai", "Rekap Semester"] (4 item).
  */
 import { describe, it, expect } from "vitest";
 import { getPrimaryNavLabels, getMobileNavLabels, GATE_GROUPS } from "../shared/layout/navigation";
 
 describe("NAV-DAILY-GATE-01 — Kontrak menu utama", () => {
   it("Sidebar menampilkan Hari Ini", () => { expect(getPrimaryNavLabels()).toContain("Hari Ini"); });
-  it("Sidebar menampilkan Absen", () => { expect(getPrimaryNavLabels()).toContain("Absen"); });
-  it("Sidebar menampilkan Jurnal", () => { expect(getPrimaryNavLabels()).toContain("Jurnal"); });
+  it("Sidebar menampilkan KBM (unified)", () => { expect(getPrimaryNavLabels()).toContain("KBM"); });
   it("Sidebar menampilkan Nilai", () => { expect(getPrimaryNavLabels()).toContain("Nilai"); });
   it("Sidebar menampilkan Rekap Semester", () => { expect(getPrimaryNavLabels()).toContain("Rekap Semester"); });
+  it("Sidebar TIDAK menampilkan Absen/Jurnal terpisah (unified ke KBM)", () => {
+    const labels = getPrimaryNavLabels();
+    expect(labels).not.toContain("Absen");
+    expect(labels).not.toContain("Jurnal");
+  });
   it("Sidebar TIDAK menampilkan modul besar langsung", () => {
     const labels = getPrimaryNavLabels();
     expect(labels).not.toContain("Prota Resmi");
@@ -22,8 +29,8 @@ describe("NAV-DAILY-GATE-01 — Kontrak menu utama", () => {
     expect(labels).not.toContain("Paket Admin");
     expect(labels).not.toContain("Pusat Laporan");
   });
-  it("Menu utama tepat 6 item", () => {
-    expect(getPrimaryNavLabels()).toEqual(["Hari Ini", "KBM", "Absen", "Jurnal", "Nilai", "Rekap Semester"]);
+  it("Menu utama tepat 4 item (unified KBM)", () => {
+    expect(getPrimaryNavLabels()).toEqual(["Hari Ini", "KBM", "Nilai", "Rekap Semester"]);
   });
   it("Mobile nav maksimal 5 item", () => { expect(getMobileNavLabels().length).toBeLessThanOrEqual(5); });
   it("Mobile nav tidak ada Lainnya", () => { expect(getMobileNavLabels()).not.toContain("Lainnya"); });
