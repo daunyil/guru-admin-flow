@@ -1,12 +1,13 @@
 /**
- * PIKET-REDESIGN: Tab "Riwayat" — Riwayat Pelanggaran Siswa.
+ * PIKET-REDESIGN-V2: Tab "Riwayat" — Riwayat Pelanggaran Siswa.
  *
- * Perubahan dari versi sebelumnya:
- *   - Judul ramah: "Riwayat Pelanggaran Siswa" bukan "Buku Kedisiplinan BK"
- *   - Status label lebih manusiawi: "Aman", "Perlu Bimbingan", "Panggilan Orang Tua", dst
- *   - Card lebih lega: padding p-4, spacing space-y-3
- *   - Font lebih besar: text-sm minimum, text-xs hanya untuk info sekunder
- *   - Tombol aksi lebih jelas dan ramah
+ * V2 changes:
+ *   - Consistent card styling with rounded-2xl
+ *   - MiniStat-style summary stats
+ *   - Better student card layout with section headers
+ *   - Desktop responsive
+ *   - Professional badge styling
+ *   - Better touch targets
  */
 
 import { useState, useMemo } from "react";
@@ -41,6 +42,7 @@ interface StudentBKInfo {
 function getStatusBadge(yearPoints: number): {
   label: string;
   color: string;
+  dotColor: string;
   letterType: PiketLetterType;
   actionLabel: string;
   description: string;
@@ -48,7 +50,8 @@ function getStatusBadge(yearPoints: number): {
   if (yearPoints >= 100) {
     return {
       label: "Skorsing",
-      color: "bg-rose-100 text-rose-800 border-rose-200",
+      color: "bg-rose-100 text-rose-700",
+      dotColor: "bg-rose-500",
       letterType: "student_statement",
       actionLabel: "Cetak Surat Pernyataan",
       description: "Siswa memerlukan tindak lanjut khusus",
@@ -56,8 +59,9 @@ function getStatusBadge(yearPoints: number): {
   }
   if (yearPoints >= 75) {
     return {
-      label: "Panggilan Orang Tua ke-2",
-      color: "bg-orange-100 text-orange-800 border-orange-200",
+      label: "SP 2",
+      color: "bg-orange-100 text-orange-700",
+      dotColor: "bg-orange-500",
       letterType: "parent_summons",
       actionLabel: "Cetak Surat Panggilan",
       description: "Perlu panggilan orang tua kedua",
@@ -65,8 +69,9 @@ function getStatusBadge(yearPoints: number): {
   }
   if (yearPoints >= 50) {
     return {
-      label: "Panggilan Orang Tua",
-      color: "bg-amber-100 text-amber-800 border-amber-200",
+      label: "SP 1",
+      color: "bg-amber-100 text-amber-700",
+      dotColor: "bg-amber-500",
       letterType: "parent_summons",
       actionLabel: "Cetak Surat Panggilan",
       description: "Perlu panggilan orang tua",
@@ -74,8 +79,9 @@ function getStatusBadge(yearPoints: number): {
   }
   if (yearPoints >= 25) {
     return {
-      label: "Perlu Bimbingan",
-      color: "bg-yellow-100 text-yellow-800 border-yellow-200",
+      label: "Bimbingan",
+      color: "bg-yellow-100 text-yellow-700",
+      dotColor: "bg-yellow-500",
       letterType: "parent_summons",
       actionLabel: "Cetak Surat Panggilan",
       description: "Perlu pembinaan dari BK",
@@ -83,7 +89,8 @@ function getStatusBadge(yearPoints: number): {
   }
   return {
     label: "Aman",
-    color: "bg-emerald-100 text-emerald-800 border-emerald-200",
+    color: "bg-emerald-100 text-emerald-700",
+    dotColor: "bg-emerald-500",
     letterType: "parent_summons",
     actionLabel: "",
     description: "Belum perlu tindak lanjut khusus",
@@ -191,38 +198,38 @@ export function BukuKedisiplinanBKTab({
 
   if (records.length === 0 && ledger.length === 0) {
     return (
-      <Card>
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
         <EmptyState
           title="Belum Ada Data Pelanggaran"
           description="Data pelanggaran siswa akan otomatis muncul di sini setelah Anda melaporkan pelanggaran di tab Laporkan."
         />
-      </Card>
+      </div>
     );
   }
 
   return (
-    <div className="space-y-4">
-      {/* ─── Ringkasan ─── */}
-      <div className="grid grid-cols-3 gap-3">
-        <div className="bg-white border border-slate-200 rounded-xl p-3 text-center">
-          <div className="text-2xl font-bold text-slate-900">{todayCount}</div>
-          <div className="text-xs text-slate-500 mt-0.5">Hari Ini</div>
+    <div className="space-y-3 md:space-y-4">
+      {/* ─── Ringkasan Stats (MiniStat-style) ─── */}
+      <div className="grid grid-cols-3 gap-1.5 md:gap-2 text-center">
+        <div className="rounded-xl bg-slate-50 p-2 md:p-3">
+          <div className="text-xl md:text-2xl font-black text-slate-900">{todayCount}</div>
+          <div className="text-[9px] md:text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">Hari Ini</div>
         </div>
-        <div className="bg-white border border-slate-200 rounded-xl p-3 text-center">
-          <div className="text-2xl font-bold text-slate-900">{totalStudents}</div>
-          <div className="text-xs text-slate-500 mt-0.5">Siswa Tercatat</div>
+        <div className="rounded-xl bg-slate-50 p-2 md:p-3">
+          <div className="text-xl md:text-2xl font-black text-slate-900">{totalStudents}</div>
+          <div className="text-[9px] md:text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">Siswa</div>
         </div>
-        <div className="bg-white border border-slate-200 rounded-xl p-3 text-center">
-          <div className="text-2xl font-bold text-amber-600">{needAttention}</div>
-          <div className="text-xs text-slate-500 mt-0.5">Perlu Perhatian</div>
+        <div className="rounded-xl bg-slate-50 p-2 md:p-3">
+          <div className="text-xl md:text-2xl font-black text-amber-600">{needAttention}</div>
+          <div className="text-[9px] md:text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">Perlu Perhatian</div>
         </div>
       </div>
 
       {/* ─── Filter & Search ─── */}
-      <Card>
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-3 md:p-4">
         <div className="space-y-3">
           <div>
-            <label className="text-sm font-medium text-slate-700 mb-2 block">Pilih kelas</label>
+            <label className="text-xs font-bold text-slate-600 mb-2 block uppercase tracking-wider">Pilih kelas</label>
             <div className="flex gap-2 flex-wrap">
               <Chip active={classFilter === "all"} onClick={() => setClassFilter("all")}>Semua</Chip>
               {rosters.map((r) => (
@@ -241,105 +248,104 @@ export function BukuKedisiplinanBKTab({
             placeholder="Ketik nama siswa..."
           />
         </div>
-      </Card>
+      </div>
 
       {/* ─── Daftar Siswa ─── */}
       {filtered.length === 0 ? (
-        <Card>
-          <p className="text-sm text-slate-500 text-center py-4">Tidak ada siswa ditemukan.</p>
-        </Card>
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+          <p className="text-sm text-slate-500 text-center">Tidak ada siswa ditemukan.</p>
+        </div>
       ) : (
-        filtered.map((item) => {
-          const badge = getStatusBadge(item.yearPoints);
-          return (
-            <div
-              key={`${item.studentId}__${item.classId}`}
-              className="bg-white border border-slate-200 rounded-xl p-4 space-y-3 shadow-sm"
-            >
-              {/* Baris utama: nama + badge */}
-              <div className="flex justify-between items-start gap-3">
-                <div className="min-w-0 flex-1">
-                  <div className="text-sm font-bold text-slate-900">{item.studentName}</div>
-                  <div className="text-xs text-slate-500 mt-0.5">{item.classLabel}</div>
-                </div>
-                <span className={`shrink-0 text-xs font-bold px-3 py-1 rounded-lg border ${badge.color}`}>
-                  {badge.label}
-                </span>
-              </div>
-
-              {/* Info poin */}
-              <div className="flex gap-4 text-sm">
-                <div>
-                  <span className="text-slate-500">Hari ini: </span>
-                  <span className={item.todayPoints > 0 ? "font-semibold text-rose-600" : "text-slate-400"}>
-                    {item.todayRecords > 0 ? `${item.todayRecords} catatan (+${item.todayPoints} poin)` : "Tidak ada"}
-                  </span>
-                </div>
-              </div>
-              <div className="flex gap-4 text-sm">
-                <div>
-                  <span className="text-slate-500">Total setahun: </span>
-                  <span className={`font-semibold ${item.yearPoints >= 50 ? "text-rose-600" : item.yearPoints >= 25 ? "text-amber-600" : "text-slate-700"}`}>
-                    {item.yearPoints} poin
-                  </span>
-                  <span className="text-xs text-slate-400 ml-1">({item.yearRecords} kejadian)</span>
-                </div>
-              </div>
-
-              {/* Detail pelanggaran hari ini */}
-              {item.todayDetails.length > 0 && (
-                <div className="space-y-1.5 mt-1">
-                  <div className="text-xs font-medium text-slate-500">Pelanggaran hari ini:</div>
-                  {item.todayDetails.map((d, idx) => (
-                    <div key={idx} className="text-xs text-slate-600 pl-3 border-l-2 border-slate-200">
-                      {d.ruleLabel} (+{d.points}){d.note ? ` — ${d.note}` : ""}
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="bg-slate-50 px-4 py-2.5 md:py-3 border-b border-slate-100">
+            <h3 className="text-xs md:text-sm font-bold text-slate-800 uppercase tracking-wider">
+              Daftar Siswa ({filtered.length})
+            </h3>
+          </div>
+          <div className="divide-y divide-slate-100">
+            {filtered.map((item) => {
+              const badge = getStatusBadge(item.yearPoints);
+              return (
+                <div key={`${item.studentId}__${item.classId}`} className="p-3 md:p-4 space-y-2.5">
+                  {/* Baris utama: nama + badge */}
+                  <div className="flex justify-between items-start gap-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className={`w-2 h-2 rounded-full shrink-0 ${badge.dotColor}`} />
+                        <span className="text-xs md:text-sm font-bold text-slate-900 truncate">{item.studentName}</span>
+                      </div>
+                      <div className="text-[10px] md:text-xs text-slate-500 mt-0.5 ml-4">{item.classLabel}</div>
                     </div>
-                  ))}
-                </div>
-              )}
+                    <span className={`shrink-0 text-[10px] md:text-xs font-bold px-2.5 py-1 rounded-full ${badge.color}`}>
+                      {badge.label}
+                    </span>
+                  </div>
 
-              {/* Deskripsi status */}
-              {item.yearPoints >= 25 && (
-                <div className="text-xs text-slate-500 italic">
-                  {badge.description}
-                </div>
-              )}
+                  {/* Info poin — compact grid */}
+                  <div className="flex gap-3 ml-4 text-xs md:text-sm">
+                    <div className="flex items-center gap-1">
+                      <span className="text-slate-500">Hari ini:</span>
+                      <span className={item.todayPoints > 0 ? "font-bold text-rose-600" : "text-slate-400"}>
+                        {item.todayRecords > 0 ? `${item.todayRecords} (+${item.todayPoints})` : "—"}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <span className="text-slate-500">Total:</span>
+                      <span className={`font-bold ${item.yearPoints >= 50 ? "text-rose-600" : item.yearPoints >= 25 ? "text-amber-600" : "text-slate-700"}`}>
+                        {item.yearPoints} poin
+                      </span>
+                      <span className="text-[10px] text-slate-400">({item.yearRecords}x)</span>
+                    </div>
+                  </div>
 
-              {/* Tombol aksi */}
-              <div className="flex gap-2 pt-2 border-t border-slate-100">
-                {item.yearPoints >= 25 && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const ledgerItem = ledger.find(
-                        (l) => l.studentId === item.studentId && l.classId === item.classId
-                      );
-                      if (ledgerItem) {
-                        handleOpenLedgerDetail(ledgerItem);
-                        handleBuildLetter(badge.letterType, ledgerItem);
-                      }
-                    }}
-                    className="flex-1 bg-rose-50 text-rose-700 border border-rose-200 font-semibold text-sm py-2.5 rounded-xl flex items-center justify-center gap-2 hover:bg-rose-100 active:scale-[0.98] transition-all"
-                  >
-                    <span>🖨️</span> {badge.actionLabel}
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={() => {
-                    const ledgerItem = ledger.find(
-                      (l) => l.studentId === item.studentId && l.classId === item.classId
-                    );
-                    if (ledgerItem) handleOpenLedgerDetail(ledgerItem);
-                  }}
-                  className="flex-1 bg-slate-50 text-slate-700 border border-slate-200 font-semibold text-sm py-2.5 rounded-xl flex items-center justify-center gap-2 hover:bg-slate-100 active:scale-[0.98] transition-all"
-                >
-                  <span>📋</span> Lihat Detail
-                </button>
-              </div>
-            </div>
-          );
-        })
+                  {/* Detail pelanggaran hari ini */}
+                  {item.todayDetails.length > 0 && (
+                    <div className="space-y-1 ml-4">
+                      {item.todayDetails.map((d, idx) => (
+                        <div key={idx} className="text-[10px] md:text-xs text-slate-600 pl-3 border-l-2 border-slate-200">
+                          {d.ruleLabel} (+{d.points}){d.note ? ` — ${d.note}` : ""}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Tombol aksi — selalu tampil */}
+                  <div className="flex gap-2 pt-2 border-t border-slate-100 ml-4">
+                    {item.yearPoints >= 25 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const ledgerItem = ledger.find(
+                            (l) => l.studentId === item.studentId && l.classId === item.classId
+                          );
+                          if (ledgerItem) {
+                            handleOpenLedgerDetail(ledgerItem);
+                            handleBuildLetter(badge.letterType, ledgerItem);
+                          }
+                        }}
+                        className="flex-1 bg-rose-50 text-rose-700 border border-rose-200 font-bold text-xs md:text-sm py-2.5 rounded-xl flex items-center justify-center gap-2 hover:bg-rose-100 active:scale-[0.98] transition-all min-h-[44px]"
+                      >
+                        <span>🖨️</span> {badge.actionLabel}
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const ledgerItem = ledger.find(
+                          (l) => l.studentId === item.studentId && l.classId === item.classId
+                        );
+                        if (ledgerItem) handleOpenLedgerDetail(ledgerItem);
+                      }}
+                      className={`${item.yearPoints >= 25 ? "flex-1" : "w-full"} bg-slate-50 text-slate-700 border border-slate-200 font-bold text-xs md:text-sm py-2.5 rounded-xl flex items-center justify-center gap-2 hover:bg-slate-100 active:scale-[0.98] transition-all min-h-[44px]`}
+                    >
+                      <span>📋</span> Lihat Detail
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
       )}
     </div>
   );

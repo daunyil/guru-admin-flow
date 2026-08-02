@@ -1,11 +1,7 @@
 /**
- * PIKET-REDESIGN: Tab "Catatan" — Ringkasan catatan piket hari ini.
+ * PIKET-REDESIGN-V2: Tab "Catatan" — Ringkasan catatan piket hari ini.
  *
- * Perubahan dari versi sebelumnya:
- *   - Bahasa ramah: "Selesaikan Laporan" bukan "Finalisasi"
- *   - Layout lebih lega: space-y-4, padding p-4
- *   - Tombol lebih jelas dan terpisah
- *   - Panduan untuk guru yang belum familiar
+ * V2: Consistent card styling, better record list, professional buttons.
  */
 
 import { Card, CardHeader, Button, EmptyState, Textarea } from "@shared/ui";
@@ -41,108 +37,117 @@ export function DutyNotesTab(props: DutyNotesTabProps) {
   } = props;
 
   return (
-    <Card>
-      <CardHeader
-        title="📝 Catatan Piket Hari Ini"
-        description={`${records.length} catatan · ${summary.totalPoints} total poin`}
-      />
-
-      {reportFinalized && (
-        <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-sm text-emerald-800 mb-4">
-          ✅ Laporan hari ini sudah selesai. Jika perlu mengubah, tekan <strong>Buka Revisi</strong> di bawah.
-        </div>
-      )}
-
-      {records.length === 0 ? (
-        <EmptyState
-          title="Belum ada catatan"
-          description="Belum ada pelanggaran yang dicatat untuk hari ini. Buka tab Laporkan untuk mencatat pelanggaran siswa."
-        />
-      ) : (
-        <div className="space-y-3">
-          {records.map((r) => (
-            <div key={r.id} className="p-3 border border-slate-200 rounded-xl flex items-center justify-between gap-3">
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium text-slate-900">{r.studentName} — {r.classLabel}</p>
-                <p className="text-xs text-slate-500 mt-0.5">{r.ruleLabel} · {r.points} poin{r.note ? ` · ${r.note}` : ""}</p>
-              </div>
-              {!reportFinalized && (
-                <Button
-                  variant="danger"
-                  className="text-xs px-3 py-1.5 shrink-0"
-                  onClick={() => void handleDeleteRecord(r.id)}
-                >
-                  Hapus
-                </Button>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-
-      <div className="mt-4 space-y-4">
-        <Textarea
-          label="Catatan Umum Guru Piket"
-          id="duty-report-note"
-          value={reportNote}
-          onChange={setReportNote}
-          rows={3}
-          placeholder="Catatan tambahan tentang piket hari ini..."
-        />
-
-        <div className="flex gap-3 flex-wrap">
-          <Button
-            variant="secondary"
-            className="text-sm"
-            onClick={handleSaveNote}
-            disabled={reportFinalized || isSubmitting}
-          >
-            {isSubmitting ? "Menyimpan…" : "Simpan Catatan"}
-          </Button>
-
-          {!reportFinalized && (
-            <Button
-              variant="secondary"
-              className="text-sm"
-              onClick={() => void handleSyncAlpa()}
-              disabled={isSubmitting}
-            >
-              Sinkron Alpa dari Absen
-            </Button>
-          )}
-        </div>
-
-        <div className="border-t border-slate-200 pt-4">
-          {!reportFinalized ? (
-            <div className="space-y-2">
-              <p className="text-sm text-slate-600">
-                Setelah selesai, tekan tombol di bawah untuk menyelesaikan laporan piket hari ini. Laporan yang sudah selesai tidak bisa diubah kecuali dibuka revisi.
-              </p>
-              <Button
-                className="text-sm"
-                onClick={handleFinalize}
-                disabled={isSubmitting || records.length === 0}
-              >
-                {isSubmitting ? "Memproses…" : "✅ Selesaikan Laporan"}
-              </Button>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              <p className="text-sm text-slate-600">
-                Laporan sudah selesai. Jika perlu mengubah, buka revisi terlebih dahulu.
-              </p>
-              <Button
-                variant="secondary"
-                className="text-sm"
-                onClick={handleUnlock}
-                disabled={isSubmitting}
-              >
-                {isSubmitting ? "Memproses…" : "🔓 Buka Revisi"}
-              </Button>
-            </div>
-          )}
+    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+      {/* Header */}
+      <div className="bg-slate-50 px-4 py-2.5 md:py-3 border-b border-slate-100">
+        <div className="flex items-center justify-between">
+          <h3 className="text-xs md:text-sm font-bold text-slate-800 uppercase tracking-wider">Catatan Piket Hari Ini</h3>
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] md:text-xs font-bold text-slate-500">{records.length} catatan</span>
+            <span className="text-[10px] md:text-xs font-bold text-rose-600">{summary.totalPoints} poin</span>
+          </div>
         </div>
       </div>
-    </Card>
+
+      <div className="p-3 md:p-4 space-y-3">
+        {reportFinalized && (
+          <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs md:text-sm text-emerald-800">
+            Laporan hari ini sudah selesai. Jika perlu mengubah, tekan <strong>Buka Revisi</strong> di bawah.
+          </div>
+        )}
+
+        {records.length === 0 ? (
+          <EmptyState
+            title="Belum ada catatan"
+            description="Belum ada pelanggaran yang dicatat untuk hari ini. Buka tab Laporkan untuk mencatat pelanggaran siswa."
+          />
+        ) : (
+          <div className="space-y-1.5">
+            {records.map((r) => (
+              <div key={r.id} className="flex items-center justify-between gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100">
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs md:text-sm font-bold text-slate-900">{r.studentName} <span className="text-slate-400 font-normal">· {r.classLabel}</span></p>
+                  <p className="text-[10px] md:text-xs text-slate-500 mt-0.5">{r.ruleLabel} · <span className="text-rose-600 font-bold">{r.points} poin</span>{r.note ? ` · ${r.note}` : ""}</p>
+                </div>
+                {!reportFinalized && (
+                  <button
+                    type="button"
+                    onClick={() => void handleDeleteRecord(r.id)}
+                    className="shrink-0 text-xs font-bold text-rose-600 hover:text-rose-700 hover:bg-rose-50 px-2.5 py-1.5 rounded-lg transition-colors min-h-[44px] flex items-center"
+                  >
+                    Hapus
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="space-y-3 pt-3 border-t border-slate-100">
+          <Textarea
+            label="Catatan Umum Guru Piket"
+            id="duty-report-note"
+            value={reportNote}
+            onChange={setReportNote}
+            rows={3}
+            placeholder="Catatan tambahan tentang piket hari ini..."
+          />
+
+          <div className="flex gap-2 flex-wrap">
+            <button
+              type="button"
+              onClick={handleSaveNote}
+              disabled={reportFinalized || isSubmitting}
+              className="bg-white text-slate-700 border border-slate-300 font-bold text-xs md:text-sm py-2.5 px-4 rounded-xl hover:bg-slate-50 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px]"
+            >
+              {isSubmitting ? "Menyimpan…" : "Simpan Catatan"}
+            </button>
+
+            {!reportFinalized && (
+              <button
+                type="button"
+                onClick={() => void handleSyncAlpa()}
+                disabled={isSubmitting}
+                className="bg-white text-slate-700 border border-slate-300 font-bold text-xs md:text-sm py-2.5 px-4 rounded-xl hover:bg-slate-50 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px]"
+              >
+                Sinkron Alpa dari Absen
+              </button>
+            )}
+          </div>
+
+          <div className="border-t border-slate-100 pt-3">
+            {!reportFinalized ? (
+              <div className="space-y-2">
+                <p className="text-[10px] md:text-xs text-slate-500">
+                  Setelah selesai, tekan tombol di bawah untuk menyelesaikan laporan piket hari ini.
+                </p>
+                <button
+                  type="button"
+                  onClick={handleFinalize}
+                  disabled={isSubmitting || records.length === 0}
+                  className="w-full bg-indigo-600 text-white font-bold text-xs md:text-sm py-3 rounded-xl hover:bg-indigo-700 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px] shadow-sm"
+                >
+                  {isSubmitting ? "Memproses…" : "Selesaikan Laporan"}
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <p className="text-[10px] md:text-xs text-slate-500">
+                  Laporan sudah selesai. Jika perlu mengubah, buka revisi terlebih dahulu.
+                </p>
+                <button
+                  type="button"
+                  onClick={handleUnlock}
+                  disabled={isSubmitting}
+                  className="w-full bg-white text-slate-700 border border-slate-300 font-bold text-xs md:text-sm py-3 rounded-xl hover:bg-slate-50 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px]"
+                >
+                  {isSubmitting ? "Memproses…" : "Buka Revisi"}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }

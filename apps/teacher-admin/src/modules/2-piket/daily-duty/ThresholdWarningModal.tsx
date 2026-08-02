@@ -1,7 +1,7 @@
 /**
  * THRESHOLD-WARNING-MODAL: Peringatan otomatis saat poin siswa melewati batas.
  *
- * PIKET-REDESIGN: Bahasa lebih ramah dan manusiawi.
+ * V2: Consistent with KBM card styling, better visual hierarchy.
  */
 
 import type { ThresholdWarning } from "./types";
@@ -42,10 +42,10 @@ export function ThresholdWarningModal({ warning, onPrintSP, onDismiss }: Thresho
 
         {/* Header */}
         <div className="flex items-center gap-3 p-4 border-b border-amber-100 bg-amber-50 rounded-t-2xl sm:rounded-t-2xl">
-          <span className="text-3xl">⚠️</span>
+          <span className="w-8 h-8 rounded-full bg-amber-200 flex items-center justify-center text-base">⚠️</span>
           <div>
-            <h3 className="text-sm font-bold text-amber-800">{info.title}</h3>
-            <p className="text-xs text-slate-500">{info.desc}</p>
+            <h3 className="text-xs md:text-sm font-bold text-amber-800">{info.title}</h3>
+            <p className="text-[10px] md:text-xs text-slate-500">{info.desc}</p>
           </div>
         </div>
 
@@ -55,16 +55,16 @@ export function ThresholdWarningModal({ warning, onPrintSP, onDismiss }: Thresho
             <div className="text-sm font-bold text-slate-900">
               {warning.studentName} <span className="text-slate-500 font-normal">({warning.classLabel})</span>
             </div>
-            <div className="text-sm text-slate-600">
+            <div className="text-xs text-slate-600">
               Penambahan poin: <strong className="text-amber-700">+{warning.newPoints} poin</strong>
             </div>
-            <div className="text-base font-bold text-amber-800">
-              Total poin sekarang: {warning.totalPoints} poin
+            <div className="text-base font-black text-amber-800">
+              Total: {warning.totalPoints} poin
             </div>
           </div>
 
           {/* Penjelasan */}
-          <p className="text-sm text-slate-600 leading-relaxed">
+          <p className="text-xs text-slate-600 leading-relaxed">
             {info.explanation}
           </p>
 
@@ -73,7 +73,7 @@ export function ThresholdWarningModal({ warning, onPrintSP, onDismiss }: Thresho
             <button
               type="button"
               onClick={onPrintSP}
-              className="w-full bg-amber-600 text-white font-bold text-sm py-3 rounded-xl shadow-sm active:scale-[0.98] flex items-center justify-center gap-2 transition-transform"
+              className="w-full bg-amber-600 text-white font-bold text-xs md:text-sm py-3 rounded-xl shadow-sm active:scale-[0.98] flex items-center justify-center gap-2 transition-transform min-h-[44px]"
             >
               <span>🖨️</span> {info.actionLabel}
             </button>
@@ -81,7 +81,7 @@ export function ThresholdWarningModal({ warning, onPrintSP, onDismiss }: Thresho
             <button
               type="button"
               onClick={onDismiss}
-              className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium text-sm py-2.5 rounded-xl transition-colors"
+              className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs md:text-sm py-2.5 rounded-xl transition-colors min-h-[44px]"
             >
               Simpan Catatan Saja
             </button>

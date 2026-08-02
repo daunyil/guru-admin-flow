@@ -6,24 +6,28 @@ import { formatSIADetail } from "@guru-admin/domain";
 import type { ClassAttendanceDetail, DutyRecord, StudentDutyLedgerItem } from "@guru-admin/domain";
 
 export function PrintDutyReport({ date, yearLabel, teacherName, records, attendanceDetail, reportNote, ledger }: { date: string; yearLabel: string; teacherName: string; records: DutyRecord[]; attendanceDetail: ClassAttendanceDetail[]; reportNote: string; ledger: StudentDutyLedgerItem[] }) {
-  // PIKET-AUDIT-05C: Mode Dokumen toggle + disable print bila tidak ada data
   const [showDocument, setShowDocument] = useState(false);
   const hasAnyData = records.length > 0 || attendanceDetail.length > 0 || ledger.length > 0;
   return (
-    <Card>
-      <div className="flex justify-between items-center mb-2 flex-wrap gap-2">
-        <h3 className="text-sm font-bold text-slate-700">Cetak Laporan Piket</h3>
-        <div className="flex gap-2">
-          <Button variant="secondary" className="text-xs" onClick={() => setShowDocument(!showDocument)}>
-            {showDocument ? "Mode Kerja" : "Mode Dokumen"}
-          </Button>
-          {/* PIKET-AUDIT-05D-MINOR: tombol cetak disembunyikan bila tidak ada data */}
-          <PrintExportButtons filename={`laporan-piket-${date}`} title="Laporan Piket Harian" orientation="portrait" targetId="print-duty" disabled={!hasAnyData} />
+    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+      <div className="bg-slate-50 px-4 py-2.5 md:py-3 border-b border-slate-100">
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="text-xs md:text-sm font-bold text-slate-800 uppercase tracking-wider">Cetak Laporan Piket</h3>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setShowDocument(!showDocument)}
+              className="bg-white text-slate-700 border border-slate-300 font-bold text-[10px] md:text-xs py-2 px-3 rounded-xl hover:bg-slate-50 active:scale-[0.98] transition-all min-h-[44px]"
+            >
+              {showDocument ? "Mode Kerja" : "Mode Dokumen"}
+            </button>
+            <PrintExportButtons filename={`laporan-piket-${date}`} title="Laporan Piket Harian" orientation="portrait" targetId="print-duty" disabled={!hasAnyData} />
+          </div>
         </div>
       </div>
       {!hasAnyData && (
-        <div className="p-1.5 bg-amber-50 rounded text-xs text-amber-800 mb-2">
-          ⚠ Belum ada data untuk tanggal ini. Tombol cetak disembunyikan sampai ada catatan, rekap kehadiran, atau ledger poin.
+        <div className="p-3 bg-amber-50 border-t border-amber-200 text-xs text-amber-800">
+          Belum ada data untuk tanggal ini. Tombol cetak disembunyikan sampai ada catatan atau rekap kehadiran.
         </div>
       )}
       {/* LAYOUT-FULLWIDTH-RC1: Dokumen A4 tetap centered dengan max-w-3xl */}
@@ -99,6 +103,6 @@ export function PrintDutyReport({ date, yearLabel, teacherName, records, attenda
         </div>
       </div>
       </div>
-    </Card>
+    </div>
   );
 }

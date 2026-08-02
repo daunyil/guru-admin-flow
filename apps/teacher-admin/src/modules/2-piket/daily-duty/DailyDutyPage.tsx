@@ -1,16 +1,16 @@
 /**
- * PIKET-REDESIGN: Modul Guru Piket yang ramah dan mudah digunakan.
+ * PIKET-REDESIGN-V2: Modul Guru Piket — se-rapi KBM.
  *
- * 3 tab utama:
- *   - Laporkan  → Catat pelanggaran siswa (cepat, di lapangan)
- *   - Catatan   → Ringkasan hari ini + kehadiran + selesaikan laporan
- *   - Riwayat   → Riwayat pelanggaran siswa setahun + cetak surat
- *
- * Perubahan dari versi sebelumnya:
- *   - Bahasa lebih ramah dan tidak teknis
- *   - Layout lebih lega (space-y-5, padding besar)
- *   - 3 tab jelas tanpa sub-tab bertumpuk
- *   - Touch target lebih besar untuk mobile
+ * Changes from V1:
+ *   - Gradient header (indigo/blue) matching KBM's emerald gradient
+ *   - max-w-4xl / md:max-w-6xl centered layout
+ *   - Desktop responsive (md: breakpoints)
+ *   - Consistent card styling: rounded-2xl border border-slate-200 shadow-sm
+ *   - Professional tab bar with cleaner design
+ *   - 44px touch targets everywhere
+ *   - Less emoji, more professional
+ *   - Date picker integrated into header
+ *   - Status badge in header
  */
 
 import { Card, Input, Button } from "@shared/ui";
@@ -41,47 +41,102 @@ export function DailyDutyPage() {
   // ─── Init error → show retry ───
   if (state.initError) {
     return (
-      <div className="space-y-4">
-        <div className="page-header">
-          <h1 className="text-xl font-bold text-slate-900">Piket Hari Ini</h1>
+      <div className="max-w-4xl mx-auto md:max-w-6xl space-y-4">
+        <div className="bg-gradient-to-br from-indigo-700 via-blue-700 to-blue-800 text-white p-4 rounded-2xl shadow-lg">
+          <h1 className="text-xl font-bold">Piket Hari Ini</h1>
         </div>
-        <Card>
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
           <div className="text-center py-8 space-y-3">
-            <div className="text-5xl">😔</div>
-            <h3 className="text-base font-semibold text-slate-900">Gagal Memuat Data</h3>
+            <div className="text-4xl mb-2">😔</div>
+            <h3 className="text-base font-bold text-slate-900">Gagal Memuat Data</h3>
             <p className="text-sm text-slate-500 max-w-md mx-auto">{state.initError}</p>
             <Button onClick={state.handleRetryInit}>Coba Lagi</Button>
           </div>
-        </Card>
+        </div>
       </div>
     );
   }
 
   // ─── Status badge color mapping ───
   const statusColorMap: Record<string, string> = {
-    emerald: "bg-emerald-100 text-emerald-800",
+    emerald: "bg-white/15 backdrop-blur-sm text-white border border-white/20",
     amber: "bg-amber-100 text-amber-800",
     slate: "bg-slate-100 text-slate-600",
   };
 
   return (
-    <div className="space-y-5">
-      {/* ─── Header (Friendly & Warm) ─── */}
-      <div className="flex items-center justify-between gap-3">
-        <div className="min-w-0">
-          <h1 className="text-xl font-bold text-slate-900 truncate">🛡️ Piket Hari Ini</h1>
-          <p className="text-sm text-slate-500 truncate mt-0.5">
-            {state.year ? `TP ${state.year.label}` : ""} · {state.teacher?.name ?? "-"}
-          </p>
+    <div className="max-w-4xl mx-auto md:max-w-6xl pb-28 md:pb-6">
+      {/* ========== HEADER — MOBILE (Gradient) ========== */}
+      <header className="md:hidden bg-gradient-to-br from-indigo-700 via-blue-700 to-blue-800 text-white p-4 rounded-2xl shadow-lg mb-3">
+        <div className="flex justify-between items-center mb-3">
+          <span className="bg-white/15 backdrop-blur-sm text-white text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider border border-white/20">
+            PIKET
+          </span>
+          <span className="text-[11px] text-blue-200 font-medium">
+            {state.year ? `TP ${state.year.label}` : ""}
+          </span>
         </div>
-        <span className={`shrink-0 inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${statusColorMap[state.reportStatus.color] ?? "bg-slate-100 text-slate-600"}`}>
-          {state.reportStatus.label}
-        </span>
-      </div>
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <h1 className="text-lg font-bold text-white truncate">Piket Hari Ini</h1>
+            <p className="text-[11px] text-blue-200 truncate mt-0.5">
+              {state.teacher?.name ?? "-"}
+            </p>
+          </div>
+          <span className={`shrink-0 inline-flex items-center px-3 py-1 rounded-full text-xs font-bold ${statusColorMap[state.reportStatus.color] ?? "bg-white/15 text-white"}`}>
+            {state.reportStatus.label}
+          </span>
+        </div>
+        {/* Date picker inside header */}
+        <div className="mt-3">
+          <input
+            id="duty-date-mobile"
+            type="date"
+            value={state.date}
+            onChange={(e) => state.setDate(e.target.value)}
+            className="w-full bg-white/15 backdrop-blur-sm border border-white/20 rounded-xl px-3 py-2.5 text-sm text-white placeholder-blue-200 focus:outline-none focus:ring-2 focus:ring-white/30 min-h-[44px]"
+          />
+        </div>
+      </header>
 
-      {/* ─── Message Banner ─── */}
+      {/* ========== HEADER — DESKTOP (Clean white card) ========== */}
+      <header className="hidden md:block bg-white border border-slate-200 rounded-xl shadow-sm mb-4 p-5">
+        <div className="flex items-center justify-between gap-4">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-indigo-100 text-indigo-700">
+                Piket
+              </span>
+              <h1 className="text-lg font-bold text-slate-900">Piket Hari Ini</h1>
+            </div>
+            <p className="text-xs text-slate-500 mt-0.5">
+              {state.year ? `TP ${state.year.label}` : ""} · {state.teacher?.name ?? "-"}
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <input
+              id="duty-date-desktop"
+              type="date"
+              value={state.date}
+              onChange={(e) => state.setDate(e.target.value)}
+              className="input text-sm"
+            />
+            <span className={`shrink-0 inline-flex items-center px-3 py-1 rounded-full text-xs font-bold ${
+              state.reportStatus.color === "emerald"
+                ? "bg-emerald-100 text-emerald-700"
+                : state.reportStatus.color === "amber"
+                  ? "bg-amber-100 text-amber-700"
+                  : "bg-slate-100 text-slate-600"
+            }`}>
+              {state.reportStatus.label}
+            </span>
+          </div>
+        </div>
+      </header>
+
+      {/* ========== MESSAGE BANNER ========== */}
       {state.message && (
-        <div className={`px-4 py-3 rounded-xl text-sm font-medium ${
+        <div className={`mb-3 md:mb-4 px-4 py-3 rounded-xl text-sm font-medium ${
           state.message.type === "success"
             ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
             : state.message.type === "warning"
@@ -92,32 +147,29 @@ export function DailyDutyPage() {
         </div>
       )}
 
-      {/* ─── Load error → show retry ─── */}
+      {/* ========== LOAD ERROR ========== */}
       {state.loadError && (
-        <Card>
-          <div className="flex items-center justify-between gap-3 p-2">
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-3 mb-3 md:mb-4">
+          <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <span className="text-amber-600 text-lg">⚠️</span>
               <p className="text-sm text-slate-700">{state.loadError}</p>
             </div>
             <Button variant="secondary" className="text-sm" onClick={state.handleRetryLoad}>Coba Lagi</Button>
           </div>
-        </Card>
+        </div>
       )}
 
-      {/* ─── Date Picker ─── */}
-      <Input label="📅 Tanggal Piket" id="duty-date" type="date" value={state.date} onChange={state.setDate} />
-
-      {/* ─── Tab Bar (3 tabs, bigger touch targets) ─── */}
-      <div className="flex bg-slate-100 rounded-xl p-1.5 gap-1.5">
+      {/* ========== TAB BAR ========== */}
+      <div className="flex bg-slate-100 rounded-xl p-1.5 gap-1.5 mb-3 md:mb-4">
         {mainTabs.map((tab) => (
           <button
             key={tab.key}
             type="button"
             onClick={() => state.setMainView(tab.key)}
-            className={`flex-1 flex items-center justify-center gap-2 px-3 py-3 rounded-lg text-sm font-semibold transition-all duration-200 ${
+            className={`flex-1 flex items-center justify-center gap-2 px-3 py-3 rounded-lg text-sm font-bold transition-all duration-200 min-h-[44px] ${
               state.mainView === tab.key
-                ? "bg-white text-brand-700 shadow-sm"
+                ? "bg-white text-indigo-700 shadow-sm"
                 : "text-slate-500 hover:text-slate-700"
             }`}
           >
@@ -127,7 +179,7 @@ export function DailyDutyPage() {
         ))}
       </div>
 
-      {/* ─── TAB 1: Laporkan Pelanggaran ─── */}
+      {/* ========== TAB 1: Laporkan Pelanggaran ========== */}
       {state.mainView === "laporkan" && (
         <CatatPelanggaranView
           catatClassFilter={state.catatClassFilter}
@@ -156,9 +208,9 @@ export function DailyDutyPage() {
         />
       )}
 
-      {/* ─── TAB 2: Catatan Hari Ini ─── */}
+      {/* ========== TAB 2: Catatan Hari Ini ========== */}
       {state.mainView === "catatan" && (
-        <div className="space-y-5">
+        <div className="space-y-3 md:space-y-4">
           <AttendanceRecapCard attendanceDetail={state.attendanceDetail} />
           <DutyNotesTab
             records={state.records}
@@ -185,7 +237,7 @@ export function DailyDutyPage() {
         </div>
       )}
 
-      {/* ─── TAB 3: Riwayat Pelanggaran Siswa ─── */}
+      {/* ========== TAB 3: Riwayat Pelanggaran Siswa ========== */}
       {state.mainView === "riwayat" && (
         <BukuKedisiplinanBKTab
           records={state.records}
@@ -196,7 +248,7 @@ export function DailyDutyPage() {
         />
       )}
 
-      {/* ─── Threshold Warning Modal ─── */}
+      {/* ========== Threshold Warning Modal ========== */}
       {state.thresholdWarning && (
         <ThresholdWarningModal
           warning={state.thresholdWarning}
@@ -216,7 +268,7 @@ export function DailyDutyPage() {
         />
       )}
 
-      {/* ─── Letter Preview ─── */}
+      {/* ========== Letter Preview ========== */}
       {state.letterPreview && (
         <LetterPreview
           letter={state.letterPreview}
@@ -224,7 +276,7 @@ export function DailyDutyPage() {
         />
       )}
 
-      {/* ─── Ledger Detail Sheet ─── */}
+      {/* ========== Ledger Detail Sheet ========== */}
       {state.ledgerDetailStudent && !state.letterPreview && (
         <LedgerDetailSheet
           student={state.ledgerDetailStudent}
