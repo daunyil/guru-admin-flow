@@ -208,12 +208,13 @@ export function Badge({
   variant = "neutral",
 }: {
   children: ReactNode;
-  variant?: "success" | "warning" | "error" | "neutral";
+  variant?: "success" | "warning" | "error" | "errorStrong" | "neutral";
 }) {
   const cls = {
     success: "badge-success",
     warning: "badge-warning",
     error: "badge-error",
+    errorStrong: "badge-error-strong",
     neutral: "badge-neutral",
   }[variant];
   return <span className={cls}>{children}</span>;

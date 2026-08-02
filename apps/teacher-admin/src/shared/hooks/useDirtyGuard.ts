@@ -6,18 +6,21 @@
  *   - `useBlocker` (React Router): warns when navigating to another route
  *   - `guardAction()`: wraps actions with `window.confirm()` before proceeding
  *
+ * FIX-RC2: useBlocker only works with createBrowserRouter (Data Router).
+ * When using HashRouter/BrowserRouter, useBlocker throws an error.
+ * This hook now safely detects the router type and falls back to
+ * beforeunload-only guard when Data Router context is not available.
+ *
  * Usage:
  *   const isDirty = useMemo(() => myChanges.size > 0, [myChanges]);
  *   useDirtyGuard(isDirty);
  *   // Or with custom message:
  *   useDirtyGuard(isDirty, { message: "Data presensi belum disimpan. Yakin ingin keluar?" });
- *
- * Inspired by the snapshot-based pattern in useKbmHub (B4-02),
- * but extracted as a reusable hook for all editor pages.
  */
 
-import { useCallback, useEffect } from "react";
-import { useBlocker } from "react-router-dom";
+import { useCallback, useContext, useEffect } from "react";
+import { UNSAFE_DataRouterContext, useBlocker } from "react-router-dom";
+import type { Blocker } from "react-router-dom";
 
 export type UseDirtyGuardOptions = {
   /** Custom message shown in confirm dialog. Default: "Data belum disimpan. Yakin ingin keluar?" */
@@ -29,6 +32,43 @@ export type UseDirtyGuardOptions = {
 };
 
 const DEFAULT_MESSAGE = "Data belum disimpan. Yakin ingin keluar?";
+
+/**
+ * A no-op blocker that mimics the Blocker interface but does nothing.
+ * Used as fallback when Data Router context is not available.
+ */
+const NOOP_BLOCKER: Blocker = {
+  state: "unblocked",
+  location: null as any,
+  baseAction: null as any,
+  proceed: null as any,
+  reset: null as any,
+} as Blocker;
+
+/**
+ * useSafeBlocker — Calls useBlocker only when Data Router context is available.
+ * Falls back to a no-op blocker when using HashRouter/BrowserRouter.
+ *
+ * FIX-RC2: We detect the Data Router context using DataRouterContext.
+ * useBlocker() requires createBrowserRouter — it throws when called
+ * inside HashRouter or BrowserRouter. By checking the context first,
+ * we avoid the crash entirely.
+ */
+function useSafeBlocker(
+  shouldBlock: (args: { currentLocation: any; nextLocation: any }) => boolean,
+  enableBlocker: boolean,
+): Blocker {
+  // Check if we're inside a Data Router (createBrowserRouter)
+  const dataRouterContext = useContext(UNSAFE_DataRouterContext);
+  const isDataRouter = !!(dataRouterContext as any)?.router;
+
+  if (!enableBlocker || !isDataRouter) {
+    return NOOP_BLOCKER;
+  }
+
+  // Safe to call useBlocker — we're inside a Data Router
+  return useBlocker(shouldBlock);
+}
 
 /**
  * useDirtyGuard — Protects against losing unsaved changes.
@@ -59,11 +99,12 @@ export function useDirtyGuard(
   }, [isDirty, enableBeforeUnload]);
 
   // 2. React Router blocker: warn when navigating to another route
-  const blocker = useBlocker(
+  // FIX-RC2: Safely detect Data Router context before calling useBlocker
+  const blocker = useSafeBlocker(
     ({ currentLocation, nextLocation }) =>
       isDirty &&
-      enableBlocker &&
       currentLocation.pathname !== nextLocation.pathname,
+    enableBlocker,
   );
 
   // Show confirm when blocker is triggered

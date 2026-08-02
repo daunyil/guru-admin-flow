@@ -216,15 +216,7 @@ export function PiketReportTab({
                         <td className="py-2 px-3 text-center">{item.totalRecords}</td>
                         <td className="py-2 px-3 text-center">{item.totalPoints}</td>
                         <td className="py-2 px-3">
-                          <Badge
-                            variant={
-                              getDutyStatusVariant(item.totalPoints) === "success"
-                                ? "success"
-                                : getDutyStatusVariant(item.totalPoints) === "warning"
-                                ? "warning"
-                                : "error"
-                            }
-                          >
+                          <Badge variant={getDutyStatusVariant(item.totalPoints)}>
                             {getStudentDutyStatus(item.totalPoints)}
                           </Badge>
                         </td>

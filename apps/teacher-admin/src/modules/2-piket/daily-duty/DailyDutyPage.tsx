@@ -1,47 +1,53 @@
 /**
- * PIKET-HARIAN-V2: Opsi B (Segmented Switcher)
- * Mobile-first. Dua mode utama:
- *   - Catat Pelanggaran (lapangan, express)
- *   - Rekap & Laporan (meja, administrasi)
+ * PIKET-REDESIGN: Modul Guru Piket yang ramah dan mudah digunakan.
  *
- * Bug fixes baked in:
- *   - P0-1/P0-2: Error state + retry button
- *   - P1-1: isSubmitting guard
- *   - P1-2: auto-reset selection on date change
- *   - P1-4: responsive grid (in PointLedgerTab)
+ * 3 tab utama:
+ *   - Laporkan  → Catat pelanggaran siswa (cepat, di lapangan)
+ *   - Catatan   → Ringkasan hari ini + kehadiran + selesaikan laporan
+ *   - Riwayat   → Riwayat pelanggaran siswa setahun + cetak surat
+ *
+ * Perubahan dari versi sebelumnya:
+ *   - Bahasa lebih ramah dan tidak teknis
+ *   - Layout lebih lega (space-y-5, padding besar)
+ *   - 3 tab jelas tanpa sub-tab bertumpuk
+ *   - Touch target lebih besar untuk mobile
  */
 
 import { Card, Input, Button } from "@shared/ui";
 import { LoadingState } from "@shared/ui";
 import { useDailyDutyState } from "./useDailyDutyState";
-import type { RekapSubTab } from "./types";
 import { CatatPelanggaranView } from "./CatatPelanggaranView";
-import { AttendanceRecapCard } from "./AttendanceRecapCard";
 import { DutyNotesTab } from "./DutyNotesTab";
-import { PointLedgerTab } from "./PointLedgerTab";
+import { AttendanceRecapCard } from "./AttendanceRecapCard";
+import { BukuKedisiplinanBKTab } from "./BukuKedisiplinanBKTab";
 import { PrintDutyReport } from "./PrintDutyReport";
+import { ThresholdWarningModal } from "./ThresholdWarningModal";
+import { LetterPreview } from "./LetterPreview";
+import { LedgerDetailSheet } from "./LedgerDetailSheet";
+import type { MainView } from "./types";
 
-const rekapSubTabs: Array<{ key: RekapSubTab; label: string; icon: string }> = [
-  { key: "presensi", label: "Rekap Presensi", icon: "🏫" },
-  { key: "catatan", label: "Daftar Catatan", icon: "📝" },
-  { key: "poin", label: "Ledger Poin", icon: "🏆" },
-  { key: "cetak", label: "Cetak & Surat", icon: "🖨️" },
+const mainTabs: Array<{ key: MainView; label: string; icon: string }> = [
+  { key: "laporkan", label: "Laporkan", icon: "⚡" },
+  { key: "catatan", label: "Catatan", icon: "📝" },
+  { key: "riwayat", label: "Riwayat", icon: "📊" },
 ];
 
 export function DailyDutyPage() {
   const state = useDailyDutyState();
 
-  // ─── P0-1: Init error → show retry ───
+  // ─── Loading state ───
   if (state.loading) return <LoadingState />;
+
+  // ─── Init error → show retry ───
   if (state.initError) {
     return (
-      <div className="space-y-2">
+      <div className="space-y-4">
         <div className="page-header">
-          <h1 className="text-2xl font-bold text-slate-900">Piket Harian</h1>
+          <h1 className="text-xl font-bold text-slate-900">Piket Hari Ini</h1>
         </div>
         <Card>
-          <div className="text-center py-4 space-y-2">
-            <div className="text-4xl">⚠️</div>
+          <div className="text-center py-8 space-y-3">
+            <div className="text-5xl">😔</div>
             <h3 className="text-base font-semibold text-slate-900">Gagal Memuat Data</h3>
             <p className="text-sm text-slate-500 max-w-md mx-auto">{state.initError}</p>
             <Button onClick={state.handleRetryInit}>Coba Lagi</Button>
@@ -59,81 +65,70 @@ export function DailyDutyPage() {
   };
 
   return (
-    <div className="space-y-2">
-      {/* ─── Header ─── */}
-      <div className="page-header">
-        <div className="flex items-center justify-between flex-wrap gap-2">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-900">📋 Piket Harian</h1>
-            <p className="text-sm text-slate-500 mt-1">
-              {state.year ? `TP ${state.year.label}` : ""} · Guru Piket: {state.teacher?.name ?? "-"}
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${statusColorMap[state.reportStatus.color] ?? "bg-slate-100 text-slate-600"}`}>
-              {state.reportStatus.label}
-            </span>
-          </div>
+    <div className="space-y-5">
+      {/* ─── Header (Friendly & Warm) ─── */}
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-xl font-bold text-slate-900 truncate">🛡️ Piket Hari Ini</h1>
+          <p className="text-sm text-slate-500 truncate mt-0.5">
+            {state.year ? `TP ${state.year.label}` : ""} · {state.teacher?.name ?? "-"}
+          </p>
         </div>
+        <span className={`shrink-0 inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${statusColorMap[state.reportStatus.color] ?? "bg-slate-100 text-slate-600"}`}>
+          {state.reportStatus.label}
+        </span>
       </div>
 
       {/* ─── Message Banner ─── */}
       {state.message && (
-        <div className={`info-banner-${state.message.type === "success" ? "success" : state.message.type === "warning" ? "warning" : "error"}`}>
+        <div className={`px-4 py-3 rounded-xl text-sm font-medium ${
+          state.message.type === "success"
+            ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
+            : state.message.type === "warning"
+              ? "bg-amber-50 text-amber-800 border border-amber-200"
+              : "bg-rose-50 text-rose-800 border border-rose-200"
+        }`}>
           {state.message.text}
         </div>
       )}
 
-      {/* ─── P0-2: Load error → show retry ─── */}
+      {/* ─── Load error → show retry ─── */}
       {state.loadError && (
         <Card>
-          <div className="flex items-center justify-between gap-2 p-1">
+          <div className="flex items-center justify-between gap-3 p-2">
             <div className="flex items-center gap-2">
               <span className="text-amber-600 text-lg">⚠️</span>
               <p className="text-sm text-slate-700">{state.loadError}</p>
             </div>
-            <Button variant="secondary" className="text-xs" onClick={state.handleRetryLoad}>Coba Lagi</Button>
+            <Button variant="secondary" className="text-sm" onClick={state.handleRetryLoad}>Coba Lagi</Button>
           </div>
         </Card>
       )}
 
       {/* ─── Date Picker ─── */}
-      <Card>
-        <Input label="📅 Tanggal" id="duty-date" type="date" value={state.date} onChange={state.setDate} />
-      </Card>
+      <Input label="📅 Tanggal Piket" id="duty-date" type="date" value={state.date} onChange={state.setDate} />
 
-      {/* ─── Segmented Switcher ─── */}
-      <Card className="p-2">
-        <div className="flex bg-slate-100 rounded-lg p-1 gap-1">
+      {/* ─── Tab Bar (3 tabs, bigger touch targets) ─── */}
+      <div className="flex bg-slate-100 rounded-xl p-1.5 gap-1.5">
+        {mainTabs.map((tab) => (
           <button
+            key={tab.key}
             type="button"
-            onClick={() => state.setMainView("catat")}
-            className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-md text-sm font-medium transition-all duration-200 ${
-              state.mainView === "catat"
+            onClick={() => state.setMainView(tab.key)}
+            className={`flex-1 flex items-center justify-center gap-2 px-3 py-3 rounded-lg text-sm font-semibold transition-all duration-200 ${
+              state.mainView === tab.key
                 ? "bg-white text-brand-700 shadow-sm"
-                : "text-slate-600 hover:text-slate-900"
+                : "text-slate-500 hover:text-slate-700"
             }`}
           >
-            <span className="text-base">⚡</span>
-            <span>1. CATAT PELANGGARAN</span>
+            <span className="text-base">{tab.icon}</span>
+            <span>{tab.label}</span>
           </button>
-          <button
-            type="button"
-            onClick={() => state.setMainView("rekap")}
-            className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-md text-sm font-medium transition-all duration-200 ${
-              state.mainView === "rekap"
-                ? "bg-white text-brand-700 shadow-sm"
-                : "text-slate-600 hover:text-slate-900"
-            }`}
-          >
-            <span className="text-base">📊</span>
-            <span>2. REKAP & LAPORAN</span>
-          </button>
-        </div>
-      </Card>
+        ))}
+      </div>
 
-      {/* ─── VIEW 1: Mode Catat Pelanggaran ─── */}
-      {state.mainView === "catat" && (
+      {/* ─── TAB 1: Laporkan Pelanggaran ─── */}
+      {state.mainView === "laporkan" && (
         <CatatPelanggaranView
           catatClassFilter={state.catatClassFilter}
           setCatatClassFilter={state.setCatatClassFilter}
@@ -161,86 +156,82 @@ export function DailyDutyPage() {
         />
       )}
 
-      {/* ─── VIEW 2: Mode Rekap & Laporan ─── */}
-      {state.mainView === "rekap" && (
-        <>
-          {/* Sub-tab bar */}
-          <Card className="p-2">
-            <div className="flex gap-1 overflow-x-auto">
-              {rekapSubTabs.map((st) => (
-                <button
-                  key={st.key}
-                  type="button"
-                  onClick={() => state.setRekapSubTab(st.key)}
-                  className={`flex items-center gap-1.5 px-3 py-2 rounded-md text-xs font-medium whitespace-nowrap transition-all duration-200 ${
-                    state.rekapSubTab === st.key
-                      ? "bg-brand-50 text-brand-700"
-                      : "text-slate-600 hover:bg-slate-50"
-                  }`}
-                >
-                  <span>{st.icon}</span>
-                  <span>{st.label}</span>
-                </button>
-              ))}
-            </div>
-          </Card>
+      {/* ─── TAB 2: Catatan Hari Ini ─── */}
+      {state.mainView === "catatan" && (
+        <div className="space-y-5">
+          <AttendanceRecapCard attendanceDetail={state.attendanceDetail} />
+          <DutyNotesTab
+            records={state.records}
+            reportFinalized={state.reportFinalized}
+            reportNote={state.reportNote}
+            setReportNote={state.setReportNote}
+            summary={state.summary}
+            handleDeleteRecord={state.handleDeleteRecord}
+            handleSaveNote={state.handleSaveNote}
+            handleSyncAlpa={state.handleSyncAlpa}
+            handleFinalize={state.handleFinalize}
+            handleUnlock={state.handleUnlock}
+            isSubmitting={state.isSubmitting}
+          />
+          <PrintDutyReport
+            date={state.date}
+            yearLabel={state.year?.label ?? ""}
+            teacherName={state.teacher?.name ?? "-"}
+            records={state.records}
+            attendanceDetail={state.attendanceDetail}
+            reportNote={state.reportNote}
+            ledger={state.ledger}
+          />
+        </div>
+      )}
 
-          {/* Sub-tab content */}
-          {state.rekapSubTab === "presensi" && (
-            <AttendanceRecapCard attendanceDetail={state.attendanceDetail} />
-          )}
+      {/* ─── TAB 3: Riwayat Pelanggaran Siswa ─── */}
+      {state.mainView === "riwayat" && (
+        <BukuKedisiplinanBKTab
+          records={state.records}
+          ledger={state.ledger}
+          rosters={state.rosters}
+          handleBuildLetter={state.handleBuildLetter}
+          handleOpenLedgerDetail={state.handleOpenLedgerDetail}
+        />
+      )}
 
-          {state.rekapSubTab === "catatan" && (
-            <DutyNotesTab
-              records={state.records}
-              reportFinalized={state.reportFinalized}
-              reportNote={state.reportNote}
-              setReportNote={state.setReportNote}
-              summary={state.summary}
-              handleDeleteRecord={state.handleDeleteRecord}
-              handleSaveNote={state.handleSaveNote}
-              handleSyncAlpa={state.handleSyncAlpa}
-              handleFinalize={state.handleFinalize}
-              handleUnlock={state.handleUnlock}
-              isSubmitting={state.isSubmitting}
-            />
-          )}
+      {/* ─── Threshold Warning Modal ─── */}
+      {state.thresholdWarning && (
+        <ThresholdWarningModal
+          warning={state.thresholdWarning}
+          onPrintSP={() => {
+            const tw = state.thresholdWarning!;
+            const item = state.ledger.find(
+              (l) => l.studentId === tw.studentId && l.classId === tw.classId
+            );
+            if (item) {
+              const letterType: "parent_summons" | "student_statement" =
+                tw.thresholdLevel === "sp3" ? "student_statement" : "parent_summons";
+              state.handleBuildLetter(letterType, item);
+            }
+            state.setThresholdWarning(null);
+          }}
+          onDismiss={() => state.setThresholdWarning(null)}
+        />
+      )}
 
-          {state.rekapSubTab === "poin" && (
-            <PointLedgerTab
-              ledger={state.ledger}
-              ledgerRecords={state.ledgerRecords}
-              ledgerClassFilter={state.ledgerClassFilter}
-              setLedgerClassFilter={state.setLedgerClassFilter}
-              ledgerStatusFilter={state.ledgerStatusFilter}
-              setLedgerStatusFilter={state.setLedgerStatusFilter}
-              ledgerStudentQuery={state.ledgerStudentQuery}
-              setLedgerStudentQuery={state.setLedgerStudentQuery}
-              filteredLedger={state.filteredLedger}
-              ledgerDetailStudent={state.ledgerDetailStudent}
-              ledgerDetailRecords={state.ledgerDetailRecords}
-              letterPreview={state.letterPreview}
-              setLetterPreview={state.setLetterPreview}
-              rosters={state.rosters}
-              yearLabel={state.year?.label ?? ""}
-              handleOpenLedgerDetail={state.handleOpenLedgerDetail}
-              handleCloseLedgerDetail={state.handleCloseLedgerDetail}
-              handleBuildLetter={state.handleBuildLetter}
-            />
-          )}
+      {/* ─── Letter Preview ─── */}
+      {state.letterPreview && (
+        <LetterPreview
+          letter={state.letterPreview}
+          onClose={state.handleCloseLedgerDetail}
+        />
+      )}
 
-          {state.rekapSubTab === "cetak" && (
-            <PrintDutyReport
-              date={state.date}
-              yearLabel={state.year?.label ?? ""}
-              teacherName={state.teacher?.name ?? "-"}
-              records={state.records}
-              attendanceDetail={state.attendanceDetail}
-              reportNote={state.reportNote}
-              ledger={state.ledger}
-            />
-          )}
-        </>
+      {/* ─── Ledger Detail Sheet ─── */}
+      {state.ledgerDetailStudent && !state.letterPreview && (
+        <LedgerDetailSheet
+          student={state.ledgerDetailStudent}
+          records={state.ledgerDetailRecords}
+          onClose={state.handleCloseLedgerDetail}
+          onBuildLetter={state.handleBuildLetter}
+        />
       )}
     </div>
   );

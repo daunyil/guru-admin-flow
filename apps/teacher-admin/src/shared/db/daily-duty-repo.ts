@@ -11,11 +11,9 @@ import { listClassRosters } from "./class-roster-repo";
 import { nowTimestamp } from "@guru-admin/shared";
 import {
   DEFAULT_DUTY_RULES,
-  summarizeDutyRecords,
   type DutyRule,
   type DutyReport,
   type DutyRecord,
-  type DutySummary,
   type ClassAttendanceSummary,
   type ClassAttendanceDetail,
 } from "@guru-admin/domain";
@@ -179,17 +177,6 @@ export async function addDutyRecord(args: {
   return entity;
 }
 
-export async function updateDutyRecord(
-  recordId: string,
-  patch: Partial<DutyRecord>
-): Promise<DutyRecord | undefined> {
-  const existing = await db.dailyDutyRecords.get(recordId);
-  if (!existing || existing.deletedAt) return undefined;
-  const updated = updateEntityFields(existing as DutyRecord, patch) as DutyRecord;
-  await db.dailyDutyRecords.put(updated);
-  return updated;
-}
-
 export async function deleteDutyRecord(recordId: string): Promise<void> {
   const existing = await db.dailyDutyRecords.get(recordId);
   if (!existing) return;
@@ -209,19 +196,6 @@ export async function listDutyRecordsByDate(
     .sort((a, b) => (a.createdAt ?? "").localeCompare(b.createdAt ?? "")) as DutyRecord[];
 }
 
-export async function listDutyRecordsByStudent(
-  academicYearId: string,
-  studentId: string
-): Promise<DutyRecord[]> {
-  const all = await db.dailyDutyRecords
-    .where("academicYearId")
-    .equals(academicYearId)
-    .toArray();
-  return all
-    .filter((r) => !r.deletedAt && r.studentId === studentId)
-    .sort((a, b) => (b.date ?? "").localeCompare(a.date ?? "")) as DutyRecord[];
-}
-
 /**
  * PIKET-STUDENT-LEDGER-RECAP-04A: Ambil semua DutyRecord untuk academicYearId.
  * Filter deletedAt null. Urut date desc. Read-only.
@@ -238,10 +212,6 @@ export async function listDutyRecordsByAcademicYear(
   return all
     .filter((r) => !r.deletedAt)
     .sort((a, b) => (b.date ?? "").localeCompare(a.date ?? "")) as DutyRecord[];
-}
-
-export function summarizeDuty(records: DutyRecord[]): DutySummary {
-  return summarizeDutyRecords(records);
 }
 
 /* ------------------------------------------------------------------ */

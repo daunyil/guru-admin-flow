@@ -26,7 +26,9 @@ export function PrintDutyReport({ date, yearLabel, teacherName, records, attenda
           ⚠ Belum ada data untuk tanggal ini. Tombol cetak disembunyikan sampai ada catatan, rekap kehadiran, atau ledger poin.
         </div>
       )}
-      <div className={`print-area ${showDocument ? "block" : "hidden print:block"}`} id="print-duty">
+      {/* LAYOUT-FULLWIDTH-RC1: Dokumen A4 tetap centered dengan max-w-3xl */}
+      <div className="max-w-3xl mx-auto">
+        <div className={`print-area ${showDocument ? "block" : "hidden print:block"}`} id="print-duty">
         <div className="document-page document-portrait">
           <div className="document-title">LAPORAN PIKET HARIAN</div>
           <div className="document-subtitle">{yearLabel} · {formatLongDateID(date)}</div>
@@ -95,6 +97,7 @@ export function PrintDutyReport({ date, yearLabel, teacherName, records, attenda
           <div className="document-section-title">E. TANDA TANGAN</div>
           <div className="signature-grid"><div><p>Guru Piket</p><div className="sig-space" /><p className="sig-name">{teacherName}</p></div></div>
         </div>
+      </div>
       </div>
     </Card>
   );

@@ -1,11 +1,12 @@
 /**
  * AppShell — sidebar layout untuk desktop, bottom nav untuk mobile.
  *
- * SIDEBAR-NAV-POLISH-RC1:
- *   Desktop: sidebar kiri 260px dengan grouped menu + header tipis.
+ * LAYOUT-FULLWIDTH-RC1:
+ *   Desktop: sidebar kiri 260px + konten full-width fluid (tanpa max-w-6xl).
  *   Mobile: bottom nav 4 primary + "Lainnya" sheet (tidak diubah).
  *   Branding: SIAKAD GURU.
- *   Konten: max-w-6xl (lebih lebar dari 5xl).
+ *   Konten: w-full fluid (max-w-7xl hanya untuk breakpoint besar).
+ *   Pengecualian: tampilan dokumen/cetak tetap max-w-3xl (A4 paper).
  */
 
 import { type ReactNode, useEffect, useState } from "react";
@@ -200,8 +201,8 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
         </header>
 
-        {/* Konten halaman */}
-        <main className="flex-1 max-w-6xl w-full mx-auto px-4 py-6 pb-28 md:pb-6">
+        {/* Konten halaman — full-width fluid, padding tipis di mobile */}
+        <main className="flex-1 w-full mx-auto px-2 sm:px-4 lg:px-6 py-3 pb-28 md:pb-4">
           {children}
         </main>
       </div>
