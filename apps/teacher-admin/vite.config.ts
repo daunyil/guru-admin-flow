@@ -5,17 +5,17 @@ import autoprefixer from "autoprefixer";
 import path from "path";
 
 // PATH-ALIAS-01: Resolve aliases matching tsconfig paths.
-// When modules move in Phase 1-3 (e.g. modules/attendance → modules/1-harian/attendance),
-// only the alias mapping needs to change — all import statements stay the same.
+// When modules move (e.g. folder rename), only the alias mapping needs to change.
 const srcDir = path.resolve(__dirname, "src");
 const aliasMap = {
   "@shared": path.resolve(srcDir, "shared"),
   "@modules": path.resolve(srcDir, "modules"),
-  "@routes": path.resolve(srcDir, "routes"),
-  // Module group aliases — updated after Phase 1 reorg
-  "@harian": path.resolve(srcDir, "modules", "1-harian"),
-  "@piket": path.resolve(srcDir, "modules", "2-piket"),
-  "@admin": path.resolve(srcDir, "modules", "3-administrasi"),
+  "@home": path.resolve(srcDir, "modules", "home"),
+  "@harian": path.resolve(srcDir, "modules", "harian"),
+  "@piket": path.resolve(srcDir, "modules", "piket"),
+  "@admin": path.resolve(srcDir, "modules", "administrasi"),
+  "@integrasi": path.resolve(srcDir, "modules", "integrasi"),
+  "@data": path.resolve(srcDir, "modules", "data-dasar"),
 };
 
 // CODE-SPLIT-01: manualChunks — split vendor code into separate chunks

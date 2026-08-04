@@ -1,16 +1,15 @@
 /**
- * BottomSheet — Mobile slide-up panel or centered dialog.
+ * BottomSheet — Mobile slide-up panel.
  *
  * Features:
  *   - Fixed overlay with backdrop
- *   - Drag handle indicator (bottom sheet mode only)
+ *   - Drag handle indicator
  *   - Close button (X)
  *   - Scrollable content area
  *   - Max height 85vh with overflow
  *   - max-w-md for mobile centering
- *   - `centered` mode: centered dialog with rounded corners all around
  *
- * Used by: KBM Kilat (Nilai input), LedgerDetailSheet, future filters, etc.
+ * Used by: KBM Kilat (Nilai input), future filters, etc.
  */
 
 import { type ReactNode, useEffect, useRef } from "react";
@@ -22,11 +21,9 @@ interface BottomSheetProps {
   children: ReactNode;
   /** Optional action button at bottom */
   action?: ReactNode;
-  /** When true, renders as a centered dialog instead of a bottom sheet */
-  centered?: boolean;
 }
 
-export function BottomSheet({ open, onClose, title, children, action, centered }: BottomSheetProps) {
+export function BottomSheet({ open, onClose, title, children, action }: BottomSheetProps) {
   const sheetRef = useRef<HTMLDivElement>(null);
 
   // Lock body scroll when open
@@ -50,54 +47,6 @@ export function BottomSheet({ open, onClose, title, children, action, centered }
   }, [open, onClose]);
 
   if (!open) return null;
-
-  if (centered) {
-    return (
-      <>
-        {/* Backdrop */}
-        <div
-          className="fixed inset-0 bg-slate-900/60 z-40 transition-opacity"
-          onClick={onClose}
-          aria-hidden="true"
-        />
-
-        {/* Centered dialog */}
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div
-            ref={sheetRef}
-            className="bg-white rounded-2xl shadow-2xl flex flex-col max-h-[80vh] w-full max-w-md overflow-hidden"
-            role="dialog"
-            aria-modal="true"
-            aria-label={title}
-          >
-            {/* Header */}
-            <div className="flex justify-between items-center px-4 py-3 border-b border-slate-100">
-              <h3 className="text-sm font-bold text-slate-800">{title}</h3>
-              <button
-                onClick={onClose}
-                className="text-slate-400 font-bold text-lg w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-100 transition-colors"
-                aria-label="Tutup"
-              >
-                ✕
-              </button>
-            </div>
-
-            {/* Scrollable content */}
-            <div className="overflow-y-auto flex-1 min-h-0 p-4 space-y-2">
-              {children}
-            </div>
-
-            {/* Optional action */}
-            {action && (
-              <div className="p-4 pt-2 border-t border-slate-100">
-                {action}
-              </div>
-            )}
-          </div>
-        </div>
-      </>
-    );
-  }
 
   return (
     <>

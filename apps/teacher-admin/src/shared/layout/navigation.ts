@@ -46,7 +46,7 @@ export interface NavGroup {
 
 /* ------------------------------------------------------------------ */
 /*  Sidebar Desktop — 3 modul utama + Data Dasar + Integrasi           */
-/*  Group numbering matches code: 1-harian, 2-piket, 3-administrasi    */
+/*  Group names match folder structure: harian, piket, administrasi     */
 /* ------------------------------------------------------------------ */
 
 export const NAV_GROUPS: NavGroup[] = [
@@ -57,7 +57,7 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    title: "1 · Harian Guru",
+    title: "Harian Guru",
     items: [
       // UNIFIED KBM: 1 halaman untuk semua (Dashboard + Presensi + Jurnal + Nilai)
       { to: "/kbm-hub", label: "KBM Harian", icon: Zap },
@@ -66,7 +66,7 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    title: "2 · Piket",
+    title: "Piket",
     items: [
       ...(FEATURE_FLAGS.dailyDuty
         ? [{ to: "/piket", label: "Guru Piket", icon: ClipboardList }]
@@ -74,7 +74,7 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    title: "3 · Administrasi",
+    title: "Administrasi",
     items: [
       { to: "/admin-package", label: "Paket Admin", icon: BookMarked },
     ],

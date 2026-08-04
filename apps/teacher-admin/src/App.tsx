@@ -8,60 +8,57 @@
  */
 
 import { lazy, Suspense } from "react";
-import { HashRouter, Routes, Route, Navigate } from "react-router-dom";
+import { HashRouter, Routes, Route } from "react-router-dom";
 import { AuthGate } from "./modules/auth/AuthGate";
 import { AppShell } from "./shared/layout/AppShell";
 import { ErrorBoundary } from "./shared/ui/ErrorBoundary";
-import { TodayPage } from "./routes/TodayPage";
+import { TodayPage } from "@home/TodayPage";
 import { LoadingState } from "./shared/ui";
 
 /* ------------------------------------------------------------------ */
-/*  Lazy-loaded pages — each becomes a separate chunk                 */
-/*  Module group: 1-harian, 2-piket, 3-administrasi, 4-integrasi,    */
-/*                5-data-dasar                                         */
+/*  Lazy-loaded pages — each becomes a separate chunk                   */
+/*  Module groups: harian, piket, administrasi, integrasi, data-dasar   */
 /* ------------------------------------------------------------------ */
 
-// 1-harian (Harian Guru)
+// harian (Harian Guru)
 const GradesPage = lazy(() => import("@harian/grades/GradesPage").then((m) => ({ default: m.GradesPage })));
 const RekapSemesterPage = lazy(() => import("@harian/rekap-semester/RekapSemesterPage").then((m) => ({ default: m.RekapSemesterPage })));
+const KbmHubPage = lazy(() => import("@harian/kbm-hub/KbmHubPage").then((m) => ({ default: m.KbmHubPage })));
 
-// 2-piket (Guru Piket)
+// piket (Guru Piket)
 const DailyDutyPage = lazy(() => import("@piket/daily-duty/DailyDutyPage").then((m) => ({ default: m.DailyDutyPage })));
 
-// 3-administrasi (Dokumen Generator)
-const CalendarPage = lazy(() => import("@admin/_perencanaan/calendar/CalendarPage").then((m) => ({ default: m.CalendarPage })));
-const ProtaPage = lazy(() => import("@admin/_perencanaan/prota/ProtaPage").then((m) => ({ default: m.ProtaPage })));
-const PromesPage = lazy(() => import("@admin/_perencanaan/promes/PromesPage").then((m) => ({ default: m.PromesPage })));
-const SchedulePage = lazy(() => import("@admin/_perencanaan/schedule/SchedulePage").then((m) => ({ default: m.SchedulePage })));
-const ATPPage = lazy(() => import("@admin/_perencanaan/atp/ATPPage").then((m) => ({ default: m.ATPPage })));
-const RPPPage = lazy(() => import("@admin/_dokumen-ajar/rpp/RPPPage").then((m) => ({ default: m.RPPPage })));
-const RppBulkReplacePage = lazy(() => import("@admin/_dokumen-ajar/rpp-bulk/RppBulkReplacePage").then((m) => ({ default: m.RppBulkReplacePage })));
-const LKPDPage = lazy(() => import("@admin/_dokumen-ajar/lkpd/LKPDPage").then((m) => ({ default: m.LKPDPage })));
-const EvaluationDocsPage = lazy(() => import("@admin/_evaluasi/evaluation-docs/EvaluationDocsPage").then((m) => ({ default: m.EvaluationDocsPage })));
-const RemedialPage = lazy(() => import("@admin/_evaluasi/remedial/RemedialPage").then((m) => ({ default: m.RemedialPage })));
-const EnrichmentPage = lazy(() => import("@admin/_evaluasi/pengayaan/EnrichmentPage").then((m) => ({ default: m.EnrichmentPage })));
-const SemesterReportPage = lazy(() => import("@admin/_evaluasi/semester-report/SemesterReportPage").then((m) => ({ default: m.SemesterReportPage })));
-const LainnyaPage = lazy(() => import("@admin/_evaluasi/lainnya/LainnyaPage").then((m) => ({ default: m.LainnyaPage })));
-const AdminPackagePage = lazy(() => import("@admin/_paket/admin-package/AdminPackagePage").then((m) => ({ default: m.AdminPackagePage })));
+// administrasi (Dokumen Generator)
+const CalendarPage = lazy(() => import("@admin/perencanaan/calendar/CalendarPage").then((m) => ({ default: m.CalendarPage })));
+const ProtaPage = lazy(() => import("@admin/perencanaan/prota/ProtaPage").then((m) => ({ default: m.ProtaPage })));
+const PromesPage = lazy(() => import("@admin/perencanaan/promes/PromesPage").then((m) => ({ default: m.PromesPage })));
+const SchedulePage = lazy(() => import("@admin/perencanaan/schedule/SchedulePage").then((m) => ({ default: m.SchedulePage })));
+const ATPPage = lazy(() => import("@admin/perencanaan/atp/ATPPage").then((m) => ({ default: m.ATPPage })));
+const RPPPage = lazy(() => import("@admin/dokumen-ajar/rpp/RPPPage").then((m) => ({ default: m.RPPPage })));
+const RppBulkReplacePage = lazy(() => import("@admin/dokumen-ajar/rpp-bulk/RppBulkReplacePage").then((m) => ({ default: m.RppBulkReplacePage })));
+const LKPDPage = lazy(() => import("@admin/dokumen-ajar/lkpd/LKPDPage").then((m) => ({ default: m.LKPDPage })));
+const EvaluationDocsPage = lazy(() => import("@admin/evaluasi/evaluation-docs/EvaluationDocsPage").then((m) => ({ default: m.EvaluationDocsPage })));
+const RemedialPage = lazy(() => import("@admin/evaluasi/remedial/RemedialPage").then((m) => ({ default: m.RemedialPage })));
+const EnrichmentPage = lazy(() => import("@admin/evaluasi/pengayaan/EnrichmentPage").then((m) => ({ default: m.EnrichmentPage })));
+const SemesterReportPage = lazy(() => import("@admin/evaluasi/semester-report/SemesterReportPage").then((m) => ({ default: m.SemesterReportPage })));
+const LainnyaPage = lazy(() => import("@admin/evaluasi/lainnya/LainnyaPage").then((m) => ({ default: m.LainnyaPage })));
+const AdminPackagePage = lazy(() => import("@admin/paket/admin-package/AdminPackagePage").then((m) => ({ default: m.AdminPackagePage })));
 
-// 4-integrasi (Cross-cutting)
-const AppsScriptImportPage = lazy(() => import("@modules/4-integrasi/apps-script-import/AppsScriptImportPage").then((m) => ({ default: m.AppsScriptImportPage })));
-const AutoDocumentPage = lazy(() => import("@modules/4-integrasi/auto-document/AutoDocumentPage").then((m) => ({ default: m.AutoDocumentPage })));
-const CompletenessPage = lazy(() => import("@modules/4-integrasi/completeness/CompletenessPage").then((m) => ({ default: m.CompletenessPage })));
-const ReportCenterPage = lazy(() => import("@modules/4-integrasi/report-center/ReportCenterPage").then((m) => ({ default: m.ReportCenterPage })));
+// integrasi (Cross-cutting)
+const AppsScriptImportPage = lazy(() => import("@integrasi/apps-script-import/AppsScriptImportPage").then((m) => ({ default: m.AppsScriptImportPage })));
+const AutoDocumentPage = lazy(() => import("@integrasi/auto-document/AutoDocumentPage").then((m) => ({ default: m.AutoDocumentPage })));
+const CompletenessPage = lazy(() => import("@integrasi/completeness/CompletenessPage").then((m) => ({ default: m.CompletenessPage })));
+const ReportCenterPage = lazy(() => import("@integrasi/report-center/ReportCenterPage").then((m) => ({ default: m.ReportCenterPage })));
 
-// 5-data-dasar (Master Data)
-const ProfilePage = lazy(() => import("@modules/5-data-dasar/profile/ProfilePage").then((m) => ({ default: m.ProfilePage })));
-const BackupPage = lazy(() => import("@modules/5-data-dasar/backup/BackupPage").then((m) => ({ default: m.BackupPage })));
-const NewYearWizard = lazy(() => import("@modules/5-data-dasar/new-year/NewYearWizard").then((m) => ({ default: m.NewYearWizard })));
-const RosterPage = lazy(() => import("@modules/5-data-dasar/roster/RosterPage").then((m) => ({ default: m.RosterPage })));
-const AssignmentsPage = lazy(() => import("@modules/5-data-dasar/assignments/AssignmentsPage").then((m) => ({ default: m.AssignmentsPage })));
+// data-dasar (Master Data)
+const ProfilePage = lazy(() => import("@data/profile/ProfilePage").then((m) => ({ default: m.ProfilePage })));
+const BackupPage = lazy(() => import("@data/backup/BackupPage").then((m) => ({ default: m.BackupPage })));
+const NewYearWizard = lazy(() => import("@data/new-year/NewYearWizard").then((m) => ({ default: m.NewYearWizard })));
+const RosterPage = lazy(() => import("@data/roster/RosterPage").then((m) => ({ default: m.RosterPage })));
+const AssignmentsPage = lazy(() => import("@data/assignments/AssignmentsPage").then((m) => ({ default: m.AssignmentsPage })));
 
-// Auth (cross-module)
+// shared (cross-module)
 const TestPrintPage = lazy(() => import("@shared/documents/DocumentPrintPreviewExample").then((m) => ({ default: m.DocumentPrintPreviewExample })));
-
-// CLEAN BREAK: KBM Hub — modul baru terisolasi dari UI legacy
-const KbmHubPage = lazy(() => import("./pages/kbm-hub/KbmHubPage").then((m) => ({ default: m.KbmHubPage })));
 
 /* ------------------------------------------------------------------ */
 /*  App                                                               */
@@ -86,14 +83,8 @@ export function App() {
               <Route path="/schedule" element={<SchedulePage />} />
               <Route path="/roster" element={<RosterPage />} />
               <Route path="/assignments" element={<AssignmentsPage />} />
-              {/* UNIFIED KBM: /kbm-hub adalah satu-satunya halaman KBM */}
-              {/* Legacy redirects: /attendance, /journal, /kbm-kilat → /kbm-hub */}
-              <Route path="/attendance" element={<Navigate to="/kbm-hub?step=presensi" replace />} />
-              <Route path="/journal" element={<Navigate to="/kbm-hub?step=jurnal" replace />} />
-              <Route path="/kbm-kilat" element={<Navigate to="/kbm-hub" replace />} />
               <Route path="/grades" element={<GradesPage />} />
               <Route path="/rekap-semester" element={<RekapSemesterPage />} />
-              {/* KBM Hub — unified dashboard + editor */}
               <Route path="/kbm-hub" element={<KbmHubPage />} />
               <Route path="/atp" element={<ATPPage />} />
               <Route path="/lkpd" element={<LKPDPage />} />

@@ -22,7 +22,7 @@ import type {
   MonthlyAttendanceMatrix,
   TatapMukaAttendanceMatrix,
   JurnalMatrix,
-} from "../../modules/1-harian/rekap-semester/hooks/useSemesterAggregator";
+} from "@shared/db/rekap-types";
 
 import type { StudentGradeRecord, GradeBook } from "@guru-admin/domain";
 

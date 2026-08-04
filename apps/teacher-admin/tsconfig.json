@@ -11,10 +11,12 @@
     "paths": {
       "@shared/*": ["shared/*"],
       "@modules/*": ["modules/*"],
-      "@routes/*": ["routes/*"],
-      "@harian/*": ["modules/1-harian/*"],
-      "@piket/*": ["modules/2-piket/*"],
-      "@admin/*": ["modules/3-administrasi/*"]
+      "@home/*": ["modules/home/*"],
+      "@harian/*": ["modules/harian/*"],
+      "@piket/*": ["modules/piket/*"],
+      "@admin/*": ["modules/administrasi/*"],
+      "@integrasi/*": ["modules/integrasi/*"],
+      "@data/*": ["modules/data-dasar/*"]
     }
   },
   "include": ["src/**/*", "vite.config.ts", "tailwind.config.js", "postcss.config.js"],
